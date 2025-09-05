@@ -5,6 +5,7 @@
 // Program
 //-----------------------------------------------------------------------------
 
+using Blazored.Toast;
 using eRaven.Components;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,8 @@ builder.Services.AddRazorComponents()
 // DbContext (рядок підключення можна пробросити через env: ConnectionStrings__DefaultConnection)
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddBlazoredToast();
 
 var app = builder.Build();
 

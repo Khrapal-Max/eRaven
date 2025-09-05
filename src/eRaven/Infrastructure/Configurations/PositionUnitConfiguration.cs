@@ -40,6 +40,10 @@ public sealed class PositionUnitConfiguration : IEntityTypeConfiguration<Positio
          .HasColumnName("org_path")
          .HasMaxLength(512);
 
+        e.Property(x => x.IsActived)
+         .HasColumnName("is_active")
+         .HasDefaultValue(true);
+
         // ===============================
         // Indexes
         // ===============================

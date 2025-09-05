@@ -35,6 +35,11 @@ public class PositionUnit
     public Person? CurrentPerson { get; set; }
 
     /// <summary>
+    /// Стан посади - активний дійсний
+    /// </summary>
+    public bool IsActived { get; set; }
+
+    /// <summary>
     /// Конкатенація повної назви посади
     /// </summary>
     public string FullName =>

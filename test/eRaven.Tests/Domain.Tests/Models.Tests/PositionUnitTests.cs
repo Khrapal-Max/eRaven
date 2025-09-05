@@ -1,9 +1,9 @@
-﻿//-----------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // PositionUnitTests
-//-----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 
 using eRaven.Domain.Models;
 using eRaven.Tests.Helpers;
@@ -23,9 +23,26 @@ public class PositionUnitTests
         Assert.Null(unit.OrgPath);
         Assert.Null(unit.CurrentPerson);
 
+        // Нове поле: за замовчуванням false
+        Assert.False(unit.IsActived);
+
         // OrgPath is null => FullName == ShortName
         Assert.Equal(unit.ShortName, unit.FullName);
         Assert.Equal(string.Empty, unit.FullName);
+    }
+
+    [Fact]
+    public void IsActived_DefaultFalse_CanBeToggled()
+    {
+        var unit = new PositionUnit { ShortName = "механік" };
+
+        Assert.False(unit.IsActived);
+
+        unit.IsActived = true;
+        Assert.True(unit.IsActived);
+
+        unit.IsActived = false;
+        Assert.False(unit.IsActived);
     }
 
     [Fact]
@@ -37,9 +54,7 @@ public class PositionUnitTests
             OrgPath = "цех А/відділ В"
         };
 
-        var full = unit.FullName;
-
-        Assert.Equal("механік цех А/відділ В", full);
+        Assert.Equal("механік цех А/відділ В", unit.FullName);
     }
 
     [Fact]
@@ -56,7 +71,6 @@ public class PositionUnitTests
     public void FullName_WhitespaceOrgPath_EqualsShortName()
     {
         var unit = new PositionUnit { ShortName = "механік", OrgPath = "   " };
-
         Assert.Equal("механік", unit.FullName);
     }
 
@@ -90,7 +104,6 @@ public class PositionUnitTests
         };
 
         var results = ValidationHelper.ValidateObject(unit);
-
         Assert.Empty(results);
     }
 
