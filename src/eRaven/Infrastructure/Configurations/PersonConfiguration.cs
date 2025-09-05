@@ -1,4 +1,4 @@
-﻿/*//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -20,8 +20,7 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
         // ===============================
         e.ToTable("persons");
         e.HasKey(x => x.Id);
-        e.Property(x => x.Id)
-         .HasColumnName("id");
+        e.Property(x => x.Id).HasColumnName("id");
 
         // ===============================
         // Columns (lower snake_case)
@@ -69,7 +68,7 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
          .HasDefaultValue(1); // дефолт = "В районі"
 
         // ===============================
-        // Indexes
+        // Indexes & Constraints
         // ===============================
         e.HasIndex(x => x.Rnokpp)
          .HasDatabaseName("ix_persons_rnokpp")
@@ -78,13 +77,19 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
         e.HasIndex(x => new { x.LastName, x.FirstName, x.MiddleName })
          .HasDatabaseName("ix_persons_fullname");
 
+        // один Person на одну посаду (вакантні дозволені)
+        e.HasIndex(x => x.PositionUnitId)
+         .HasDatabaseName("ux_persons_position_unit_id_not_null")
+         .IsUnique()
+         .HasFilter("\"position_unit_id\" IS NOT NULL");
+
         // ===============================
         // Relationships
         // ===============================
-        // Опційна позиція: при видаленні — SetNull
+        // Поточна посада: 1↔0..1 (FK лише в Person), при видаленні — SetNull
         e.HasOne(x => x.PositionUnit)
-         .WithMany(x => x.People)
-         .HasForeignKey(x => x.PositionUnitId)
+         .WithOne(u => u.CurrentPerson)
+         .HasForeignKey<Person>(x => x.PositionUnitId)
          .OnDelete(DeleteBehavior.SetNull);
 
         // Обов’язковий довідник статусів: заборонити каскад
@@ -94,7 +99,9 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
          .IsRequired()
          .OnDelete(DeleteBehavior.Restrict);
 
-        // Примітка: FullName не мапимо — це обчислюване поле домену
+        // FullName — обчислюване в домені, не мапимо
         e.Ignore(x => x.FullName);
+
+        // Колекції історій (StatusHistory/PositionAssignments) конфігуруються у їхніх конфігураторах
     }
-}*/
+}
