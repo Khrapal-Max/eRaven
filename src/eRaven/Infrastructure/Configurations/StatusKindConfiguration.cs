@@ -1,72 +1,70 @@
-﻿/*//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// StatusKindConfiguration
+// StatusTransitionConfiguration
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using UI.Blazor.Domain.Models;
 
-namespace UI.Blazor.Infrastructure.Configurations;
+namespace eRaven.Infrastructure.Configurations;
 
-public sealed class StatusKindConfiguration : IEntityTypeConfiguration<StatusKind>
+public sealed class StatusTransitionConfiguration : IEntityTypeConfiguration<StatusTransition>
 {
-    public void Configure(EntityTypeBuilder<StatusKind> e)
+    public void Configure(EntityTypeBuilder<StatusTransition> e)
     {
         // ===============================
         // Table & Keys
         // ===============================
-        e.ToTable("status_kinds");
+        e.ToTable("status_transitions");
         e.HasKey(x => x.Id);
 
         e.Property(x => x.Id)
-         .HasColumnName("id");
+         .HasColumnName("id")
+         .ValueGeneratedOnAdd();
 
         // ===============================
         // Columns (lower snake_case)
         // ===============================
-        e.Property(x => x.Name)
-         .HasColumnName("name")
-         .IsRequired()
-         .HasMaxLength(128);
+        e.Property(x => x.FromStatusKindId)
+         .HasColumnName("from_status_kind_id")
+         .IsRequired();
 
-        e.Property(x => x.Code)
-         .HasColumnName("code")
-         .IsRequired()
-         .HasMaxLength(16);
-
-        e.Property(x => x.Order)
-         .HasColumnName("order")
-         .HasDefaultValue(0);
-
-        e.Property(x => x.IsActive)
-         .HasColumnName("is_active")
-         .HasDefaultValue(true);
-
-        e.Property(x => x.Author)
-         .HasColumnName("author")
-         .HasDefaultValue("system");
-
-        e.Property(x => x.Modified)
-         .HasColumnName("modified")
-         .IsRequired()
-         .HasDefaultValueSql("timezone('utc', now())");
+        e.Property(x => x.ToStatusKindId)
+         .HasColumnName("to_status_kind_id")
+         .IsRequired();
 
         // ===============================
         // Indexes
         // ===============================
-        e.HasIndex(x => x.Name)
-         .HasDatabaseName("ix_status_kinds_name")
+        e.HasIndex(x => new { x.FromStatusKindId, x.ToStatusKindId })
+         .HasDatabaseName("ux_status_transitions_from_to")
          .IsUnique();
 
-        e.HasIndex(x => x.Code)
-         .HasDatabaseName("ix_status_kinds_code");
+        e.HasIndex(x => x.FromStatusKindId)
+         .HasDatabaseName("ix_status_transitions_from");
+
+        e.HasIndex(x => x.ToStatusKindId)
+         .HasDatabaseName("ix_status_transitions_to");
+
+        // ===============================
+        // Relationships
+        // ===============================
+        e.HasOne(x => x.FromStatusKind)
+         .WithMany()
+         .HasForeignKey(x => x.FromStatusKindId)
+         .OnDelete(DeleteBehavior.Restrict);
+
+        e.HasOne(x => x.ToStatusKind)
+         .WithMany()
+         .HasForeignKey(x => x.ToStatusKindId)
+         .OnDelete(DeleteBehavior.Restrict);
 
         // ===============================
         // Seed
         // ===============================
-        e.HasData(Seed.AllStatusKind);
+        e.HasData(Seed.GetStatus());
     }
-}*/
+}
