@@ -5,15 +5,14 @@
 // StatusTransitionConfiguration
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
-public sealed class StatusTransitionConfiguration : IEntityTypeConfiguration<StatusTransition>
+public sealed class StatusKindConfiguration : IEntityTypeConfiguration<StatusKindConfiguration>
 {
-    public void Configure(EntityTypeBuilder<StatusTransition> e)
+    public void Configure(EntityTypeBuilder<StatusKindConfiguration> e)
     {
         // ===============================
         // Table & Keys
@@ -61,6 +60,11 @@ public sealed class StatusTransitionConfiguration : IEntityTypeConfiguration<Sta
          .WithMany()
          .HasForeignKey(x => x.ToStatusKindId)
          .OnDelete(DeleteBehavior.Restrict);
+
+        e.ToTable(t => t.HasCheckConstraint(
+            "ck_status_transitions_from_ne_to",
+            "\"from_status_kind_id\" <> \"to_status_kind_id\""
+        ));
 
         // ===============================
         // Seed
