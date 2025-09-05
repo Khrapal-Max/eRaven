@@ -72,6 +72,11 @@ public class Person
     public ICollection<PersonStatus> StatusHistory { get; set; } = [];
 
     /// <summary>
+    /// Історія минулих посад
+    /// </summary>
+    public ICollection<PersonPositionAssignment> PositionAssignments { get; set; } = []; // історія
+
+    /// <summary>
     /// Конкатенація повного імені
     /// </summary>
     public string FullName =>

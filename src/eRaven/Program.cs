@@ -6,12 +6,18 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Components;
+using eRaven.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Razor + Blazor Server (Interactive)
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents(opt => { opt.DetailedErrors = true; });
+
+// DbContext (рядок підключення можна пробросити через env: ConnectionStrings__DefaultConnection)
+builder.Services.AddDbContext<AppDbContext>(opt =>
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var app = builder.Build();
 

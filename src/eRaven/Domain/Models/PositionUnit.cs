@@ -30,9 +30,9 @@ public class PositionUnit
     public string? OrgPath { get; set; }
 
     /// <summary>
-    /// Люди пов'язані
+    /// Навігація до поточного власника (без FK-властивості тут!)
     /// </summary>
-    public List<Person> People { get; set; } = [];
+    public Person? CurrentPerson { get; set; }
 
     /// <summary>
     /// Конкатенація повної назви посади

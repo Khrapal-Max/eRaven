@@ -106,6 +106,14 @@ public class PersonTests
     }
 
     [Fact]
+    public void PositionAssignments_Initialized_AsEmptyCollection()
+    {
+        var person = new Person();
+        Assert.NotNull(person.PositionAssignments);
+        Assert.Empty(person.PositionAssignments);
+    }
+
+    [Fact]
     public void Default_Scalars_Are_Assigned_As_Declared()
     {
         var p = new Person();
@@ -120,8 +128,7 @@ public class PersonTests
         Assert.Null(p.PositionUnitId);
         Assert.Null(p.PositionUnit);
 
-        // StatusKindId default int = 0; StatusKind is declared non-nullable but initialized with null! for compiler.
-        Assert.Equal(0, p.StatusKindId);
+        Assert.Equal(0, p.StatusKindId); // int default
     }
 
     // ---------- Simple property set/get ----------
@@ -215,7 +222,7 @@ public class PersonTests
     {
         var p = new Person { Id = Guid.NewGuid() };
 
-        var statusFirst = Guid.NewGuid(); 
+        var statusFirst = Guid.NewGuid();
         var statusLast = Guid.NewGuid();
 
         var s1 = new PersonStatus
@@ -270,5 +277,108 @@ public class PersonTests
 
         Assert.Contains(p.StatusHistory, x => x.Id == statusFirst && x.ToDate == null);
         Assert.Contains(p.StatusHistory, x => x.Id == statusLast && x.ToDate != null);
+    }
+
+    // ---------- PositionAssignments (історія посад) ----------
+
+    [Fact]
+    public void PositionAssignments_Adds_Entries()
+    {
+        var p = new Person { Id = Guid.NewGuid() };
+        var pos1 = new PositionUnit { Id = Guid.NewGuid(), ShortName = "Оператор", OrgPath = "Рота А" };
+        var pos2 = new PositionUnit { Id = Guid.NewGuid(), ShortName = "Механік", OrgPath = "Рота Б" };
+
+        var a1 = new PersonPositionAssignment
+        {
+            Id = Guid.NewGuid(),
+            PersonId = p.Id,
+            PositionUnitId = pos1.Id,
+            PositionUnit = pos1,
+            FromUtc = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc),
+            ToUtc = new DateTime(2025, 1, 10, 18, 0, 0, DateTimeKind.Utc),
+            Note = "попередня",
+            Author = "tester",
+            ModifiedUtc = new DateTime(2025, 1, 10, 19, 0, 0, DateTimeKind.Utc)
+        };
+
+        var a2 = new PersonPositionAssignment
+        {
+            Id = Guid.NewGuid(),
+            PersonId = p.Id,
+            PositionUnitId = pos2.Id,
+            PositionUnit = pos2,
+            FromUtc = new DateTime(2025, 1, 11, 8, 0, 0, DateTimeKind.Utc),
+            ToUtc = null, // активна
+            Note = "поточна",
+            Author = "tester",
+            ModifiedUtc = new DateTime(2025, 1, 11, 8, 5, 0, DateTimeKind.Utc)
+        };
+
+        p.PositionAssignments.Add(a1);
+        p.PositionAssignments.Add(a2);
+
+        Assert.Equal(2, p.PositionAssignments.Count);
+        Assert.Contains(p.PositionAssignments, x => x.PositionUnitId == pos1.Id && x.ToUtc != null);
+        Assert.Contains(p.PositionAssignments, x => x.PositionUnitId == pos2.Id && x.ToUtc == null);
+        Assert.All(p.PositionAssignments, x => Assert.Equal(p.Id, x.PersonId));
+    }
+
+    [Fact]
+    public void PositionAssignments_OpenAndClosed_Semantics()
+    {
+        var p = new Person { Id = Guid.NewGuid() };
+        var pos = new PositionUnit { Id = Guid.NewGuid(), ShortName = "Сапер", OrgPath = "Взвод 2" };
+
+        var open = new PersonPositionAssignment
+        {
+            Id = Guid.NewGuid(),
+            PersonId = p.Id,
+            PositionUnitId = pos.Id,
+            PositionUnit = pos,
+            FromUtc = new DateTime(2025, 2, 1, 8, 0, 0, DateTimeKind.Utc),
+            ToUtc = null
+        };
+        var closed = new PersonPositionAssignment
+        {
+            Id = Guid.NewGuid(),
+            PersonId = p.Id,
+            PositionUnitId = pos.Id,
+            PositionUnit = pos,
+            FromUtc = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc),
+            ToUtc = new DateTime(2025, 1, 31, 18, 0, 0, DateTimeKind.Utc)
+        };
+
+        p.PositionAssignments.Add(closed);
+        p.PositionAssignments.Add(open);
+
+        Assert.Contains(p.PositionAssignments, x => x.ToUtc == null);
+        Assert.Contains(p.PositionAssignments, x => x.ToUtc != null);
+        Assert.True(closed.ToUtc > closed.FromUtc);
+    }
+
+    [Fact]
+    public void PositionAssignments_Links_Are_Consistent()
+    {
+        var p = new Person { Id = Guid.NewGuid() };
+        var pos = new PositionUnit { Id = Guid.NewGuid(), ShortName = "Радист", OrgPath = "Рота 3" };
+
+        var a = new PersonPositionAssignment
+        {
+            Id = Guid.NewGuid(),
+            PersonId = p.Id,
+            Person = p,
+            PositionUnitId = pos.Id,
+            PositionUnit = pos,
+            FromUtc = new DateTime(2025, 3, 1, 8, 0, 0, DateTimeKind.Utc)
+        };
+
+        p.PositionAssignments.Add(a);
+
+        var saved = p.PositionAssignments.Single();
+        Assert.Same(p, saved.Person);
+        Assert.Same(pos, saved.PositionUnit);
+        Assert.Equal(p.Id, saved.PersonId);
+        Assert.Equal(pos.Id, saved.PositionUnitId);
+        Assert.Equal("Радист Рота 3", pos.FullName);
     }
 }

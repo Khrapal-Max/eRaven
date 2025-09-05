@@ -49,22 +49,7 @@ public class PositionUnitTests
         Assert.Equal("механік", full);
     }
 
-    [Fact]
-    public void People_Initialized_AsEmpty_AndNotSharedBetweenInstances()
-    {
-        var a = new PositionUnit { ShortName = "роль А" };
-        var b = new PositionUnit { ShortName = "роль Б" };
-
-        a.People.Add(new Person { Id = Guid.NewGuid(), LastName = "Іванов", FirstName = "Іван", Rnokpp = "1" });
-
-        Assert.NotNull(a.People);
-        Assert.Single(a.People);
-
-        Assert.NotNull(b.People);
-        Assert.Empty(b.People);
-
-        Assert.NotSame(a.People, b.People);
-    }
+   
 
     [Fact]
     public void Code_MayBeNull_ValidationPasses()
@@ -79,17 +64,5 @@ public class PositionUnitTests
         var results = ValidationHelper.ValidateObject(unit);
 
         Assert.Empty(results);
-    }
-
-    [Fact]
-    public void Defaults_ShortNameEmpty_CodeNull_OrgPathNull_AndPeopleNotNull()
-    {
-        var unit = new PositionUnit();
-
-        Assert.Equal(string.Empty, unit.ShortName);
-        Assert.Null(unit.Code);
-        Assert.Null(unit.OrgPath);
-        Assert.NotNull(unit.People);
-        Assert.Empty(unit.People);
     }
 }
