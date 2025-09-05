@@ -8,7 +8,7 @@
 using eRaven.Domain.Enums;
 using eRaven.Tests.Domain.Tests.Models.Tests.Helpers;
 
-namespace eRaven.Tests.Domain.Tests.Models.Tests;
+namespace eRaven.Tests.Domain.Tests.Models;
 
 public class OrderTests
 {

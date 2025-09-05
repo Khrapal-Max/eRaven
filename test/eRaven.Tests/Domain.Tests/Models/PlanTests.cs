@@ -7,9 +7,9 @@
 
 using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
-using eRaven.Tests.Domain.Tests.Models.Tests.Helpers; // OrderTestsHelpers.MakePlan
+using eRaven.Tests.Domain.Tests.Models.Helpers; // OrderTestsHelpers.MakePlan
 
-namespace eRaven.Tests.Domain.Tests.Models.Tests;
+namespace eRaven.Tests.Domain.Tests.Models;
 
 public class PlanTests
 {

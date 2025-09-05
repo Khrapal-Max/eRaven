@@ -8,7 +8,7 @@
 using eRaven.Domain.Models;
 using eRaven.Tests.Helpers;
 
-namespace eRaven.Tests.Domain.Tests.Models.Tests;
+namespace eRaven.Tests.Domain.Tests.Models;
 
 public class PersonPositionAssignmentTests
 {

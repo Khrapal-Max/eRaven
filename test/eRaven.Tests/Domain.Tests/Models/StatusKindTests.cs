@@ -7,7 +7,7 @@
 
 using eRaven.Domain.Models;
 
-namespace eRaven.Tests.Domain.Tests.Models.Tests;
+namespace eRaven.Tests.Domain.Tests.Models;
 
 public class StatusKindTests
 {

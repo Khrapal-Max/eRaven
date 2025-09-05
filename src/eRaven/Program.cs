@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast;
+using eRaven.Application.Services.PositionService;
 using eRaven.Components;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,9 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddBlazoredToast();
+
+//Services
+builder.Services.AddScoped<IPositionService, PositionService>();
 
 var app = builder.Build();
 
