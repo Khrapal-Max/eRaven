@@ -1,15 +1,15 @@
-﻿/*//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // PositionUnitConfiguration
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using UI.Blazor.Domain.Models;
 
-namespace UI.Blazor.Infrastructure.Configurations;
+namespace eRaven.Infrastructure.Configurations;
 
 public sealed class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
 {
@@ -28,42 +28,37 @@ public sealed class PositionUnitConfiguration : IEntityTypeConfiguration<Positio
         // Columns (lower snake_case)
         // ===============================
         e.Property(x => x.Code)
-         .HasColumnName("code");
+         .HasColumnName("code")
+         .HasMaxLength(64);           // nullable за доменною моделлю
 
         e.Property(x => x.ShortName)
          .HasColumnName("short_name")
-         .IsRequired()
-         .HasMaxLength(128);
+         .HasMaxLength(128)
+         .IsRequired();
 
         e.Property(x => x.OrgPath)
          .HasColumnName("org_path")
          .HasMaxLength(512);
 
-        e.Ignore(x => x.FullName);
+        // ===============================
+        // Indexes
+        // ===============================
+        e.HasIndex(x => x.Code)
+         .HasDatabaseName("ix_position_units_code");
+
+        e.HasIndex(x => x.ShortName)
+         .HasDatabaseName("ix_position_units_short_name");
 
         // ===============================
         // Relationships
         // ===============================
-        e.HasMany(x => x.People)
-         .WithOne(p => p.PositionUnit)
-         .HasForeignKey(p => p.PositionUnitId)
-         .OnDelete(DeleteBehavior.SetNull);
+        // Навігація CurrentPerson налаштована з боку Person:
+        // PersonConfiguration: HasOne(p => p.PositionUnit).WithOne(u => u.CurrentPerson)...
+        // Тут додатково нічого не визначаємо, щоб не дублювати.
 
         // ===============================
-        // Constraints & Indexes
+        // Ignored (computed)
         // ===============================
-        // Унікальність "посада в межах шляху"
-        e.HasIndex(x => new { x.OrgPath, x.ShortName, x.Code })
-         .HasDatabaseName("ux_position_units_orgpath_shortname_code")
-         .IsUnique();
-
-        // Унікальний code (дозволяємо кілька NULL через фільтр)
-        e.HasIndex(x => x.Code)
-         .HasDatabaseName("ux_position_units_code")
-         .IsUnique();
-
-        // Додатковий індекс для пошуку за short_name
-        e.HasIndex(x => x.ShortName)
-         .HasDatabaseName("ix_position_units_short_name");
+        e.Ignore(x => x.FullName);
     }
-}*/
+}
