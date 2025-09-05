@@ -1,15 +1,16 @@
-﻿/*//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // StatusTransitionConfiguration
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Models;
+using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using UI.Blazor.Domain.Models;
 
-namespace UI.Blazor.Infrastructure.Configurations;
+namespace eRaven.Infrastructure.Configurations;
 
 public sealed class StatusTransitionConfiguration : IEntityTypeConfiguration<StatusTransition>
 {
@@ -65,4 +66,4 @@ public sealed class StatusTransitionConfiguration : IEntityTypeConfiguration<Sta
         // ===============================
         e.HasData(Seed.GetStatus());
     }
-}*/
+}

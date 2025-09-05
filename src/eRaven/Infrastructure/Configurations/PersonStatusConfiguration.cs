@@ -1,15 +1,15 @@
-﻿/*//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // PersonStatusConfiguration
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using UI.Blazor.Domain.Models;
 
-namespace UI.Blazor.Infrastructure.Configurations;
+namespace eRaven.Infrastructure.Configurations;
 
 public sealed class PersonStatusConfiguration : IEntityTypeConfiguration<PersonStatus>
 {
@@ -96,4 +96,3 @@ public sealed class PersonStatusConfiguration : IEntityTypeConfiguration<PersonS
          .HasDatabaseName("ix_person_statuses_person_to");
     }
 }
-*/
