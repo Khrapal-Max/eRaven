@@ -66,8 +66,7 @@ public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
 
         e.Property(x => x.State)
          .HasColumnName("state")
-         .HasConversion<int>()    // enum -> int
-         .HasDefaultValue(PlanState.Open)
+         .HasConversion<int>()
          .IsRequired();
 
         e.Property(x => x.Author)
