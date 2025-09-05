@@ -1,0 +1,59 @@
+﻿@* Верхній навбар: фіксований, три дропдауни *@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top shadow-sm border-bottom">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-semibold" href="/">
+            <i class="bi bi-shield-fill me-1"></i> eRaven
+        </a>
+
+        <button class="navbar-toggler" type="button"
+                data-bs-toggle="collapse" data-bs-target="#topNav"
+                aria-controls="topNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="topNav">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navOblik" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Облік
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navOblik">
+                        <li><a class="dropdown-item" href="/plans">Плани</a></li>
+                        <li><a class="dropdown-item" href="/orders">Накази</a></li>
+                        <li><a class="dropdown-item" href="/people">Люди</a></li>
+                        <li><a class="dropdown-item" href="/positions">Посади</a></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navRefs" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Довідники
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navRefs">
+                        <li><a class="dropdown-item" href="/status-kinds">Статуси</a></li>
+                        <li><a class="dropdown-item" href="/status-transitions">Переходи статусів</a></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" href="/about">Про систему</a></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navRegs" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Регістри
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navRegs">
+                        <li><a class="dropdown-item" href="/timesheets">Табелі</a></li>
+                        <li><a class="dropdown-item" href="/reports">Звіти</a></li>
+                        <li><a class="dropdown-item" href="/audit-log">Журнал змін</a></li>
+                    </ul>
+                </li>
+
+            </ul>
+
+            <div class="d-flex align-items-center gap-2">
+                @* резерв під праву частину (перемикач теми/профіль) *@
+            </div>
+        </div>
+    </div>
+</nav>

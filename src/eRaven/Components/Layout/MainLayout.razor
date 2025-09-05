@@ -1,9 +1,27 @@
 ﻿@inherits LayoutComponentBase
 
-@Body
+<NavBar />
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
+<main class="layout-main container-fluid">
+  <ErrorBoundary>
+    <ChildContent>
+      @Body
+    </ChildContent>
+    <ErrorContent>
+      <div class="container py-4">
+        <div class="alert alert-danger d-flex align-items-center" role="alert">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          <div>
+            Сталася неочікувана помилка. <a class="alert-link" href=".">Оновити сторінку</a>
+          </div>
+        </div>
+      </div>
+    </ErrorContent>
+  </ErrorBoundary>
+</main>
+
+<div id="blazor-error-ui" data-nosnippet class="d-none">
+    Виникла необроблена помилка.
+    <a href="." class="reload">Перезавантажити</a>
     <span class="dismiss">🗙</span>
 </div>
