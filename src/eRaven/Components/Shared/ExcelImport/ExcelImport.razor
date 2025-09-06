@@ -1,0 +1,59 @@
+﻿@typeparam TItem
+
+<div class="border rounded p-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <InputFile OnChange="HandleFileSelected" accept=".xlsx" />
+        <button class="btn btn-sm btn-primary" @onclick="ImportAsync" disabled="@(_busy || _file is null)">
+            <i class="bi bi-file-earmark-excel"></i> Імпорт
+        </button>
+
+        @if (!string.IsNullOrWhiteSpace(TemplateUrl))
+        {
+            <a class="btn btn-sm btn-outline-secondary" href="@TemplateUrl" target="_blank" rel="noopener">
+                <i class="bi bi-download"></i> Завантажити шаблон
+            </a>
+        }
+
+        <div class="ms-auto small text-muted">
+            @if (_file is not null)
+            {
+                <span title="Обраний файл">@_file.Name</span>
+            }
+        </div>
+    </div>
+</div>
+
+@*
+
+<ExcelImport TItem="PersonStatus"
+             TemplateUrl="/templates/personstatus-template.xlsx"
+             StopOnParseErrors="false"
+             ProcessAsync="ProcessStatusesAsync"
+             OnCompleted="ShowReport" />
+
+
+@code {
+    private ImportReportViewModel? _report;
+
+    // Тут твоя доменна логіка upsert у БД
+    private async Task<ImportReportViewModel> ProcessStatusesAsync(IReadOnlyList<PersonStatus> rows)
+    {
+        int added = 0, updated = 0;
+        var errors = new List<string>();
+
+        // TODO: збереження в БД / обробка
+        // приклад псевдологіки:
+        // foreach (var r in rows) { try { var wasUpdate = await _repo.UpsertAsync(r); if (wasUpdate) updated++; else added++; } catch (Exception ex) { errors.Add(ex.Message); } }
+
+        await Task.CompletedTask;
+        return new ImportReportViewModel(added, updated, errors);
+    }
+
+    private Task ShowReport(ImportReportViewModel report)
+    {
+        _report = report;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+} *@
+

@@ -5,8 +5,6 @@
 // StatusTransition
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Models;
-
 namespace eRaven.Domain.Models;
 
 /// <summary>

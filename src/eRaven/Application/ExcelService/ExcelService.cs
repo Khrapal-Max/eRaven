@@ -306,7 +306,7 @@ public sealed class ExcelService : IExcelService
             if (cell.TryGetValue<double>(out var d2)) return (float)d2;
             return float.Parse(cell.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture);
         }
-        
+
         // string
         if (t == typeof(string))
             return cell.GetString()?.Trim();

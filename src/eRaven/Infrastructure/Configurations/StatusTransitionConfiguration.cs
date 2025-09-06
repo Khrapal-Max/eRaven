@@ -6,7 +6,6 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Models;
-using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

@@ -2,17 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PlanTimeKind
+// UpsertReport for ExselImport component
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Domain.Enums;
+namespace eRaven.Application.ViewModels;
 
 /// <summary>
-/// Який момент вважається «опорним» для цього плану:
-/// для Dispatch зазвичай Start, для Return — End (але не жорстко).
+/// Звіт після імпорту ексель файла
 /// </summary>
-public enum PlanTimeKind
-{
-    Start = 1,
-    End = 2
-}
+/// <param name="Added"></param>
+/// <param name="Updated"></param>
+/// <param name="Errors"></param>
+public sealed record ImportReportViewModel(int Added, int Updated, List<string> Errors);

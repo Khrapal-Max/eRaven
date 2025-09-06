@@ -5,7 +5,6 @@
 // PlanConfiguration
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
