@@ -10,7 +10,7 @@
     <meta http-equiv="Content-Security-Policy" content="
     base-uri 'self';
     default-src 'self';
-    script-src 'self' https://cdn.jsdelivr.net;
+    script-src 'self' https://cdn.jsdelivr.net 'sha256-mNfszsQIsBXpSpl/e7Okbr4cWZ4HyMY6esB0myeZu4o=';
     style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
     font-src 'self' https://cdn.jsdelivr.net;
     img-src 'self' data: https:;
@@ -40,6 +40,7 @@
     <!-- App styles -->
     <link rel="stylesheet" href="/app.css" crossorigin="anonymous" />
     <link rel="stylesheet" href="/eRaven.styles.css" />
+    <link rel="stylesheet" href="/_content/Blazored.Toast/Blazored.Toast.bundle.scp.css">
 
     <!-- Icons (усі з /icons) -->
     <!-- SVG поки прибираємо, щоб не було 404, якщо файлу немає -->
@@ -50,7 +51,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
 
     <!-- PWA -->
-    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="manifest" href="/js/manifest.webmanifest" />
 
     <ImportMap />
     <HeadOutlet @rendermode="new InteractiveServerRenderMode(prerender: false)" />

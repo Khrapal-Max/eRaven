@@ -41,5 +41,5 @@ public interface IPositionService
     /// <param name="id"></param>
     /// <param name="ct"></param>
     /// <returns>bool</returns>
-    Task<bool> SetActiveStateAsync(Guid id, bool isActive, CancellationToken ct = default)
+    Task<bool> SetActiveStateAsync(Guid id, bool isActive, CancellationToken ct = default);
 }
