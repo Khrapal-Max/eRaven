@@ -94,7 +94,7 @@ public class ExcelExportButtonTests : TestContext
         await Task.Yield(); // дочекатися async логіки
 
         // Assert
-        Assert.Equal([ true, false ], calls);
+        Assert.Equal([true, false], calls);
 
         DisposeComponents();
     }
