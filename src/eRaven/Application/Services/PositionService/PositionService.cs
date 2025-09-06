@@ -20,9 +20,12 @@ public class PositionService(AppDbContext appDbContext) : IPositionService
         bool onlyActive = true,
         CancellationToken ct = default)
     {
-        return await _appDbContext.Positions.AsNoTracking()
-            .Where(p => p.IsActived == onlyActive)
-            .ToListAsync(ct);
+        var positions = _appDbContext.Positions.AsNoTracking();
+
+        if (onlyActive)
+            positions = positions.Where(p => p.IsActived);
+
+        return await positions.ToListAsync(ct);
     }
 
     // 2) Отримання однієї

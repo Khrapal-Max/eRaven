@@ -339,19 +339,28 @@ public sealed class ExcelService : IExcelService
             dict["Code"] = ["індекс", "код", "index", "code"];
             dict["ShortName"] = ["посада", "должность", "роль", "shortname", "short"];
             dict["OrgPath"] = ["шлях", "структура", "підрозділ", "підрозділ/посада", "посада/ієрархія", "orgpath", "path"];
+            // за потреби можна додати: dict["IsActived"] = ["активний", "isactive", "enabled"];
         }
         else if (t == typeof(Person))
         {
-            dict["Rnokpp"] = ["іпн", "рнокпп", "inn", "taxid"];
+            // Скаляри з нашої моделі Person:
+            // Rnokpp, Rank, LastName, FirstName, MiddleName, BZVP, Weapon, Callsign,
+            // PositionUnitId (Guid?), StatusKindId (int)
+            dict["Rnokpp"] = ["іпн", "рнокпп", "rnokpp", "inn", "taxid"];
             dict["Rank"] = ["звання", "звание", "rank"];
-            dict["LastName"] = ["прізвище", "фамилия", "surname"];
-            dict["FirstName"] = ["імя", "ім'я", "имя", "firstname", "name"];
-            dict["MiddleName"] = ["по батькові", "отчество", "middlename"];
+            dict["LastName"] = ["прізвище", "фамилия", "surname", "last", "lastname"];
+            dict["FirstName"] = ["ім'я", "имя", "firstname", "first", "name"];
+            dict["MiddleName"] = ["по батькові", "отчество", "middlename", "middle"];
             dict["BZVP"] = ["бзвп"];
             dict["Weapon"] = ["зброя", "оружие", "weapon"];
-            dict["Callsign"] = ["позивний", "позывной", "callsign"];
-            dict["PositionUnitId"] = ["id посади", "посада id", "unitid"];
-            dict["StatusKindId"] = ["статус", "statusid", "statuskindid"];
+            dict["Callsign"] = ["позивний", "позывной", "callsign", "call sign"];
+
+            // УВАГА: тут очікується GUID посади (PositionUnit.Id). Якщо треба імпортувати за назвою — це окрема логіка з довідником.
+            dict["PositionUnitId"] = ["id посади", "посада id", "unitid", "positionunitid", "position id", "posada id"];
+
+            // Якщо у файлі дають саме ID/код статусу — мапимо сюди.
+            // Імпорт за назвою статусу можливий тільки з доступом до довідника (не в цьому сервісі).
+            dict["StatusKindId"] = ["статус", "status", "statusid", "status kind id", "код статусу", "код статуса"];
         }
 
         return dict;
