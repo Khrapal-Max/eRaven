@@ -6,7 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Enums;
-using eRaven.Tests.Domain.Tests.Models.Tests.Helpers;
+using eRaven.Tests.Domain.Tests.Models.Helpers;
 
 namespace eRaven.Tests.Domain.Tests.Models;
 
