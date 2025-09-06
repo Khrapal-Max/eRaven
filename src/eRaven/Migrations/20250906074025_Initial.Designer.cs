@@ -12,8 +12,8 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250905224224_UpPostitonUnit")]
-    partial class UpPostitonUnit
+    [Migration("20250906074025_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -245,7 +245,7 @@ namespace eRaven.Migrations
 
                     b.Property<DateTime>("FromDate")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("from_date");
+                        .HasColumnName("from_utc");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
@@ -257,7 +257,7 @@ namespace eRaven.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified")
-                        .HasDefaultValueSql("timezone('utc', now())");
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("Note")
                         .HasMaxLength(512)
@@ -274,14 +274,14 @@ namespace eRaven.Migrations
 
                     b.Property<DateTime?>("ToDate")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("to_date");
+                        .HasColumnName("to_utc");
 
                     b.HasKey("Id");
 
                     b.HasIndex("PersonId")
                         .IsUnique()
                         .HasDatabaseName("ix_person_statuses_active_unique_per_person")
-                        .HasFilter("\"to_date\" IS NULL");
+                        .HasFilter("\"to_utc\" IS NULL");
 
                     b.HasIndex("StatusKindId");
 
@@ -293,7 +293,7 @@ namespace eRaven.Migrations
 
                     b.ToTable("person_statuses", null, t =>
                         {
-                            t.HasCheckConstraint("ck_person_status_dates", "(\"to_date\" IS NULL) OR (\"to_date\" > \"from_date\")");
+                            t.HasCheckConstraint("ck_person_status_dates", "(\"to_utc\" IS NULL) OR (\"to_utc\" > \"from_utc\")");
                         });
                 });
 
@@ -543,7 +543,7 @@ namespace eRaven.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified")
-                        .HasDefaultValueSql("now()");
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("Name")
                         .IsRequired()

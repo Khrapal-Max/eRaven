@@ -48,7 +48,8 @@ namespace eRaven.Migrations
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     code = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                     short_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
-                    org_path = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true)
+                    org_path = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
+                    is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true)
                 },
                 constraints: table =>
                 {
@@ -66,7 +67,7 @@ namespace eRaven.Migrations
                     order = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
                     author = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true, defaultValue: "system"),
-                    modified = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                    modified = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
                 },
                 constraints: table =>
                 {
@@ -227,17 +228,17 @@ namespace eRaven.Migrations
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     person_id = table.Column<Guid>(type: "uuid", nullable: false),
                     status_kind_id = table.Column<int>(type: "integer", nullable: false),
-                    from_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    to_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    from_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    to_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     note = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
                     author = table.Column<string>(type: "text", nullable: true, defaultValue: "system"),
-                    modified = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "timezone('utc', now())")
+                    modified = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_person_statuses", x => x.id);
-                    table.CheckConstraint("ck_person_status_dates", "(\"to_date\" IS NULL) OR (\"to_date\" > \"from_date\")");
+                    table.CheckConstraint("ck_person_status_dates", "(\"to_utc\" IS NULL) OR (\"to_utc\" > \"from_utc\")");
                     table.ForeignKey(
                         name: "FK_person_statuses_persons_person_id",
                         column: x => x.person_id,
@@ -401,17 +402,17 @@ namespace eRaven.Migrations
                 table: "person_statuses",
                 column: "person_id",
                 unique: true,
-                filter: "\"to_date\" IS NULL");
+                filter: "\"to_utc\" IS NULL");
 
             migrationBuilder.CreateIndex(
                 name: "ix_person_statuses_person_from",
                 table: "person_statuses",
-                columns: new[] { "person_id", "from_date" });
+                columns: new[] { "person_id", "from_utc" });
 
             migrationBuilder.CreateIndex(
                 name: "ix_person_statuses_person_to",
                 table: "person_statuses",
-                columns: new[] { "person_id", "to_date" });
+                columns: new[] { "person_id", "to_utc" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_person_statuses_status_kind_id",

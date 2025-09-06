@@ -52,9 +52,8 @@ public sealed class StatusKindConfiguration : IEntityTypeConfiguration<StatusKin
 
         e.Property(x => x.Modified)
          .HasColumnName("modified")
-         .HasColumnType("timestamp with time zone")   // timestamptz
-         .HasDefaultValueSql("now()")                 // правильний дефолт для timestamptz
-         .IsRequired();
+         .IsRequired()
+         .HasDefaultValueSql("CURRENT_TIMESTAMP");  // було timezone('utc', now())
 
         // ===============================
         // Indexes

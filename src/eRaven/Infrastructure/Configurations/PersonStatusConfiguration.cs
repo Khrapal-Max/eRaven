@@ -36,11 +36,11 @@ public sealed class PersonStatusConfiguration : IEntityTypeConfiguration<PersonS
          .IsRequired();
 
         e.Property(x => x.FromDate)
-         .HasColumnName("from_date")
+         .HasColumnName("from_utc")        // було: from_date
          .IsRequired();
 
         e.Property(x => x.ToDate)
-         .HasColumnName("to_date");
+         .HasColumnName("to_utc");          // було: to_date
 
         e.Property(x => x.Note)
          .HasColumnName("note")
@@ -57,7 +57,7 @@ public sealed class PersonStatusConfiguration : IEntityTypeConfiguration<PersonS
         e.Property(x => x.Modified)
          .HasColumnName("modified")
          .IsRequired()
-         .HasDefaultValueSql("timezone('utc', now())");
+         .HasDefaultValueSql("CURRENT_TIMESTAMP"); // було timezone('utc', now())
 
         // ===============================
         // Relationships
@@ -78,15 +78,15 @@ public sealed class PersonStatusConfiguration : IEntityTypeConfiguration<PersonS
 
         // Активний статус тільки один на особу (to_date IS NULL)
         e.HasIndex(x => x.PersonId)
-         .HasFilter("\"to_date\" IS NULL")
+         .HasFilter("\"to_utc\" IS NULL")   // було: "to_date" IS NULL
          .HasDatabaseName("ix_person_statuses_active_unique_per_person")
          .IsUnique();
 
         // Базова валідація інтервалу
         e.ToTable(t => t.HasCheckConstraint(
-            "ck_person_status_dates",
-            "(\"to_date\" IS NULL) OR (\"to_date\" > \"from_date\")"
-        ));
+             "ck_person_status_dates",
+             "(\"to_utc\" IS NULL) OR (\"to_utc\" > \"from_utc\")"  // було: to_date/from_date
+         ));
 
         // Індекси для пошуку по періодах
         e.HasIndex(x => new { x.PersonId, x.FromDate })
