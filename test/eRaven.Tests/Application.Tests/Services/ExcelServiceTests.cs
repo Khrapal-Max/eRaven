@@ -169,23 +169,23 @@ public class ExcelServiceTests
             var ws = wb.AddWorksheet("Data");
             ws.Cell(1, 1).Value = "PersonId";
             ws.Cell(1, 2).Value = "StatusKindId";
-            ws.Cell(1, 3).Value = "OpenDate";
-            ws.Cell(1, 4).Value = "CloseDate";
+            ws.Cell(1, 3).Value = "FromDate";
+            ws.Cell(1, 4).Value = "ToDate";
             ws.Cell(1, 5).Value = "Note";
             ws.Cell(1, 6).Value = "Author";
 
             // Валідний рядок
             ws.Cell(2, 1).Value = personId.ToString();
             ws.Cell(2, 2).Value = 1;
-            ws.Cell(2, 3).Value = new DateTime(2025, 9, 2, 13, 30, 0);
+            ws.Cell(2, 3).Value = new DateTime(2025, 9, 2, 13, 30, 0); // ← ось так
             ws.Cell(2, 4).Value = string.Empty;
             ws.Cell(2, 5).Value = "Ok";
             ws.Cell(2, 6).Value = "tester";
 
-            // Невалідний int у StatusKindId
+            // Невалідний рядок
             ws.Cell(3, 1).Value = personId.ToString();
-            ws.Cell(3, 2).Value = "abc"; // ← помилка
-            ws.Cell(3, 3).Value = "2025-09-02 14:00";
+            ws.Cell(3, 2).Value = "abc"; // помилка
+            ws.Cell(3, 3).Value = new DateTime(2025, 9, 2, 14, 0, 0);  // ← і тут
             ws.Cell(3, 4).Value = string.Empty;
             ws.Cell(3, 5).Value = "Bad";
             ws.Cell(3, 6).Value = "tester";
@@ -199,13 +199,18 @@ public class ExcelServiceTests
         var (rows, errors) = await svc.ImportAsync<PersonStatus>(ms);
 
         // Assert
-        Assert.True(errors.Count > 0); // має бути помилка конвертації int
-        Assert.True(rows.Count >= 1);  // перший рядок має бути прочитаний
+        Assert.True(errors.Count > 0);      // є помилка по "abc"
+        Assert.True(rows.Count >= 1);
 
-        var first = rows.First();
-        Assert.Equal(personId, first.PersonId);
-        Assert.Equal(1, first.StatusKindId);
-        Assert.Equal(new DateTime(2025, 9, 2, 13, 30, 0), first.OpenDate);
+        var valid = rows.FirstOrDefault(r => r.PersonId == personId && r.StatusKindId == 1 && r.Note == "Ok");
+        Assert.NotNull(valid);
+
+        Assert.Equal(new DateTime(2025, 9, 2, 13, 30, 0), valid!.OpenDate);
+        Assert.Null(valid.CloseDate);
+        Assert.Equal("tester", valid.Author);
+
+        // гарантуємо, що дата конвертувалась без помилки
+        Assert.DoesNotContain(errors, e => e.Contains("OpenDate", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
