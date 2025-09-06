@@ -58,7 +58,7 @@ public sealed class StatusTransitionConfiguration : IEntityTypeConfiguration<Sta
 
         e.ToTable(t => t.HasCheckConstraint(
             "ck_status_transitions_from_ne_to",
-            "\"from_status_kind_id\" <> \"to_status_kind_id\""
+            "from_status_kind_id <> to_status_kind_id"
         ));
 
         // ===============================

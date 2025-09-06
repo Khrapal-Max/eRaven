@@ -77,7 +77,7 @@ public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
         e.Property(x => x.RecordedUtc)
          .HasColumnName("recorded_utc")
          .HasColumnType("timestamp with time zone")
-         .HasDefaultValueSql("now()")
+         .HasDefaultValueSql("CURRENT_TIMESTAMP")
          .IsRequired();
 
         // ===============================
@@ -112,11 +112,7 @@ public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
         {
             t.HasCheckConstraint(
                 "ck_plans_plan_number_not_blank",
-                "char_length(trim(plan_number)) > 0"
-            );
-            t.HasCheckConstraint(
-                "ck_plans_planned_at_quarter",
-                "(EXTRACT(MINUTE FROM planned_at_utc)::int % 15 = 0) AND EXTRACT(SECOND FROM planned_at_utc) = 0"
+                "length(trim(plan_number)) > 0"
             );
         });
 

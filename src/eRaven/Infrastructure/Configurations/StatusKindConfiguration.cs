@@ -70,8 +70,8 @@ public sealed class StatusKindConfiguration : IEntityTypeConfiguration<StatusKin
         // ===============================
         e.ToTable(t =>
         {
-            t.HasCheckConstraint("ck_status_kinds_name_not_blank", "char_length(trim(name)) > 0");
-            t.HasCheckConstraint("ck_status_kinds_code_not_blank", "char_length(trim(code)) > 0");
+            t.HasCheckConstraint("ck_status_kinds_name_not_blank", "length(trim(name)) > 0");
+            t.HasCheckConstraint("ck_status_kinds_code_not_blank", "length(trim(code)) > 0");
         });
 
         // ===============================

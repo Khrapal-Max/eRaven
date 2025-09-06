@@ -71,7 +71,7 @@ public sealed class PlanParticipantSnapshotConfiguration : IEntityTypeConfigurat
         e.Property(x => x.RecordedUtc)
          .HasColumnName("recorded_utc")
          .HasColumnType("timestamp with time zone")
-         .HasDefaultValueSql("now()")
+         .HasDefaultValueSql("CURRENT_TIMESTAMP")
          .IsRequired();
 
         // ===============================
@@ -100,7 +100,7 @@ public sealed class PlanParticipantSnapshotConfiguration : IEntityTypeConfigurat
 
         e.ToTable(t => t.HasCheckConstraint(
             "ck_pps_full_name_not_blank",
-            "char_length(trim(full_name)) > 0"
+            "length(trim(full_name)) > 0"
         ));
     }
 }

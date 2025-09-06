@@ -49,7 +49,7 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         e.Property(x => x.RecordedUtc)
          .HasColumnName("recorded_utc")
          .HasColumnType("timestamp with time zone")
-         .HasDefaultValueSql("timezone('utc', now())")
+         .HasDefaultValueSql("CURRENT_TIMESTAMP")
          .IsRequired();
 
         // ===============================
@@ -78,16 +78,12 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         e.HasIndex(x => x.RecordedUtc)
          .HasDatabaseName("ix_orders_recorded_utc");
 
-        // назва не порожня; момент прив'язуємо до кванту 15 хв і без секунд
+        // CHECK-и: тільки «назва не порожня». Квант 15 хв — перевіряємо в домені.
         e.ToTable(t =>
         {
             t.HasCheckConstraint(
                 "ck_orders_name_not_blank",
-                "char_length(trim(name)) > 0"
-            );
-            t.HasCheckConstraint(
-                "ck_orders_effective_moment_quarter",
-                "(EXTRACT(MINUTE FROM effective_moment_utc)::int % 15 = 0) AND EXTRACT(SECOND FROM effective_moment_utc) = 0"
+                "length(trim(name)) > 0"
             );
         });
     }

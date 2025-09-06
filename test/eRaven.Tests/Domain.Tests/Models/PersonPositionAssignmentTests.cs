@@ -22,8 +22,8 @@ public class PersonPositionAssignmentTests
         Assert.Null(a.Person);
         Assert.Equal(default, a.PositionUnitId);
         Assert.Null(a.PositionUnit);
-        Assert.Equal(default, a.FromUtc);
-        Assert.Null(a.ToUtc);
+        Assert.Equal(default, a.OpenUtc);
+        Assert.Null(a.CloseUtc);
         Assert.Null(a.Note);
         Assert.Null(a.Author);
         Assert.Equal(default, a.ModifiedUtc);
@@ -43,8 +43,8 @@ public class PersonPositionAssignmentTests
             Id = Guid.NewGuid(),
             PersonId = personId,
             PositionUnitId = positionId,
-            FromUtc = from,
-            ToUtc = to,
+            OpenUtc = from,
+            CloseUtc = to,
             Note = "коментар",
             Author = "tester",
             ModifiedUtc = ts
@@ -52,8 +52,8 @@ public class PersonPositionAssignmentTests
 
         Assert.Equal(personId, a.PersonId);
         Assert.Equal(positionId, a.PositionUnitId);
-        Assert.Equal(from, a.FromUtc);
-        Assert.Equal(to, a.ToUtc);
+        Assert.Equal(from, a.OpenUtc);
+        Assert.Equal(to, a.CloseUtc);
         Assert.Equal("коментар", a.Note);
         Assert.Equal("tester", a.Author);
         Assert.Equal(ts, a.ModifiedUtc);
@@ -66,20 +66,20 @@ public class PersonPositionAssignmentTests
         {
             PersonId = Guid.NewGuid(),
             PositionUnitId = Guid.NewGuid(),
-            FromUtc = new DateTime(2025, 2, 1, 8, 0, 0, DateTimeKind.Utc),
-            ToUtc = null
+            OpenUtc = new DateTime(2025, 2, 1, 8, 0, 0, DateTimeKind.Utc),
+            CloseUtc = null
         };
         var closed = new PersonPositionAssignment
         {
             PersonId = open.PersonId,
             PositionUnitId = open.PositionUnitId,
-            FromUtc = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc),
-            ToUtc = new DateTime(2025, 1, 31, 18, 0, 0, DateTimeKind.Utc)
+            OpenUtc = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc),
+            CloseUtc = new DateTime(2025, 1, 31, 18, 0, 0, DateTimeKind.Utc)
         };
 
-        Assert.Null(open.ToUtc);                     // активне закріплення
-        Assert.NotNull(closed.ToUtc);                // завершене
-        Assert.True(closed.ToUtc > closed.FromUtc);  // хронологія
+        Assert.Null(open.CloseUtc);                     // активне закріплення
+        Assert.NotNull(closed.CloseUtc);                // завершене
+        Assert.True(closed.CloseUtc > closed.OpenUtc);  // хронологія
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class PersonPositionAssignmentTests
             Person = p,
             PositionUnitId = u.Id,
             PositionUnit = u,
-            FromUtc = new DateTime(2025, 3, 1, 8, 0, 0, DateTimeKind.Utc)
+            OpenUtc = new DateTime(2025, 3, 1, 8, 0, 0, DateTimeKind.Utc)
         };
 
         Assert.Same(p, a.Person);
@@ -112,8 +112,8 @@ public class PersonPositionAssignmentTests
         {
             PersonId = Guid.NewGuid(),
             PositionUnitId = Guid.NewGuid(),
-            FromUtc = new DateTime(2025, 1, 5, 10, 0, 0, DateTimeKind.Utc),
-            ToUtc = new DateTime(2025, 1, 4, 10, 0, 0, DateTimeKind.Utc) // навіть так — без атрибутів помилки немає
+            OpenUtc = new DateTime(2025, 1, 5, 10, 0, 0, DateTimeKind.Utc),
+            CloseUtc = new DateTime(2025, 1, 4, 10, 0, 0, DateTimeKind.Utc) // навіть так — без атрибутів помилки немає
         };
 
         var results = ValidationHelper.ValidateObject(a);
@@ -128,7 +128,7 @@ public class PersonPositionAssignmentTests
         {
             PersonId = Guid.NewGuid(),
             PositionUnitId = Guid.NewGuid(),
-            FromUtc = DateTime.UtcNow,
+            OpenUtc = DateTime.UtcNow,
             ModifiedUtc = stamp
         };
 

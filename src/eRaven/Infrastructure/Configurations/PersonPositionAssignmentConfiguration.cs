@@ -34,13 +34,13 @@ public sealed class PersonPositionAssignmentConfiguration : IEntityTypeConfigura
          .HasColumnName("position_unit_id")
          .IsRequired();
 
-        e.Property(x => x.FromUtc)
-         .HasColumnName("from_utc")
+        e.Property(x => x.OpenUtc)
+         .HasColumnName("open_utc")
          .HasColumnType("timestamp with time zone")
          .IsRequired();
 
-        e.Property(x => x.ToUtc)
-         .HasColumnName("to_utc")
+        e.Property(x => x.CloseUtc)
+         .HasColumnName("close_utc")
          .HasColumnType("timestamp with time zone");
 
         e.Property(x => x.Note)
@@ -55,7 +55,7 @@ public sealed class PersonPositionAssignmentConfiguration : IEntityTypeConfigura
         e.Property(x => x.ModifiedUtc)
          .HasColumnName("modified_utc")
          .HasColumnType("timestamp with time zone")
-         .HasDefaultValueSql("now()")
+         .HasDefaultValueSql("CURRENT_TIMESTAMP")
          .IsRequired();
 
         // ===============================
@@ -67,39 +67,40 @@ public sealed class PersonPositionAssignmentConfiguration : IEntityTypeConfigura
          .OnDelete(DeleteBehavior.Cascade);
 
         e.HasOne(x => x.PositionUnit)
-         .WithMany() // історію на позиції не ведемо як колекцію
+         .WithMany()
          .HasForeignKey(x => x.PositionUnitId)
          .OnDelete(DeleteBehavior.Restrict);
 
         // ===============================
         // Constraints & Indexes
         // ===============================
+
         // базова валідність інтервалу
         e.ToTable(t => t.HasCheckConstraint(
             "ck_person_position_assignments_dates",
-            "(\"to_utc\" IS NULL) OR (\"to_utc\" > \"from_utc\")"
+            "(close_utc IS NULL) OR (close_utc > open_utc)"
         ));
 
         // не більше одного активного запису на людину
         e.HasIndex(x => x.PersonId)
          .HasDatabaseName("ux_ppassign_person_open")
          .IsUnique()
-         .HasFilter("\"to_utc\" IS NULL");
+         .HasFilter("close_utc IS NULL");
 
         // не більше одного активного запису на посаду
         e.HasIndex(x => x.PositionUnitId)
          .HasDatabaseName("ux_ppassign_position_open")
          .IsUnique()
-         .HasFilter("\"to_utc\" IS NULL");
+         .HasFilter("close_utc IS NULL");
 
         // індекси для пошуку/звітування
-        e.HasIndex(x => new { x.PersonId, x.FromUtc })
-         .HasDatabaseName("ix_ppassign_person_from");
+        e.HasIndex(x => new { x.PersonId, x.OpenUtc })
+         .HasDatabaseName("ix_ppassign_person_open");
 
-        e.HasIndex(x => new { x.PersonId, x.ToUtc })
-         .HasDatabaseName("ix_ppassign_person_to");
+        e.HasIndex(x => new { x.PersonId, x.CloseUtc })
+         .HasDatabaseName("ix_ppassign_person_close");
 
-        e.HasIndex(x => new { x.PositionUnitId, x.FromUtc })
-         .HasDatabaseName("ix_ppassign_position_from");
+        e.HasIndex(x => new { x.PositionUnitId, x.OpenUtc })
+         .HasDatabaseName("ix_ppassign_position_open");
     }
 }

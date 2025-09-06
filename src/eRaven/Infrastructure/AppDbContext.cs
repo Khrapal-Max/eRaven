@@ -24,7 +24,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasPostgresExtension("btree_gist");
+        // Postgres extension лише для Npgsql
+        if (Database.IsNpgsql())
+            modelBuilder.HasPostgresExtension("btree_gist");
 
         // Підтягнути всі IEntityTypeConfiguration<> з поточної збірки
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

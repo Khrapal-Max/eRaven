@@ -12,7 +12,7 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250906074025_Initial")]
+    [Migration("20250906083817_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -58,7 +58,7 @@ namespace eRaven.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("recorded_utc")
-                        .HasDefaultValueSql("timezone('utc', now())");
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.HasKey("Id");
 
@@ -77,9 +77,7 @@ namespace eRaven.Migrations
 
                     b.ToTable("orders", null, t =>
                         {
-                            t.HasCheckConstraint("ck_orders_effective_moment_quarter", "(EXTRACT(MINUTE FROM effective_moment_utc)::int % 15 = 0) AND EXTRACT(SECOND FROM effective_moment_utc) = 0");
-
-                            t.HasCheckConstraint("ck_orders_name_not_blank", "char_length(trim(name)) > 0");
+                            t.HasCheckConstraint("ck_orders_name_not_blank", "length(trim(name)) > 0");
                         });
                 });
 
@@ -176,20 +174,24 @@ namespace eRaven.Migrations
                         .HasDefaultValue("system")
                         .HasColumnName("author");
 
-                    b.Property<DateTime>("FromUtc")
+                    b.Property<DateTime?>("CloseUtc")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("from_utc");
+                        .HasColumnName("close_utc");
 
                     b.Property<DateTime>("ModifiedUtc")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified_utc")
-                        .HasDefaultValueSql("now()");
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("Note")
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
                         .HasColumnName("note");
+
+                    b.Property<DateTime>("OpenUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("open_utc");
 
                     b.Property<Guid>("PersonId")
                         .HasColumnType("uuid")
@@ -199,34 +201,30 @@ namespace eRaven.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("position_unit_id");
 
-                    b.Property<DateTime?>("ToUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("to_utc");
-
                     b.HasKey("Id");
 
                     b.HasIndex("PersonId")
                         .IsUnique()
                         .HasDatabaseName("ux_ppassign_person_open")
-                        .HasFilter("\"to_utc\" IS NULL");
+                        .HasFilter("close_utc IS NULL");
 
                     b.HasIndex("PositionUnitId")
                         .IsUnique()
                         .HasDatabaseName("ux_ppassign_position_open")
-                        .HasFilter("\"to_utc\" IS NULL");
+                        .HasFilter("close_utc IS NULL");
 
-                    b.HasIndex("PersonId", "FromUtc")
-                        .HasDatabaseName("ix_ppassign_person_from");
+                    b.HasIndex("PersonId", "CloseUtc")
+                        .HasDatabaseName("ix_ppassign_person_close");
 
-                    b.HasIndex("PersonId", "ToUtc")
-                        .HasDatabaseName("ix_ppassign_person_to");
+                    b.HasIndex("PersonId", "OpenUtc")
+                        .HasDatabaseName("ix_ppassign_person_open");
 
-                    b.HasIndex("PositionUnitId", "FromUtc")
-                        .HasDatabaseName("ix_ppassign_position_from");
+                    b.HasIndex("PositionUnitId", "OpenUtc")
+                        .HasDatabaseName("ix_ppassign_position_open");
 
                     b.ToTable("person_position_assignments", null, t =>
                         {
-                            t.HasCheckConstraint("ck_person_position_assignments_dates", "(\"to_utc\" IS NULL) OR (\"to_utc\" > \"from_utc\")");
+                            t.HasCheckConstraint("ck_person_position_assignments_dates", "(close_utc IS NULL) OR (close_utc > open_utc)");
                         });
                 });
 
@@ -243,9 +241,9 @@ namespace eRaven.Migrations
                         .HasDefaultValue("system")
                         .HasColumnName("author");
 
-                    b.Property<DateTime>("FromDate")
+                    b.Property<DateTime?>("CloseDate")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("from_utc");
+                        .HasColumnName("close_date");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
@@ -264,6 +262,10 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(512)")
                         .HasColumnName("note");
 
+                    b.Property<DateTime>("OpenDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("open_date");
+
                     b.Property<Guid>("PersonId")
                         .HasColumnType("uuid")
                         .HasColumnName("person_id");
@@ -272,28 +274,24 @@ namespace eRaven.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("status_kind_id");
 
-                    b.Property<DateTime?>("ToDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("to_utc");
-
                     b.HasKey("Id");
 
                     b.HasIndex("PersonId")
                         .IsUnique()
                         .HasDatabaseName("ix_person_statuses_active_unique_per_person")
-                        .HasFilter("\"to_utc\" IS NULL");
+                        .HasFilter("close_date IS NULL");
 
                     b.HasIndex("StatusKindId");
 
-                    b.HasIndex("PersonId", "FromDate")
-                        .HasDatabaseName("ix_person_statuses_person_from");
+                    b.HasIndex("PersonId", "CloseDate")
+                        .HasDatabaseName("ix_person_statuses_person_close");
 
-                    b.HasIndex("PersonId", "ToDate")
-                        .HasDatabaseName("ix_person_statuses_person_to");
+                    b.HasIndex("PersonId", "OpenDate")
+                        .HasDatabaseName("ix_person_statuses_person_open");
 
                     b.ToTable("person_statuses", null, t =>
                         {
-                            t.HasCheckConstraint("ck_person_status_dates", "(\"to_utc\" IS NULL) OR (\"to_utc\" > \"from_utc\")");
+                            t.HasCheckConstraint("ck_person_status_dates", "(close_date IS NULL) OR (close_date > open_date)");
                         });
                 });
 
@@ -335,7 +333,7 @@ namespace eRaven.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("recorded_utc")
-                        .HasDefaultValueSql("now()");
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<int>("State")
                         .HasColumnType("integer")
@@ -376,9 +374,7 @@ namespace eRaven.Migrations
 
                     b.ToTable("plans", null, t =>
                         {
-                            t.HasCheckConstraint("ck_plans_plan_number_not_blank", "char_length(trim(plan_number)) > 0");
-
-                            t.HasCheckConstraint("ck_plans_planned_at_quarter", "(EXTRACT(MINUTE FROM planned_at_utc)::int % 15 = 0) AND EXTRACT(SECOND FROM planned_at_utc) = 0");
+                            t.HasCheckConstraint("ck_plans_plan_number_not_blank", "length(trim(plan_number)) > 0");
                         });
                 });
 
@@ -429,7 +425,7 @@ namespace eRaven.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("recorded_utc")
-                        .HasDefaultValueSql("now()");
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("StatusKindCode")
                         .HasMaxLength(16)
@@ -464,7 +460,7 @@ namespace eRaven.Migrations
 
                     b.ToTable("plan_participant_snapshots", null, t =>
                         {
-                            t.HasCheckConstraint("ck_pps_full_name_not_blank", "char_length(trim(full_name)) > 0");
+                            t.HasCheckConstraint("ck_pps_full_name_not_blank", "length(trim(full_name)) > 0");
 
                             t.Property("plan_id")
                                 .HasColumnName("plan_id1");
@@ -568,9 +564,9 @@ namespace eRaven.Migrations
 
                     b.ToTable("status_kinds", null, t =>
                         {
-                            t.HasCheckConstraint("ck_status_kinds_code_not_blank", "char_length(trim(code)) > 0");
+                            t.HasCheckConstraint("ck_status_kinds_code_not_blank", "length(trim(code)) > 0");
 
-                            t.HasCheckConstraint("ck_status_kinds_name_not_blank", "char_length(trim(name)) > 0");
+                            t.HasCheckConstraint("ck_status_kinds_name_not_blank", "length(trim(name)) > 0");
                         });
 
                     b.HasData(
@@ -783,7 +779,7 @@ namespace eRaven.Migrations
 
                     b.ToTable("status_transitions", null, t =>
                         {
-                            t.HasCheckConstraint("ck_status_transitions_from_ne_to", "\"from_status_kind_id\" <> \"to_status_kind_id\"");
+                            t.HasCheckConstraint("ck_status_transitions_from_ne_to", "from_status_kind_id <> to_status_kind_id");
                         });
 
                     b.HasData(

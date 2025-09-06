@@ -32,13 +32,12 @@ namespace eRaven.Migrations
                     task_description = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: true),
                     state = table.Column<int>(type: "integer", nullable: false),
                     author = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true, defaultValue: "system"),
-                    recorded_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                    recorded_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_plans", x => x.id);
-                    table.CheckConstraint("ck_plans_plan_number_not_blank", "char_length(trim(plan_number)) > 0");
-                    table.CheckConstraint("ck_plans_planned_at_quarter", "(EXTRACT(MINUTE FROM planned_at_utc)::int % 15 = 0) AND EXTRACT(SECOND FROM planned_at_utc) = 0");
+                    table.CheckConstraint("ck_plans_plan_number_not_blank", "length(trim(plan_number)) > 0");
                 });
 
             migrationBuilder.CreateTable(
@@ -72,8 +71,8 @@ namespace eRaven.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_status_kinds", x => x.id);
-                    table.CheckConstraint("ck_status_kinds_code_not_blank", "char_length(trim(code)) > 0");
-                    table.CheckConstraint("ck_status_kinds_name_not_blank", "char_length(trim(name)) > 0");
+                    table.CheckConstraint("ck_status_kinds_code_not_blank", "length(trim(code)) > 0");
+                    table.CheckConstraint("ck_status_kinds_name_not_blank", "length(trim(name)) > 0");
                 });
 
             migrationBuilder.CreateTable(
@@ -85,13 +84,12 @@ namespace eRaven.Migrations
                     name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     effective_moment_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     author = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true, defaultValue: "system"),
-                    recorded_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "timezone('utc', now())")
+                    recorded_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_orders", x => x.id);
-                    table.CheckConstraint("ck_orders_effective_moment_quarter", "(EXTRACT(MINUTE FROM effective_moment_utc)::int % 15 = 0) AND EXTRACT(SECOND FROM effective_moment_utc) = 0");
-                    table.CheckConstraint("ck_orders_name_not_blank", "char_length(trim(name)) > 0");
+                    table.CheckConstraint("ck_orders_name_not_blank", "length(trim(name)) > 0");
                     table.ForeignKey(
                         name: "FK_orders_plans_plan_id",
                         column: x => x.plan_id,
@@ -115,13 +113,13 @@ namespace eRaven.Migrations
                     status_kind_id = table.Column<int>(type: "integer", nullable: true),
                     status_kind_code = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: true),
                     author = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true, defaultValue: "system"),
-                    recorded_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
+                    recorded_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP"),
                     plan_id1 = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_plan_participant_snapshots", x => x.id);
-                    table.CheckConstraint("ck_pps_full_name_not_blank", "char_length(trim(full_name)) > 0");
+                    table.CheckConstraint("ck_pps_full_name_not_blank", "length(trim(full_name)) > 0");
                     table.ForeignKey(
                         name: "FK_plan_participant_snapshots_plans_plan_id",
                         column: x => x.plan_id,
@@ -175,7 +173,7 @@ namespace eRaven.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_status_transitions", x => x.id);
-                    table.CheckConstraint("ck_status_transitions_from_ne_to", "\"from_status_kind_id\" <> \"to_status_kind_id\"");
+                    table.CheckConstraint("ck_status_transitions_from_ne_to", "from_status_kind_id <> to_status_kind_id");
                     table.ForeignKey(
                         name: "FK_status_transitions_status_kinds_from_status_kind_id",
                         column: x => x.from_status_kind_id,
@@ -197,16 +195,16 @@ namespace eRaven.Migrations
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     person_id = table.Column<Guid>(type: "uuid", nullable: false),
                     position_unit_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    from_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    to_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    open_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    close_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     note = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
                     author = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true, defaultValue: "system"),
-                    modified_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                    modified_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_person_position_assignments", x => x.id);
-                    table.CheckConstraint("ck_person_position_assignments_dates", "(\"to_utc\" IS NULL) OR (\"to_utc\" > \"from_utc\")");
+                    table.CheckConstraint("ck_person_position_assignments_dates", "(close_utc IS NULL) OR (close_utc > open_utc)");
                     table.ForeignKey(
                         name: "FK_person_position_assignments_persons_person_id",
                         column: x => x.person_id,
@@ -228,8 +226,8 @@ namespace eRaven.Migrations
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     person_id = table.Column<Guid>(type: "uuid", nullable: false),
                     status_kind_id = table.Column<int>(type: "integer", nullable: false),
-                    from_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    to_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    open_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    close_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     note = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
                     author = table.Column<string>(type: "text", nullable: true, defaultValue: "system"),
@@ -238,7 +236,7 @@ namespace eRaven.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_person_statuses", x => x.id);
-                    table.CheckConstraint("ck_person_status_dates", "(\"to_utc\" IS NULL) OR (\"to_utc\" > \"from_utc\")");
+                    table.CheckConstraint("ck_person_status_dates", "(close_date IS NULL) OR (close_date > open_date)");
                     table.ForeignKey(
                         name: "FK_person_statuses_persons_person_id",
                         column: x => x.person_id,
@@ -369,50 +367,50 @@ namespace eRaven.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "ix_ppassign_person_from",
+                name: "ix_ppassign_person_close",
                 table: "person_position_assignments",
-                columns: new[] { "person_id", "from_utc" });
+                columns: new[] { "person_id", "close_utc" });
 
             migrationBuilder.CreateIndex(
-                name: "ix_ppassign_person_to",
+                name: "ix_ppassign_person_open",
                 table: "person_position_assignments",
-                columns: new[] { "person_id", "to_utc" });
+                columns: new[] { "person_id", "open_utc" });
 
             migrationBuilder.CreateIndex(
-                name: "ix_ppassign_position_from",
+                name: "ix_ppassign_position_open",
                 table: "person_position_assignments",
-                columns: new[] { "position_unit_id", "from_utc" });
+                columns: new[] { "position_unit_id", "open_utc" });
 
             migrationBuilder.CreateIndex(
                 name: "ux_ppassign_person_open",
                 table: "person_position_assignments",
                 column: "person_id",
                 unique: true,
-                filter: "\"to_utc\" IS NULL");
+                filter: "close_utc IS NULL");
 
             migrationBuilder.CreateIndex(
                 name: "ux_ppassign_position_open",
                 table: "person_position_assignments",
                 column: "position_unit_id",
                 unique: true,
-                filter: "\"to_utc\" IS NULL");
+                filter: "close_utc IS NULL");
 
             migrationBuilder.CreateIndex(
                 name: "ix_person_statuses_active_unique_per_person",
                 table: "person_statuses",
                 column: "person_id",
                 unique: true,
-                filter: "\"to_utc\" IS NULL");
+                filter: "close_date IS NULL");
 
             migrationBuilder.CreateIndex(
-                name: "ix_person_statuses_person_from",
+                name: "ix_person_statuses_person_close",
                 table: "person_statuses",
-                columns: new[] { "person_id", "from_utc" });
+                columns: new[] { "person_id", "close_date" });
 
             migrationBuilder.CreateIndex(
-                name: "ix_person_statuses_person_to",
+                name: "ix_person_statuses_person_open",
                 table: "person_statuses",
-                columns: new[] { "person_id", "to_utc" });
+                columns: new[] { "person_id", "open_date" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_person_statuses_status_kind_id",

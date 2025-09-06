@@ -169,8 +169,8 @@ public class ExcelServiceTests
             var ws = wb.AddWorksheet("Data");
             ws.Cell(1, 1).Value = "PersonId";
             ws.Cell(1, 2).Value = "StatusKindId";
-            ws.Cell(1, 3).Value = "FromDate";
-            ws.Cell(1, 4).Value = "ToDate";
+            ws.Cell(1, 3).Value = "OpenDate";
+            ws.Cell(1, 4).Value = "CloseDate";
             ws.Cell(1, 5).Value = "Note";
             ws.Cell(1, 6).Value = "Author";
 
@@ -205,7 +205,7 @@ public class ExcelServiceTests
         var first = rows.First();
         Assert.Equal(personId, first.PersonId);
         Assert.Equal(1, first.StatusKindId);
-        Assert.Equal(new DateTime(2025, 9, 2, 13, 30, 0), first.FromDate);
+        Assert.Equal(new DateTime(2025, 9, 2, 13, 30, 0), first.OpenDate);
     }
 
     [Fact]
@@ -220,8 +220,8 @@ public class ExcelServiceTests
                 Id = Guid.NewGuid(),
                 PersonId = Guid.NewGuid(),
                 StatusKindId = 1,
-                FromDate = new DateTime(2025, 9, 2, 8, 15, 0),
-                ToDate = null,
+                OpenDate = new DateTime(2025, 9, 2, 8, 15, 0),
+                CloseDate = null,
                 Note = "start",
                 Author = "sys",
                 Modified = new DateTime(2025, 9, 2, 8, 16, 0)
@@ -239,7 +239,7 @@ public class ExcelServiceTests
         var r = rows[0];
         Assert.Equal(items[0].PersonId, r.PersonId);
         Assert.Equal(items[0].StatusKindId, r.StatusKindId);
-        Assert.Equal(items[0].FromDate, r.FromDate);
+        Assert.Equal(items[0].OpenDate, r.OpenDate);
         Assert.Equal(items[0].Note, r.Note);
     }
 

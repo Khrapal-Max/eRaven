@@ -29,8 +29,8 @@ public class PersonPositionAssignment
     /// <summary>
     /// Тривалість на посаді
     /// </summary>
-    public DateTime FromUtc { get; set; }
-    public DateTime? ToUtc { get; set; } // null = активне закріплення
+    public DateTime OpenUtc { get; set; }
+    public DateTime? CloseUtc { get; set; } // null = активне закріплення
 
     /// <summary>
     /// Нотатка

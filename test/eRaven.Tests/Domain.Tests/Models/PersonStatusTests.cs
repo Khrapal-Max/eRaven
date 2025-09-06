@@ -20,8 +20,8 @@ public class PersonStatusTests
         Assert.Equal(default, s.Id);                 // Guid.Empty
         Assert.Equal(default, s.PersonId);           // Guid.Empty
         Assert.Equal(0, s.StatusKindId);
-        Assert.Equal(default, s.FromDate);           // 0001-01-01
-        Assert.Null(s.ToDate);
+        Assert.Equal(default, s.OpenDate);           // 0001-01-01
+        Assert.Null(s.CloseDate);
         Assert.Null(s.Note);
         Assert.False(s.IsActive);
         Assert.Null(s.Author);
@@ -39,8 +39,8 @@ public class PersonStatusTests
             Id = Guid.NewGuid(),
             PersonId = Guid.NewGuid(),
             StatusKindId = 1,
-            FromDate = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            ToDate = null, // відкритий інтервал
+            OpenDate = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            CloseDate = null, // відкритий інтервал
             Note = "Будь-яка примітка",
             Author = "tester"
         };
@@ -49,7 +49,7 @@ public class PersonStatusTests
         var results = ValidationHelper.ValidateObject(s); // без DataAnnotations — порожньо
 
         // Assert
-        Assert.Null(s.ToDate);
+        Assert.Null(s.CloseDate);
         Assert.Empty(results);
     }
 
@@ -60,7 +60,7 @@ public class PersonStatusTests
         {
             PersonId = Guid.NewGuid(),
             StatusKindId = 1,
-            FromDate = DateTime.UtcNow
+            OpenDate = DateTime.UtcNow
         };
 
         Assert.Equal(default, s.Modified);
@@ -80,8 +80,8 @@ public class PersonStatusTests
             Id = Guid.NewGuid(),
             PersonId = personId,
             StatusKindId = statusId,
-            FromDate = from,
-            ToDate = to,
+            OpenDate = from,
+            CloseDate = to,
             Note = "ok",
             Author = "system",
             IsActive = true
@@ -90,8 +90,8 @@ public class PersonStatusTests
         // Act & Assert
         Assert.Equal(personId, s.PersonId);
         Assert.Equal(statusId, s.StatusKindId);
-        Assert.Equal(from, s.FromDate);
-        Assert.Equal(to, s.ToDate);
+        Assert.Equal(from, s.OpenDate);
+        Assert.Equal(to, s.CloseDate);
         Assert.Equal("ok", s.Note);
         Assert.Equal("system", s.Author);
         Assert.True(s.IsActive);
@@ -110,7 +110,7 @@ public class PersonStatusTests
             Person = p,
             StatusKindId = k.Id,
             StatusKind = k,
-            FromDate = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc)
+            OpenDate = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc)
         };
 
         Assert.Equal(p.Id, s.PersonId);
@@ -127,39 +127,37 @@ public class PersonStatusTests
             Id = Guid.NewGuid(),
             PersonId = Guid.NewGuid(),
             StatusKindId = 1,
-            FromDate = new DateTime(2025, 1, 10, 10, 0, 0, DateTimeKind.Utc),
-            ToDate = null
+            OpenDate = new DateTime(2025, 1, 10, 10, 0, 0, DateTimeKind.Utc),
+            CloseDate = null
         };
         var closed = new PersonStatus
         {
             Id = Guid.NewGuid(),
             PersonId = open.PersonId,
             StatusKindId = 2,
-            FromDate = new DateTime(2025, 1, 5, 9, 0, 0, DateTimeKind.Utc),
-            ToDate = new DateTime(2025, 1, 6, 18, 0, 0, DateTimeKind.Utc)
+            OpenDate = new DateTime(2025, 1, 5, 9, 0, 0, DateTimeKind.Utc),
+            CloseDate = new DateTime(2025, 1, 6, 18, 0, 0, DateTimeKind.Utc)
         };
 
-        Assert.Null(open.ToDate);                 // відкритий інтервал
-        Assert.NotNull(closed.ToDate);            // закритий інтервал
-        Assert.True(closed.ToDate > closed.FromDate);
+        Assert.Null(open.CloseDate);                 // відкритий інтервал
+        Assert.NotNull(closed.CloseDate);            // закритий інтервал
+        Assert.True(closed.CloseDate > closed.OpenDate);
     }
 
     [Fact]
     public void Validation_DoesNotEnforce_ToDate_After_FromDate_ByDefault()
     {
-        // Наразі DataAnnotations відсутні — навіть якщо ToDate < FromDate, валідація порожня.
+        // Наразі DataAnnotations відсутні — навіть якщо CloseDate < OpenDate, валідація порожня.
         var s = new PersonStatus
         {
             PersonId = Guid.NewGuid(),
             StatusKindId = 1,
-            FromDate = new DateTime(2025, 1, 5, 10, 0, 0, DateTimeKind.Utc),
-            ToDate = new DateTime(2025, 1, 5, 9, 0, 0, DateTimeKind.Utc) // «некоректно», але без атрибутів не зламається
+            OpenDate = new DateTime(2025, 1, 5, 10, 0, 0, DateTimeKind.Utc),
+            CloseDate = new DateTime(2025, 1, 5, 9, 0, 0, DateTimeKind.Utc) // «некоректно», але без атрибутів не зламається
         };
 
         var results = ValidationHelper.ValidateObject(s);
         Assert.Empty(results);
-
-        // TODO: коли додамо атрибути/кастомну валідацію — змінити цей тест під очікувану помилку.
     }
 
     [Fact]
@@ -169,7 +167,7 @@ public class PersonStatusTests
         {
             PersonId = Guid.NewGuid(),
             StatusKindId = 1,
-            FromDate = DateTime.UtcNow,
+            OpenDate = DateTime.UtcNow,
             IsActive = false
         };
 
@@ -188,7 +186,7 @@ public class PersonStatusTests
         {
             PersonId = Guid.NewGuid(),
             StatusKindId = 1,
-            FromDate = DateTime.UtcNow,
+            OpenDate = DateTime.UtcNow,
             Modified = ts
         };
 
@@ -202,14 +200,14 @@ public class PersonStatusTests
         {
             PersonId = Guid.NewGuid(),
             StatusKindId = 1,
-            FromDate = DateTime.UtcNow,
+            OpenDate = DateTime.UtcNow,
             Note = null
         };
         var s2 = new PersonStatus
         {
             PersonId = Guid.NewGuid(),
             StatusKindId = 1,
-            FromDate = DateTime.UtcNow,
+            OpenDate = DateTime.UtcNow,
             Note = ""
         };
 

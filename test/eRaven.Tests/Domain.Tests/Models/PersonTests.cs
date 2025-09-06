@@ -230,14 +230,14 @@ public class PersonTests
             Id = statusFirst,
             PersonId = p.Id,
             StatusKindId = 1,
-            FromDate = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc)
+            OpenDate = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc)
         };
         var s2 = new PersonStatus
         {
             Id = statusLast,
             PersonId = p.Id,
             StatusKindId = 2,
-            FromDate = new DateTime(2025, 1, 2, 9, 0, 0, DateTimeKind.Utc)
+            OpenDate = new DateTime(2025, 1, 2, 9, 0, 0, DateTimeKind.Utc)
         };
 
         p.StatusHistory.Add(s1);
@@ -260,23 +260,23 @@ public class PersonTests
             Id = statusFirst,
             PersonId = p.Id,
             StatusKindId = 1,
-            FromDate = new DateTime(2025, 1, 10, 10, 0, 0, DateTimeKind.Utc),
-            ToDate = null
+            OpenDate = new DateTime(2025, 1, 10, 10, 0, 0, DateTimeKind.Utc),
+            CloseDate = null
         };
         var closed = new PersonStatus
         {
             Id = statusLast,
             PersonId = p.Id,
             StatusKindId = 2,
-            FromDate = new DateTime(2025, 1, 5, 9, 0, 0, DateTimeKind.Utc),
-            ToDate = new DateTime(2025, 1, 6, 18, 0, 0, DateTimeKind.Utc)
+            OpenDate = new DateTime(2025, 1, 5, 9, 0, 0, DateTimeKind.Utc),
+            CloseDate = new DateTime(2025, 1, 6, 18, 0, 0, DateTimeKind.Utc)
         };
 
         p.StatusHistory.Add(closed);
         p.StatusHistory.Add(open);
 
-        Assert.Contains(p.StatusHistory, x => x.Id == statusFirst && x.ToDate == null);
-        Assert.Contains(p.StatusHistory, x => x.Id == statusLast && x.ToDate != null);
+        Assert.Contains(p.StatusHistory, x => x.Id == statusFirst && x.CloseDate == null);
+        Assert.Contains(p.StatusHistory, x => x.Id == statusLast && x.CloseDate != null);
     }
 
     // ---------- PositionAssignments (історія посад) ----------
@@ -294,8 +294,8 @@ public class PersonTests
             PersonId = p.Id,
             PositionUnitId = pos1.Id,
             PositionUnit = pos1,
-            FromUtc = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc),
-            ToUtc = new DateTime(2025, 1, 10, 18, 0, 0, DateTimeKind.Utc),
+            OpenUtc = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc),
+            CloseUtc = new DateTime(2025, 1, 10, 18, 0, 0, DateTimeKind.Utc),
             Note = "попередня",
             Author = "tester",
             ModifiedUtc = new DateTime(2025, 1, 10, 19, 0, 0, DateTimeKind.Utc)
@@ -307,8 +307,8 @@ public class PersonTests
             PersonId = p.Id,
             PositionUnitId = pos2.Id,
             PositionUnit = pos2,
-            FromUtc = new DateTime(2025, 1, 11, 8, 0, 0, DateTimeKind.Utc),
-            ToUtc = null, // активна
+            OpenUtc = new DateTime(2025, 1, 11, 8, 0, 0, DateTimeKind.Utc),
+            CloseUtc = null, // активна
             Note = "поточна",
             Author = "tester",
             ModifiedUtc = new DateTime(2025, 1, 11, 8, 5, 0, DateTimeKind.Utc)
@@ -318,8 +318,8 @@ public class PersonTests
         p.PositionAssignments.Add(a2);
 
         Assert.Equal(2, p.PositionAssignments.Count);
-        Assert.Contains(p.PositionAssignments, x => x.PositionUnitId == pos1.Id && x.ToUtc != null);
-        Assert.Contains(p.PositionAssignments, x => x.PositionUnitId == pos2.Id && x.ToUtc == null);
+        Assert.Contains(p.PositionAssignments, x => x.PositionUnitId == pos1.Id && x.CloseUtc != null);
+        Assert.Contains(p.PositionAssignments, x => x.PositionUnitId == pos2.Id && x.CloseUtc == null);
         Assert.All(p.PositionAssignments, x => Assert.Equal(p.Id, x.PersonId));
     }
 
@@ -335,8 +335,8 @@ public class PersonTests
             PersonId = p.Id,
             PositionUnitId = pos.Id,
             PositionUnit = pos,
-            FromUtc = new DateTime(2025, 2, 1, 8, 0, 0, DateTimeKind.Utc),
-            ToUtc = null
+            OpenUtc = new DateTime(2025, 2, 1, 8, 0, 0, DateTimeKind.Utc),
+            CloseUtc = null
         };
         var closed = new PersonPositionAssignment
         {
@@ -344,16 +344,16 @@ public class PersonTests
             PersonId = p.Id,
             PositionUnitId = pos.Id,
             PositionUnit = pos,
-            FromUtc = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc),
-            ToUtc = new DateTime(2025, 1, 31, 18, 0, 0, DateTimeKind.Utc)
+            OpenUtc = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc),
+            CloseUtc = new DateTime(2025, 1, 31, 18, 0, 0, DateTimeKind.Utc)
         };
 
         p.PositionAssignments.Add(closed);
         p.PositionAssignments.Add(open);
 
-        Assert.Contains(p.PositionAssignments, x => x.ToUtc == null);
-        Assert.Contains(p.PositionAssignments, x => x.ToUtc != null);
-        Assert.True(closed.ToUtc > closed.FromUtc);
+        Assert.Contains(p.PositionAssignments, x => x.CloseUtc == null);
+        Assert.Contains(p.PositionAssignments, x => x.CloseUtc != null);
+        Assert.True(closed.CloseUtc > closed.OpenUtc);
     }
 
     [Fact]
@@ -369,7 +369,7 @@ public class PersonTests
             Person = p,
             PositionUnitId = pos.Id,
             PositionUnit = pos,
-            FromUtc = new DateTime(2025, 3, 1, 8, 0, 0, DateTimeKind.Utc)
+            OpenUtc = new DateTime(2025, 3, 1, 8, 0, 0, DateTimeKind.Utc)
         };
 
         p.PositionAssignments.Add(a);
