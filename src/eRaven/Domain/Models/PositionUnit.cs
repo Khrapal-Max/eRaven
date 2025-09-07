@@ -30,6 +30,11 @@ public class PositionUnit
     public string? OrgPath { get; set; }
 
     /// <summary>
+    /// номер спеціальності
+    /// </summary>
+    public string SpecialNumber { get; set; } = string.Empty;
+
+    /// <summary>
     /// Навігація до поточного власника (без FK-властивості тут!)
     /// </summary>
     public Person? CurrentPerson { get; set; }

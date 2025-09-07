@@ -29,7 +29,8 @@ public sealed class PositionUnitConfiguration : IEntityTypeConfiguration<Positio
         // ===============================
         e.Property(x => x.Code)
          .HasColumnName("code")
-         .HasMaxLength(64);           // nullable за доменною моделлю
+         .HasMaxLength(64)
+         .IsRequired();// nullable за доменною моделлю
 
         e.Property(x => x.ShortName)
          .HasColumnName("short_name")
@@ -38,7 +39,13 @@ public sealed class PositionUnitConfiguration : IEntityTypeConfiguration<Positio
 
         e.Property(x => x.OrgPath)
          .HasColumnName("org_path")
-         .HasMaxLength(512);
+         .HasMaxLength(512)
+         .IsRequired();
+
+        e.Property(x => x.SpecialNumber)
+         .HasColumnName("special_number")
+         .HasMaxLength(15)
+         .IsRequired();
 
         e.Property(x => x.IsActived)
          .HasColumnName("is_active")
@@ -52,6 +59,9 @@ public sealed class PositionUnitConfiguration : IEntityTypeConfiguration<Positio
 
         e.HasIndex(x => x.ShortName)
          .HasDatabaseName("ix_position_units_short_name");
+
+        e.HasIndex(x => x.SpecialNumber)
+        .HasDatabaseName("ix_position_units_number");
 
         // ===============================
         // Relationships

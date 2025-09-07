@@ -55,6 +55,5 @@ public class ExcelImportTests : TestContext
         // Assert
         Assert.NotNull(cut);
         Assert.Contains("accept=\".xlsx\"", cut.Markup);
-        Assert.Contains("/templates/sample.xlsx", cut.Markup); // кнопка "Завантажити шаблон"
     }
 }

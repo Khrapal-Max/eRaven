@@ -8,7 +8,7 @@
     --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     /* Layout */
     --navbar-h: 56px; /* стандартна висота Bootstrap navbar */
-    --ng-bg: #090909; /* основний зелений #7ef376*/
+    --ng-bg: #492448; /* основний зелений #7ef376*/
 }
 
 html, body {
@@ -150,4 +150,8 @@ h1:focus, h2:focus, h3:focus {
     top: 0;
     z-index: 5; /* поверх рядків */
     background: var(--bs-light);
+}
+
+.blazored-toast {
+    z-index: 20001 !important;
 }

@@ -6,8 +6,10 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast;
+using eRaven.Application.ExcelService;
 using eRaven.Application.Services.PositionService;
 using eRaven.Components;
+using eRaven.Extensions;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,6 +26,7 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 builder.Services.AddBlazoredToast();
 
 //Services
+builder.Services.AddScoped<IExcelService, ExcelService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
 
 var app = builder.Build();
@@ -40,6 +43,8 @@ app.UseHttpsRedirection();
 
 
 app.UseAntiforgery();
+
+await app.AddMigrationDb();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

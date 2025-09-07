@@ -338,6 +338,7 @@ public sealed class ExcelService : IExcelService
         {
             dict["Code"] = ["індекс", "код", "index", "code"];
             dict["ShortName"] = ["посада", "должность", "роль", "shortname", "short"];
+            dict["SpecialNumber"] = ["ВОС"];
             dict["OrgPath"] = ["шлях", "структура", "підрозділ", "підрозділ/посада", "посада/ієрархія", "orgpath", "path"];
         }
         else if (t == typeof(Person))

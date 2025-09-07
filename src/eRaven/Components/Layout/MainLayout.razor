@@ -1,5 +1,7 @@
 ﻿@inherits LayoutComponentBase
 
+@using Blazored.Toast.Configuration;
+
 <NavBar />
 
 <main class="layout-main container-fluid">
@@ -20,7 +22,7 @@
   </ErrorBoundary>
 </main>
 
-<BlazoredToasts />
+<BlazoredToasts Position="ToastPosition.BottomRight"  />
 
 <div id="blazor-error-ui" data-nosnippet class="d-none">
     Виникла необроблена помилка.

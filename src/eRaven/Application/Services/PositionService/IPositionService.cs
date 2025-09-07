@@ -42,4 +42,11 @@ public interface IPositionService
     /// <param name="ct"></param>
     /// <returns>bool</returns>
     Task<bool> SetActiveStateAsync(Guid id, bool isActive, CancellationToken ct = default);
+    /// <summary>
+    /// Перевірка коду серед активних посад
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="ct"></param>
+    /// <returns>bool</returns>
+    Task<bool> CodeExistsActiveAsync(string code, CancellationToken ct = default);
 }

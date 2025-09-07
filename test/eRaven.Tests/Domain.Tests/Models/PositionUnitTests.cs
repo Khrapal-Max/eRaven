@@ -21,6 +21,7 @@ public class PositionUnitTests
         Assert.Null(unit.Code);
         Assert.Equal(string.Empty, unit.ShortName);
         Assert.Null(unit.OrgPath);
+        Assert.Empty(unit.SpecialNumber);
         Assert.Null(unit.CurrentPerson);
 
         // Нове поле: за замовчуванням false

@@ -43,9 +43,10 @@ namespace eRaven.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
-                    code = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
+                    code = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     short_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
-                    org_path = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
+                    org_path = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
+                    special_number = table.Column<string>(type: "character varying(15)", maxLength: 15, nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true)
                 },
                 constraints: table =>
@@ -303,13 +304,13 @@ namespace eRaven.Migrations
                     { 22, 2, 15 },
                     { 23, 2, 16 },
                     { 24, 2, 18 },
-                    { 25, 2, 1 },
-                    { 26, 2, 12 },
-                    { 27, 2, 13 },
-                    { 28, 2, 14 },
-                    { 29, 2, 15 },
-                    { 30, 2, 16 },
-                    { 31, 2, 18 },
+                    { 25, 3, 1 },
+                    { 26, 3, 12 },
+                    { 27, 3, 13 },
+                    { 28, 3, 14 },
+                    { 29, 3, 15 },
+                    { 30, 3, 16 },
+                    { 31, 3, 18 },
                     { 32, 4, 1 },
                     { 33, 5, 1 },
                     { 34, 6, 1 },
@@ -483,6 +484,11 @@ namespace eRaven.Migrations
                 name: "ix_position_units_code",
                 table: "position_units",
                 column: "code");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_position_units_number",
+                table: "position_units",
+                column: "special_number");
 
             migrationBuilder.CreateIndex(
                 name: "ix_position_units_short_name",

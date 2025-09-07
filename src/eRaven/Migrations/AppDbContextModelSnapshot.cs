@@ -472,6 +472,7 @@ namespace eRaven.Migrations
                         .HasColumnName("id");
 
                     b.Property<string>("Code")
+                        .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("code");
@@ -483,6 +484,7 @@ namespace eRaven.Migrations
                         .HasColumnName("is_active");
 
                     b.Property<string>("OrgPath")
+                        .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
                         .HasColumnName("org_path");
@@ -493,6 +495,12 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("short_name");
 
+                    b.Property<string>("SpecialNumber")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("character varying(15)")
+                        .HasColumnName("special_number");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
@@ -500,6 +508,9 @@ namespace eRaven.Migrations
 
                     b.HasIndex("ShortName")
                         .HasDatabaseName("ix_position_units_short_name");
+
+                    b.HasIndex("SpecialNumber")
+                        .HasDatabaseName("ix_position_units_number");
 
                     b.ToTable("position_units", (string)null);
                 });
@@ -927,43 +938,43 @@ namespace eRaven.Migrations
                         new
                         {
                             Id = 25,
-                            FromStatusKindId = 2,
+                            FromStatusKindId = 3,
                             ToStatusKindId = 1
                         },
                         new
                         {
                             Id = 26,
-                            FromStatusKindId = 2,
+                            FromStatusKindId = 3,
                             ToStatusKindId = 12
                         },
                         new
                         {
                             Id = 27,
-                            FromStatusKindId = 2,
+                            FromStatusKindId = 3,
                             ToStatusKindId = 13
                         },
                         new
                         {
                             Id = 28,
-                            FromStatusKindId = 2,
+                            FromStatusKindId = 3,
                             ToStatusKindId = 14
                         },
                         new
                         {
                             Id = 29,
-                            FromStatusKindId = 2,
+                            FromStatusKindId = 3,
                             ToStatusKindId = 15
                         },
                         new
                         {
                             Id = 30,
-                            FromStatusKindId = 2,
+                            FromStatusKindId = 3,
                             ToStatusKindId = 16
                         },
                         new
                         {
                             Id = 31,
-                            FromStatusKindId = 2,
+                            FromStatusKindId = 3,
                             ToStatusKindId = 18
                         },
                         new
