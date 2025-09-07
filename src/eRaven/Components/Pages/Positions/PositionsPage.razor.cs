@@ -20,40 +20,49 @@ namespace eRaven.Components.Pages.Positions;
 
 public partial class PositionsPage : ComponentBase, IDisposable
 {
-    // =============== UI state ===============
+    // =========================
+    // [UI state] візуальний стан
+    // =========================
     protected bool Busy { get; private set; }
     protected string? Search { get; set; }
-
     protected PositionUnitViewModel? Selected { get; set; }
 
+    // =========================
+    // [Infra] ресурси й токени
+    // =========================
     private readonly CancellationTokenSource _cts = new();
 
-    // Джерело даних (усі позиції з бекенда)
-    private List<PositionUnit> _all = [];
+    // =========================
+    // [Data] джерела та представлення
+    // =========================
+    private List<PositionUnit> _all = [];                      // усі позиції з бекенда
+    private List<PositionUnit> _filtered = [];                 // відфільтрований зріз
+    protected ObservableCollection<PositionUnitViewModel> Items { get; private set; } = []; // для таблиці
 
-    // Відфільтрований зріз (для експорту та службових задач)
-    private List<PositionUnit> _filtered = [];
-
-    // Те, що показуємо у таблиці (VM)
-    protected ObservableCollection<PositionUnitViewModel> Items { get; private set; } = [];
-
-    // =============== Modal ===============
-
+    // =========================
+    // [Modals] посилання
+    // =========================
     private PositionCreateModal? _createModal;
     private ConfirmModal? Confirm;
 
-    // =============== DI ===============
+    // =========================
+    // [DI] сервіси
+    // =========================
     [Inject] protected IPositionService PositionService { get; set; } = default!;
     [Inject] protected IToastService ToastService { get; set; } = default!;
     [Inject] protected IValidator<CreatePositionUnitViewModel> CreateValidator { get; set; } = default!;
 
-    // =============== Lifecycle ===============
+    // =========================
+    // [Lifecycle]
+    // =========================
     protected override async Task OnInitializedAsync()
     {
         await ReloadAsync();
     }
 
-    // =============== Public handlers ===============
+    // =========================
+    // [Public handlers]
+    // =========================
     /// <summary>Повне перезавантаження списку з бекенда з подальшою локальною рефільтрацією/сортом.</summary>
     protected async Task ReloadAsync()
     {
@@ -104,36 +113,36 @@ public partial class PositionsPage : ComponentBase, IDisposable
         await ReloadAsync();
     }
 
-    /// <summary>Клік по чекбоксу активності: питаємо підтвердження перед оновленням.</summary>
-    private async Task ToggleActiveAsync(PositionUnitViewModel vm, bool askConfirm = true)
+    // =========================================================================
+    // [Active Toggle] — керований чекбокс через TransitionToggle
+    // 1) ConfirmPositionActiveAsync  — текст підтвердження
+    // 2) SavePositionActiveAsync     — виклик бекенда; на помилці кидаємо далі
+    // 3) OnPositionActiveCheckedChangedAsync — локальне оновлення VM після успіху
+    // =========================================================================
+
+    /// <summary>Підтвердження зміни активності посади.</summary>
+    private async Task<bool> ConfirmPositionActiveAsync(Guid positionId, bool turnOn)
     {
-        if (Busy || vm is null) return;
+        var vm = Items.FirstOrDefault(x => x.Id == positionId);
+        var name = vm?.ShortName ?? $"#{positionId}";
+        var text = $"Змінити стан посади «{name}» на {(turnOn ? "ШТАТНА" : "ЗАКРИТА")}?";
+        return await (Confirm?.ShowConfirmAsync(text) ?? Task.FromResult(true));
+    }
 
-        var newValue = !vm.IsActived;
-
-        if (askConfirm && Confirm is not null)
-        {
-            var text = $"Змінити стан посади «{vm.ShortName}» на {(newValue ? "ШТАТНА" : "ЗАКРИТА")}?";
-            var ok = await Confirm.ShowConfirmAsync(text);
-            if (!ok) return; // користувач відмінив — нічого не міняємо
-        }
-
+    /// <summary>Збереження активності в бекенді (кидає далі при помилці, щоб TransitionToggle не оновлював локальний стан).</summary>
+    private async Task SavePositionActiveAsync(Guid positionId, bool turnOn)
+    {
+        if (Busy) return;
+        SetBusy(true);
         try
         {
-            SetBusy(true);
-
-            // бек може відхилити (виняток) — тоді чекбокс не змінюємо
-            await PositionService.SetActiveStateAsync(vm.Id, newValue, _cts.Token);
-
-            // успіх: оновлюємо тільки поточний VM, без повного Reload
-            vm.IsActived = newValue;
-            StateHasChanged();
-
+            await PositionService.SetActiveStateAsync(positionId, turnOn, _cts.Token);
             ToastService.ShowSuccess("Статус збережено.");
         }
         catch (Exception ex)
         {
             ToastService.ShowError($"Не вдалося зберегти: {ex.Message}");
+            throw; // важливо: не оновлювати локальний стан при фейлі
         }
         finally
         {
@@ -141,7 +150,21 @@ public partial class PositionsPage : ComponentBase, IDisposable
         }
     }
 
-    // =============== Import / Export ===============
+    /// <summary>Локальне оновлення VM після успішного збереження.</summary>
+    private Task OnPositionActiveCheckedChangedAsync(Guid positionId, bool newValue)
+    {
+        var vm = Items.FirstOrDefault(x => x.Id == positionId);
+        if (vm is not null)
+        {
+            vm.IsActived = newValue;
+            StateHasChanged();
+        }
+        return Task.CompletedTask;
+    }
+
+    // =========================
+    // [Import / Export]
+    // =========================
     /// <summary>Обробка імпорту (валидація через FluentValidation + сервіс).</summary>
     protected async Task<ImportReportViewModel> ProcessImportAsync(IReadOnlyList<PositionUnit> rows)
     {
@@ -171,8 +194,9 @@ public partial class PositionsPage : ComponentBase, IDisposable
         await ReloadAsync();
     }
 
-    // =============== Private helpers ===============   
-
+    // =========================
+    // [Helpers]
+    // =========================
     /// <summary>Локальна фільтрація/сорт і маппінг у VM (через UIHelper), оновлює Items.</summary>
     private void ApplyFilterAndSort()
     {

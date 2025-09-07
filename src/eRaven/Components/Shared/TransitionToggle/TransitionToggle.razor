@@ -1,0 +1,12 @@
+﻿@* Керований checkbox для дозволу/заборони переходу зі статусу From -> To *@
+
+@typeparam TiD
+
+<input class="form-check-input"
+       type="checkbox"
+       disabled="@Disabled"
+       checked="@Checked"
+       title="@Title"
+       @onclick="OnClickAsync"
+       @onclick:preventDefault="true"
+       @onclick:stopPropagation="true" />

@@ -1,6 +1,7 @@
 ﻿@page "/status-kinds"
 
 @using eRaven.Components.Pages.StatusKids.Modals;
+@using eRaven.Components.Shared;          @* <- TransitionToggle *@
 
 <section class="d-flex justify-content-between mb-2">
     <div class="fw-bold text-black">Правила переходів статусів</div>
@@ -27,12 +28,13 @@
                                 <th style="width:96px;">Код</th>
                                 <th style="width:80px;" class="text-center">Порядок</th>
                                 <th style="width:90px;" class="text-center">Активний</th>
+                                <th style="width:88px;" class="text-center"><i class="bi bi-arrow-left-right"></i></th>
                             </tr>
                         </thead>
                         <tbody>
                             @if (_kinds.Count == 0)
                             {
-                                <tr><td colspan="4" class="text-secondary text-center py-3">Немає статусів</td></tr>
+                                <tr><td colspan="5" class="text-secondary text-center py-3">Немає статусів</td></tr>
                             }
                             else
                             {
@@ -45,12 +47,25 @@
                                         <td>@k.Name</td>
                                         <td><span class="badge bg-light text-dark">@k.Code</span></td>
                                         <td class="text-center">@k.Order</td>
-                                        <td class="text-center">
-                                            <input type="checkbox"
-                                                   class="form-check-input"
-                                                   checked="@k.IsActive"
-                                                   disabled="@_busy"
-                                                   @onclick="(async _ => await ToggleActiveAsync(k))" />
+                                        <td class="text-center" @onclick:stopPropagation="true">
+                                            <!-- ЛІВИЙ ТОГЛ: Активний/Неактивний -->
+                                            <TransitionToggle FromId="k.Id"
+                                                              ToId="k.Id"
+                                                              ToName="k.Name"
+                                                              Checked="k.IsActive"
+                                                              CheckedChanged="(val => OnActiveCheckedChangedAsync(k.Id, val))"
+                                                              Disabled="_busy"
+                                                              Title="Змінити активність"
+                                                              ConfirmAsync="ConfirmActiveAsync"
+                                                              SaveAsync="SaveActiveAsync" />
+                                        </td>
+                                        <td class="text-center" @onclick:stopPropagation="true">
+                                            <button class="btn btn-warning btn-sm"
+                                                    title="Редагувати порядок"
+                                                    disabled="@_busy"
+                                                    @onclick="(() => OpenEditOrderModal(k))">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
                                         </td>
                                     </tr>
                                 }
@@ -99,11 +114,15 @@
 
                                     <tr>
                                         <td class="text-center">
-                                            <input class="form-check-input"
-                                                   type="checkbox"
-                                                   disabled="@self"
-                                                   checked="@isChecked"
-                                                   @onchange="(ChangeEventArgs e) => ToggleToAsync(k.Id, e.Value is bool b && b)" />
+                                            <TransitionToggle FromId="_selectedFromId"
+                                                              ToId="k.Id"
+                                                              ToName="k.Name"
+                                                              Checked="isChecked"
+                                                              CheckedChanged="(val => OnAllowedCheckedChangedAsync(k.Id, val))"
+                                                              Disabled="self || _busy"
+                                                              Title="@(self ? "сам-на-себе — заборонено" : "Дозволити перехід")"
+                                                              ConfirmAsync="ConfirmAllowedAsync"
+                                                              SaveAsync="SaveAllowedAsync" />
                                         </td>
                                         <td>
                                             @k.Name
@@ -119,14 +138,20 @@
                         </table>
                     </div>
                 }
-            </div>        
+            </div>
         </div>
     </div>
 </div>
 
 
 <!-- Підтвердження зміни активності / формові сценарії -->
+
 <ConfirmModal @ref="Confirm" Title="Підтвердження" ConfirmText="Підтвердити" CancelText="Скасувати" />
 
-<!-- Створення статуса -->
+<!-- Створення статусу / формові сценарії -->
+
 <StatusCreateModal @ref="_createModal" OnCreated="OnCreatedAsync" />
+
+<!-- Підтвердження зміни порядку -->
+
+<StatusOrderEditModal @ref="_orderModal" OnSaved="OnOrderSaved" />

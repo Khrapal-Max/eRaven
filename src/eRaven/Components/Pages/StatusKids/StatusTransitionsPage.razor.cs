@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// StatusTransitions
+// StatusTransitions (code-behind)
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
@@ -17,21 +17,38 @@ namespace eRaven.Components.Pages.StatusKids;
 
 public partial class StatusTransitionsPage : ComponentBase
 {
+    // ---------------------------
+    // [DI] Сервіси
+    // ---------------------------
     [Inject] private IStatusKindService KindService { get; set; } = default!;
     [Inject] private IStatusTransitionService TransitionService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
 
+    // ---------------------------
+    // [State] Локальний стан сторінки
+    // ---------------------------
     private bool _busy;
     private List<StatusKind> _kinds = [];
     private int _selectedFromId;
     private string _currentFromName = "—";
     private string _currentFromCode = "—";
+
+    // Дозволені переходи для поточного From
     private HashSet<int> _allowedToIds = [];
+
+    // (Необов’язково) Для відладки/порівняння «до/після» — можна прибрати, якщо не потрібно
     private HashSet<int> _originalToIds = [];
 
+    // ---------------------------
+    // [Refs] Посилання на модальні вікна
+    // ---------------------------
     private ConfirmModal? Confirm;
     private StatusCreateModal? _createModal;
+    private StatusOrderEditModal? _orderModal;
 
+    // ---------------------------
+    // [Lifecycle] Ініціалізація
+    // ---------------------------
     protected override async Task OnInitializedAsync()
     {
         await LoadKindsAsync();
@@ -39,6 +56,9 @@ public partial class StatusTransitionsPage : ComponentBase
             await SelectFromAsync(_kinds[0].Id);
     }
 
+    // ---------------------------
+    // [Load] Завантаження списків
+    // ---------------------------
     private async Task LoadKindsAsync()
     {
         _kinds = [.. await KindService.GetAllAsync(includeInactive: true)];
@@ -69,7 +89,7 @@ public partial class StatusTransitionsPage : ComponentBase
         {
             var toIds = await TransitionService.GetToIdsAsync(fromId);
             _allowedToIds = toIds;
-            _allowedToIds.Remove(fromId); // self-loop заборонено
+            _allowedToIds.Remove(fromId); // сам-на-себе заборонено
             _originalToIds = [.. _allowedToIds];
         }
         finally
@@ -79,35 +99,37 @@ public partial class StatusTransitionsPage : ComponentBase
         }
     }
 
-    private void ToggleTo(int toId, bool on)
+    // =========================================================================
+    // [Commands - LEFT] Активність статусу (в лівій таблиці)
+    // Використовується TransitionToggle: ConfirmActiveAsync + SaveActiveAsync + OnActiveCheckedChangedAsync
+    // =========================================================================
+
+    /// <summary>
+    /// Підтвердження зміни активності статусу (ліва панель).
+    /// </summary>
+    private async Task<bool> ConfirmActiveAsync(int statusId, bool turnOn)
     {
-        if (_selectedFromId == 0 || toId == _selectedFromId) return;
-        if (on) _allowedToIds.Add(toId);
-        else _allowedToIds.Remove(toId);
+        var name = _kinds.FirstOrDefault(x => x.Id == statusId)?.Name ?? $"#{statusId}";
+        var text = $"Змінити активність «{name}» на {(turnOn ? "Активний" : "Неактивний")}?";
+        return await (Confirm?.ShowConfirmAsync(text) ?? Task.FromResult(true));
     }
 
-    private async Task ToggleActiveAsync(StatusKind k)
+    /// <summary>
+    /// Збереження активності статусу (ліва панель).
+    /// </summary>
+    private async Task SaveActiveAsync(int statusId, bool turnOn)
     {
         if (_busy) return;
-
-        var newValue = !k.IsActive;
-        if (Confirm is not null)
-        {
-            var ok = await Confirm.ShowConfirmAsync($"Змінити активність «{k.Name}» на {(newValue ? "Активний" : "Неактивний")}?");
-            if (!ok) return;
-        }
-
         _busy = true;
         try
         {
-            await KindService.SetActiveAsync(k.Id, newValue);
-            k.IsActive = newValue;
-            StateHasChanged();
+            await KindService.SetActiveAsync(statusId, turnOn);
             Toast.ShowSuccess("Статус оновлено.");
         }
         catch (Exception ex)
         {
             Toast.ShowError($"Помилка: {ex.Message}");
+            throw; // Щоб TransitionToggle не міняв локальний стан при помилці
         }
         finally
         {
@@ -115,61 +137,85 @@ public partial class StatusTransitionsPage : ComponentBase
         }
     }
 
-    private async Task ToggleToAsync(int toId, bool turnOn)
+    /// <summary>
+    /// Локальне оновлення прапорця активності після успішного збереження.
+    /// </summary>
+    private Task OnActiveCheckedChangedAsync(int statusId, bool newValue)
     {
-        if (_busy || _selectedFromId == 0 || toId == _selectedFromId)
+        var item = _kinds.FirstOrDefault(x => x.Id == statusId);
+        if (item is not null)
         {
-            // сам-на-себе, або зайнято — просто перемалюємо, щоб повернути візуальний стан
+            item.IsActive = newValue;
             StateHasChanged();
-            return;
         }
+        return Task.CompletedTask;
+    }
 
-        // Підготовка нового набору без мутації поточного
+    // =========================================================================
+    // [Commands - RIGHT] Дозволені переходи (права таблиця)
+    // Використовується TransitionToggle: ConfirmAllowedAsync + SaveAllowedAsync + OnAllowedCheckedChangedAsync
+    // =========================================================================
+
+    /// <summary>
+    /// Підтвердження зміни дозволу переходу (права панель).
+    /// </summary>
+    private async Task<bool> ConfirmAllowedAsync(int toId, bool turnOn)
+    {
+        var toName = _kinds.FirstOrDefault(x => x.Id == toId)?.Name ?? $"#{toId}";
+        var action = turnOn ? "ДОДАТИ перехід до" : "ЗАБОРОНИТИ перехід до";
+        return await (Confirm?.ShowConfirmAsync($"{action} «{toName}»?") ?? Task.FromResult(true));
+    }
+
+    /// <summary>
+    /// Збереження нового набору дозволених переходів (права панель).
+    /// </summary>
+    private async Task SaveAllowedAsync(int toId, bool turnOn)
+    {
+        if (_busy || _selectedFromId == 0 || toId == _selectedFromId) return;
+
+        // Готуємо новий набір на основі поточного стану
         var newAllowed = new HashSet<int>(_allowedToIds);
         if (turnOn) newAllowed.Add(toId);
         else newAllowed.Remove(toId);
 
-        // Якщо фактичної зміни немає — нічого не робимо
-        if (newAllowed.SetEquals(_allowedToIds))
-        {
-            StateHasChanged();
-            return;
-        }
+        // Якщо змін фактично немає — не звертаємось до бекенда
+        if (newAllowed.SetEquals(_allowedToIds)) return;
 
-        // Підтвердження
-        if (Confirm is not null)
-        {
-            var toName = _kinds.FirstOrDefault(x => x.Id == toId)?.Name ?? $"#{toId}";
-            var action = turnOn ? "ДОДАТИ перехід до" : "ЗАБОРОНИТИ перехід до";
-            var ok = await Confirm.ShowConfirmAsync($"{action} «{toName}»?");
-            if (!ok)
-            {
-                // користувач відмінив — повернути чекбокс назад
-                StateHasChanged();
-                return;
-            }
-        }
-
-        // Збереження
         _busy = true;
         try
         {
             await TransitionService.SaveAllowedAsync(_selectedFromId, newAllowed);
-            _allowedToIds = newAllowed;          // приймаємо новий стан
-            _originalToIds = new HashSet<int>(_allowedToIds); // синхронізуємо оригінал
+            _originalToIds = new HashSet<int>(newAllowed);
             Toast.ShowSuccess("Збережено.");
         }
         catch (Exception ex)
         {
-            // помилка — не змінюємо локальний стан
             Toast.ShowError($"Помилка збереження: {ex.Message}");
+            throw; // Щоб TransitionToggle не міняв локальний стан при помилці
         }
         finally
         {
             _busy = false;
-            StateHasChanged();
         }
     }
+
+    /// <summary>
+    /// Локальне оновлення набору _allowedToIds після успішного збереження.
+    /// </summary>
+    private Task OnAllowedCheckedChangedAsync(int toId, bool newValue)
+    {
+        if (_selectedFromId == 0 || toId == _selectedFromId) return Task.CompletedTask;
+
+        if (newValue) _allowedToIds.Add(toId);
+        else _allowedToIds.Remove(toId);
+
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    // =========================================================================
+    // [Commands - Create/Order] Створення статусу та редагування порядку
+    // =========================================================================
 
     private void OpenCreateModal() => _createModal?.Open();
 
@@ -178,5 +224,29 @@ public partial class StatusTransitionsPage : ComponentBase
         await LoadKindsAsync();
         await SelectFromAsync(created.Id);
         Toast.ShowSuccess("Статус створено.");
+    }
+
+    private void OpenEditOrderModal(StatusKind k)
+    {
+        if (_busy) return;
+        _orderModal?.Open(k.Id, k.Name, k.Order);
+    }
+
+    private void OnOrderSaved((int Id, int NewOrder) payload)
+    {
+        var (id, newOrder) = payload;
+
+        var item = _kinds.FirstOrDefault(x => x.Id == id);
+        if (item is null) return;
+
+        item.Order = newOrder;
+
+        _kinds = _kinds
+            .OrderBy(x => x.Order)
+            .ThenBy(x => x.Name, StringComparer.Ordinal)
+            .ToList();
+
+        StateHasChanged();
+        Toast.ShowSuccess("Порядок оновлено.");
     }
 }

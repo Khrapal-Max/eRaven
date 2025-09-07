@@ -3,6 +3,7 @@
 @using eRaven.Application.ViewModels.PositionPagesViewModels
 @using eRaven.Components.Pages.Positions.Modals
 @using eRaven.Domain.Models;
+@using eRaven.Components.Shared            @* для TransitionToggle *@
 
 <div class="container-fluid py-2 d-flex flex-column" style="gap:.5rem; min-height:70vh;">
     <!-- Toolbar -->
@@ -67,12 +68,16 @@
                     <td>@item.FullName</td>
                     <td class="text-center">@item.CurrentPersonFullName</td>
                     <td class="text-center">
-                        <!-- Не міняємо одразу, лише після підтвердження -->
-                        <input type="checkbox"
-                               class="form-check-input"
-                               checked="@item.IsActived"
-                               disabled="@Busy"
-                               @onclick="(() => ToggleActiveAsync(item))" />
+                        <!-- Керований чекбокс через TransitionToggle -->
+                        <TransitionToggle FromId="item.Id"
+                                          ToId="item.Id"
+                                          ToName="item.ShortName"
+                                          Checked="item.IsActived"
+                                          CheckedChanged="(val => OnPositionActiveCheckedChangedAsync(item.Id, val))"
+                                          Disabled="Busy"
+                                          Title="@(item.IsActived ? "Зробити ЗАКРИТА" : "Зробити ШТАТНА")"
+                                          ConfirmAsync="ConfirmPositionActiveAsync"
+                                          SaveAsync="SavePositionActiveAsync" />
                     </td>
                 </RowTemplate>
             </TableBaseComponent>
@@ -91,7 +96,6 @@
 <ConfirmModal @ref="Confirm" Title="Підтвердження" ConfirmText="Підтвердити" CancelText="Скасувати" />
 
 <!-- Створення посади -->
-
 <PositionCreateModal @ref="_createModal"
                      OnClose="@(async _ => await Task.CompletedTask)"
                      OnCreated="OnCreatedAsync" />
