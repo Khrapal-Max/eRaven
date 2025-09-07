@@ -8,9 +8,13 @@
 using Blazored.Toast;
 using eRaven.Application.ExcelService;
 using eRaven.Application.Services.PositionService;
+using eRaven.Application.Services.StatusKindService;
+using eRaven.Application.Services.StatusTransitionService;
 using eRaven.Application.ViewModels.PositionPagesViewModels;
+using eRaven.Application.ViewModels.StatusKindViewModels;
 using eRaven.Components;
 using eRaven.Components.Pages.Positions.Modals;
+using eRaven.Components.Pages.StatusKids.Modals;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
 using FluentValidation;
@@ -27,11 +31,15 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddBlazoredToast();
+
 builder.Services.AddTransient<IValidator<CreatePositionUnitViewModel>, CreatePositionUnitViewModelValidator>();
+builder.Services.AddTransient<IValidator<CreateKindViewModel>, CreateKindViewModelValidator>();
 
 //Services
 builder.Services.AddScoped<IExcelService, ExcelService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
+builder.Services.AddScoped<IStatusKindService, StatusKindService>();
+builder.Services.AddScoped<IStatusTransitionService, StatusTransitionService>();
 
 var app = builder.Build();
 
