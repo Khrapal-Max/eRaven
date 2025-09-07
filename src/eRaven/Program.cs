@@ -8,9 +8,12 @@
 using Blazored.Toast;
 using eRaven.Application.ExcelService;
 using eRaven.Application.Services.PositionService;
+using eRaven.Application.ViewModels.PositionPagesViewModels;
 using eRaven.Components;
+using eRaven.Components.Pages.Positions.Modals;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +27,7 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddBlazoredToast();
+builder.Services.AddTransient<IValidator<CreatePositionUnitViewModel>, CreatePositionUnitViewModelValidator>();
 
 //Services
 builder.Services.AddScoped<IExcelService, ExcelService>();

@@ -56,22 +56,23 @@
                     <th class="text-black" scope="col">Коротка назва</th>
                     <th class="text-black" scope="col">ВОС</th>
                     <th class="text-black" scope="col">Повна назва</th>
-                    <th class="text-black" scope="col">Закріплено</th>
+                    <th class="text-black" scope="col">Стан</th>
                     <th class="text-black" scope="col">Активна</th>
                 </TableHeader>
 
                 <RowTemplate Context="item">
                     <td>@item.Code</td>
                     <td>@item.ShortName</td>
-                    <td>@item.SpecialNumber</td>
+                    <td class="text-center">@item.SpecialNumber</td>
                     <td>@item.FullName</td>
-                    <td class="text-center">@(item.CurrentPersonFullName ?? "-")</td>
+                    <td class="text-center">@item.CurrentPersonFullName</td>
                     <td class="text-center">
                         <!-- Не міняємо одразу, лише після підтвердження -->
                         <input type="checkbox"
                                class="form-check-input"
                                checked="@item.IsActived"
-                               @onclick="(() => AskToggleAsync(item))" />
+                               disabled="@Busy"
+                               @onclick="(() => ToggleActiveAsync(item))" />
                     </td>
                 </RowTemplate>
             </TableBaseComponent>
