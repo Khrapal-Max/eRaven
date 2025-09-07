@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// StatusTransitions (code-behind)
+// StatusTransitions (code-behind) — cleaned & grouped
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
@@ -17,18 +17,20 @@ namespace eRaven.Components.Pages.StatusKids;
 
 public partial class StatusTransitionsPage : ComponentBase
 {
-    // ---------------------------
-    // [DI] Сервіси
-    // ---------------------------
+    //=====================================================================
+    // [DI]
+    //=====================================================================
     [Inject] private IStatusKindService KindService { get; set; } = default!;
     [Inject] private IStatusTransitionService TransitionService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
 
-    // ---------------------------
-    // [State] Локальний стан сторінки
-    // ---------------------------
+    //=====================================================================
+    // [State] — сторінковий стан та кеш
+    //=====================================================================
     private bool _busy;
     private List<StatusKind> _kinds = [];
+    private Dictionary<int, StatusKind> _kindsById = [];  // 🔹 швидкі пошуки по Id
+
     private int _selectedFromId;
     private string _currentFromName = "—";
     private string _currentFromCode = "—";
@@ -36,19 +38,16 @@ public partial class StatusTransitionsPage : ComponentBase
     // Дозволені переходи для поточного From
     private HashSet<int> _allowedToIds = [];
 
-    // (Необов’язково) Для відладки/порівняння «до/після» — можна прибрати, якщо не потрібно
-    private HashSet<int> _originalToIds = [];
-
-    // ---------------------------
-    // [Refs] Посилання на модальні вікна
-    // ---------------------------
+    //=====================================================================
+    // [Refs] — модалки
+    //=====================================================================
     private ConfirmModal? Confirm;
     private StatusCreateModal? _createModal;
     private StatusOrderEditModal? _orderModal;
 
-    // ---------------------------
-    // [Lifecycle] Ініціалізація
-    // ---------------------------
+    //=====================================================================
+    // [Lifecycle]
+    //=====================================================================
     protected override async Task OnInitializedAsync()
     {
         await LoadKindsAsync();
@@ -56,12 +55,13 @@ public partial class StatusTransitionsPage : ComponentBase
             await SelectFromAsync(_kinds[0].Id);
     }
 
-    // ---------------------------
-    // [Load] Завантаження списків
-    // ---------------------------
+    //=====================================================================
+    // [Load] — завантаження та вибір "From"
+    //=====================================================================
     private async Task LoadKindsAsync()
     {
         _kinds = [.. await KindService.GetAllAsync(includeInactive: true)];
+        _kindsById = _kinds.ToDictionary(k => k.Id);  // 🔹 оновлюємо кеш
     }
 
     private async Task SelectFromAsync(int fromId)
@@ -70,13 +70,11 @@ public partial class StatusTransitionsPage : ComponentBase
 
         _selectedFromId = fromId;
 
-        var from = _kinds.FirstOrDefault(k => k.Id == fromId);
-        if (from is null)
+        if (!_kindsById.TryGetValue(fromId, out var from))
         {
             _currentFromName = "—";
             _currentFromCode = "—";
             _allowedToIds.Clear();
-            _originalToIds.Clear();
             StateHasChanged();
             return;
         }
@@ -84,66 +82,38 @@ public partial class StatusTransitionsPage : ComponentBase
         _currentFromName = from.Name;
         _currentFromCode = from.Code;
 
-        _busy = true;
-        try
+        await WithBusyAsync(async () =>
         {
             var toIds = await TransitionService.GetToIdsAsync(fromId);
             _allowedToIds = toIds;
-            _allowedToIds.Remove(fromId); // сам-на-себе заборонено
-            _originalToIds = [.. _allowedToIds];
-        }
-        finally
-        {
-            _busy = false;
-            StateHasChanged();
-        }
+            _allowedToIds.Remove(fromId); // 🔸 сам-на-себе заборонено
+        });
     }
 
-    // =========================================================================
-    // [Commands - LEFT] Активність статусу (в лівій таблиці)
-    // Використовується TransitionToggle: ConfirmActiveAsync + SaveActiveAsync + OnActiveCheckedChangedAsync
-    // =========================================================================
-
-    /// <summary>
-    /// Підтвердження зміни активності статусу (ліва панель).
-    /// </summary>
+    //=====================================================================
+    // [LEFT] — Активність статусу
+    //=====================================================================
     private async Task<bool> ConfirmActiveAsync(int statusId, bool turnOn)
     {
-        var name = _kinds.FirstOrDefault(x => x.Id == statusId)?.Name ?? $"#{statusId}";
+        var name = GetKindName(statusId);
         var text = $"Змінити активність «{name}» на {(turnOn ? "Активний" : "Неактивний")}?";
         return await (Confirm?.ShowConfirmAsync(text) ?? Task.FromResult(true));
     }
 
-    /// <summary>
-    /// Збереження активності статусу (ліва панель).
-    /// </summary>
     private async Task SaveActiveAsync(int statusId, bool turnOn)
     {
         if (_busy) return;
-        _busy = true;
-        try
+
+        await WithBusyAsync(async () =>
         {
             await KindService.SetActiveAsync(statusId, turnOn);
             Toast.ShowSuccess("Статус оновлено.");
-        }
-        catch (Exception ex)
-        {
-            Toast.ShowError($"Помилка: {ex.Message}");
-            throw; // Щоб TransitionToggle не міняв локальний стан при помилці
-        }
-        finally
-        {
-            _busy = false;
-        }
+        });
     }
 
-    /// <summary>
-    /// Локальне оновлення прапорця активності після успішного збереження.
-    /// </summary>
     private Task OnActiveCheckedChangedAsync(int statusId, bool newValue)
     {
-        var item = _kinds.FirstOrDefault(x => x.Id == statusId);
-        if (item is not null)
+        if (_kindsById.TryGetValue(statusId, out var item))
         {
             item.IsActive = newValue;
             StateHasChanged();
@@ -151,57 +121,30 @@ public partial class StatusTransitionsPage : ComponentBase
         return Task.CompletedTask;
     }
 
-    // =========================================================================
-    // [Commands - RIGHT] Дозволені переходи (права таблиця)
-    // Використовується TransitionToggle: ConfirmAllowedAsync + SaveAllowedAsync + OnAllowedCheckedChangedAsync
-    // =========================================================================
-
-    /// <summary>
-    /// Підтвердження зміни дозволу переходу (права панель).
-    /// </summary>
+    //=====================================================================
+    // [RIGHT] — Дозволені переходи
+    //=====================================================================
     private async Task<bool> ConfirmAllowedAsync(int toId, bool turnOn)
     {
-        var toName = _kinds.FirstOrDefault(x => x.Id == toId)?.Name ?? $"#{toId}";
+        var toName = GetKindName(toId);
         var action = turnOn ? "ДОДАТИ перехід до" : "ЗАБОРОНИТИ перехід до";
         return await (Confirm?.ShowConfirmAsync($"{action} «{toName}»?") ?? Task.FromResult(true));
     }
 
-    /// <summary>
-    /// Збереження нового набору дозволених переходів (права панель).
-    /// </summary>
     private async Task SaveAllowedAsync(int toId, bool turnOn)
     {
         if (_busy || _selectedFromId == 0 || toId == _selectedFromId) return;
 
-        // Готуємо новий набір на основі поточного стану
-        var newAllowed = new HashSet<int>(_allowedToIds);
-        if (turnOn) newAllowed.Add(toId);
-        else newAllowed.Remove(toId);
+        var (changed, newAllowed) = BuildNewAllowedSet(_allowedToIds, toId, turnOn);
+        if (!changed) return;
 
-        // Якщо змін фактично немає — не звертаємось до бекенда
-        if (newAllowed.SetEquals(_allowedToIds)) return;
-
-        _busy = true;
-        try
+        await WithBusyAsync(async () =>
         {
             await TransitionService.SaveAllowedAsync(_selectedFromId, newAllowed);
-            _originalToIds = new HashSet<int>(newAllowed);
             Toast.ShowSuccess("Збережено.");
-        }
-        catch (Exception ex)
-        {
-            Toast.ShowError($"Помилка збереження: {ex.Message}");
-            throw; // Щоб TransitionToggle не міняв локальний стан при помилці
-        }
-        finally
-        {
-            _busy = false;
-        }
+        });
     }
 
-    /// <summary>
-    /// Локальне оновлення набору _allowedToIds після успішного збереження.
-    /// </summary>
     private Task OnAllowedCheckedChangedAsync(int toId, bool newValue)
     {
         if (_selectedFromId == 0 || toId == _selectedFromId) return Task.CompletedTask;
@@ -213,10 +156,9 @@ public partial class StatusTransitionsPage : ComponentBase
         return Task.CompletedTask;
     }
 
-    // =========================================================================
-    // [Commands - Create/Order] Створення статусу та редагування порядку
-    // =========================================================================
-
+    //=====================================================================
+    // [Create/Order] — модалки створення та редагування порядку
+    //=====================================================================
     private void OpenCreateModal() => _createModal?.Open();
 
     private async Task OnCreatedAsync(StatusKind created)
@@ -236,17 +178,51 @@ public partial class StatusTransitionsPage : ComponentBase
     {
         var (id, newOrder) = payload;
 
-        var item = _kinds.FirstOrDefault(x => x.Id == id);
-        if (item is null) return;
+        if (_kindsById.TryGetValue(id, out var item))
+        {
+            item.Order = newOrder;
+        }
 
-        item.Order = newOrder;
-
+        // Перевпорядкування (Order, Name)
         _kinds = _kinds
             .OrderBy(x => x.Order)
             .ThenBy(x => x.Name, StringComparer.Ordinal)
             .ToList();
 
+        _kindsById = _kinds.ToDictionary(k => k.Id); // 🔹 тримаємо кеш у синхроні
+
         StateHasChanged();
         Toast.ShowSuccess("Порядок оновлено.");
+    }
+
+    //=====================================================================
+    // [Helpers] — локальні утиліти для чистого коду
+    //=====================================================================
+
+    /// <summary>Уніфікований шаблон busy-виконання з безпечною зміною стану.</summary>
+    private async Task WithBusyAsync(Func<Task> action)
+    {
+        _busy = true;
+        try { await action(); }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>Ім'я статусу за Id (fallback: #id).</summary>
+    private string GetKindName(int id)
+        => _kindsById.TryGetValue(id, out var k) ? k.Name : $"#{id}";
+
+    /// <summary>Побудувати новий набір дозволів, повернути «чи є зміна» та сам набір.</summary>
+    private static (bool changed, HashSet<int> newAllowed) BuildNewAllowedSet(HashSet<int> current, int toId, bool turnOn)
+    {
+        var newAllowed = new HashSet<int>(current);
+        if (turnOn) newAllowed.Add(toId);
+        else newAllowed.Remove(toId);
+
+        var changed = !newAllowed.SetEquals(current);
+        return (changed, newAllowed);
     }
 }
