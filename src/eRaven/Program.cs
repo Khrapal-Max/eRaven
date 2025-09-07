@@ -7,6 +7,7 @@
 
 using Blazored.Toast;
 using eRaven.Application.ExcelService;
+using eRaven.Application.Services.ConfirmService;
 using eRaven.Application.Services.PositionService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.Services.StatusTransitionService;
@@ -36,6 +37,7 @@ builder.Services.AddTransient<IValidator<CreatePositionUnitViewModel>, CreatePos
 builder.Services.AddTransient<IValidator<CreateKindViewModel>, CreateKindViewModelValidator>();
 
 //Services
+builder.Services.AddScoped<IConfirmService, ConfirmService>();
 builder.Services.AddScoped<IExcelService, ExcelService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
 builder.Services.AddScoped<IStatusKindService, StatusKindService>();

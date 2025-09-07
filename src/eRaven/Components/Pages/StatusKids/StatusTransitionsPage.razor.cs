@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
+using eRaven.Application.Services.ConfirmService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.Services.StatusTransitionService;
 using eRaven.Components.Pages.StatusKids.Modals;
@@ -20,9 +21,10 @@ public partial class StatusTransitionsPage : ComponentBase
     //=====================================================================
     // [DI]
     //=====================================================================
+    [Inject] private IConfirmService ConfirmService { get; set; } = default!;
     [Inject] private IStatusKindService KindService { get; set; } = default!;
     [Inject] private IStatusTransitionService TransitionService { get; set; } = default!;
-    [Inject] private IToastService Toast { get; set; } = default!;
+    [Inject] private IToastService ToastService { get; set; } = default!;
 
     //=====================================================================
     // [State] — сторінковий стан та кеш
@@ -95,9 +97,9 @@ public partial class StatusTransitionsPage : ComponentBase
     //=====================================================================
     private async Task<bool> ConfirmActiveAsync(int statusId, bool turnOn)
     {
-        var name = GetKindName(statusId);
+        var name = _kinds.FirstOrDefault(x => x.Id == statusId)?.Name ?? $"#{statusId}";
         var text = $"Змінити активність «{name}» на {(turnOn ? "Активний" : "Неактивний")}?";
-        return await (Confirm?.ShowConfirmAsync(text) ?? Task.FromResult(true));
+        return await ConfirmService.AskAsync(text);
     }
 
     private async Task SaveActiveAsync(int statusId, bool turnOn)
@@ -107,7 +109,7 @@ public partial class StatusTransitionsPage : ComponentBase
         await WithBusyAsync(async () =>
         {
             await KindService.SetActiveAsync(statusId, turnOn);
-            Toast.ShowSuccess("Статус оновлено.");
+            ToastService.ShowSuccess("Статус оновлено.");
         });
     }
 
@@ -126,9 +128,9 @@ public partial class StatusTransitionsPage : ComponentBase
     //=====================================================================
     private async Task<bool> ConfirmAllowedAsync(int toId, bool turnOn)
     {
-        var toName = GetKindName(toId);
+        var toName = _kinds.FirstOrDefault(x => x.Id == toId)?.Name ?? $"#{toId}";
         var action = turnOn ? "ДОДАТИ перехід до" : "ЗАБОРОНИТИ перехід до";
-        return await (Confirm?.ShowConfirmAsync($"{action} «{toName}»?") ?? Task.FromResult(true));
+        return await ConfirmService.AskAsync($"{action} «{toName}»?");
     }
 
     private async Task SaveAllowedAsync(int toId, bool turnOn)
@@ -141,7 +143,7 @@ public partial class StatusTransitionsPage : ComponentBase
         await WithBusyAsync(async () =>
         {
             await TransitionService.SaveAllowedAsync(_selectedFromId, newAllowed);
-            Toast.ShowSuccess("Збережено.");
+            ToastService.ShowSuccess("Збережено.");
         });
     }
 
@@ -165,7 +167,7 @@ public partial class StatusTransitionsPage : ComponentBase
     {
         await LoadKindsAsync();
         await SelectFromAsync(created.Id);
-        Toast.ShowSuccess("Статус створено.");
+        ToastService.ShowSuccess("Статус створено.");
     }
 
     private void OpenEditOrderModal(StatusKind k)
@@ -192,7 +194,7 @@ public partial class StatusTransitionsPage : ComponentBase
         _kindsById = _kinds.ToDictionary(k => k.Id); // 🔹 тримаємо кеш у синхроні
 
         StateHasChanged();
-        Toast.ShowSuccess("Порядок оновлено.");
+        ToastService.ShowSuccess("Порядок оновлено.");
     }
 
     //=====================================================================
