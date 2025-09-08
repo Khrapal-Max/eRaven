@@ -80,6 +80,7 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
 
     protected Task ClearAsync()
     {
+        Search = string.Empty;
         ResetItems([]);
         // пошук не стираю, щоб користувач міг відредагувати рядок і натиснути "Знайти" знову
         return Task.CompletedTask;
