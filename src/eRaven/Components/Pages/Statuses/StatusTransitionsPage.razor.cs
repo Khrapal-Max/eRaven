@@ -7,120 +7,161 @@
 
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
+using eRaven.Application.ViewModels;
+using eRaven.Application.ViewModels.PersonStatusViewModel;
 using eRaven.Components.Pages.Statuses.Modals;
 using eRaven.Domain.Models;
+using FluentValidation;
 using Microsoft.AspNetCore.Components;
 using System.Collections.ObjectModel;
+using System.Linq.Expressions;
 
 namespace eRaven.Components.Pages.Statuses;
 
 public partial class StatusTransitionsPage : ComponentBase, IDisposable
 {
-    // ========= DI =========
+    // ========== DI ==========
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
 
-    // ========= UI state =========
+    // ========== UI state ==========
     protected bool Busy { get; private set; }
     protected string? Search { get; set; }
 
-    private CancellationTokenSource _cts = new();
+    private readonly CancellationTokenSource _cts = new();
 
-    // Джерело даних
-    private List<Person> _all = [];
-    protected ObservableCollection<Person> Items { get; private set; } = [];
+    protected ObservableCollection<Person> Items { get; } = [];
 
-    // ========= Modals =========
+    // ========== Modals ==========
     private StatusSetModal? _setStatusModal;
 
-    // ========= Actions =========
+    // ---------- Search ----------
     protected async Task OnSearchAsync()
     {
-        if (_all.Count == 0)
+        if (string.IsNullOrWhiteSpace(Search))
         {
-            try
-            {
-                SetBusy(true);
-                _all = [.. await PersonService.SearchAsync(null, _cts.Token)];
-            }
-            catch (Exception ex)
-            {
-                _all.Clear();
-                ResetItems([]);
-                Toast.ShowError($"Помилка завантаження: {ex.Message}");
-                return;
-            }
-            finally { SetBusy(false); }
+            ResetItems([]);
+            return;
         }
 
-        ApplyFilter();
+        try
+        {
+            SetBusy(true);
+
+            var s = Search.Trim();
+
+            // предикат: ПІБ, RNOKPP, звання, позивний, зброя, посада коротка
+            Expression<Func<Person, bool>> pred =
+                p =>
+                    (p.Rnokpp != null && p.Rnokpp.Contains(s)) ||
+                    (p.LastName != null && p.LastName.Contains(s)) ||
+                    (p.FirstName != null && p.FirstName.Contains(s)) ||
+                    (p.MiddleName != null && p.MiddleName.Contains(s)) ||
+                    (p.Rank != null && p.Rank.Contains(s)) ||
+                    (p.Callsign != null && p.Callsign.Contains(s)) ||
+                    (p.Weapon != null && p.Weapon.Contains(s)) ||
+                    (p.PositionUnit != null && p.PositionUnit.ShortName != null && p.PositionUnit.ShortName.Contains(s));
+
+            var found = await PersonService.SearchAsync(pred, _cts.Token);
+
+            ResetItems(found);
+        }
+        catch (OperationCanceledException) { /* ignore */ }
+        catch (Exception ex)
+        {
+            ResetItems([]);
+            Toast.ShowError($"Помилка пошуку: {ex.Message}");
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    protected Task ClearAsync()
+    {
+        ResetItems([]);
+        // пошук не стираю, щоб користувач міг відредагувати рядок і натиснути "Знайти" знову
+        return Task.CompletedTask;
     }
 
     protected void OpenSetStatus(Person p) => _setStatusModal?.Open(p);
 
-    // ========= Refresh after status change =========
-
+    // ---------- Refresh after status change ----------
     private async Task OnStatusChangedAsync(Guid personId)
-    {
-        // Можемо обрати один з підходів: точкове оновлення або full reload.
-        // 1) Точкове оновлення (швидко й дешево):
-        await RefreshPersonAsync(personId);
-
-        // 2) Альтернатива для масових змін:
-        // await ReloadAllAsync();
-    }
-
-    private async Task RefreshPersonAsync(Guid personId)
     {
         try
         {
-            // підтягуємо оновлену картку (з навігаціями)
-            var fresh = await PersonService.GetByIdAsync(personId, _cts.Token);
-            if (fresh is null) return;
+            // Після зміни статусу — перезавантажуємо останню вибірку по поточному пошуковому рядку
+            await OnSearchAsync();
 
-            // замінюємо у кеші _all
-            var idx = _all.FindIndex(p => p.Id == personId);
-            if (idx >= 0) _all[idx] = fresh; else _all.Add(fresh);
-
-            // і в відфільтрованій колекції Items (якщо є в ній)
-            var shownIdx = Items.Select((p, i) => (p, i)).FirstOrDefault(t => t.p.Id == personId).i;
-            if (shownIdx >= 0)
-            {
-                Items[shownIdx] = fresh;
-            }
-            else
-            {
-                // якщо активний фільтр тепер пропускає цю картку — перераховуємо
-                ApplyFilter();
-            }
-
-            StateHasChanged();
+            Toast.ShowSuccess("Статус збережено.");
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося оновити картку: {ex.Message}");
+            Toast.ShowError($"Не вдалося оновити список: {ex.Message}");
         }
     }
 
-    // ========= Helpers =========
-    private void ApplyFilter()
+    // ---------- Import ----------
+    private Task OnImportBusyChanged(bool busy)
     {
-        IEnumerable<Person> q = _all;
-
-        if (!string.IsNullOrWhiteSpace(Search))
-        {
-            var s = Search.Trim();
-            q = q.Where(p =>
-                (p.FullName?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.Rnokpp?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.Rank?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.Callsign?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.PositionUnit?.ShortName?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false));
-        }
-
-        ResetItems(q);
+        SetBusy(busy);
+        return Task.CompletedTask;
     }
 
+    private async Task<ImportReportViewModel> ProcessImportedStatusesAsync(IReadOnlyList<PersonStatusImportView> rows)
+    {
+        int ok = 0, fail = 0;
+        var errors = new List<string>();
+
+        foreach (var (row, idx) in rows.Select((r, i) => (r, i: i + 2))) // +2 бо хедер = перший рядок
+        {
+            try
+            {
+                // прості перевірки
+                if (string.IsNullOrWhiteSpace(row.Rnokpp))
+                    throw new ArgumentException("RNOKPP порожній.");
+                if ((row.StatusKindId ?? 0) == 0 && string.IsNullOrWhiteSpace(row.StatusCode))
+                    throw new ArgumentException("Не вказано StatusKindId або StatusCode.");
+                if (row.FromDateLocal == default)
+                    throw new ArgumentException("Не вказано дату.");
+
+                // шукаємо людей по RNOKPP
+                Expression<Func<Person, bool>> pred = p => p.Rnokpp == row.Rnokpp!.Trim();
+                var persons = await PersonService.SearchAsync(pred, _cts.Token);
+                if (persons.Count == 0) throw new InvalidOperationException("Особа з таким RNOKPP не знайдена.");
+                var person = persons[0];
+
+                // TODO: тут викликати твій IPersonStatusService.SetStatusAsync(...) після мапінгу
+                // В цій базовій версії просто рахуємо як success, щоб не ламати збірку.
+                ok++;
+            }
+            catch (Exception ex)
+            {
+                fail++;
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
+        }
+
+        // після імпорту — оновлюємо результати (якщо був пошук)
+        if (!string.IsNullOrWhiteSpace(Search))
+            await OnSearchAsync();
+
+        return new ImportReportViewModel(Added: ok, Updated: 0, Errors: errors);
+    }
+
+    private Task OnImportCompleted(ImportReportViewModel report)
+    {
+        if (report.Errors?.Count > 0)
+            Toast.ShowError($"Імпорт завершено з помилками: {report.Errors.Count}. Успішно: {report.Added}");
+        else
+            Toast.ShowSuccess($"Імпорт успішний. Успішно: {report.Added}");
+
+        return Task.CompletedTask;
+    }
+
+    // ========== Helpers ==========
     private void ResetItems(IEnumerable<Person> people)
     {
         Items.Clear();

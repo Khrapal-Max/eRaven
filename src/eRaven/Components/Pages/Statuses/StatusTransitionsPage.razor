@@ -2,16 +2,43 @@
 
 @using eRaven.Domain.Models
 @using eRaven.Components.Pages.Statuses.Modals
+@using eRaven.Components.Shared.ExcelImport
+@using eRaven.Application.ViewModels
 
 <div class="container-fluid py-2 d-flex flex-column" style="gap:.5rem; min-height:70vh;">
+
     <!-- ===== Toolbar: пошук ===== -->
     <div class="d-flex align-items-center gap-2 p-2 flex-wrap w-100">
         <div class="flex-grow-1" style="min-width:260px; max-width:600px;">
             <SearchBox @bind-Value="Search"
-                       Delay="350"
-                       Placeholder="Пошук: ПІБ / РНОКПП / звання / позивний"
-                       Disabled="@Busy"
+                       Delay="0"
+                       Placeholder="Пошук: ПІБ / РНОКПП / звання / позивний / посада"
+                       Disabled="false"
                        OnSearch="OnSearchAsync" />
+        </div>
+
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <button class="btn btn-sm btn-primary"
+                    title="Знайти"
+                    disabled="@string.IsNullOrWhiteSpace(Search) || Busy"
+                    @onclick="OnSearchAsync">
+                <i class="bi bi-search"></i> Знайти
+            </button>
+
+            <button class="btn btn-sm btn-outline-secondary"
+                    title="Скинути"
+                    disabled="@Busy"
+                    @onclick="ClearAsync">
+                <i class="bi bi-x-circle"></i> Очистити
+            </button>
+
+            <!-- Імпорт статусів -->
+            <ExcelImport TItem="PersonStatusImportRow"
+                         StopOnParseErrors="true"
+                         MaxSizeMb="5"
+                         OnBusyChanged="OnImportBusyChanged"
+                         ProcessAsync="ProcessImportedStatusesAsync"
+                         OnCompleted="OnImportCompleted" />
         </div>
     </div>
 

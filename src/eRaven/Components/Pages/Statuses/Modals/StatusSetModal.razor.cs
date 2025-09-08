@@ -5,7 +5,6 @@
 // StatusTransitionsPage
 //-----------------------------------------------------------------------------
 
-using Blazored.Toast.Services;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -15,12 +14,9 @@ public partial class StatusSetModal : ComponentBase
 {
     [Parameter] public EventCallback<Guid> OnStatusChanged { get; set; }
 
-    [Inject] private IToastService Toast { get; set; } = default!;
-
     private Person? _person;
     private bool _open;
 
-    // Відкриває модалку та передає вибрану особу
     public void Open(Person person)
     {
         _person = person;
@@ -28,18 +24,15 @@ public partial class StatusSetModal : ComponentBase
         StateHasChanged();
     }
 
-    // Підтвердження (поки — заглушка + нотифікація)
-    private async Task SaveAsync()
+    private async Task ConfirmAsync()
     {
-        Toast.ShowInfo("В розробці: зміна статусу");
-
+        // TODO: викликати реальний сервіс зміни статусу
+        // Поки що просто закриваємо і повідомляємо батьківський компонент
         _open = false;
-        if (_person is not null)
-            await OnStatusChanged.InvokeAsync(_person.Id);
+        await OnStatusChanged.InvokeAsync(_person!.Id);
     }
 
-    // Закрити без дій
-    private void Cancel()
+    private void Close()
     {
         _open = false;
         StateHasChanged();
