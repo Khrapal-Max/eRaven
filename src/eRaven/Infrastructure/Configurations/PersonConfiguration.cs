@@ -32,7 +32,8 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
 
         e.Property(x => x.Rank)
          .HasColumnName("rank")
-         .HasMaxLength(64);
+         .HasMaxLength(64)
+         .IsRequired();
 
         e.Property(x => x.LastName)
          .HasColumnName("last_name")
@@ -50,7 +51,8 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
 
         e.Property(x => x.BZVP)
          .HasColumnName("bzvp")
-         .HasMaxLength(50);
+         .HasMaxLength(50)
+         .IsRequired();
 
         e.Property(x => x.Weapon)
          .HasColumnName("weapon")
@@ -68,12 +70,12 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
          .HasDefaultValue(1); // дефолт = "В районі"
 
         e.Property(x => x.IsAttached)
-            .HasColumnName("is_attached")
-            .HasDefaultValue(false);
+         .HasColumnName("is_attached")
+         .HasDefaultValue(false);
 
         e.Property(x => x.AttachedFromUnit)
-            .HasColumnName("attached_from_unit")
-            .HasMaxLength(256);
+         .HasColumnName("attached_from_unit")
+         .HasMaxLength(256);
 
         e.Property(x => x.CreatedUtc)
          .HasColumnName("created_utc")

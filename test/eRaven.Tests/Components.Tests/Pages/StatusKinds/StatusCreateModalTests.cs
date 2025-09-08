@@ -194,7 +194,7 @@ public class StatusCreateModalTests : TestContext
         await OpenAsync(cut);
 
         // кнопка «Скасувати» у футері — друга кнопка
-        await cut.InvokeAsync(() => cut.Find("button.btn.btn-secondary.btn-sm").Click());
+        await cut.InvokeAsync(() => cut.Find("button.btn.btn-warning.btn-sm").Click());
 
         cut.WaitForAssertion(() =>
         {

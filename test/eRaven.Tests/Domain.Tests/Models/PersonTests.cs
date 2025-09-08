@@ -117,10 +117,10 @@ public class PersonTests
         Assert.Equal(string.Empty, p.Rnokpp);
         Assert.Equal(string.Empty, p.LastName);
         Assert.Equal(string.Empty, p.FirstName);
+        Assert.Equal(string.Empty, p.BZVP);
 
         // nullable — null
         Assert.Null(p.MiddleName);
-        Assert.Null(p.BZVP);
         Assert.Null(p.Weapon);
         Assert.Null(p.Callsign);
         Assert.Null(p.PositionUnitId);

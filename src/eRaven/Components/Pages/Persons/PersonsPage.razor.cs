@@ -7,6 +7,7 @@
 
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
+using eRaven.Components.Pages.Persons.Modals;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 using System.Collections.ObjectModel;
@@ -25,6 +26,10 @@ public partial class PersonsPage : ComponentBase, IDisposable
     protected Person? Selected { get; set; }
 
     private readonly CancellationTokenSource _cts = new();
+
+    // =============== Modals ===============
+
+    private PersonCreateModal? _createModal;
 
     // Джерело даних
     private List<Person> _all = [];
@@ -59,8 +64,14 @@ public partial class PersonsPage : ComponentBase, IDisposable
 
     protected Task CreateAsync()
     {
-        Toast.ShowInfo("На реалізації"); // відкриємо модал пізніше
+        _createModal?.Open();
         return Task.CompletedTask;
+    }
+
+    private async Task OnCreatedAsync(Person created)
+    {
+        // Після створення — або повне перезавантаження, або локальне додавання
+        await ReloadAsync(); // якщо вже є метод як у Посадах
     }
 
     protected Task ExportAsync()

@@ -1,5 +1,6 @@
 ﻿@page "/persons"
 
+@using eRaven.Components.Pages.Persons.Modals
 @using eRaven.Domain.Models
 
 <div class="container-fluid py-2 d-flex flex-column" style="gap:.5rem; min-height:70vh;">
@@ -72,3 +73,7 @@
         <div class="h5">Список карток порожній.</div>
     }
 </div>
+
+<PersonCreateModal @ref="_createModal"
+                   OnClose="@(async _ => await Task.CompletedTask)"
+                   OnCreated="OnCreatedAsync" />

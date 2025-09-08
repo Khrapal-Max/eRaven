@@ -22,7 +22,7 @@ public class Person
     /// <summary>
     /// Звання
     /// </summary>
-    public string? Rank { get; set; }
+    public string Rank { get; set; } = string.Empty;
 
     /// <summary>
     /// Прізвище
@@ -42,7 +42,7 @@ public class Person
     /// <summary>
     /// Наявність юазовго навчанян
     /// </summary>
-    public string? BZVP { get; set; }
+    public string BZVP { get; set; } = string.Empty;
 
     /// <summary>
     /// Тип та номер зброї

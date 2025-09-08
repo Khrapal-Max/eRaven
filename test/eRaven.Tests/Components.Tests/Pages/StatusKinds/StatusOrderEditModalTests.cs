@@ -105,7 +105,7 @@ public class StatusOrderEditModalTests : TestContext
         var cut = RenderComponent<StatusOrderEditModal>();
         await cut.InvokeAsync(() => cut.Instance.Open(1, "Z", 2));
 
-        cut.Find("button.btn.btn-secondary.btn-sm").Click();
+        cut.Find("button.btn.btn-warning.btn-sm").Click();
 
         Assert.False(cut.Instance.IsOpen);
     }
