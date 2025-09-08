@@ -133,15 +133,19 @@ namespace eRaven.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     rnokpp = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
-                    rank = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
+                    rank = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     last_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     first_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     middle_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
-                    bzvp = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    bzvp = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     weapon = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
                     callsign = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                     position_unit_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    status_kind_id = table.Column<int>(type: "integer", nullable: false, defaultValue: 1)
+                    status_kind_id = table.Column<int>(type: "integer", nullable: true),
+                    is_attached = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    attached_from_unit = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    created_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP"),
+                    modified_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
                 },
                 constraints: table =>
                 {
@@ -157,7 +161,7 @@ namespace eRaven.Migrations
                         column: x => x.status_kind_id,
                         principalTable: "status_kinds",
                         principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(

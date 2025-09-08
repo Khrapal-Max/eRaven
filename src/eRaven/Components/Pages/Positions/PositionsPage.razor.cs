@@ -168,6 +168,8 @@ public partial class PositionsPage : ComponentBase, IDisposable
     /// <summary>Обробка імпорту (валидація через FluentValidation + сервіс).</summary>
     protected async Task<ImportReportViewModel> ProcessImportAsync(IReadOnlyList<PositionUnit> rows)
     {
+        ToastService.ShowInfo("Виконується імпорт");
+
         try
         {
             SetBusy(true);

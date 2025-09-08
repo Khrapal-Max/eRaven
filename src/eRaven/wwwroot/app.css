@@ -153,5 +153,5 @@ h1:focus, h2:focus, h3:focus {
 }
 
 .blazored-toast {
-    z-index: 20001 !important;
+    z-index: 99999 !important;
 }

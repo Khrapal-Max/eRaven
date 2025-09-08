@@ -152,10 +152,8 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("rnokpp");
 
-                    b.Property<int>("StatusKindId")
-                        .ValueGeneratedOnAdd()
+                    b.Property<int?>("StatusKindId")
                         .HasColumnType("integer")
-                        .HasDefaultValue(1)
                         .HasColumnName("status_kind_id");
 
                     b.Property<string>("Weapon")
@@ -1211,8 +1209,7 @@ namespace eRaven.Migrations
                     b.HasOne("eRaven.Domain.Models.StatusKind", "StatusKind")
                         .WithMany()
                         .HasForeignKey("StatusKindId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("PositionUnit");
 

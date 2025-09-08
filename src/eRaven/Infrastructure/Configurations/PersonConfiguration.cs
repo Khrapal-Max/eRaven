@@ -66,8 +66,7 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
          .HasColumnName("position_unit_id");
 
         e.Property(x => x.StatusKindId)
-         .HasColumnName("status_kind_id")
-         .HasDefaultValue(1); // дефолт = "В районі"
+         .HasColumnName("status_kind_id");
 
         e.Property(x => x.IsAttached)
          .HasColumnName("is_attached")
@@ -116,8 +115,7 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
         e.HasOne(x => x.StatusKind)
          .WithMany()
          .HasForeignKey(x => x.StatusKindId)
-         .IsRequired()
-         .OnDelete(DeleteBehavior.Restrict);
+         .OnDelete(DeleteBehavior.SetNull);
 
         // FullName — обчислюване в домені, не мапимо
         e.Ignore(x => x.FullName);

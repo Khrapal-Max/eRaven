@@ -63,8 +63,8 @@ public class Person
     /// <summary>
     /// Поточний статус - наприклад "В районі" або "СЗЧ"
     /// </summary>
-    public int StatusKindId { get; set; }
-    public StatusKind StatusKind { get; set; } = null!;
+    public int? StatusKindId { get; set; }
+    public StatusKind? StatusKind { get; set; }
 
     /// <summary>
     /// Придані/прибули

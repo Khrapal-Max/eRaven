@@ -125,9 +125,7 @@ public class PersonTests
         Assert.Null(p.Callsign);
         Assert.Null(p.PositionUnitId);
         Assert.Null(p.PositionUnit);
-
-        // int за замовчуванням = 0 (EF default 1 — це БД-рівень; у домені залишаємо мовчазно 0)
-        Assert.Equal(0, p.StatusKindId);
+        Assert.Null(p.StatusKindId);
     }
 
     // ---------- Simple property set/get ----------

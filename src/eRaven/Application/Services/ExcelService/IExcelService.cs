@@ -5,7 +5,7 @@
 // IExcelService
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.ExcelService;
+namespace eRaven.Application.Services.ExcelService;
 
 /// <summary>
 /// Сервіс експорту звітів в ексель

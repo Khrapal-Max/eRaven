@@ -71,7 +71,7 @@ public class PersonCreateModalTests : TestContext
             Assert.True(cut.Instance.IsOpen);
             Assert.Contains("Створення картки особи", cut.Markup);
         });
-    }   
+    }
 
     [Fact(DisplayName = "Cancel: закриває модал і викликає OnClose(false)")]
     public async Task Cancel_ClosesModal_RaisesOnCloseFalse()
@@ -88,7 +88,7 @@ public class PersonCreateModalTests : TestContext
             Assert.False(cut.Instance.IsOpen);
             Assert.Equal(false, closeArg);
         });
-    }    
+    }
 
     [Fact(DisplayName = "Submit: невалідна форма -> CreateAsync НЕ викликається")]
     public async Task Submit_Invalid_DoesNotCallService()

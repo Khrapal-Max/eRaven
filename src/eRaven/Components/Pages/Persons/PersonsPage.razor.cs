@@ -7,38 +7,42 @@
 
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
+using eRaven.Application.ViewModels;
+using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Components.Pages.Persons.Modals;
 using eRaven.Domain.Models;
+using FluentValidation;
 using Microsoft.AspNetCore.Components;
 using System.Collections.ObjectModel;
+using System.Linq.Expressions;
 
 namespace eRaven.Components.Pages.Persons;
 
 public partial class PersonsPage : ComponentBase, IDisposable
 {
-    // =============== DI ===============
+    // =================== DI ===================
     [Inject] protected IPersonService PersonService { get; set; } = default!;
     [Inject] protected IToastService Toast { get; set; } = default!;
+    [Inject] protected IValidator<CreatePersonViewModel> CreateValidator { get; set; } = default!;
 
-    // =============== UI state ===============
+    // ================= UI state =================
     protected bool Busy { get; private set; }
     protected string? Search { get; set; }
     protected Person? Selected { get; set; }
 
     private readonly CancellationTokenSource _cts = new();
 
-    // =============== Modals ===============
-
+    // ================= Modals =================
     private PersonCreateModal? _createModal;
 
     // Джерело даних
     private List<Person> _all = [];
     protected ObservableCollection<Person> Items { get; private set; } = [];
 
-    // =============== Lifecycle ===============
+    // ================= Lifecycle =================
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
-    // =============== Handlers ===============
+    // ================= Handlers =================
     protected async Task ReloadAsync()
     {
         try
@@ -70,23 +74,109 @@ public partial class PersonsPage : ComponentBase, IDisposable
 
     private async Task OnCreatedAsync(Person created)
     {
-        // Після створення — або повне перезавантаження, або локальне додавання
-        await ReloadAsync(); // якщо вже є метод як у Посадах
+        // Найпростіше — перевантажити весь список
+        await ReloadAsync();
     }
 
-    protected Task ExportAsync()
+    // -------- ЕКСПОРТ --------
+    protected Task OnExportBusyChanged(bool busy)
     {
-        Toast.ShowInfo("На реалізації");
+        SetBusy(busy);
         return Task.CompletedTask;
     }
 
-    protected Task ImportAsync()
+    // -------- ІМПОРТ --------
+    protected Task OnImportBusyChanged(bool busy)
     {
-        Toast.ShowInfo("На реалізації");
+        SetBusy(busy);
         return Task.CompletedTask;
     }
 
-    // =============== Helpers ===============
+    /// <summary>
+    /// Обробка імпортованих рядків.
+    /// 1) Валідуємо кожен CreatePersonViewModel через FluentValidation.
+    /// 2) Нормалізуємо -> мапимо у Person.
+    /// 3) Upsert по RNOKPP: якщо існує — оновити дозволені поля; якщо ні — створити.
+    /// </summary>
+    private async Task<ImportReportViewModel> ProcessImportedAsync(IReadOnlyList<CreatePersonViewModel> rows)
+    {
+        Toast.ShowInfo("Виконується імпорт");
+
+        int added = 0, updated = 0;
+        var errors = new List<string>();
+
+        foreach (var (vm, idx) in rows.Select((vm, i) => (vm, i: i + 2))) // +2 бо заголовок у першому рядку
+        {
+            // 1) Валідація
+            var res = await CreateValidator.ValidateAsync(vm, _cts.Token);
+            if (!res.IsValid)
+            {
+                foreach (var e in res.Errors)
+                    errors.Add($"Row {idx}: {e.ErrorMessage}");
+                continue;
+            }
+
+            try
+            {
+                // 2) Нормалізація + мапінг
+                var entity = PersonUi.ToPerson(vm);
+
+                // 3) Upsert по RNOKPP
+                Expression<Func<Person, bool>> pred = p => p.Rnokpp == entity.Rnokpp;
+                var exists = await PersonService.SearchAsync(pred, _cts.Token);
+
+                if (exists.Count == 0)
+                {
+                    await PersonService.CreateAsync(entity, _cts.Token);
+                    added++;
+                }
+                else
+                {
+                    var current = exists[0];
+
+                    // Оновлюємо тільки дозволені з картки поля (як у PersonService.UpdateAsync)
+                    current.LastName = entity.LastName;
+                    current.FirstName = entity.FirstName;
+                    current.MiddleName = entity.MiddleName;
+                    current.Rnokpp = entity.Rnokpp;
+                    current.Rank = entity.Rank;
+                    current.Callsign = entity.Callsign;
+                    current.BZVP = entity.BZVP;
+                    current.Weapon = entity.Weapon;
+
+                    current.IsAttached = entity.IsAttached;
+                    current.AttachedFromUnit = entity.AttachedFromUnit;
+
+                    var ok = await PersonService.UpdateAsync(current, _cts.Token);
+                    if (ok) updated++;
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
+        }
+
+        // Після імпорту — оновлюємо список
+        await ReloadAsync();
+
+        return new ImportReportViewModel(added, updated, errors);
+    }
+
+    protected Task OnImportCompleted(ImportReportViewModel report)
+    {
+        if (report.Errors?.Count > 0)
+        {
+            Toast.ShowError($"Імпорт завершено з помилками: {report.Errors.Count}. Додано: {report.Added}, Оновлено: {report.Updated}");
+        }
+        else
+        {
+            Toast.ShowSuccess($"Імпорт успішний. Додано: {report.Added}, Оновлено: {report.Updated}");
+        }
+        return Task.CompletedTask;
+    }
+
+    // ================= Helpers =================
     private void ApplyFilter()
     {
         IEnumerable<Person> q = _all;

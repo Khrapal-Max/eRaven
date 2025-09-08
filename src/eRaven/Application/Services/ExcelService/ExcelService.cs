@@ -12,7 +12,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
-namespace eRaven.Application.ExcelService;
+namespace eRaven.Application.Services.ExcelService;
 
 /// <summary>
 /// Сервіс для експорту звітів в ексель

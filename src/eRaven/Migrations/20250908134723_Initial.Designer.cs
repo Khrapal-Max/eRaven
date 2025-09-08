@@ -12,7 +12,7 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250907104842_Initial")]
+    [Migration("20250908134723_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -88,7 +88,13 @@ namespace eRaven.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("AttachedFromUnit")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("attached_from_unit");
+
                     b.Property<string>("BZVP")
+                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("bzvp");
@@ -98,11 +104,23 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("callsign");
 
+                    b.Property<DateTime>("CreatedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("first_name");
+
+                    b.Property<bool>("IsAttached")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_attached");
 
                     b.Property<string>("LastName")
                         .IsRequired()
@@ -115,11 +133,18 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("middle_name");
 
+                    b.Property<DateTime>("ModifiedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<Guid?>("PositionUnitId")
                         .HasColumnType("uuid")
                         .HasColumnName("position_unit_id");
 
                     b.Property<string>("Rank")
+                        .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("rank");
@@ -130,10 +155,8 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("rnokpp");
 
-                    b.Property<int>("StatusKindId")
-                        .ValueGeneratedOnAdd()
+                    b.Property<int?>("StatusKindId")
                         .HasColumnType("integer")
-                        .HasDefaultValue(1)
                         .HasColumnName("status_kind_id");
 
                     b.Property<string>("Weapon")
@@ -1189,8 +1212,7 @@ namespace eRaven.Migrations
                     b.HasOne("eRaven.Domain.Models.StatusKind", "StatusKind")
                         .WithMany()
                         .HasForeignKey("StatusKindId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("PositionUnit");
 
