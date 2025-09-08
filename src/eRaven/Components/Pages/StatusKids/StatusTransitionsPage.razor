@@ -1,7 +1,7 @@
 ﻿@page "/status-kinds"
 
-@using eRaven.Components.Pages.StatusKids.Modals;
-@using eRaven.Components.Shared;          @* <- TransitionToggle *@
+@using eRaven.Domain.Models
+@using eRaven.Components.Pages.StatusKids.Modals
 
 <section class="d-flex justify-content-between mb-2">
     <div class="fw-bold text-black">Правила переходів статусів</div>
@@ -12,6 +12,9 @@
 </section>
 
 <div class="row g-3">
+    @if(_kinds.Count > 0)
+    {
+
     <!-- Ліва панель -->
     <div class="col-12 col-md-5">
         <div class="card">
@@ -20,59 +23,50 @@
             </div>
 
             <div class="card-body p-0">
-                <div class="panel-scroll" style="max-height:70vh; overflow:auto;">
-                    <table class="table table-sm table-hover align-middle mb-0">
-                        <thead class="table-light sticky-top">
-                            <tr>
-                                <th>Статус</th>
-                                <th style="width:96px;">Код</th>
-                                <th style="width:80px;" class="text-center">Порядок</th>
-                                <th style="width:90px;" class="text-center">Активний</th>
-                                <th style="width:88px;" class="text-center"><i class="bi bi-arrow-left-right"></i></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @if (_kinds.Count == 0)
-                            {
-                                <tr><td colspan="5" class="text-secondary text-center py-3">Немає статусів</td></tr>
-                            }
-                            else
-                            {
-                                @foreach (var k in _kinds)
-                                {
-                                    var isSelected = k.Id == _selectedFromId;
-                                    <tr class="@(isSelected ? "table-active" : null)"
-                                        style="cursor:pointer"
-                                        @onclick="() => SelectFromAsync(k.Id)">
-                                        <td>@k.Name</td>
-                                        <td><span class="badge bg-light text-dark">@k.Code</span></td>
-                                        <td class="text-center">@k.Order</td>
-                                        <td class="text-center" @onclick:stopPropagation="true">
-                                            <!-- ЛІВИЙ ТОГЛ: Активний/Неактивний -->
-                                            <TransitionToggle FromId="k.Id"
-                                                              ToId="k.Id"
-                                                              ToName="k.Name"
-                                                              Checked="k.IsActive"
-                                                              CheckedChanged="(val => OnActiveCheckedChangedAsync(k.Id, val))"
-                                                              Disabled="_busy"
-                                                              Title="Змінити активність"
-                                                              ConfirmAsync="ConfirmActiveAsync"
-                                                              SaveAsync="SaveActiveAsync" />
-                                        </td>
-                                        <td class="text-center" @onclick:stopPropagation="true">
-                                            <button class="btn btn-warning btn-sm"
-                                                    title="Редагувати порядок"
-                                                    disabled="@_busy"
-                                                    @onclick="(() => OpenEditOrderModal(k))">
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            }
-                        </tbody>
-                    </table>
-                </div>
+                <TableBaseComponent TItem="StatusKind"
+                                    Class="table-sm align-middle mb-0"
+                                    Items="_kinds"
+                                    SelectedItem="_selectedFrom"
+                                    SelectedItemChanged="OnLeftSelectedChangedAsync"
+                                    OnClick="OnLeftRowClick"
+                                    MaxHeight="70vh"
+                                    MinHeight="200px">
+                    <TableHeader>
+                        <th>Статус</th>
+                        <th style="width:96px;">Код</th>
+                        <th style="width:80px;" class="text-center">Порядок</th>
+                        <th style="width:90px;" class="text-center">Активний</th>
+                        <th style="width:88px;" class="text-center"><i class="bi bi-arrow-left-right"></i></th>
+                    </TableHeader>
+
+                    <RowTemplate Context="k">
+                        <td>@k.Name</td>
+                        <td><span class="badge bg-light text-dark">@k.Code</span></td>
+                        <td class="text-center">@k.Order</td>
+
+                        <td class="text-center" @onclick:stopPropagation="true">
+                            <!-- ЛІВИЙ ТОГЛ: Активний/Неактивний -->
+                            <TransitionToggle FromId="k.Id"
+                                              ToId="k.Id"
+                                              ToName="k.Name"
+                                              Checked="k.IsActive"
+                                              CheckedChanged="(val => OnActiveCheckedChangedAsync(k.Id, val))"
+                                              Disabled="_busy"
+                                              Title="Змінити активність"
+                                              ConfirmAsync="ConfirmActiveAsync"
+                                              SaveAsync="SaveActiveAsync" />
+                        </td>
+
+                        <td class="text-center" @onclick:stopPropagation="true">
+                            <button class="btn btn-warning btn-sm"
+                                    title="Редагувати порядок"
+                                    disabled="@_busy"
+                                    @onclick="(() => OpenEditOrderModal(k))">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </td>
+                    </RowTemplate>
+                </TableBaseComponent>
             </div>
         </div>
     </div>
@@ -97,50 +91,55 @@
                 }
                 else
                 {
-                    <div class="panel-scroll" style="max-height:70vh; overflow:auto;">
-                        <table class="table table-sm align-middle mb-0">
-                            <thead class="table-light sticky-top">
-                                <tr>
-                                    <th style="width:56px;" class="text-center">Дозволено</th>
-                                    <th>Статус</th>
-                                    <th style="width:96px;">Код</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var k in _kinds)
-                                {
-                                    var self = k.Id == _selectedFromId;
-                                    var isChecked = _allowedToIds.Contains(k.Id);
+                    <TableBaseComponent TItem="StatusKind"
+                                        Class="table-sm align-middle mb-0"
+                                        Items="_kinds"
+                                        MaxHeight="70vh"
+                                        MinHeight="200px">
+                        <TableHeader>
+                            <th style="width:56px;" class="text-center">Дозволено</th>
+                            <th>Статус</th>
+                            <th style="width:96px;">Код</th>
+                        </TableHeader>
 
-                                    <tr>
-                                        <td class="text-center">
-                                            <TransitionToggle FromId="_selectedFromId"
-                                                              ToId="k.Id"
-                                                              ToName="k.Name"
-                                                              Checked="isChecked"
-                                                              CheckedChanged="(val => OnAllowedCheckedChangedAsync(k.Id, val))"
-                                                              Disabled="self || _busy"
-                                                              Title="@(self ? "сам-на-себе — заборонено" : "Дозволити перехід")"
-                                                              ConfirmAsync="ConfirmAllowedAsync"
-                                                              SaveAsync="SaveAllowedAsync" />
-                                        </td>
-                                        <td>
-                                            @k.Name
-                                            @if (self)
-                                            {
-                                                <span class="text-muted small ms-1">(сам-на-себе — заборонено)</span>
-                                            }
-                                        </td>
-                                        <td><span class="badge bg-light text-dark">@k.Code</span></td>
-                                    </tr>
+                        <RowTemplate Context="k">
+                            @{
+                                var self = k.Id == _selectedFromId;
+                                var isChecked = _allowedToIds.Contains(k.Id);
+                            }
+
+                            <td class="text-center" @onclick:stopPropagation="true">
+                                <TransitionToggle FromId="_selectedFromId"
+                                                  ToId="k.Id"
+                                                  ToName="k.Name"
+                                                  Checked="isChecked"
+                                                  CheckedChanged="(val => OnAllowedCheckedChangedAsync(k.Id, val))"
+                                                  Disabled="self || _busy"
+                                                  Title="@(self ? "сам-на-себе — заборонено" : "Дозволити перехід")"
+                                                  ConfirmAsync="ConfirmAllowedAsync"
+                                                  SaveAsync="SaveAllowedAsync" />
+                            </td>
+
+                            <td>
+                                @k.Name
+                                @if (self)
+                                {
+                                    <span class="text-muted small ms-1">(сам-на-себе — заборонено)</span>
                                 }
-                            </tbody>
-                        </table>
-                    </div>
+                            </td>
+
+                            <td><span class="badge bg-light text-dark">@k.Code</span></td>
+                        </RowTemplate>
+                    </TableBaseComponent>
                 }
             </div>
         </div>
-    </div>
+        </div>
+    }
+    else
+    {
+        <div class="text-secondary text-center py-3">Немає статусів</div>
+    }
 </div>
 
 

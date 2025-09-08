@@ -15,4 +15,15 @@ public interface IConfirmService
     /// <param name="text"></param>
     /// <returns>bool</returns>
     Task<bool> AskAsync(string text);
+
+    /// <summary>
+    /// Рєєстрація провайдера підтвердження.
+    /// </summary>
+    /// <param name="provider"></param>
+    void RegisterProvider(Func<string, Task<bool>> provider);
+
+    /// <summary>
+    /// Зброс провайдера підтвердження. 
+    /// </summary>
+    void ResetProvider();
 }
