@@ -11,15 +11,13 @@ namespace eRaven.Application.Services.ConfirmService;
 
 public sealed class ConfirmService(IJSRuntime js) : IConfirmService
 {
+    private readonly IJSRuntime _js = js;
     private Func<string, Task<bool>>? _provider;
 
-    public void RegisterProvider(Func<string, Task<bool>> provider) => _provider = provider;
-    public void ResetProvider() => _provider = null;
+    public void Use(Func<string, Task<bool>> provider) => _provider = provider;
 
-    public async Task<bool> AskAsync(string text)
-    {
-        if (_provider is not null) return await _provider.Invoke(text);
-        // Фолбек: нативний window.confirm, якщо провайдер ще не зареєстрований
-        return await js.InvokeAsync<bool>("confirm", text);
-    }
+    public Task<bool> AskAsync(string text)
+        => _provider is not null
+           ? _provider.Invoke(text)
+           : _js.InvokeAsync<bool>("confirm", text).AsTask();
 }

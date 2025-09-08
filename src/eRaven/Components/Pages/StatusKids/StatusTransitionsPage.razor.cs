@@ -59,16 +59,11 @@ public partial class StatusTransitionsPage : ComponentBase
             await SelectFromAsync(_kinds[0].Id);
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override void OnAfterRender(bool firstRender)
     {
         if (firstRender && Confirm is not null)
-        {
-            // Прив’язуємо UI-модалку до сервісу підтвердження
-            ConfirmService.RegisterProvider(Confirm.ShowConfirmAsync);
-        }
-        await base.OnAfterRenderAsync(firstRender);
+            ConfirmService.Use(Confirm.ShowConfirmAsync);
     }
-
 
     //=====================================================================
     // [Load & Select]

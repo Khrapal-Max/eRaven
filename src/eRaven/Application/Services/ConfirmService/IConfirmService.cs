@@ -17,13 +17,8 @@ public interface IConfirmService
     Task<bool> AskAsync(string text);
 
     /// <summary>
-    /// Рєєстрація провайдера підтвердження.
+    /// Рєєстрація провайдера підтверджень.
     /// </summary>
     /// <param name="provider"></param>
-    void RegisterProvider(Func<string, Task<bool>> provider);
-
-    /// <summary>
-    /// Зброс провайдера підтвердження. 
-    /// </summary>
-    void ResetProvider();
+    void Use(Func<string, Task<bool>> provider);
 }
