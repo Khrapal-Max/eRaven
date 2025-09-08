@@ -67,6 +67,24 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
          .HasColumnName("status_kind_id")
          .HasDefaultValue(1); // дефолт = "В районі"
 
+        e.Property(x => x.IsAttached)
+            .HasColumnName("is_attached")
+            .HasDefaultValue(false);
+
+        e.Property(x => x.AttachedFromUnit)
+            .HasColumnName("attached_from_unit")
+            .HasMaxLength(256);
+
+        e.Property(x => x.CreatedUtc)
+         .HasColumnName("created_utc")
+         .HasColumnType("timestamp with time zone")
+         .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+        e.Property(x => x.ModifiedUtc)
+         .HasColumnName("modified_utc")
+         .HasColumnType("timestamp with time zone")
+         .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
         // ===============================
         // Indexes & Constraints
         // ===============================

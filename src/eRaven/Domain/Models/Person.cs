@@ -67,6 +67,22 @@ public class Person
     public StatusKind StatusKind { get; set; } = null!;
 
     /// <summary>
+    /// Придані/прибули
+    /// </summary>
+    public bool IsAttached { get; set; }               // свої=false, прибули=true
+    public string? AttachedFromUnit { get; set; }      // назва/шлях підрозділу походження (для прибулих)
+
+    /// <summary>
+    /// Час створення
+    /// </summary>
+    public DateTime CreatedUtc { get; set; }           // UTC
+
+    /// <summary>
+    /// Час останньої зміни
+    /// </summary>
+    public DateTime ModifiedUtc { get; set; }
+
+    /// <summary>
     /// Історія поточний статусів
     /// </summary>
     public ICollection<PersonStatus> StatusHistory { get; set; } = [];
