@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Models;
+using System.Linq.Expressions;
 
 namespace eRaven.Application.Services.PersonService;
 
@@ -17,7 +18,7 @@ public interface IPersonService
     /// <param name="query"></param>
     /// <param name="ct"></param>
     /// <returns>IReadOnlyList Person(<see cref="Person"/>)</returns>
-    Task<IReadOnlyList<Person>> SearchAsync(string? query, CancellationToken ct = default); // null -> всі
+    Task<IReadOnlyList<Person>> SearchAsync(Expression<Func<Person, bool>>? predicate, CancellationToken ct = default); // null -> всі
 
     /// <summary>
     /// Повертає особу за її унікальним ідентифікатором.

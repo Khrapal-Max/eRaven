@@ -8,6 +8,7 @@
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace eRaven.Application.Services.PersonService;
 
@@ -16,35 +17,21 @@ public class PersonService(AppDbContext appDbContext) : IPersonService
     private readonly AppDbContext _appDbContext = appDbContext;
 
     // ---------- Search (легкий, без історій) ----------
-    public async Task<IReadOnlyList<Person>> SearchAsync(string? query, CancellationToken ct = default)
+    public async Task<IReadOnlyList<Person>> SearchAsync(Expression<Func<Person, bool>>? predicate, CancellationToken ct = default)
     {
         var q = _appDbContext.Persons
-        .AsNoTracking()
-        .Include(p => p.StatusKind)
-        .Include(p => p.PositionUnit)
-        .AsQueryable();
+       .AsNoTracking()
+       .Include(p => p.StatusKind)
+       .Include(p => p.PositionUnit)
+       .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(query))
-        {
-            query = query.Trim();
-            q = q.Where(x =>
-                x.Rnokpp.Contains(query) ||
-                x.LastName.Contains(query) ||
-                x.FirstName.Contains(query) ||
-                (x.MiddleName != null && x.MiddleName.Contains(query)) ||
-                (x.Rank != null && x.Rank.Contains(query)) ||
-                (x.BZVP != null && x.BZVP.Contains(query)) ||
-                (x.Callsign != null && x.Callsign.Contains(query)) ||
-                (x.Weapon != null && x.Weapon.Contains(query)) ||
-                (x.PositionUnit != null && x.PositionUnit.ShortName!.Contains(query)));
-        }
+        if (predicate is not null)
+            q = q.Where(predicate);
 
-        // сортування для стабільності
-        q = q.OrderBy(x => x.LastName)
+        var response = await q.OrderBy(x => x.LastName)
              .ThenBy(x => x.FirstName)
-             .ThenBy(x => x.MiddleName);
-
-        var response = await q.ToListAsync(ct);
+             .ThenBy(x => x.MiddleName)
+             .ToListAsync(ct);
 
         return response.AsReadOnly();
     }
