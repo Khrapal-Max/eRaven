@@ -1,0 +1,192 @@
+﻿@page "/person/{Id:guid}"
+
+<div class="position-relative">
+    <div Show="@_initialLoading" Text="Завантаження…" />
+</div>
+
+<section class="mb-2">
+    <div>
+        <div>
+            <span class="ms-auto small text-black">Картка:</span>
+            <span class="fw-semibold ms-1 text-black">@(_person?.FullName ?? "—")</span>
+
+            @if (!string.IsNullOrWhiteSpace(_person?.Rank))
+            {
+                <span class="badge text-bg-light ms-2" title="Звання">@_person!.Rank</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(_person?.Rnokpp))
+            {
+                <span class="badge text-bg-light ms-2" title="РНОКПП">@_person!.Rnokpp</span>
+            }
+        </div>
+        <div>
+            <button class="btn btn-sm btn-success" @onclick="GoBack" title="Назад">
+                <i class="bi bi-arrow-left"></i> Назад
+            </button>
+        </div>
+    </div>
+</section>
+
+@if (!_initialLoading)
+{
+    <div class="row g-3">
+        <!-- Ліва колонка -->
+        <div class="col-12 col-lg-6">
+            <div class="card">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <span>Основна інформація</span>
+
+                    <div class="d-flex gap-2">
+                        @if (!_editMode)
+                        {
+                            <button class="btn btn-sm btn-warning" @onclick="BeginEdit" title="Редагувати картку">
+                                <i class="bi bi-pencil-square"></i> Редагувати
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-outline-dark" @onclick="CancelEdit" disabled="@_editBusy">
+                                Скасувати
+                            </button>
+                            <button class="btn btn-sm btn-primary" form="person-edit-form" type="submit" disabled="@_editBusy">
+                                @if (_editBusy)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Зберегти
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    @if (!_editMode)
+                    {
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <div class="small text-secondary">ПІБ</div>
+                                <div class="fw-semibold">@_person?.FullName</div>
+                            </div>
+
+                            <div class="col-6">
+                                <div class="small text-secondary">Звання</div>
+                                <div>@(_person?.Rank ?? "")</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="small text-secondary">РНОКПП</div>
+                                <div>@_person?.Rnokpp</div>
+                            </div>
+
+                            <div class="col-6">
+                                <div class="small text-secondary">БЗВП</div>
+                                <div>@(_person?.BZVP ?? "")</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="small text-secondary">Зброя</div>
+                                <div>
+                                    @if (!string.IsNullOrWhiteSpace(_person?.Weapon))
+                                    {
+                                        <span class="text-wrap" title="@_person!.Weapon">@_person!.Weapon</span>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="col-6">
+                                <div class="small text-secondary">Позивний</div>
+                                <div>@(_person?.Callsign ?? "")</div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="small text-secondary">Поточний статус</div>
+                                <div Status="@_person?.StatusKind" />
+                            </div>
+                        </div>
+
+                        <hr />
+
+                        <div class="d-flex justify-content-end">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="OpenHistory">
+                                <i class="bi bi-clock-history"></i> Переглянути історію
+                                <span class="badge text-bg-light ms-1">@HistoryCountText</span>
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <EditForm id="person-edit-form" Model="@_editModel" OnValidSubmit="SaveEditAsync">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary />
+
+                            <div class="row g-3">
+                                <div class="col-4">
+                                    <label class="form-label">Прізвище <span class="text-danger">*</span></label>
+                                    <InputText class="form-control" @bind-Value="_editModel.LastName" />
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label">Ім’я <span class="text-danger">*</span></label>
+                                    <InputText class="form-control" @bind-Value="_editModel.FirstName" />
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label">По батькові</label>
+                                    <InputText class="form-control" @bind-Value="_editModel.MiddleName" />
+                                </div>
+
+                                <div class="col-4">
+                                    <label class="form-label">РНОКПП</label>
+                                    <InputText class="form-control" @bind-Value="_editModel.Rnokpp" />
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label">Звання</label>
+                                    <InputText class="form-control" @bind-Value="_editModel.Rank" />
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label">Позивний</label>
+                                    <InputText class="form-control" @bind-Value="_editModel.Callsign" />
+                                </div>
+
+                                <div class="col-6">
+                                    <label class="form-label">БЗВП</label>
+                                    <InputText class="form-control" @bind-Value="_editModel.BZVP" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Зброя</label>
+                                    <InputText class="form-control" @bind-Value="_editModel.Weapon" />
+                                </div>
+                            </div>
+                        </EditForm>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Права колонка -->
+        <div class="col-12 col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">Підрозділ / Посада</div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-4">
+                            <div class="small text-secondary">Індекс посади</div>
+                            <div>@(_person?.PositionUnit?.Code ?? "")</div>
+                        </div>
+                        <div class="col-8">
+                            <div class="small text-secondary">Коротка назва</div>
+                            <div>
+                                <span class="cell-clip cell-name" title="@_person?.PositionUnit?.ShortName">
+                                    @(_person?.PositionUnit?.ShortName ?? "")
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="small text-secondary">Повна назва / шлях</div>
+                            <div Unit="@_person?.PositionUnit" />
+                        </div>
+                    </div>
+                    <div class="form-text mt-2">
+                        Зміну посади виконуємо окремим документом.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
