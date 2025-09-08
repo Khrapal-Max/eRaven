@@ -3,7 +3,7 @@
 @using eRaven.Application.ViewModels.PersonViewModels
 
 <div class="position-relative">
-    <BusyOverlay Show="@_initialLoading" Text="Завантаження…" />
+    <div Show="@_initialLoading" Text="Завантаження…" />
 </div>
 
 <section class="mb-2">
@@ -91,7 +91,7 @@
 
                             <div class="col-12">
                                 <div class="small text-secondary">Поточний статус</div>
-                                <StatusBadge Status="@_person.StatusKind" />
+                                <div Status="@_person.StatusKind" />
                             </div>
                         </div>
 
@@ -179,7 +179,7 @@
                         </div>
                         <div class="col-12">
                             <div class="small text-secondary">Повна назва / шлях</div>
-                            <UnitPath Unit="@_person.PositionUnit" />
+                            <div Unit="@_person.PositionUnit" />
                         </div>
                     </div>
                     <div class="form-text mt-2">

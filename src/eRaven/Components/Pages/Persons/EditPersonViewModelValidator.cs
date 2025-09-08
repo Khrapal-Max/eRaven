@@ -29,8 +29,8 @@ public sealed class EditPersonViewModelValidator : AbstractValidator<EditPersonV
             .WithMessage("Ім’я не може складатися лише з пробілів.");
 
         RuleFor(x => x.MiddleName)
-          .MaximumLength(128).WithMessage("Максимум 128 символів.")
-            .Must(v => v == null || v.Trim().Length > 0)
+            .MaximumLength(128).WithMessage("Максимум 128 символів.")
+            .Must(v => string.IsNullOrEmpty(v) || v.Trim().Length > 0)
             .WithMessage("По батькові не може складатися лише з пробілів.");
 
         RuleFor(x => x.Rnokpp)
