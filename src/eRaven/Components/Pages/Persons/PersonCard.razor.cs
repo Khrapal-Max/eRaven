@@ -2,11 +2,12 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonCard
+// PersonCard (code-behind)
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
+using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -14,46 +15,41 @@ namespace eRaven.Components.Pages.Persons;
 
 public partial class PersonCard : ComponentBase, IDisposable
 {
-    // =============== Route/DI ===============
+    // ===================== Route / DI =====================
     [Parameter] public Guid Id { get; set; }
 
     [Inject] private IToastService Toast { get; set; } = default!;
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
-    // =============== UI state ===============
+    // ===================== UI state =====================
     protected bool _initialLoading = true;
     protected Person? _person;
 
+    // Редагування
     protected bool _editMode;
     protected bool _editBusy;
-    protected EditModel _editModel = new();
+    protected EditPersonViewModel _editModel = new();
 
-    protected int _historyCount = 0; // поки просто число
+    // Історія (поки лічильник)
+    protected int _historyCount = 0;
     protected string HistoryCountText => _historyCount == 0 ? "0" : _historyCount.ToString();
 
-    // =============== Lifecycle ===============
+    // ===================== Lifecycle =====================
     protected override async Task OnInitializedAsync()
     {
-        try
-        {
-            _person = await PersonService.GetByIdAsync(Id);
-            if (_person is null) Toast.ShowWarning("Особа не знайдена.");
-        }
-        catch (Exception ex)
-        {
-            Toast.ShowError("Помилка завантаження картки. " + ex.Message);
-        }
-        finally { _initialLoading = false; }
+        await ReloadAsync();
+        _initialLoading = false;
     }
 
-    // =============== Actions ===============
+    // ===================== Commands (navbar/toolbar) =====================
     protected void GoBack() => Nav.NavigateTo("/persons");
 
+    // ===================== Edit flow =====================
     protected void BeginEdit()
     {
         if (_person is null) return;
-        _editModel = EditModel.From(_person);
+        _editModel = EditPersonViewModel.From(_person);
         _editMode = true;
     }
 
@@ -65,77 +61,72 @@ public partial class PersonCard : ComponentBase, IDisposable
 
     protected async Task SaveEditAsync()
     {
-        if (_person is null) return;
+        if (_person is null || _editBusy) return;
 
+        _editBusy = true;
         try
         {
-            _editBusy = true;
+            // Мапимо лише дозволені для картки поля (посаду/статус не чіпаємо)
+            var updated = MapToUpdatablePerson(_person.Id, _editModel, _person.PositionUnitId);
 
-            var updated = new Person
-            {
-                Id = _person.Id,
-                LastName = _editModel.LastName!.Trim(),
-                FirstName = _editModel.FirstName!.Trim(),
-                MiddleName = NullIfWhite(_editModel.MiddleName),
-                Rnokpp = _editModel.Rnokpp?.Trim() ?? string.Empty,
-                Rank = NullIfWhite(_editModel.Rank),
-                Callsign = NullIfWhite(_editModel.Callsign),
-                BZVP = NullIfWhite(_editModel.BZVP),
-                Weapon = NullIfWhite(_editModel.Weapon),
-                // не чіпаємо посаду/статус тут
-                PositionUnitId = _person.PositionUnitId,
-                StatusKindId = _person.StatusKindId
-            };
+            await PersonService.UpdateAsync(updated);
+            await ReloadAsync(); // оновлюємо картку з серверу
 
-            var ok = await PersonService.UpdateAsync(updated);
-            if (!ok) Toast.ShowWarning("Зміни не збережено.");
-            else
-            {
-                _person = await PersonService.GetByIdAsync(Id);
-                Toast.ShowSuccess("Зміни збережено.");
-                _editMode = false;
-            }
+            Toast.ShowSuccess("Зміни збережено.");
+            _editMode = false;
         }
         catch (Exception ex)
         {
+            // Один try/catch на операцію з БД — достатньо
             Toast.ShowError("Не вдалося зберегти. " + ex.Message);
         }
-        finally { _editBusy = false; }
+        finally
+        {
+            _editBusy = false;
+        }
     }
 
+    // ===================== History (stub) =====================
     protected Task OpenHistory()
     {
         Toast.ShowInfo("На реалізації");
         return Task.CompletedTask;
     }
 
-    private static string? NullIfWhite(string? s)
-        => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
-
-    // =============== Edit VM ===============
-    protected class EditModel
+    // ===================== Helpers =====================
+    private async Task ReloadAsync()
     {
-        public string? LastName { get; set; }
-        public string? FirstName { get; set; }
-        public string? MiddleName { get; set; }
-        public string? Rnokpp { get; set; }
-        public string? Rank { get; set; }
-        public string? Callsign { get; set; }
-        public string? BZVP { get; set; }
-        public string? Weapon { get; set; }
-
-        public static EditModel From(Person p) => new()
+        try
         {
-            LastName = p.LastName,
-            FirstName = p.FirstName,
-            MiddleName = p.MiddleName,
-            Rnokpp = p.Rnokpp,
-            Rank = p.Rank,
-            Callsign = p.Callsign,
-            BZVP = p.BZVP,
-            Weapon = p.Weapon
-        };
+            _person = await PersonService.GetByIdAsync(Id);
+
+            if (_person is null)
+            {
+                Toast.ShowWarning("Особа не знайдена.");
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Toast.ShowError("Помилка завантаження картки. " + ex.Message);
+        }
     }
+
+    private static Person MapToUpdatablePerson(Guid id, EditPersonViewModel vm, Guid? keepPositionUnitId) => new()
+    {
+        Id = id,
+        LastName = vm.LastName!.Trim(),
+        FirstName = vm.FirstName!.Trim(),
+        MiddleName = string.IsNullOrWhiteSpace(vm.MiddleName) ? null : vm.MiddleName.Trim(),
+        Rnokpp = vm.Rnokpp.Trim(),
+        Rank = vm.Rank.Trim(),
+        Callsign = string.IsNullOrWhiteSpace(vm.Callsign) ? null : vm.Callsign.Trim(),
+        BZVP = vm.BZVP.Trim(),
+        Weapon = string.IsNullOrWhiteSpace(vm.Weapon) ? null : vm.Weapon.Trim(),
+
+        // з картки НЕ змінюємо прив’язку до посади/статусу
+        PositionUnitId = keepPositionUnitId
+    };
 
     public void Dispose() => GC.SuppressFinalize(this);
 }

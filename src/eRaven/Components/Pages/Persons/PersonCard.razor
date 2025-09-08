@@ -1,15 +1,16 @@
 ﻿@page "/person/{Id:guid}"
+@using Blazored.FluentValidation
+@using eRaven.Application.ViewModels.PersonViewModels
 
 <div class="position-relative">
-    <div Show="@_initialLoading" Text="Завантаження…" />
+    <BusyOverlay Show="@_initialLoading" Text="Завантаження…" />
 </div>
 
 <section class="mb-2">
-    <div>
-        <div class="d-flex justify-content-between">
-            <span class="ms-auto small text-black">Картка:</span>
+    <div class="d-flex align-items-center justify-content-between">
+        <div>
+            <span class="small text-black">Картка:</span>
             <span class="fw-semibold ms-1 text-black">@(_person?.FullName ?? "—")</span>
-
             @if (!string.IsNullOrWhiteSpace(_person?.Rank))
             {
                 <span class="badge text-bg-light ms-2" title="Звання">@_person!.Rank</span>
@@ -19,23 +20,20 @@
                 <span class="badge text-bg-light ms-2" title="РНОКПП">@_person!.Rnokpp</span>
             }
         </div>
-        <div>
-            <button class="btn btn-sm btn-success" @onclick="GoBack" title="Назад">
-                <i class="bi bi-arrow-left"></i> Назад
-            </button>
-        </div>
+
+        <button class="btn btn-sm btn-success" @onclick="GoBack" title="Назад">
+            <i class="bi bi-arrow-left"></i> Назад
+        </button>
     </div>
 </section>
 
-@if (!_initialLoading)
+@if (!_initialLoading && _person is not null)
 {
     <div class="row g-3">
-        <!-- Ліва колонка -->
         <div class="col-12 col-lg-6">
             <div class="card">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <span>Основна інформація</span>
-
                     <div class="d-flex gap-2">
                         @if (!_editMode)
                         {
@@ -49,10 +47,7 @@
                                 Скасувати
                             </button>
                             <button class="btn btn-sm btn-primary" form="person-edit-form" type="submit" disabled="@_editBusy">
-                                @if (_editBusy)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-1"></span>
-                                }
+                                @if (_editBusy) { <span class="spinner-border spinner-border-sm me-1"></span> }
                                 Зберегти
                             </button>
                         }
@@ -65,40 +60,38 @@
                         <div class="row g-2">
                             <div class="col-12">
                                 <div class="small text-secondary">ПІБ</div>
-                                <div class="fw-semibold">@_person?.FullName</div>
+                                <div class="fw-semibold">@_person.FullName</div>
                             </div>
 
                             <div class="col-6">
                                 <div class="small text-secondary">Звання</div>
-                                <div>@(_person?.Rank ?? "")</div>
+                                <div>@_person.Rank</div>
                             </div>
                             <div class="col-6">
                                 <div class="small text-secondary">РНОКПП</div>
-                                <div>@_person?.Rnokpp</div>
+                                <div>@_person.Rnokpp</div>
                             </div>
 
                             <div class="col-6">
                                 <div class="small text-secondary">БЗВП</div>
-                                <div>@(_person?.BZVP ?? "")</div>
+                                <div>@_person.BZVP</div>
                             </div>
                             <div class="col-6">
                                 <div class="small text-secondary">Зброя</div>
                                 <div>
-                                    @if (!string.IsNullOrWhiteSpace(_person?.Weapon))
-                                    {
-                                        <span class="text-wrap" title="@_person!.Weapon">@_person!.Weapon</span>
-                                    }
+                                    @if (!string.IsNullOrWhiteSpace(_person.Weapon))
+                                    { <span class="text-wrap" title="@_person.Weapon">@_person.Weapon</span> }
                                 </div>
                             </div>
 
                             <div class="col-6">
                                 <div class="small text-secondary">Позивний</div>
-                                <div>@(_person?.Callsign ?? "")</div>
+                                <div>@_person.Callsign</div>
                             </div>
 
                             <div class="col-12">
                                 <div class="small text-secondary">Поточний статус</div>
-                                <div Status="@_person?.StatusKind"/>
+                                <StatusBadge Status="@_person.StatusKind" />
                             </div>
                         </div>
 
@@ -114,43 +107,51 @@
                     else
                     {
                         <EditForm id="person-edit-form" Model="@_editModel" OnValidSubmit="SaveEditAsync">
-                            <DataAnnotationsValidator />
-                            <ValidationSummary />
+                            <AntiforgeryToken />
+                            <FluentValidationValidator />
 
                             <div class="row g-3">
                                 <div class="col-4">
                                     <label class="form-label">Прізвище <span class="text-danger">*</span></label>
                                     <InputText class="form-control" @bind-Value="_editModel.LastName" />
+                                    <ValidationMessage For="() => _editModel.LastName" />
                                 </div>
                                 <div class="col-4">
                                     <label class="form-label">Ім’я <span class="text-danger">*</span></label>
                                     <InputText class="form-control" @bind-Value="_editModel.FirstName" />
+                                    <ValidationMessage For="() => _editModel.FirstName" />
                                 </div>
                                 <div class="col-4">
                                     <label class="form-label">По батькові</label>
                                     <InputText class="form-control" @bind-Value="_editModel.MiddleName" />
+                                    <ValidationMessage For="() => _editModel.MiddleName" />
                                 </div>
 
                                 <div class="col-4">
-                                    <label class="form-label">РНОКПП<span class="text-danger">*</span></label>
+                                    <label class="form-label">РНОКПП <span class="text-danger">*</span></label>
                                     <InputText class="form-control" @bind-Value="_editModel.Rnokpp" />
+                                    <ValidationMessage For="() => _editModel.Rnokpp" />
                                 </div>
                                 <div class="col-4">
-                                    <label class="form-label">Звання<span class="text-danger">*</span></label>
+                                    <label class="form-label">Звання <span class="text-danger">*</span></label>
                                     <InputText class="form-control" @bind-Value="_editModel.Rank" />
+                                    <ValidationMessage For="() => _editModel.Rank" />
                                 </div>
                                 <div class="col-4">
                                     <label class="form-label">Позивний</label>
                                     <InputText class="form-control" @bind-Value="_editModel.Callsign" />
+                                    <ValidationMessage For="() => _editModel.Callsign" />
                                 </div>
 
                                 <div class="col-6">
-                                    <label class="form-label">БЗВП<span class="text-danger">*</span></label>
+                                    <label class="form-label">БЗВП <span class="text-danger">*</span></label>
                                     <InputText class="form-control" @bind-Value="_editModel.BZVP" />
+                                    <ValidationMessage For="() => _editModel.BZVP" />
                                 </div>
                                 <div class="col-6">
                                     <label class="form-label">Зброя</label>
                                     <InputText class="form-control" @bind-Value="_editModel.Weapon" />
+                                    <ValidationMessage For="() => _editModel.Weapon" />
                                 </div>
                             </div>
                         </EditForm>
@@ -159,7 +160,6 @@
             </div>
         </div>
 
-        <!-- Права колонка -->
         <div class="col-12 col-lg-6">
             <div class="card h-100">
                 <div class="card-header">Підрозділ / Посада</div>
@@ -167,19 +167,19 @@
                     <div class="row g-2">
                         <div class="col-4">
                             <div class="small text-secondary">Індекс посади</div>
-                            <div>@(_person?.PositionUnit?.Code ?? "")</div>
+                            <div>@(_person.PositionUnit?.Code ?? "")</div>
                         </div>
                         <div class="col-8">
                             <div class="small text-secondary">Коротка назва</div>
                             <div>
-                                <span class="cell-clip cell-name" title="@_person?.PositionUnit?.ShortName">
-                                    @(_person?.PositionUnit?.ShortName ?? "")
+                                <span class="cell-clip cell-name" title="@_person.PositionUnit?.ShortName">
+                                    @_person.PositionUnit?.ShortName
                                 </span>
                             </div>
                         </div>
                         <div class="col-12">
                             <div class="small text-secondary">Повна назва / шлях</div>
-                            <div Unit="@_person?.PositionUnit" />
+                            <UnitPath Unit="@_person.PositionUnit" />
                         </div>
                     </div>
                     <div class="form-text mt-2">

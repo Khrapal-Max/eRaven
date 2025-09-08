@@ -17,6 +17,7 @@ using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Application.ViewModels.PositionPagesViewModels;
 using eRaven.Application.ViewModels.StatusKindViewModels;
 using eRaven.Components;
+using eRaven.Components.Pages.Persons;
 using eRaven.Components.Pages.Persons.Modals;
 using eRaven.Components.Pages.Positions.Modals;
 using eRaven.Components.Pages.StatusKids.Modals;
@@ -37,9 +38,11 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 
 builder.Services.AddBlazoredToast();
 
+builder.Services.AddTransient<IValidator<EditPersonViewModel>, EditPersonViewModelValidator>();
 builder.Services.AddTransient<IValidator<CreateKindViewModel>, CreateKindViewModelValidator>();
 builder.Services.AddTransient<IValidator<CreatePersonViewModel>, CreatePersonViewModelValidator>();
 builder.Services.AddTransient<IValidator<CreatePositionUnitViewModel>, CreatePositionUnitViewModelValidator>();
+
 
 //Services
 builder.Services.AddScoped<IConfirmService, ConfirmService>();
