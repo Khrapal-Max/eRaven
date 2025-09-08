@@ -1,0 +1,38 @@
+﻿@using eRaven.Domain.Models
+
+@if (_open)
+{
+    <div class="modal fade show text-white" style="display:block;" tabindex="-1" aria-modal="true" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal-md">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title">Встановлення статусу</h6>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="Cancel"></button>
+                </div>
+
+                <div class="modal-body">
+                    @if (_person is not null)
+                    {
+                        <div class="mb-2">
+                            <div class="small text-secondary">Особа</div>
+                            <div class="fw-semibold">@_person.FullName</div>
+                            <div class="text-secondary">Поточний: @_person.StatusKind?.Name</div>
+                        </div>
+                    }
+
+                    <div class="alert alert-info py-2 mb-0">
+                        Функціонал у розробці. Тут буде вибір нового статусу, дата/час та підтвердження.
+                    </div>
+                </div>
+
+                <div class="modal-footer py-2">
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="Cancel">Скасувати</button>
+                    <button class="btn btn-sm btn-primary" @onclick="SaveAsync">
+                        Підтвердити
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}

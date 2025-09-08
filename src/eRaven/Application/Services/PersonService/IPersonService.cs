@@ -15,7 +15,7 @@ public interface IPersonService
     /// <summary>
     /// Повертає список осіб, що відповідають критерію пошуку.
     /// </summary>
-    /// <param name="query"></param>
+    /// <param name="predicate"></param>
     /// <param name="ct"></param>
     /// <returns>IReadOnlyList Person(<see cref="Person"/>)</returns>
     Task<IReadOnlyList<Person>> SearchAsync(Expression<Func<Person, bool>>? predicate, CancellationToken ct = default); // null -> всі
