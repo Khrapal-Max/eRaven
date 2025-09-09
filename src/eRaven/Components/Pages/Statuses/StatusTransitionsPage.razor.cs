@@ -1,76 +1,92 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
 // StatusTransitionsPage
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
+using eRaven.Application.Services.PersonStatusService;
+using eRaven.Application.Services.StatusKindService;
+using eRaven.Application.Services.StatusTransitionService;
 using eRaven.Application.ViewModels;
 using eRaven.Application.ViewModels.PersonStatusViewModel;
-using eRaven.Components.Pages.Statuses.Modals;
 using eRaven.Domain.Models;
-using FluentValidation;
 using Microsoft.AspNetCore.Components;
 using System.Collections.ObjectModel;
-using System.Linq.Expressions;
 
 namespace eRaven.Components.Pages.Statuses;
 
 public partial class StatusTransitionsPage : ComponentBase, IDisposable
 {
-    // ========== DI ==========
-    [Inject] private IPersonService PersonService { get; set; } = default!;
-    [Inject] private IToastService Toast { get; set; } = default!;
-
-    // ========== UI state ==========
-    protected bool Busy { get; private set; }
-    protected string? Search { get; set; }
-
-    private readonly CancellationTokenSource _cts = new();
+    // =============================
+    // Дані
+    // =============================
+    private List<Person> _all = [];
+    private List<Person> _filtered = [];
+    private IReadOnlyList<StatusKind> _statuses = [];
 
     protected ObservableCollection<Person> Items { get; } = [];
 
-    // ========== Modals ==========
-    private StatusSetModal? _setStatusModal;
+    // =============================
+    // Модалка
+    // =============================
+    private bool _isStatusModalOpen;
+    private Person? _modalPerson;
+    private PersonStatus? _modalCurrentStatus;
+    private readonly List<StatusKind> _mapStatuses = [];
 
-    // ---------- Search ----------
-    protected async Task OnSearchAsync()
+    // =============================
+    // UI state / DI / infra
+    // =============================
+
+    private readonly CancellationTokenSource _cts = new();
+    protected bool Busy { get; private set; }
+    protected string? Search { get; set; }
+
+    [Inject] private IPersonService PersonService { get; set; } = default!;
+    [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!;
+    [Inject] private IStatusTransitionService StatusTransitionService { get; set; } = default!;
+    [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
+    [Inject] private IToastService Toast { get; set; } = default!;
+
+    // =============================
+    // Життєвий цикл
+    // =============================
+    protected override async Task OnInitializedAsync()
     {
-        if (string.IsNullOrWhiteSpace(Search))
-        {
-            ResetItems([]);
-            return;
-        }
+        await ReloadAllAsync();
 
+        _statuses = await StatusKindService.GetAllAsync();
+
+        ApplyLocalFilter();
+    }
+
+    // =============================
+    // Модалка
+    // =============================
+    protected async Task OpenSetStatus(Person p)
+    {
         try
         {
             SetBusy(true);
 
-            var s = Search.Trim();
+            _modalPerson = p;
 
-            // предикат: ПІБ, RNOKPP, звання, позивний, зброя, посада коротка
-            Expression<Func<Person, bool>> pred =
-                p =>
-                    (p.Rnokpp != null && p.Rnokpp.Contains(s)) ||
-                    (p.LastName != null && p.LastName.Contains(s)) ||
-                    (p.FirstName != null && p.FirstName.Contains(s)) ||
-                    (p.MiddleName != null && p.MiddleName.Contains(s)) ||
-                    (p.Rank != null && p.Rank.Contains(s)) ||
-                    (p.Callsign != null && p.Callsign.Contains(s)) ||
-                    (p.Weapon != null && p.Weapon.Contains(s)) ||
-                    (p.PositionUnit != null && p.PositionUnit.ShortName != null && p.PositionUnit.ShortName.Contains(s));
+            // Поточний інтервал статусу (може бути відкритий)
+            _modalCurrentStatus = await PersonStatusService.GetActiveAsync(p.Id, _cts.Token);
 
-            var found = await PersonService.SearchAsync(pred, _cts.Token);
+            // Дозволені статуси
+            _mapStatuses.Clear();
+            _mapStatuses.AddRange(await BuildAllowedStatusesAsync(_modalCurrentStatus, _cts.Token));
 
-            ResetItems(found);
+            _isStatusModalOpen = true;
+
+            await InvokeAsync(StateHasChanged);
         }
-        catch (OperationCanceledException) { /* ignore */ }
         catch (Exception ex)
         {
-            ResetItems([]);
-            Toast.ShowError($"Помилка пошуку: {ex.Message}");
+            Toast.ShowError($"Не вдалося підготувати форму зміни статусу: {ex.Message}");
         }
         finally
         {
@@ -78,49 +94,75 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
         }
     }
 
-    protected Task ClearAsync()
-    {
-        Search = string.Empty;
-        ResetItems([]);
-        // пошук не стираю, щоб користувач міг відредагувати рядок і натиснути "Знайти" знову
-        return Task.CompletedTask;
-    }
-
-    protected void OpenSetStatus(Person p) => _setStatusModal?.Open(p);
-
-    // ---------- Refresh after status change ----------
-    private async Task OnStatusChangedAsync(Guid personId)
+    private async Task HandleStatusSubmitAsync(SetPersonStatusViewModel vm)
     {
         try
         {
-            // Після зміни статусу — перезавантажуємо останню вибірку по поточному пошуковому рядку
-            await OnSearchAsync();
+            SetBusy(true);
+
+            // 1) Нормалізуємо обрану дату до 00:00 локального дня -> UTC
+            var openUtc = ToUtcFromLocalMidnight(vm.Moment);
+
+            // 2) Мапимо у доменну модель PersonStatus
+            var ps = new PersonStatus
+            {
+                Id = Guid.Empty,
+                PersonId = vm.PersonId,
+                StatusKindId = vm.StatusId,
+                OpenDate = openUtc,
+                CloseDate = null,
+                Note = string.IsNullOrWhiteSpace(vm.Note) ? null : vm.Note!.Trim(),
+                IsActive = true,
+                Author = string.IsNullOrWhiteSpace(vm.Author) ? null : vm.Author!.Trim(),
+                Modified = DateTime.UtcNow
+            };
+
+            // 3) Виклик сервісу
+            _ = await PersonStatusService.SetStatusAsync(ps, _cts.Token);
+
+            // 4) UX: закрити модаль, рефреш
+            _isStatusModalOpen = false;
+            _modalPerson = null;
+            _modalCurrentStatus = null;
+            _mapStatuses.Clear();
+
+            await ReloadAllAsync();
+            ApplyLocalFilter();
 
             Toast.ShowSuccess("Статус збережено.");
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося оновити список: {ex.Message}");
+            Toast.ShowError($"Не вдалося зберегти статус: {ex.Message}");
+        }
+        finally
+        {
+            SetBusy(false);
         }
     }
 
-    // ---------- Import ----------
-    private Task OnImportBusyChanged(bool busy)
+    private Task HandleStatusCloseAsync()
     {
-        SetBusy(busy);
+        _isStatusModalOpen = false;
+        _modalPerson = null;
+        _modalCurrentStatus = null;
+        _mapStatuses.Clear();
+        StateHasChanged();
         return Task.CompletedTask;
     }
 
-    private async Task<ImportReportViewModel> ProcessImportedStatusesAsync(IReadOnlyList<PersonStatusImportView> rows)
+    // =============================
+    // Імпорт списку 
+    // =============================
+    protected async Task<ImportReportViewModel> ProcessImportedStatusesAsync(IReadOnlyList<PersonStatusImportView> rows)
     {
         int ok = 0, fail = 0;
         var errors = new List<string>();
 
-        foreach (var (row, idx) in rows.Select((r, i) => (r, i: i + 2))) // +2 бо хедер = перший рядок
+        foreach (var (row, idx) in rows.Select((r, i) => (r, i: i + 2)))
         {
             try
             {
-                // прості перевірки
                 if (string.IsNullOrWhiteSpace(row.Rnokpp))
                     throw new ArgumentException("RNOKPP порожній.");
                 if ((row.StatusKindId ?? 0) == 0 && string.IsNullOrWhiteSpace(row.StatusCode))
@@ -128,14 +170,7 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
                 if (row.FromDateLocal == default)
                     throw new ArgumentException("Не вказано дату.");
 
-                // шукаємо людей по RNOKPP
-                Expression<Func<Person, bool>> pred = p => p.Rnokpp == row.Rnokpp!.Trim();
-                var persons = await PersonService.SearchAsync(pred, _cts.Token);
-                if (persons.Count == 0) throw new InvalidOperationException("Особа з таким RNOKPP не знайдена.");
-                var person = persons[0];
-
-                // TODO: тут викликати твій IPersonStatusService.SetStatusAsync(...) після мапінгу
-                // В цій базовій версії просто рахуємо як success, щоб не ламати збірку.
+                // TODO: інтеграція з пошуком Person за RNOKPP та SetStatusAsync(...)
                 ok++;
             }
             catch (Exception ex)
@@ -145,28 +180,110 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
             }
         }
 
-        // після імпорту — оновлюємо результати (якщо був пошук)
-        if (!string.IsNullOrWhiteSpace(Search))
-            await OnSearchAsync();
+        await ReloadAllAsync();
+        ApplyLocalFilter();
 
         return new ImportReportViewModel(Added: ok, Updated: 0, Errors: errors);
     }
 
-    private Task OnImportCompleted(ImportReportViewModel report)
+    protected Task OnImportCompleted(ImportReportViewModel report)
     {
-        if (report.Errors?.Count > 0)
-            Toast.ShowError($"Імпорт завершено з помилками: {report.Errors.Count}. Успішно: {report.Added}");
+        if ((report.Errors?.Count ?? 0) > 0)
+            Toast.ShowError($"Імпорт завершено з помилками: {report.Errors!.Count}. Успішно: {report.Added}");
         else
             Toast.ShowSuccess($"Імпорт успішний. Успішно: {report.Added}");
-
         return Task.CompletedTask;
     }
 
-    // ========== Helpers ==========
-    private void ResetItems(IEnumerable<Person> people)
+    protected Task OnImportBusyChanged(bool busy)
     {
+        SetBusy(busy);
+        return Task.CompletedTask;
+    }
+
+    // =============================
+    // Перевантаження списку 
+    // =============================
+    private async Task ReloadAllAsync()
+    {
+        try
+        {
+            SetBusy(true);
+            _all = [.. await PersonService.SearchAsync(null, _cts.Token)];
+        }
+        catch (Exception ex)
+        {
+            _all.Clear();
+            Toast.ShowError($"Не вдалося завантажити картки: {ex.Message}");
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    // =============================
+    // Формування списку дозволених
+    // =============================
+    private async Task<IReadOnlyList<StatusKind>> BuildAllowedStatusesAsync(PersonStatus? current, CancellationToken ct)
+    {
+        // 1) Кеш або одноразове завантаження
+        var statuses = (_statuses?.Count > 0 ? _statuses : await StatusKindService.GetAllAsync(ct: ct)) ?? [];
+        if (statuses.Count == 0) return [];
+
+        // 2) Спец-статуси: «В районі» та «В БР» (спершу за Code, потім за Name)
+        static bool eq(string? a, string b) => !string.IsNullOrWhiteSpace(a) && a.Trim().Equals(b, StringComparison.OrdinalIgnoreCase);
+
+        var inDistrict = statuses.FirstOrDefault(s => eq(s.Code, "30") || eq(s.Name, "В районі"));
+        var inBr = statuses.FirstOrDefault(s => eq(s.Code, "100") || eq(s.Name, "В БР"));
+
+        // 3) Перший статус: дозволити лише «В районі»
+        if (current is null || current.StatusKindId <= 0)
+            return inDistrict is null ? Array.Empty<StatusKind>() : [inDistrict];
+
+        // 4) Карта переходів + винести «В БР»
+        var toIds = await StatusTransitionService.GetToIdsAsync(current.StatusKindId, ct) ?? [];
+        if (inBr is not null) toIds.Remove(inBr.Id);
+
+        // 5) Перетин + сортування (без Distinct — HashSet виключає дублікати)
+        return [.. statuses
+            .Where(s => toIds.Contains(s.Id))
+            .OrderBy(s => s.Code ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(s => s.Name ?? string.Empty, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    // =============================
+    // Фільтр
+    // =============================
+    protected Task OnSearchAsync()
+    {
+        ApplyLocalFilter();
+        return Task.CompletedTask;
+    }
+
+    private void ApplyLocalFilter()
+    {
+        IEnumerable<Person> q = _all;
+
+        if (!string.IsNullOrWhiteSpace(Search))
+        {
+            var s = Search.Trim();
+
+            static bool Has(string? haystack, string needle)
+                => !string.IsNullOrEmpty(haystack) && haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
+
+            q = q.Where(p =>
+                Has(p.FullName, s) ||
+                Has(p.Rnokpp, s) ||
+                Has(p.Rank, s) ||
+                Has(p.Callsign, s) ||
+                Has(p.Weapon, s) ||
+                Has(p.PositionUnit?.ShortName, s));
+        }
+
+        _filtered = [.. q];
         Items.Clear();
-        foreach (var p in people) Items.Add(p);
+        foreach (var p in _filtered) Items.Add(p);
         StateHasChanged();
     }
 
@@ -174,6 +291,13 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
     {
         Busy = value;
         StateHasChanged();
+    }
+
+    private static DateTime ToUtcFromLocalMidnight(DateTime localDateUnspecified)
+    {
+        // локальний календарний день -> 00:00 Local -> UTC
+        var localMidnight = DateTime.SpecifyKind(localDateUnspecified.Date, DateTimeKind.Local);
+        return localMidnight.ToUniversalTime();
     }
 
     public void Dispose()

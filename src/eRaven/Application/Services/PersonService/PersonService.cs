@@ -17,7 +17,7 @@ public class PersonService(AppDbContext appDbContext) : IPersonService
     private readonly AppDbContext _appDbContext = appDbContext;
 
     // ---------- Search (легкий, без історій) ----------
-  
+
     public async Task<IReadOnlyList<Person>> SearchAsync(Expression<Func<Person, bool>>? predicate, CancellationToken ct = default)
     {
         var q = _appDbContext.Persons

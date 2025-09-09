@@ -36,11 +36,11 @@ public sealed class PersonStatusConfiguration : IEntityTypeConfiguration<PersonS
          .IsRequired();
 
         e.Property(x => x.OpenDate)
-         .HasColumnName("open_date")      
+         .HasColumnName("open_date")
          .IsRequired();
 
         e.Property(x => x.CloseDate)
-         .HasColumnName("close_date");      
+         .HasColumnName("close_date");
 
         e.Property(x => x.Note)
          .HasColumnName("note")

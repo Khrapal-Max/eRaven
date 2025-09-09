@@ -11,22 +11,22 @@ namespace eRaven.Application.ViewModels.PersonStatusViewModel;
 
 public class SetPersonStatusViewModel
 {
-    [Required] 
+    [Required]
     public Guid PersonId { get; set; }
 
-    [Required] 
-    public int ToStatusKindId { get; set; }
+    [Required]
+    public int StatusId { get; set; }
 
     /// <summary>
     /// Момент локальний із UI; бек нормалізує в UTC.
     /// Якщо вже маєш у UTC — проставляй з Kind=Utc.
     /// </summary>
-    [Required] 
+    [Required]
     public DateTime Moment { get; set; }
 
-    [MaxLength(512)] 
+    [MaxLength(512)]
     public string? Note { get; set; }
 
-    [MaxLength(64)] 
+    [MaxLength(64)]
     public string? Author { get; set; }
 }

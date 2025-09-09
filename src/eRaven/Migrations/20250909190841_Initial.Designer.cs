@@ -12,7 +12,7 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250908134723_Initial")]
+    [Migration("20250909190841_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -612,7 +612,7 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "В районі",
-                            Order = 30
+                            Order = 10
                         },
                         new
                         {
@@ -622,17 +622,17 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "В БР",
-                            Order = 10
+                            Order = 20
                         },
                         new
                         {
                             Id = 3,
                             Author = "system",
-                            Code = "100",
+                            Code = "нб",
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "В БТГр",
-                            Order = 20
+                            Name = "Переміщення",
+                            Order = 30
                         },
                         new
                         {
@@ -641,27 +641,27 @@ namespace eRaven.Migrations
                             Code = "нб",
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Переміщення",
+                            Name = "Звільнення",
                             Order = 40
                         },
                         new
                         {
                             Id = 5,
                             Author = "system",
-                            Code = "нб",
+                            Code = "РОЗПОР",
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Звільнення",
+                            Name = "Розпорядження",
                             Order = 50
                         },
                         new
                         {
                             Id = 6,
                             Author = "system",
-                            Code = "РОЗПОР",
+                            Code = "ВДР",
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Розпорядження",
+                            Name = "В БТГр",
                             Order = 60
                         },
                         new

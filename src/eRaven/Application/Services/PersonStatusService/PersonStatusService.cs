@@ -84,7 +84,7 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
         // ====== 4) Автозакриття попереднього активного ======
         if (active is not null)
         {
-            active.CloseDate = ps.OpenDate.AddSeconds(-1);
+            active.CloseDate = ps.OpenDate;
             active.IsActive = false;
             active.Modified = DateTime.UtcNow;
         }

@@ -2,93 +2,77 @@
 
 @using eRaven.Domain.Models
 @using eRaven.Components.Pages.Statuses.Modals
-@using eRaven.Components.Shared.ExcelImport
 @using eRaven.Application.ViewModels.PersonStatusViewModel
 
 <div class="container-fluid py-2 d-flex flex-column" style="gap:.5rem; min-height:70vh;">
 
-    <!-- ===== Toolbar: пошук ===== -->
-    <div class="d-flex align-items-center gap-2 p-2 justify-content-between">
-        <div class="d-flex gap-2 w-50">
+    <!-- Toolbar -->
+    <div class="d-flex align-items-center gap-2 p-1 flex-wrap justify-content-between w-100">
+        <!-- Пошук (ліворуч) -->
+        <div class="flex-grow-1" style="min-width:260px; max-width:600px;">
             <SearchBox @bind-Value="Search"
-                       Delay="0"
+                       Delay="350"
                        Placeholder="Пошук: ПІБ / РНОКПП / звання / позивний / посада"
-                       Disabled="false"
+                       Disabled="@Busy"
                        OnSearch="OnSearchAsync" />
-
-            <button class="btn btn-sm btn-primary"
-                    title="Знайти"
-                    disabled="@string.IsNullOrWhiteSpace(Search) || Busy"
-                    @onclick="OnSearchAsync">
-                <i class="bi bi-search"></i> Знайти
-            </button>
-
-            <button class="btn btn-sm btn-success"
-                    title="Скинути"
-                    disabled="@Busy"
-                    @onclick="ClearAsync">
-                <i class="bi bi-x-circle"></i> Очистити
-            </button>
         </div>
 
-        <div class="d-flex flex-row align-items-center gap-2 flex-wrap">
-        <!-- Імпорт статусів -->
+        <!-- Імпорт статусів праворуч -->
         <ExcelImport TItem="PersonStatusImportView"
                      StopOnParseErrors="true"
                      MaxSizeMb="5"
                      OnBusyChanged="OnImportBusyChanged"
                      ProcessAsync="ProcessImportedStatusesAsync"
                      OnCompleted="OnImportCompleted" />
-        </div>
     </div>
 
-    <!-- ===== Результати ===== -->
-    @if (Busy)
+    <!-- Таблиця -->
+    @if (Items.Count > 0)
     {
-        <div class="text-secondary px-2">Пошук…</div>
-    }
-    else if (Items.Count == 0)
-    {
-        <div class="h6 px-2">Нічого не знайдено.</div>
+        <div class="bg-dark rounded flex-grow-1 d-flex">
+            <TableBaseComponent Items="Items"
+                                TItem="Person"
+                                Class="table align-middle mb-0">
+                <TableHeader>
+                    <th class="text-black">ПІБ</th>
+                    <th class="text-black text-center">Звання</th>
+                    <th class="text-black text-center">РНОКПП</th>
+                    <th class="text-black text-center">Позивний</th>
+                    <th class="text-black">Посада</th>
+                    <th class="text-black text-center">Поточний статус</th>
+                    <th class="text-black"></th>
+                </TableHeader>
+
+                <RowTemplate Context="p">
+                    <td>@p.FullName</td>
+                    <td class="text-center">@p.Rank</td>
+                    <td class="text-center">@p.Rnokpp</td>
+                    <td class="text-center">@p.Callsign</td>
+                    <td>@p.PositionUnit?.ShortName</td>
+                    <td class="text-center">@(p.StatusKind?.Name ?? "")</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-warning"
+                                title="Змінити статус"
+                                disabled="@Busy"
+                                @onclick="() => OpenSetStatus(p)">
+                            <i class="bi bi-sliders"></i> Змінити статус
+                        </button>
+                    </td>
+                </RowTemplate>
+            </TableBaseComponent>
+        </div>
     }
     else
     {
-        <div class="table-responsive bg-dark rounded">
-            <div class="bg-dark rounded flex-grow-1 d-flex">
-                <TableBaseComponent Items="Items"
-                                    TItem="Person"
-                                    Class="table align-middle">
-                    <TableHeader>
-                        <th class="text-black">ПІБ</th>
-                        <th class="text-black">Звання</th>
-                        <th class="text-black">РНОКПП</th>
-                        <th class="text-black">Позивний</th>
-                        <th class="text-black">Посада</th>
-                        <th class="text-black">Поточний статус</th>
-                        <th class="text-black"></th>
-                    </TableHeader>
-
-                    <RowTemplate Context="p">
-                        <td>@p.FullName</td>
-                        <td class="text-center">@p.Rank</td>
-                        <td class="text-center">@p.Rnokpp</td>
-                        <td class="text-center">@p.Callsign</td>
-                        <td>@p.PositionUnit?.ShortName</td>
-                        <td class="text-center">@(p.StatusKind?.Name ?? string.Empty)</td>
-                        <td class="text-end">
-                            <button class="btn btn-sm btn-warning"
-                                    title="Змінити статус"
-                                    @onclick="() => OpenSetStatus(p)">
-                                <i class="bi bi-sliders"></i> Змінити статус
-                            </button>
-                        </td>
-                    </RowTemplate>
-                </TableBaseComponent>
-            </div>
-        </div>
+        <div class="h5 px-2">@((Busy ? "Завантаження…" : "Список порожній або нічого не знайдено."))</div>
     }
 </div>
 
-<!-- ===== Модалка встановлення статусу (заготовка) ===== -->
-<StatusSetModal @ref="_setStatusModal"
-                OnStatusChanged="OnStatusChangedAsync" />
+@* Модальне вікно зміни статусу *@
+<StatusSetModal Open="@_isStatusModalOpen"
+                Busy="@Busy"
+                PersonCard="@_modalPerson"
+                CurrentStatus="@_modalCurrentStatus"
+                AllowedNextStatuses="@_mapStatuses"
+                OnSubmit="HandleStatusSubmitAsync"
+                OnClose="HandleStatusCloseAsync" />

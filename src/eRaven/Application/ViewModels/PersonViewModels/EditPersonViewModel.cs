@@ -25,7 +25,7 @@ public sealed class EditPersonViewModel
     [Required]
     [StringLength(10, MinimumLength = 10, ErrorMessage = "РНОКПП має містити рівно 10 символів.")]
     [RegularExpression(@"^\d{10}$", ErrorMessage = "РНОКПП має складатися лише з цифр.")]
-    public string Rnokpp { get; set; } = default!;  
+    public string Rnokpp { get; set; } = default!;
 
     [Required, MaxLength(64)]
     public string Rank { get; set; } = default!; // ОБОВ’ЯЗКОВО

@@ -15,14 +15,14 @@ internal static class Seed
 
     public static readonly StatusKind[] AllStatusKind =
     [
-        new() { Id = 1,  Name = "В районі",            Code = "30",   Order = 30,  IsActive = true, Author="system", Modified = SeedTs },
-        new() { Id = 2,  Name = "В БР",                Code = "100",  Order = 10,  IsActive = true, Author="system", Modified = SeedTs },
-        new() { Id = 3,  Name = "В БТГр",              Code = "100",  Order = 20,  IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 1,  Name = "В районі",            Code = "30",   Order = 10,  IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 2,  Name = "В БР",                Code = "100",  Order = 20,  IsActive = true, Author="system", Modified = SeedTs },
 
-        new() { Id = 4,  Name = "Переміщення",         Code = "нб",   Order = 40,  IsActive = true, Author="system", Modified = SeedTs },
-        new() { Id = 5,  Name = "Звільнення",          Code = "нб",   Order = 50,  IsActive = true, Author="system", Modified = SeedTs },
-        new() { Id = 6,  Name = "Розпорядження",       Code = "РОЗПОР", Order = 60, IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 3,  Name = "Переміщення",         Code = "нб",   Order = 30,  IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 4,  Name = "Звільнення",          Code = "нб",   Order = 40,  IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 5,  Name = "Розпорядження",       Code = "РОЗПОР", Order = 50, IsActive = true, Author="system", Modified = SeedTs },
 
+        new() { Id = 6,  Name = "В БТГр",              Code = "ВДР",  Order = 60,  IsActive = true, Author="system", Modified = SeedTs },
         new() { Id = 7,  Name = "Відрядження",         Code = "ВДР",  Order = 70,  IsActive = true, Author="system", Modified = SeedTs },
         new() { Id = 8,  Name = "Фахове навчання",     Code = "ВДР",  Order = 80,  IsActive = true, Author="system", Modified = SeedTs },
 

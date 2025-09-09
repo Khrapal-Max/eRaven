@@ -5,7 +5,6 @@
 // PersonCardTests
 //-----------------------------------------------------------------------------
 
-using Blazored.Toast.Configuration;
 using Blazored.Toast.Services;
 using Bunit;
 using eRaven.Application.Services.PersonService;

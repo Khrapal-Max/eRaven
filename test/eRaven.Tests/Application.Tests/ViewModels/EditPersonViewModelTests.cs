@@ -77,7 +77,7 @@ public class EditPersonViewModelTests
         var vm = Valid();
         vm.Rnokpp = "12345";
 
-        var results = Validate(vm); 
+        var results = Validate(vm);
 
         Assert.Contains(results, x => x.ErrorMessage!.Contains("рівно 10"));
     }

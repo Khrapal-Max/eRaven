@@ -259,12 +259,12 @@ namespace eRaven.Migrations
                 columns: new[] { "id", "author", "code", "is_active", "modified", "name", "order" },
                 values: new object[,]
                 {
-                    { 1, "system", "30", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "В районі", 30 },
-                    { 2, "system", "100", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "В БР", 10 },
-                    { 3, "system", "100", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "В БТГр", 20 },
-                    { 4, "system", "нб", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Переміщення", 40 },
-                    { 5, "system", "нб", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Звільнення", 50 },
-                    { 6, "system", "РОЗПОР", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Розпорядження", 60 },
+                    { 1, "system", "30", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "В районі", 10 },
+                    { 2, "system", "100", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "В БР", 20 },
+                    { 3, "system", "нб", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Переміщення", 30 },
+                    { 4, "system", "нб", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Звільнення", 40 },
+                    { 5, "system", "РОЗПОР", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Розпорядження", 50 },
+                    { 6, "system", "ВДР", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "В БТГр", 60 },
                     { 7, "system", "ВДР", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Відрядження", 70 },
                     { 8, "system", "ВДР", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Фахове навчання", 80 },
                     { 9, "system", "В", true, new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Відпустка", 90 },

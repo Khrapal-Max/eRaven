@@ -29,7 +29,7 @@ public interface IPersonStatusService
     /// Повертає збережений рядок з присвоєним Id.
     /// </summary>
     /// <returns>PersonStatus(<see cref="PersonStatus"/>)</returns>
-    Task<PersonStatus> SetStatusAsync(PersonStatus personStatus, CancellationToken ct = default);   
+    Task<PersonStatus> SetStatusAsync(PersonStatus personStatus, CancellationToken ct = default);
 
     /// <summary>
     /// Чи дозволений перехід з from→to згідно довідника переходів.
