@@ -30,7 +30,6 @@ public class PersonStatus
     /// ДІя з - до
     /// </summary>
     public DateTime OpenDate { get; set; }        // UTC
-    public DateTime? CloseDate { get; set; }      // null = активний
 
     /// <summary>
     /// Примітка

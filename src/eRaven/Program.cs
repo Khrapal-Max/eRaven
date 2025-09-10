@@ -76,4 +76,11 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers.ContentSecurityPolicy =
+        "frame-ancestors 'none'";
+    await next();
+});
+
 app.Run();

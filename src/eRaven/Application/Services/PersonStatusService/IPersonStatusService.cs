@@ -43,4 +43,12 @@ public interface IPersonStatusService
     /// </summary>
     /// <returns>bool</returns>
     Task<bool> IsTransitionAllowedAsync(int? fromStatusKindId, int toStatusKindId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Зміна стану IsActive на протилежний
+    /// </summary>
+    /// <param name="statusId"></param>
+    /// <param name="ct"></param>
+    /// <returns>bool</returns>
+    Task<bool> UpdateStateIsActive(Guid statusId, CancellationToken ct = default);
 }

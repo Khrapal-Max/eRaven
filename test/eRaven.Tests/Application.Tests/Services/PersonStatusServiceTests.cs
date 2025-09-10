@@ -209,7 +209,7 @@ public sealed class PersonStatusServiceTests : IDisposable
 
         // Assert
         await _db.Entry(active).ReloadAsync(_ct);
-        Assert.False(active.IsActive);
+        Assert.True(active.IsActive);
         Assert.Equal(newMoment, active.CloseDate);
 
         Assert.True(saved.IsActive);

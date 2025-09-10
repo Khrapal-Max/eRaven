@@ -25,74 +25,70 @@ public sealed class PersonStatusConfiguration : IEntityTypeConfiguration<PersonS
         // Columns (lower snake_case)
         // ===============================
         e.Property(x => x.Id)
-         .HasColumnName("id");
+            .HasColumnName("id");
 
         e.Property(x => x.PersonId)
-         .HasColumnName("person_id")
-         .IsRequired();
+            .HasColumnName("person_id")
+            .IsRequired();
 
         e.Property(x => x.StatusKindId)
-         .HasColumnName("status_kind_id")
-         .IsRequired();
+            .HasColumnName("status_kind_id")
+            .IsRequired();
 
         e.Property(x => x.OpenDate)
-         .HasColumnName("open_date")
-         .IsRequired();
-
-        e.Property(x => x.CloseDate)
-         .HasColumnName("close_date");
+            .HasColumnName("open_date")
+            .IsRequired();
 
         e.Property(x => x.Note)
-         .HasColumnName("note")
-         .HasMaxLength(512);
+            .HasColumnName("note")
+            .HasMaxLength(512);
 
         e.Property(x => x.IsActive)
-         .HasColumnName("is_active")
-         .HasDefaultValue(true);
+            .HasColumnName("is_active")
+            .HasDefaultValue(true)
+            .IsRequired();
 
         e.Property(x => x.Author)
-         .HasColumnName("author")
-         .HasDefaultValue("system");
+            .HasColumnName("author")
+            .HasMaxLength(64)
+            .HasDefaultValue("system");
 
         e.Property(x => x.Modified)
-         .HasColumnName("modified")
-         .HasDefaultValueSql("CURRENT_TIMESTAMP")
-         .IsRequired();
+            .HasColumnName("modified")
+            .HasDefaultValueSql("CURRENT_TIMESTAMP")
+            .IsRequired();
 
         // ===============================
         // Relationships
         // ===============================
         e.HasOne(x => x.Person)
-         .WithMany(p => p.StatusHistory)
-         .HasForeignKey(x => x.PersonId)
-         .OnDelete(DeleteBehavior.Cascade);
+            .WithMany(p => p.StatusHistory)
+            .HasForeignKey(x => x.PersonId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         e.HasOne(x => x.StatusKind)
-         .WithMany()
-         .HasForeignKey(x => x.StatusKindId)
-         .OnDelete(DeleteBehavior.Restrict);
+            .WithMany()
+            .HasForeignKey(x => x.StatusKindId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // ===============================
-        // Constraints & Indexes
+        // Indexes
         // ===============================
-
-        // Активний статус тільки один на особу (to_date IS NULL)
-        e.HasIndex(x => x.PersonId)
-         .HasFilter("close_date IS NULL")
-         .HasDatabaseName("ix_person_statuses_active_unique_per_person")
-         .IsUnique();
-
-        // валідність інтервалу
-        e.ToTable(t => t.HasCheckConstraint(
-            "ck_person_status_dates",
-            "(close_date IS NULL) OR (close_date > open_date)"
-        ));
-
-        // Індекси для пошуку по періодах
+        // Основний індекс для історії (перегляди/звітність)
         e.HasIndex(x => new { x.PersonId, x.OpenDate })
-         .HasDatabaseName("ix_person_statuses_person_open");
+            .HasDatabaseName("ix_person_statuses_person_open");
 
-        e.HasIndex(x => new { x.PersonId, x.CloseDate })
-         .HasDatabaseName("ix_person_statuses_person_close");
+        // Унікальний (partial) — лише для валідних записів:
+        // гарантує, що в один і той самий момент часу може існувати
+        // не більше одного "активного" запису для особи.
+        // (PostgreSQL підтримує фільтр; у SQLite під час тестів фільтр ігнорується)
+        e.HasIndex(x => new { x.PersonId, x.OpenDate })
+            .IsUnique()
+            .HasFilter("is_active = TRUE")
+            .HasDatabaseName("ux_person_statuses_person_open_active");
+
+        // Додатковий індекс для швидкого пошуку "поточних" (валідних) з сортуванням по даті
+        e.HasIndex(x => new { x.PersonId, x.IsActive, x.OpenDate })
+            .HasDatabaseName("ix_person_statuses_person_active_open");
     }
 }
