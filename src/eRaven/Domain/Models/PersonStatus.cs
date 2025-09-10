@@ -27,6 +27,11 @@ public class PersonStatus
     public StatusKind StatusKind { get; set; } = null!;
 
     /// <summary>
+    /// Порядковий номер статусу в історії (для сортування)
+    /// </summary>
+    public short Sequence { get; set; }
+
+    /// <summary>
     /// ДІя з - до
     /// </summary>
     public DateTime OpenDate { get; set; }        // UTC

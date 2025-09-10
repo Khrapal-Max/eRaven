@@ -26,19 +26,17 @@
                                 Class="table align-middle mb-0">
                 <TableHeader>
                     <th class="text-black">Статус</th>
-                    <th class="text-black text-center">Відкрито</th>
-                    <th class="text-black text-center">Закрито</th>
+                    <th class="text-black text-center">Дата події</th>
                     <th class="text-black">Примітка</th>
                     <th class="text-black">Особа</th>
                     <th class="text-black text-center">Автор</th>
-                    <th class="text-black text-center">Змінено</th>
+                    <th class="text-black text-center">Дата запису</th>
                     <th class="text-black text-center">Стан</th>
                 </TableHeader>
 
                 <RowTemplate Context="s">
                     <td>@(s.StatusKind?.Name ?? $"ID {s.StatusKindId}")</td>
                     <td class="text-center">@s.OpenDate.ToLocalTime().ToString("dd.MM.yyyy")</td>
-                    <td class="text-center">@s.CloseDate?.ToLocalTime().ToString("dd.MM.yyyy")</td>
                     <td class="text-wrap">@s.Note</td>
                     <td>@s.Person?.FullName (@s.Person?.Rnokpp)</td>
                     <td class="text-center">@s.Author</td>

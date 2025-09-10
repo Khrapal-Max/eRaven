@@ -33,11 +33,16 @@ public sealed class PersonStatusConfiguration : IEntityTypeConfiguration<PersonS
 
         e.Property(x => x.StatusKindId)
             .HasColumnName("status_kind_id")
-            .IsRequired();
+            .IsRequired();        
+
+        e.Property(x => x.Sequence)
+           .HasColumnName("sequence")
+           .HasDefaultValue((short)0)
+           .IsRequired();
 
         e.Property(x => x.OpenDate)
-            .HasColumnName("open_date")
-            .IsRequired();
+           .HasColumnName("open_date")
+           .IsRequired();
 
         e.Property(x => x.Note)
             .HasColumnName("note")
@@ -78,14 +83,10 @@ public sealed class PersonStatusConfiguration : IEntityTypeConfiguration<PersonS
         e.HasIndex(x => new { x.PersonId, x.OpenDate })
             .HasDatabaseName("ix_person_statuses_person_open");
 
-        // Унікальний (partial) — лише для валідних записів:
-        // гарантує, що в один і той самий момент часу може існувати
-        // не більше одного "активного" запису для особи.
-        // (PostgreSQL підтримує фільтр; у SQLite під час тестів фільтр ігнорується)
-        e.HasIndex(x => new { x.PersonId, x.OpenDate })
-            .IsUnique()
-            .HasFilter("is_active = TRUE")
-            .HasDatabaseName("ux_person_statuses_person_open_active");
+        e.HasIndex(x => new { x.PersonId, x.OpenDate, x.Sequence })
+          .IsUnique()
+          .HasFilter("is_active = TRUE")
+          .HasDatabaseName("ux_person_statuses_person_open_seq_active");
 
         // Додатковий індекс для швидкого пошуку "поточних" (валідних) з сортуванням по даті
         e.HasIndex(x => new { x.PersonId, x.IsActive, x.OpenDate })

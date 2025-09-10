@@ -1,7 +1,6 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
 // PersonStatusService
 //-----------------------------------------------------------------------------
 
@@ -20,6 +19,7 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
             .Include(p => p.Person)
             .Include(s => s.StatusKind)
             .OrderByDescending(s => s.OpenDate)
+            .ThenByDescending(s => s.Sequence)
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<PersonStatus>> GetHistoryAsync(Guid personId, CancellationToken ct = default)
@@ -28,28 +28,36 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
             .Include(s => s.StatusKind)
             .Where(s => s.PersonId == personId)
             .OrderByDescending(s => s.OpenDate)
+            .ThenByDescending(s => s.Sequence)
             .ToListAsync(ct);
 
         return list.AsReadOnly();
     }
 
+    /// <summary>
+    /// «Поточний» статус = останній валідний (IsActive=TRUE) за (OpenDate DESC, Sequence DESC).
+    /// </summary>
     public async Task<PersonStatus?> GetActiveAsync(Guid personId, CancellationToken ct = default)
-       => await _db.PersonStatuses.AsNoTracking()
-           .Include(s => s.StatusKind)
-           .Where(s => s.PersonId == personId && s.CloseDate == null && s.IsActive == true)
-           .OrderByDescending(s => s.OpenDate)
-           .FirstOrDefaultAsync(ct);
+        => await _db.PersonStatuses.AsNoTracking()
+            .Include(s => s.StatusKind)
+            .Where(s => s.PersonId == personId && s.IsActive)
+            .OrderByDescending(s => s.OpenDate)
+            .ThenByDescending(s => s.Sequence)
+            .FirstOrDefaultAsync(ct);
 
+    /// <summary>
+    /// Встановити новий статус: перевіряємо перехід згідно правил, нормалізуємо момент (UTC),
+    /// автоматично підбираємо Sequence (0..n) на ту саму дату/момент, виставляємо Person.StatusKindId.
+    /// </summary>
     public async Task<PersonStatus> SetStatusAsync(PersonStatus ps, CancellationToken ct = default)
     {
         // ====== 1) Валідації та нормалізація ======
         ArgumentNullException.ThrowIfNull(ps);
         if (ps.PersonId == Guid.Empty) throw new ArgumentException("PersonId обовʼязковий.", nameof(ps));
         if (ps.StatusKindId <= 0) throw new ArgumentException("StatusKindId обовʼязковий.", nameof(ps));
-        if (ps.CloseDate is not null) throw new ArgumentException("CloseDate має бути null при встановленні статусу.", nameof(ps));
 
         // Нормалізуємо OpenDate до UTC (на вхід може прийти Local/Unspecified)
-        ps.OpenDate = ps.OpenDate.Kind switch
+        var openUtc = ps.OpenDate.Kind switch
         {
             DateTimeKind.Utc => ps.OpenDate,
             DateTimeKind.Local => ps.OpenDate.ToUniversalTime(),
@@ -65,43 +73,36 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
 
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
-        // ====== 2) Поточний активний + правила переходу ======
-        var active = await _db.PersonStatuses
-            .Where(s => s.PersonId == ps.PersonId && s.CloseDate == null && s.IsActive == true)
-            .OrderByDescending(s => s.OpenDate)
+        // ====== 2) Правила переходів: від поточного (останнього валідного) → до нового
+        var current = await _db.PersonStatuses
+            .Where(s => s.PersonId == ps.PersonId && s.IsActive)
+            .OrderByDescending(s => s.OpenDate).ThenByDescending(s => s.Sequence)
             .FirstOrDefaultAsync(ct);
 
-        int? fromKindId = active?.StatusKindId;
+        int? fromKindId = current?.StatusKindId;
         if (!await IsTransitionAllowedAsync(fromKindId, ps.StatusKindId, ct))
             throw new InvalidOperationException("Перехід у вказаний статус заборонено правилами.");
 
-        // ====== 3) Перевірка перетинів ======
-        var insideClosed = await _db.PersonStatuses
-            .Where(s => s.PersonId == ps.PersonId && s.CloseDate != null)
-            .AnyAsync(s => ps.OpenDate >= s.OpenDate && ps.OpenDate <= s.CloseDate, ct);
+        // Забороняємо «назад у часі» відносно поточного
+        if (current is not null && openUtc <= current.OpenDate)
+            throw new InvalidOperationException("Момент має бути пізніший за останній відкритий статус.");
 
-        if (insideClosed)
-            throw new InvalidOperationException("Момент потрапляє в існуючий інтервал статусу (перетин).");
+        // ====== 3) Присвоюємо Sequence на цей самий момент часу
+        short nextSeq = (short)((await _db.PersonStatuses
+            .Where(s => s.PersonId == ps.PersonId && s.IsActive && s.OpenDate == openUtc)
+            .MaxAsync(s => (short?)s.Sequence, ct)) ?? -1);
 
-        if (active is not null && ps.OpenDate <= active.OpenDate)
-            throw new InvalidOperationException("Момент має бути пізніший за відкритий активний статус.");
+        nextSeq++;
 
-        // ====== 4) Автозакриття попереднього активного (IsActive не чіпаємо — це легітимність запису, а не “активність” інтервалу)
-        if (active is not null)
-        {
-            active.CloseDate = ps.OpenDate;
-            active.Modified = DateTime.UtcNow;
-        }
-
-        // ====== 5) Створення нового інтервалу ======
+        // ====== 4) Створюємо новий «валідний» запис
         var toSave = new PersonStatus
         {
             Id = Guid.NewGuid(),
             PersonId = ps.PersonId,
             StatusKindId = ps.StatusKindId,
-            OpenDate = ps.OpenDate,
-            CloseDate = null,
-            IsActive = true, // ← новий інтервал за замовчуванням легітимний
+            OpenDate = openUtc,
+            Sequence = nextSeq,
+            IsActive = true,
             Note = string.IsNullOrWhiteSpace(ps.Note) ? null : ps.Note.Trim(),
             Author = string.IsNullOrWhiteSpace(ps.Author) ? "system" : ps.Author!.Trim(),
             Modified = DateTime.UtcNow
@@ -109,7 +110,7 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
 
         _db.PersonStatuses.Add(toSave);
 
-        // Оновлюємо "поточний" статус у Person: останній відкритий і легітимний
+        // Оновлюємо «поточний» статус у Person
         person.StatusKindId = ps.StatusKindId;
         person.ModifiedUtc = DateTime.UtcNow;
 
@@ -121,14 +122,17 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
 
     public async Task<bool> IsTransitionAllowedAsync(int? fromStatusKindId, int toStatusKindId, CancellationToken ct = default)
     {
+        // Перша установка — дозволяємо
         if (fromStatusKindId is null) return true;
+
         return await _db.Set<StatusTransition>()
             .AnyAsync(t => t.FromStatusKindId == fromStatusKindId && t.ToStatusKindId == toStatusKindId, ct);
     }
 
     /// <summary>
-    /// Тумбл легітимності запису. Після зміни перераховуємо Person.StatusKindId
-    /// як "останній відкритий і легітимний" інтервал, або null, якщо такого немає.
+    /// Перемикає IsActive; при активації уникає конфлікту унікального індексу
+    /// (якщо вже є активний з тим самим (person, open, sequence) — піднімаємо Sequence до наступного).
+    /// Після зміни перевираховує Person.StatusKindId = останній валідний запис.
     /// </summary>
     public async Task<bool> UpdateStateIsActive(Guid statusId, CancellationToken ct = default)
     {
@@ -136,78 +140,52 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
 
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
-        var s = await _db.PersonStatuses.FirstOrDefaultAsync(x => x.Id == statusId, ct)
+        var status = await _db.PersonStatuses.FirstOrDefaultAsync(s => s.Id == statusId, ct)
             ?? throw new InvalidOperationException("Status not found.");
 
-        var wasOpen = s.CloseDate is null;
-        var newIsActive = !s.IsActive;
-        var now = DateTime.UtcNow;
-
-        // === 1) ВИМКНУТИ легітимність у відкритого → спершу зробити не легітимним, потім ре-опенити prev ===
-        if (!newIsActive && wasOpen)
-        {
-            // 1.1 Поточний перестає бути легітимним (і залишається "відкритим", але IsActive=false)
-            s.IsActive = false;
-            s.Modified = now;
-            await _db.SaveChangesAsync(ct); // <— важливо: тепер у БД немає жодного OPEN & IsActive=true
-
-            // 1.2 Ре-опенимо попередній легітимний (якщо такий є)
-            var prev = await _db.PersonStatuses
-                .Where(x => x.PersonId == s.PersonId && x.IsActive == true && x.OpenDate < s.OpenDate)
-                .OrderByDescending(x => x.OpenDate)
-                .FirstOrDefaultAsync(ct);
-
-            if (prev is not null)
-            {
-                prev.CloseDate = null;
-                prev.Modified = now;
-                await _db.SaveChangesAsync(ct); // <— тепер prev єдиний OPEN & IsActive=true
-            }
-        }
-        // === 2) УВІМКНУТИ легітимність у відкритого → спершу закрити "інший" OPEN, потім активувати s ===
-        else if (newIsActive && wasOpen)
-        {
-            // 2.1 Закриваємо будь-який інший відкритий легітимний інтервал
-            var otherOpen = await _db.PersonStatuses
-                .Where(x => x.PersonId == s.PersonId && x.Id != s.Id && x.IsActive == true && x.CloseDate == null)
-                .OrderByDescending(x => x.OpenDate)
-                .FirstOrDefaultAsync(ct);
-
-            if (otherOpen is not null)
-            {
-                otherOpen.CloseDate = s.OpenDate; // межа на старт нашого інтервалу
-                otherOpen.Modified = now;
-                await _db.SaveChangesAsync(ct);   // <— важливо: прибрали конфлікт до активації s
-            }
-
-            // 2.2 Робимо наш інтервал легітимним
-            s.IsActive = true;
-            s.Modified = now;
-            await _db.SaveChangesAsync(ct);
-        }
-        // === 3) Тумбл на закритому інтервалі — просто перемикаємо прапорець ===
-        else
-        {
-            s.IsActive = newIsActive;
-            s.Modified = now;
-            await _db.SaveChangesAsync(ct);
-        }
-
-        // === 4) Перерахувати "поточний" статус Person за останнім OPEN & IsActive=true ===
-        var person = await _db.Persons.FirstOrDefaultAsync(p => p.Id == s.PersonId, ct)
+        var person = await _db.Persons.FirstOrDefaultAsync(p => p.Id == status.PersonId, ct)
             ?? throw new InvalidOperationException("Person not found.");
 
-        var current = await _db.PersonStatuses
-            .Where(x => x.PersonId == s.PersonId && x.IsActive == true && x.CloseDate == null)
-            .OrderByDescending(x => x.OpenDate)
+        var turnOn = !status.IsActive;
+
+        if (turnOn)
+        {
+            // при активації — уникаємо конфлікту унікального індексу (person_id, open_date, sequence) WHERE is_active=TRUE
+            var existsActiveSameKey = await _db.PersonStatuses.AnyAsync(
+                s => s.PersonId == status.PersonId
+                  && s.IsActive
+                  && s.OpenDate == status.OpenDate
+                  && s.Sequence == status.Sequence, ct);
+
+            if (existsActiveSameKey)
+            {
+                // переносимо на наступний sequence на той самий момент
+                short nextSeq = (short)((await _db.PersonStatuses
+                    .Where(s => s.PersonId == status.PersonId && s.IsActive && s.OpenDate == status.OpenDate)
+                    .MaxAsync(s => (short?)s.Sequence, ct)) ?? -1);
+
+                status.Sequence = (short)(nextSeq + 1);
+            }
+        }
+
+        status.IsActive = turnOn;
+        status.Modified = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        // оновлюємо Person.StatusKindId до останнього валідного
+        var latestValid = await _db.PersonStatuses
+            .Where(s => s.PersonId == status.PersonId && s.IsActive)
+            .OrderByDescending(s => s.OpenDate)
+            .ThenByDescending(s => s.Sequence)
             .FirstOrDefaultAsync(ct);
 
-        person.StatusKindId = current?.StatusKindId;
-        person.ModifiedUtc = now;
+        person.StatusKindId = latestValid?.StatusKindId;
+        person.ModifiedUtc = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
-        return s.IsActive;
+        return status.IsActive;
     }
 }
