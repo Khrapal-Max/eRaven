@@ -33,6 +33,7 @@ internal sealed class SqliteDbHelper : IDisposable
         // аби можна було мати кілька записів на одну особу
         Db.Database.ExecuteSqlRaw(
             "DROP INDEX IF EXISTS ix_person_statuses_active_unique_per_person;");
+
     }
 
     public void Dispose()
