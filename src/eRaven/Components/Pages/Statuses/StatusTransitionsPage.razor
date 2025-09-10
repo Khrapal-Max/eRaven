@@ -12,7 +12,7 @@
         <div class="flex-grow-1" style="min-width:260px; max-width:600px;">
             <SearchBox @bind-Value="Search"
                        Delay="350"
-                       Placeholder="Пошук: ПІБ / РНОКПП / звання / позивний / посада"
+                       Placeholder="Пошук: ПІБ / РНОКПП"
                        Disabled="@Busy"
                        OnSearch="OnSearchAsync" />
         </div>
@@ -27,10 +27,10 @@
     </div>
 
     <!-- Таблиця -->
-    @if (Items.Count > 0)
+    @if (Filtered.Count > 0)
     {
         <div class="bg-dark rounded flex-grow-1 d-flex">
-            <TableBaseComponent Items="Items"
+            <TableBaseComponent Items="Filtered"
                                 TItem="Person"
                                 Class="table align-middle mb-0">
                 <TableHeader>

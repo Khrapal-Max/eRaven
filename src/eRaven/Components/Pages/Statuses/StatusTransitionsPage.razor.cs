@@ -22,11 +22,10 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
     // =============================
     // Дані
     // =============================
-    private List<Person> _all = [];
-    private List<Person> _filtered = [];
+    private IReadOnlyList<Person> _all = [];
     private IReadOnlyList<StatusKind> _statuses = [];
 
-    protected ObservableCollection<Person> Items { get; } = [];
+    protected ObservableCollection<Person> Filtered { get; set; } = [];
 
     // =============================
     // Модалка
@@ -46,8 +45,8 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
 
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!;
-    [Inject] private IStatusTransitionService StatusTransitionService { get; set; } = default!;
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
+    [Inject] private IStatusTransitionService StatusTransitionService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
 
     // =============================
@@ -55,11 +54,9 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
     // =============================
     protected override async Task OnInitializedAsync()
     {
-        await ReloadAllAsync();
-
         _statuses = await StatusKindService.GetAllAsync();
 
-        ApplyLocalFilter();
+        await ReloadAllAsync();       
     }
 
     // =============================
@@ -125,9 +122,10 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
             _modalPerson = null;
             _modalCurrentStatus = null;
             _mapStatuses.Clear();
+            Search = string.Empty;
+            Filtered.Clear();
 
             await ReloadAllAsync();
-            ApplyLocalFilter();
 
             Toast.ShowSuccess("Статус збережено.");
         }
@@ -181,7 +179,6 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
         }
 
         await ReloadAllAsync();
-        ApplyLocalFilter();
 
         return new ImportReportViewModel(Added: ok, Updated: 0, Errors: errors);
     }
@@ -213,7 +210,6 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            _all.Clear();
             Toast.ShowError($"Не вдалося завантажити картки: {ex.Message}");
         }
         finally
@@ -257,33 +253,29 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
     // =============================
     protected Task OnSearchAsync()
     {
+        Filtered.Clear();
         ApplyLocalFilter();
         return Task.CompletedTask;
     }
 
     private void ApplyLocalFilter()
     {
-        IEnumerable<Person> q = _all;
-
         if (!string.IsNullOrWhiteSpace(Search))
         {
+            var filter = _all;
+
             var s = Search.Trim();
 
-            static bool Has(string? haystack, string needle)
-                => !string.IsNullOrEmpty(haystack) && haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
+            filter = [.. filter.Where(p =>
+                p.FirstName.Contains(s, StringComparison.OrdinalIgnoreCase)
+                || p.LastName.Contains(s, StringComparison.OrdinalIgnoreCase)
+                || (p.MiddleName ?? string.Empty).Contains(s, StringComparison.OrdinalIgnoreCase)
+                || p.Rnokpp.Contains(s, StringComparison.OrdinalIgnoreCase))];
 
-            q = q.Where(p =>
-                Has(p.FullName, s) ||
-                Has(p.Rnokpp, s) ||
-                Has(p.Rank, s) ||
-                Has(p.Callsign, s) ||
-                Has(p.Weapon, s) ||
-                Has(p.PositionUnit?.ShortName, s));
+
+            foreach (var p in filter) Filtered.Add(p);
         }
 
-        _filtered = [.. q];
-        Items.Clear();
-        foreach (var p in _filtered) Items.Add(p);
         StateHasChanged();
     }
 
