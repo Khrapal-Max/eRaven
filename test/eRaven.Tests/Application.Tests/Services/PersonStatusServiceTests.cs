@@ -27,7 +27,7 @@ public sealed class PersonStatusServiceTests : IDisposable
 
     public void Dispose() => _helper.Dispose();
 
-    // ---------- helpers ----------
+    // ---------- Helpers ----------
 
     private static Person NewPerson() => new()
     {
@@ -40,22 +40,11 @@ public sealed class PersonStatusServiceTests : IDisposable
         ModifiedUtc = DateTime.UtcNow
     };
 
-    private static StatusKind NewKind(string code, string name) => new()
-    {
-        Id = 0,
-        Code = code,
-        Name = name,
-        IsActive = true,
-        Author = "test",
-        Modified = DateTime.UtcNow
-    };
-
-    private static StatusKind NewKindUnique(string? namePrefix = null)
-    => new()
+    private static StatusKind NewKindUnique(string? namePrefix = null) => new()
     {
         Id = 0, // авто
-        Code = $"K_{Guid.NewGuid():N}",                         // унікальний code
-        Name = $"{namePrefix ?? "Kind"}_{Guid.NewGuid():N}",    // унікальний name
+        Code = $"K_{Guid.NewGuid():N}",                       // унікальний code
+        Name = $"{namePrefix ?? "Kind"}_{Guid.NewGuid():N}",  // унікальний name (з префіксом для читабельності)
         IsActive = true,
         Author = "test",
         Modified = DateTime.UtcNow
@@ -68,16 +57,18 @@ public sealed class PersonStatusServiceTests : IDisposable
         ToStatusKindId = toId
     };
 
-    // ---------- tests ----------
+    // ---------- Tests ----------
 
     [Fact(DisplayName = "SetStatusAsync: перша установка створює валідний запис, Person.StatusKindId оновлюється")]
     public async Task SetStatus_FirstInstall_CreatesValid_UpdatesPerson()
     {
+        // Arrange
         var person = NewPerson();
-        var kind = NewKindUnique(); // ⬅️ унікальні Code/Name
+        var kind = NewKindUnique("Start");
         _db.AddRange(person, kind);
         await _db.SaveChangesAsync(_ct);
 
+        // Act
         var saved = await _svc.SetStatusAsync(new PersonStatus
         {
             PersonId = person.Id,
@@ -85,6 +76,7 @@ public sealed class PersonStatusServiceTests : IDisposable
             OpenDate = new DateTime(2025, 09, 01, 0, 0, 0, DateTimeKind.Utc)
         }, _ct);
 
+        // Assert
         Assert.NotEqual(Guid.Empty, saved.Id);
         Assert.True(saved.IsActive);
         Assert.Equal((short)0, saved.Sequence);
@@ -98,38 +90,42 @@ public sealed class PersonStatusServiceTests : IDisposable
         Assert.Equal(saved.Id, active!.Id);
     }
 
-
     [Fact(DisplayName = "SetStatusAsync: нормалізує OpenDate до UTC (Unspecified/Local) і проходить A→B")]
     public async Task SetStatus_NormalizesOpenDateToUtc()
     {
+        // Arrange
         var person = NewPerson();
-        var a = NewKind("A", "A");
-        var b = NewKind("B", "B");
-        _db.AddRange(person, a, b);
+        var kindA = NewKindUnique("A");
+        var kindB = NewKindUnique("B");
+        _db.AddRange(person, kindA, kindB);
         await _db.SaveChangesAsync(_ct);
 
         // 1) Unspecified → Utc (SpecifyKind)
         var unspecified = new DateTime(2025, 09, 01, 0, 0, 0, DateTimeKind.Unspecified);
+
+        // Act
         var s1 = await _svc.SetStatusAsync(new PersonStatus
         {
             PersonId = person.Id,
-            StatusKindId = a.Id,
+            StatusKindId = kindA.Id,
             OpenDate = unspecified
         }, _ct);
 
+        // Assert
         Assert.Equal(DateTimeKind.Utc, s1.OpenDate.Kind);
         Assert.Equal(unspecified.Ticks, s1.OpenDate.Ticks);
 
-        // Дозволяємо A → B
-        _db.StatusTransitions.Add(Tr(a.Id, b.Id));
+        // 2) Дозволяємо A → B
+        _db.StatusTransitions.Add(Tr(kindA.Id, kindB.Id));
         await _db.SaveChangesAsync(_ct);
 
-        // 2) Local → Utc, інший вид статусу
+        // 3) Local → Utc, інший вид
         var local = new DateTime(2025, 09, 02, 0, 0, 0, DateTimeKind.Local);
+
         var s2 = await _svc.SetStatusAsync(new PersonStatus
         {
             PersonId = person.Id,
-            StatusKindId = b.Id,
+            StatusKindId = kindB.Id,
             OpenDate = local
         }, _ct);
 
@@ -140,10 +136,11 @@ public sealed class PersonStatusServiceTests : IDisposable
     [Fact(DisplayName = "SetStatusAsync: відхиляє момент ≤ останнього валідного")]
     public async Task SetStatus_Rejects_NonIncreasingMoment()
     {
+        // Arrange
         var person = NewPerson();
-        var a = NewKind("A", "A");
-        var b = NewKind("B", "B");
-        _db.AddRange(person, a, b);
+        var kindA = NewKindUnique("A");
+        var kindB = NewKindUnique("B");
+        _db.AddRange(person, kindA, kindB);
         await _db.SaveChangesAsync(_ct);
 
         var t1 = new DateTime(2025, 09, 10, 00, 00, 00, DateTimeKind.Utc);
@@ -152,28 +149,28 @@ public sealed class PersonStatusServiceTests : IDisposable
         _ = await _svc.SetStatusAsync(new PersonStatus
         {
             PersonId = person.Id,
-            StatusKindId = a.Id,
+            StatusKindId = kindA.Id,
             OpenDate = t1
         }, _ct);
 
-        _db.StatusTransitions.Add(Tr(a.Id, b.Id));
+        _db.StatusTransitions.Add(Tr(kindA.Id, kindB.Id));
         await _db.SaveChangesAsync(_ct);
 
-        // минуле
+        // Act + Assert: минуле
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _svc.SetStatusAsync(new PersonStatus
             {
                 PersonId = person.Id,
-                StatusKindId = b.Id,
+                StatusKindId = kindB.Id,
                 OpenDate = t0
             }, _ct));
 
-        // той самий момент
+        // Act + Assert: той самий момент
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _svc.SetStatusAsync(new PersonStatus
             {
                 PersonId = person.Id,
-                StatusKindId = b.Id,
+                StatusKindId = kindB.Id,
                 OpenDate = t1
             }, _ct));
     }
@@ -181,35 +178,49 @@ public sealed class PersonStatusServiceTests : IDisposable
     [Fact(DisplayName = "UpdateStateIsActive: деактивація поточного оновлює Person.StatusKindId на попередній валідний")]
     public async Task UpdateStateIsActive_Deactivate_UpdatesPersonToPrevious()
     {
+        // Arrange
         var person = NewPerson();
-        var a = NewKind("A", "A");
-        var b = NewKind("B", "B");
-        _db.AddRange(person, a, b);
+        var kindA = NewKindUnique("A");
+        var kindB = NewKindUnique("B");
+        _db.AddRange(person, kindA, kindB);
         await _db.SaveChangesAsync(_ct);
 
         var t1 = new DateTime(2025, 09, 10, 00, 00, 00, DateTimeKind.Utc);
-        var s1 = await _svc.SetStatusAsync(new PersonStatus { PersonId = person.Id, StatusKindId = a.Id, OpenDate = t1 }, _ct);
+        var s1 = await _svc.SetStatusAsync(new PersonStatus
+        {
+            PersonId = person.Id,
+            StatusKindId = kindA.Id,
+            OpenDate = t1
+        }, _ct);
 
-        _db.StatusTransitions.Add(Tr(a.Id, b.Id));
+        _db.StatusTransitions.Add(Tr(kindA.Id, kindB.Id));
         await _db.SaveChangesAsync(_ct);
 
         var t2 = t1.AddHours(1);
-        var s2 = await _svc.SetStatusAsync(new PersonStatus { PersonId = person.Id, StatusKindId = b.Id, OpenDate = t2 }, _ct);
+        var s2 = await _svc.SetStatusAsync(new PersonStatus
+        {
+            PersonId = person.Id,
+            StatusKindId = kindB.Id,
+            OpenDate = t2
+        }, _ct);
 
+        // Act
         var nowInactive = await _svc.UpdateStateIsActive(s2.Id, _ct);
-        Assert.False(nowInactive);
 
+        // Assert
+        Assert.False(nowInactive);
         var reloadedPerson = await _db.Persons.FindAsync([person.Id], _ct);
-        Assert.Equal(a.Id, reloadedPerson!.StatusKindId);
+        Assert.Equal(kindA.Id, reloadedPerson!.StatusKindId);
     }
 
     [Fact(DisplayName = "UpdateStateIsActive: активація при конфлікті key(person,open,seq) піднімає Sequence")]
     public async Task UpdateStateIsActive_Activate_ResolvesUniqueConflict_BySequenceBump()
     {
+        // Arrange
         var person = NewPerson();
-        var a = NewKind("A", "A");
-        var b = NewKind("B", "B");
-        _db.AddRange(person, a, b);
+        var kindA = NewKindUnique("A");
+        var kindB = NewKindUnique("B");
+        _db.AddRange(person, kindA, kindB);
         await _db.SaveChangesAsync(_ct);
 
         var t = new DateTime(2025, 09, 10, 00, 00, 00, DateTimeKind.Utc);
@@ -218,18 +229,18 @@ public sealed class PersonStatusServiceTests : IDisposable
         var s1 = await _svc.SetStatusAsync(new PersonStatus
         {
             PersonId = person.Id,
-            StatusKindId = a.Id,
+            StatusKindId = kindA.Id,
             OpenDate = t
         }, _ct);
 
-        // Додаємо пізніший валідний запис s2 (інший вид статусу)
-        _db.StatusTransitions.Add(Tr(a.Id, b.Id));
+        // Додаємо пізніший валідний запис s2
+        _db.StatusTransitions.Add(Tr(kindA.Id, kindB.Id));
         await _db.SaveChangesAsync(_ct);
 
         var s2 = await _svc.SetStatusAsync(new PersonStatus
         {
             PersonId = person.Id,
-            StatusKindId = b.Id,
+            StatusKindId = kindB.Id,
             OpenDate = t.AddHours(1)
         }, _ct);
 
@@ -237,13 +248,15 @@ public sealed class PersonStatusServiceTests : IDisposable
         var nowInactive = await _svc.UpdateStateIsActive(s2.Id, _ct);
         Assert.False(nowInactive);
 
-        // Імітуємо "історичний дубль": виставляємо s2 на той самий ключ (person, open, seq) що й s1
+        // Імітуємо «історичний дубль»: зробимо той самий ключ, що у s1 (person, open, seq)
         s2.OpenDate = s1.OpenDate;
         s2.Sequence = s1.Sequence; // 0
         await _db.SaveChangesAsync(_ct);
 
-        // Реактивуємо → сервіс має підняти sequence, щоб уникнути конфлікту з активним s1
+        // Act: реактивація → сервіс має підняти sequence, щоб уникнути конфлікту
         var nowActive = await _svc.UpdateStateIsActive(s2.Id, _ct);
+
+        // Assert
         Assert.True(nowActive);
 
         var reloaded = await _db.PersonStatuses.FirstAsync(x => x.Id == s2.Id, _ct);
