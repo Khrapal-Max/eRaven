@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonStatusTests (full coverage)
+// PersonStatusTests (full coverage for the new model)
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Models;
@@ -12,25 +12,30 @@ namespace eRaven.Tests.Domain.Tests.Models;
 
 public class PersonStatusTests
 {
-    [Fact]
+    [Fact(DisplayName = "PersonStatus: CLR-дефолти властивостей")]
     public void DefaultValues_AreClrDefaults()
     {
         var s = new PersonStatus();
 
         Assert.Equal(default, s.Id);                 // Guid.Empty
         Assert.Equal(default, s.PersonId);           // Guid.Empty
+
         Assert.Equal(0, s.StatusKindId);
+        Assert.Equal((short)0, s.Sequence);          // НОВЕ: Sequence за замовчуванням = 0
+
         Assert.Equal(default, s.OpenDate);           // 0001-01-01
         Assert.Null(s.Note);
+
         Assert.False(s.IsActive);
         Assert.Null(s.Author);
         Assert.Equal(default, s.Modified);
+
         Assert.Null(s.Person);
         Assert.Null(s.StatusKind);
     }
 
-    [Fact]
-    public void Create_WithNullToDate_IsActiveSemantics_AndValidationPasses()
+    [Fact(DisplayName = "PersonStatus: створення мінімально заповненого об’єкта — без помилок валідації (DataAnnotations не задані)")]
+    public void Create_Minimal_ValidObject_NoAnnotationsErrors()
     {
         // Arrange
         var s = new PersonStatus
@@ -40,17 +45,19 @@ public class PersonStatusTests
             StatusKindId = 1,
             OpenDate = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             Note = "Будь-яка примітка",
-            Author = "tester"
+            Author = "tester",
+            // Sequence залишаємо за замовчуванням (0)
+            // IsActive залишаємо за замовчуванням (false)
         };
 
         // Act
-        var results = ValidationHelper.ValidateObject(s); // без DataAnnotations — порожньо
+        var results = ValidationHelper.ValidateObject(s);
 
         // Assert
         Assert.Empty(results);
     }
 
-    [Fact]
+    [Fact(DisplayName = "PersonStatus: Modified за замовчуванням — CLR-дефолт DateTime")]
     public void Modified_Default_IsClrDefault_DateTime()
     {
         var s = new PersonStatus
@@ -63,20 +70,21 @@ public class PersonStatusTests
         Assert.Equal(default, s.Modified);
     }
 
-    [Fact]
+    [Fact(DisplayName = "PersonStatus: базові властивості читаються/записуються")]
     public void CanSetAndReadBasicProperties()
     {
         // Arrange
         var personId = Guid.NewGuid();
-        var statusId = 7;
-        var from = new DateTime(2025, 5, 10, 12, 0, 0, DateTimeKind.Utc);
+        var statusKindId = 7;
+        var open = new DateTime(2025, 5, 10, 12, 0, 0, DateTimeKind.Utc);
 
         var s = new PersonStatus
         {
             Id = Guid.NewGuid(),
             PersonId = personId,
-            StatusKindId = statusId,
-            OpenDate = from,
+            StatusKindId = statusKindId,
+            Sequence = 2, // НОВЕ: перевіряємо запис/читання
+            OpenDate = open,
             Note = "ok",
             Author = "system",
             IsActive = true
@@ -84,14 +92,15 @@ public class PersonStatusTests
 
         // Act & Assert
         Assert.Equal(personId, s.PersonId);
-        Assert.Equal(statusId, s.StatusKindId);
-        Assert.Equal(from, s.OpenDate);
+        Assert.Equal(statusKindId, s.StatusKindId);
+        Assert.Equal((short)2, s.Sequence);
+        Assert.Equal(open, s.OpenDate);
         Assert.Equal("ok", s.Note);
         Assert.Equal("system", s.Author);
         Assert.True(s.IsActive);
     }
 
-    [Fact]
+    [Fact(DisplayName = "PersonStatus: навігаційні властивості призначаються коректно")]
     public void CanAssign_Navigation_References()
     {
         var p = new Person { Id = Guid.NewGuid(), LastName = "Петренко", FirstName = "Петро" };
@@ -113,7 +122,7 @@ public class PersonStatusTests
         Assert.Same(k, s.StatusKind);
     }
 
-    [Fact]
+    [Fact(DisplayName = "PersonStatus: перемикання IsActive працює як очікується")]
     public void Toggle_IsActive_Works()
     {
         var s = new PersonStatus
@@ -131,7 +140,7 @@ public class PersonStatusTests
         Assert.False(s.IsActive);
     }
 
-    [Fact]
+    [Fact(DisplayName = "PersonStatus: Modified можна присвоїти явно")]
     public void Modified_CanBeAssigned()
     {
         var ts = new DateTime(2025, 9, 1, 12, 0, 0, DateTimeKind.Utc);
@@ -146,7 +155,7 @@ public class PersonStatusTests
         Assert.Equal(ts, s.Modified);
     }
 
-    [Fact]
+    [Fact(DisplayName = "PersonStatus: Note дозволяє null та порожній рядок")]
     public void Note_AllowsNullOrEmpty()
     {
         var s1 = new PersonStatus
@@ -166,5 +175,27 @@ public class PersonStatusTests
 
         Assert.Null(s1.Note);
         Assert.Equal(string.Empty, s2.Note);
+    }
+
+    [Fact(DisplayName = "PersonStatus: Sequence можна встановити у 0 або додатні значення")]
+    public void Sequence_Allows_Zero_And_Positive()
+    {
+        var s0 = new PersonStatus
+        {
+            PersonId = Guid.NewGuid(),
+            StatusKindId = 1,
+            OpenDate = DateTime.UtcNow,
+            Sequence = 0
+        };
+        Assert.Equal((short)0, s0.Sequence);
+
+        var s2 = new PersonStatus
+        {
+            PersonId = Guid.NewGuid(),
+            StatusKindId = 1,
+            OpenDate = DateTime.UtcNow,
+            Sequence = 5
+        };
+        Assert.Equal((short)5, s2.Sequence);
     }
 }
