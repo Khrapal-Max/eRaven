@@ -14,35 +14,28 @@ namespace eRaven.Components.Pages.Statuses.Modals
     {
         public SetPersonStatusViewModelValidator()
         {
-            // PersonId
             RuleFor(x => x.PersonId)
                 .NotEmpty().WithMessage("Особа обов'язкова.");
 
-            // StatusId
             RuleFor(x => x.StatusId)
                 .GreaterThan(0).WithMessage("Статус обов'язковий.");
 
-            // Moment (локальний із UI; бек нормалізує в UTC)
             RuleFor(x => x.Moment)
                 .NotEmpty().WithMessage("Дата та час обов'язкові.")
-                .Must(m => m != default)
-                .WithMessage("Некоректна дата/час.")
-                // Обмежимо штуки з далеким майбутнім/минулим як базову гігієну
+                .Must(m => m != default).WithMessage("Некоректна дата/час.")
                 .Must(m => m.Year is >= 2000 and <= 2100)
                 .WithMessage("Дата виходить за допустимий діапазон (2000–2100).");
 
-            // Note
             RuleFor(x => x.Note)
                 .MaximumLength(512).WithMessage("Нотатка занадто довга (до 512).")
-                .Must(v => string.IsNullOrWhiteSpace(v) || !string.IsNullOrWhiteSpace(v.Trim()))
+                // null дозволяємо; але якщо є значення — не лише пробіли
+                .Must(v => v is null || !string.IsNullOrWhiteSpace(v))
                 .WithMessage("Нотатка не може складатися лише з пробілів.");
 
-            // Author
             RuleFor(x => x.Author)
                 .MaximumLength(64).WithMessage("Автор занадто довгий (до 64).")
-                .Must(v => string.IsNullOrWhiteSpace(v) || !string.IsNullOrWhiteSpace(v.Trim()))
+                .Must(v => v is null || !string.IsNullOrWhiteSpace(v))
                 .WithMessage("Автор не може складатися лише з пробілів.");
         }
     }
 }
-
