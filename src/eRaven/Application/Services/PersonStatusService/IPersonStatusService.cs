@@ -12,6 +12,13 @@ namespace eRaven.Application.Services.PersonStatusService;
 public interface IPersonStatusService
 {
     /// <summary>
+    /// Повертає всі статуси (для довідника).
+    /// </summary>
+    /// <param name="ct"></param>
+    /// <returns>IEnumerable PersonStatus(<see cref="PersonStatus"/>)</returns>
+    Task<IEnumerable<PersonStatus>> GetAllAsync(CancellationToken ct = default);
+
+    /// <summary>
     /// Вся історія для особи (найновіші — першими).
     /// </summary>
     /// <returns>IReadOnlyList PersonStatus(<see cref="PersonStatus"/>)</returns>

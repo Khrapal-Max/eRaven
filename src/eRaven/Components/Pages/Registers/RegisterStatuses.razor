@@ -1,0 +1,51 @@
+﻿@page "/audit-log-statuses"
+
+@using eRaven.Domain.Models;
+
+<PageTitle>Журнал змін статусів</PageTitle>
+
+<div class="container-fluid py-2 d-flex flex-column">
+
+    <div class="m-2" style="min-width:250px; max-width:600px;">
+        <SearchBox @bind-Value="Search"
+                   Delay="350"
+                   Placeholder="Пошук: ПІБ / ІПН"
+                   Disabled="@Busy"
+                   OnSearch="OnSearchAsync" />
+    </div>
+
+    <!-- Таблиця -->
+    @if (_statuses.Any())
+    {
+        <div class="bg-dark rounded flex-grow-1 d-flex">
+            <TableBaseComponent Items="_statuses"
+                                TItem="PersonStatus"
+                                Class="table align-middle mb-0">
+                <TableHeader>
+                    <th class="text-black">Статус</th>
+                    <th class="text-black text-center">Відкрит</th>
+                    <th class="text-black text-center">Закрит</th>
+                    <th class="text-black">Примітка</th>
+                    <th class="text-black text-center">Особа</th>                    
+                    <th class="text-black text-center">Автор</th>
+                    <th class="text-black text-center">Час</th>
+                    <th class="text-black text-center">Стан</th>
+                </TableHeader>
+                <RowTemplate Context="p">
+                    <td>@p.StatusKind.Name</td>
+                    <td class="text-center">@p.OpenDate.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                    <td class="text-center">@p.CloseDate?.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                    <td class="text-wrap">@p.Note</td>
+                    <td>@p.Person.FullName</td>
+                    <td class="text-center">@p.Author</td>
+                    <td class="text-center">@p.Modified.ToLocalTime().ToString("dd.MM.yyyy HH.mm")</td>
+                    <td class="text-center">@p.IsActive</td>
+                </RowTemplate>
+            </TableBaseComponent>
+        </div>
+    }
+    else
+    {
+        <div>"Регістр порожній"</div>
+    }
+</div>

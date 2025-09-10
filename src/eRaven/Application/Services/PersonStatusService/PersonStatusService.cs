@@ -15,6 +15,13 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
 {
     private readonly AppDbContext _db = db;
 
+    public async Task<IEnumerable<PersonStatus>> GetAllAsync(CancellationToken ct = default)
+        => await _db.PersonStatuses.AsNoTracking()
+            .Include(p => p.Person)
+            .Include(s => s.StatusKind)
+            .OrderByDescending(s => s.OpenDate)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<PersonStatus>> GetHistoryAsync(Guid personId, CancellationToken ct = default)
     {
         var list = await _db.PersonStatuses.AsNoTracking()
