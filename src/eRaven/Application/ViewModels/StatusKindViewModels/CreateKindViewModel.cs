@@ -12,10 +12,6 @@ namespace eRaven.Application.ViewModels.StatusKindViewModels;
 /// <summary>
 /// Модель для створення нового статусу
 /// </summary>
-/// <param name="Name"></param>
-/// <param name="Code"></param>
-/// <param name="Order"></param>
-/// <param name="IsActive"></param>
 public sealed class CreateKindViewModel
 {
     [Required, MaxLength(128)]

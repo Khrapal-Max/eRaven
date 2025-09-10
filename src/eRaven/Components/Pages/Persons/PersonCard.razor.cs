@@ -7,6 +7,7 @@
 
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
+using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
@@ -20,11 +21,15 @@ public partial class PersonCard : ComponentBase, IDisposable
 
     [Inject] private IToastService Toast { get; set; } = default!;
     [Inject] private IPersonService PersonService { get; set; } = default!;
+    [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!; // ⬅️ ДОДАЛИ
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
     // ===================== UI state =====================
     protected bool _initialLoading = true;
     protected Person? _person;
+
+    // Активний статус (із приміткою)
+    protected PersonStatus? _activeStatus; // ⬅️ ДОДАЛИ
 
     // Редагування
     protected bool _editMode;
@@ -35,17 +40,14 @@ public partial class PersonCard : ComponentBase, IDisposable
     protected int _historyCount = 0;
     protected string HistoryCountText => _historyCount == 0 ? "0" : _historyCount.ToString();
 
-    // ===================== Lifecycle =====================
     protected override async Task OnInitializedAsync()
     {
         await ReloadAsync();
         _initialLoading = false;
     }
 
-    // ===================== Commands (navbar/toolbar) =====================
     protected void GoBack() => Nav.NavigateTo("/persons");
 
-    // ===================== Edit flow =====================
     protected void BeginEdit()
     {
         if (_person is null) return;
@@ -66,9 +68,7 @@ public partial class PersonCard : ComponentBase, IDisposable
         _editBusy = true;
         try
         {
-            // Мапимо лише дозволені для картки поля (посаду/статус не чіпаємо)
             var updated = MapToUpdatablePerson(_person.Id, _editModel, _person.PositionUnitId);
-
             await PersonService.UpdateAsync(updated);
             await ReloadAsync(); // оновлюємо картку з серверу
 
@@ -77,7 +77,6 @@ public partial class PersonCard : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            // Один try/catch на операцію з БД — достатньо
             Toast.ShowError("Не вдалося зберегти. " + ex.Message);
         }
         finally
@@ -86,14 +85,12 @@ public partial class PersonCard : ComponentBase, IDisposable
         }
     }
 
-    // ===================== History (stub) =====================
     protected Task OpenHistory()
     {
         Toast.ShowInfo("На реалізації");
         return Task.CompletedTask;
     }
 
-    // ===================== Helpers =====================
     private async Task ReloadAsync()
     {
         try
@@ -105,6 +102,12 @@ public partial class PersonCard : ComponentBase, IDisposable
                 Toast.ShowWarning("Особа не знайдена.");
                 return;
             }
+
+            // Тягнемо «живий» активний запис статусу з приміткою
+            _activeStatus = await PersonStatusService.GetActiveAsync(_person.Id);
+
+            // (опційно) оновити лічильник історії — тільки валідні записи
+            _historyCount = (await PersonStatusService.GetHistoryAsync(_person.Id)).Count(s => s.IsActive);
         }
         catch (Exception ex)
         {
@@ -123,8 +126,6 @@ public partial class PersonCard : ComponentBase, IDisposable
         Callsign = string.IsNullOrWhiteSpace(vm.Callsign) ? null : vm.Callsign.Trim(),
         BZVP = vm.BZVP.Trim(),
         Weapon = string.IsNullOrWhiteSpace(vm.Weapon) ? null : vm.Weapon.Trim(),
-
-        // з картки НЕ змінюємо прив’язку до посади/статусу
         PositionUnitId = keepPositionUnitId
     };
 

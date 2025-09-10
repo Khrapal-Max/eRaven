@@ -93,7 +93,22 @@
 
                             <div class="col-12">
                                 <div class="small text-secondary">Поточний статус</div>
-                                <div title="@_person.StatusKind?.Name">@_person.StatusKind?.Name</div>
+                                <div class="fw-semibold" title="@(_activeStatus?.StatusKind?.Name)">
+                                    @_activeStatus?.StatusKind?.Name
+                                </div>
+
+                                @if (!string.IsNullOrWhiteSpace(_activeStatus?.Note))
+                                {
+                                    <div class="small text-secondary mt-1">Примітка</div>
+                                    <div class="text-wrap">@_activeStatus!.Note</div>
+                                }
+
+                                @if (_activeStatus is not null)
+                                {
+                                    <div class="text-muted small mt-1">
+                                        з @_activeStatus.OpenDate.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                    </div>
+                                }
                             </div>
                         </div>
 
