@@ -107,11 +107,7 @@ public partial class StatusSetModal : ComponentBase
 
     private async Task OnCancelClick()
     {
-        _vm = new SetPersonStatusViewModel();
-        _editCtx = null;
-
         await OnClose.InvokeAsync();
-        StateHasChanged();
     }
 
     private static string? GetStatusLabel(StatusKind status)
