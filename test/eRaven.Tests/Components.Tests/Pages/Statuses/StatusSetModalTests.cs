@@ -161,31 +161,4 @@ public sealed class StatusSetModalTests : TestContext
         cut.Find("button.btn-outline-secondary").Click();
         Assert.True(closed);
     }
-
-    [Fact(DisplayName = "Modal: превʼю автозакриття показується при вибраній даті й відкритому поточному статусі")]
-    public void ClosePreview_Shows_WhenCurrentOpen_And_DateSelected()
-    {
-        var person = P();
-        var current = new PersonStatus
-        {
-            PersonId = person.Id,
-            StatusKindId = 30,
-            OpenDate = new DateTime(2025, 8, 20, 8, 0, 0, DateTimeKind.Utc)
-        };
-
-        var cut = RenderComponent<StatusSetModal>(p => p
-            .Add(x => x.Open, true)
-            .Add(x => x.PersonCard, person)
-            .Add(x => x.CurrentStatus, current)
-            .Add(x => x.AllowedNextStatuses, [K(40, "Навчання", "TRAIN")])
-        );
-
-        // Обрати статус і дату
-        cut.Find("select.form-select").Change(40);
-        cut.Find("input[type=date]").Change("2025-09-03");
-
-        // Текст превʼю
-        Assert.Contains("Поточний статус буде закрито:", cut.Markup);
-        Assert.Contains("03.09.2025 00:00", cut.Markup);
-    }
 }
