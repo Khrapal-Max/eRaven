@@ -17,13 +17,25 @@
                        OnSearch="OnSearchAsync" />
         </div>
 
-        <!-- Імпорт статусів праворуч -->
-        <ExcelImport TItem="PersonStatusImportView"
-                     StopOnParseErrors="true"
-                     MaxSizeMb="5"
-                     OnBusyChanged="OnImportBusyChanged"
-                     ProcessAsync="ProcessImportedStatusesAsync"
-                     OnCompleted="OnImportCompleted" />
+        <!-- Кнопки праворуч -->
+        <div class="d-flex align-items-center gap-2">
+            <!-- Перемикач режиму -->
+            <button class="btn btn-sm @(OneShotMode ? "btn-primary" : "btn-warning")"
+                    title="Одиничний: після зміни статусу очищаємо пошук. Пакетний: залишаємо результати."
+                    disabled="@Busy"
+                    @onclick="ToggleOneShotMode">
+                <i class="bi @(OneShotMode ? "bi-1-circle" : "bi-stack")"></i>
+                @(OneShotMode ? "Режим: одиничний" : "Режим: пакетний")
+            </button>
+
+            <!-- Імпорт статусів -->
+            <ExcelImport TItem="PersonStatusImportView"
+                         StopOnParseErrors="true"
+                         MaxSizeMb="5"
+                         OnBusyChanged="OnImportBusyChanged"
+                         ProcessAsync="ProcessImportedStatusesAsync"
+                         OnCompleted="OnImportCompleted" />
+        </div>
     </div>
 
     <!-- Таблиця -->

@@ -19,26 +19,21 @@ namespace eRaven.Components.Pages.Statuses;
 
 public partial class StatusTransitionsPage : ComponentBase, IDisposable
 {
-    // =============================
-    // Дані
-    // =============================
+    // =============================  Дані  =============================
     private IReadOnlyList<Person> _all = [];
     private IReadOnlyList<StatusKind> _statuses = [];
+    protected ObservableCollection<Person> Filtered { get; } = [];
 
-    protected ObservableCollection<Person> Filtered { get; set; } = [];
+    // OneShot / Batch
+    private bool OneShotMode { get; set; } = true;
 
-    // =============================
-    // Модалка
-    // =============================
+    // =============================  Модалка  =============================
     private bool _isStatusModalOpen;
     private Person? _modalPerson;
     private PersonStatus? _modalCurrentStatus;
     private readonly List<StatusKind> _mapStatuses = [];
 
-    // =============================
-    // UI state / DI / infra
-    // =============================
-
+    // =============================  UI / DI  =============================
     private readonly CancellationTokenSource _cts = new();
     protected bool Busy { get; private set; }
     protected string? Search { get; set; }
@@ -49,36 +44,29 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
     [Inject] private IStatusTransitionService StatusTransitionService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
 
-    // =============================
-    // Життєвий цикл
-    // =============================
+    // =============================  Життєвий цикл  =============================
     protected override async Task OnInitializedAsync()
     {
         _statuses = await StatusKindService.GetAllAsync();
-
-        await ReloadAllAsync();       
+        await ReloadAllAsync();
+        ApplyLocalFilter(); // zero-state (порожньо, доки немає Search)
     }
 
-    // =============================
-    // Модалка
-    // =============================
+    // =============================  Модалка  =============================
     protected async Task OpenSetStatus(Person p)
     {
+        if (Busy) return;
         try
         {
             SetBusy(true);
 
             _modalPerson = p;
-
-            // Поточний інтервал статусу (може бути відкритий)
             _modalCurrentStatus = await PersonStatusService.GetActiveAsync(p.Id, _cts.Token);
 
-            // Дозволені статуси
             _mapStatuses.Clear();
             _mapStatuses.AddRange(await BuildAllowedStatusesAsync(_modalCurrentStatus, _cts.Token));
 
             _isStatusModalOpen = true;
-
             await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
@@ -97,10 +85,7 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
         {
             SetBusy(true);
 
-            // 1) Нормалізуємо обрану дату до 00:00 локального дня -> UTC
             var openUtc = ToUtcFromLocalMidnight(vm.Moment);
-
-            // 2) Мапимо у доменну модель PersonStatus
             var ps = new PersonStatus
             {
                 Id = Guid.Empty,
@@ -114,18 +99,27 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
                 Modified = DateTime.UtcNow
             };
 
-            // 3) Виклик сервісу
-            _ = await PersonStatusService.SetStatusAsync(ps, _cts.Token);
+            await PersonStatusService.SetStatusAsync(ps, _cts.Token);
 
-            // 4) UX: закрити модаль, рефреш
+            // Закриваємо модаль, оновлюємо
             _isStatusModalOpen = false;
             _modalPerson = null;
             _modalCurrentStatus = null;
             _mapStatuses.Clear();
-            Search = string.Empty;
-            Filtered.Clear();
 
             await ReloadAllAsync();
+
+            if (OneShotMode)
+            {
+                // Одиничний: повернення в zero-state
+                Search = string.Empty;
+                Filtered.Clear();
+            }
+            else
+            {
+                // Пакетний: зберегти фільтр/результати
+                ApplyLocalFilter();
+            }
 
             Toast.ShowSuccess("Статус збережено.");
         }
@@ -149,9 +143,7 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
         return Task.CompletedTask;
     }
 
-    // =============================
-    // Імпорт списку 
-    // =============================
+    // =============================  Імпорт  =============================
     protected async Task<ImportReportViewModel> ProcessImportedStatusesAsync(IReadOnlyList<PersonStatusImportView> rows)
     {
         int ok = 0, fail = 0;
@@ -179,7 +171,6 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
         }
 
         await ReloadAllAsync();
-
         return new ImportReportViewModel(Added: ok, Updated: 0, Errors: errors);
     }
 
@@ -198,9 +189,7 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
         return Task.CompletedTask;
     }
 
-    // =============================
-    // Перевантаження списку 
-    // =============================
+    // =============================  Дані  =============================
     private async Task ReloadAllAsync()
     {
         try
@@ -211,6 +200,7 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
         catch (Exception ex)
         {
             Toast.ShowError($"Не вдалося завантажити картки: {ex.Message}");
+            _all = [];
         }
         finally
         {
@@ -218,66 +208,69 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
         }
     }
 
-    // =============================
-    // Формування списку дозволених
-    // =============================
+    // =============================  Дозволені статуси  =============================
     private async Task<IReadOnlyList<StatusKind>> BuildAllowedStatusesAsync(PersonStatus? current, CancellationToken ct)
     {
-        // 1) Кеш або одноразове завантаження
         var statuses = (_statuses?.Count > 0 ? _statuses : await StatusKindService.GetAllAsync(ct: ct)) ?? [];
         if (statuses.Count == 0) return [];
 
-        // 2) Спец-статуси: «В районі» та «В БР» (спершу за Code, потім за Name)
         static bool eq(string? a, string b) => !string.IsNullOrWhiteSpace(a) && a.Trim().Equals(b, StringComparison.OrdinalIgnoreCase);
 
         var inDistrict = statuses.FirstOrDefault(s => eq(s.Code, "30") || eq(s.Name, "В районі"));
         var inBr = statuses.FirstOrDefault(s => eq(s.Code, "100") || eq(s.Name, "В БР"));
 
-        // 3) Перший статус: дозволити лише «В районі»
         if (current is null || current.StatusKindId <= 0)
             return inDistrict is null ? Array.Empty<StatusKind>() : [inDistrict];
 
-        // 4) Карта переходів + винести «В БР»
         var toIds = await StatusTransitionService.GetToIdsAsync(current.StatusKindId, ct) ?? [];
         if (inBr is not null) toIds.Remove(inBr.Id);
 
-        // 5) Перетин + сортування (без Distinct — HashSet виключає дублікати)
         return [.. statuses
             .Where(s => toIds.Contains(s.Id))
             .OrderBy(s => s.Code ?? string.Empty, StringComparer.OrdinalIgnoreCase)
             .ThenBy(s => s.Name ?? string.Empty, StringComparer.OrdinalIgnoreCase)];
     }
 
-    // =============================
-    // Фільтр
-    // =============================
-    protected Task OnSearchAsync()
+    // =============================  Пошук/фільтр  =============================
+    protected async Task OnSearchAsync()
     {
-        Filtered.Clear();
         ApplyLocalFilter();
-        return Task.CompletedTask;
+
+        // QoL: один збіг — одразу відкриваємо модалку
+        if (Filtered.Count == 1)
+            await OpenSetStatus(Filtered[0]);
     }
+
+    private static bool Has(string? haystack, string needle)
+        => !string.IsNullOrWhiteSpace(haystack)
+           && haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
 
     private void ApplyLocalFilter()
     {
-        if (!string.IsNullOrWhiteSpace(Search))
+        Filtered.Clear();
+
+        var s = (Search ?? string.Empty).Trim();
+        if (s.Length == 0)
         {
-            var filter = _all;
+            // zero-state: порожній список
+            StateHasChanged();
+            return;
+        }
 
-            var s = Search.Trim();
-
-            filter = [.. filter.Where(p =>
-                p.FirstName.Contains(s, StringComparison.OrdinalIgnoreCase)
-                || p.LastName.Contains(s, StringComparison.OrdinalIgnoreCase)
-                || (p.MiddleName ?? string.Empty).Contains(s, StringComparison.OrdinalIgnoreCase)
-                || p.Rnokpp.Contains(s, StringComparison.OrdinalIgnoreCase))];
-
-
-            foreach (var p in filter) Filtered.Add(p);
+        foreach (var p in _all.Where(p =>
+                   Has(p.FirstName, s) ||
+                   Has(p.LastName, s) ||
+                   Has(p.MiddleName, s) ||
+                   Has(p.Rnokpp, s) ))
+        {
+            Filtered.Add(p);
         }
 
         StateHasChanged();
     }
+
+    // =============================  Утиліти  =============================
+    private void ToggleOneShotMode() => OneShotMode = !OneShotMode;
 
     private void SetBusy(bool value)
     {
@@ -287,7 +280,6 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
 
     private static DateTime ToUtcFromLocalMidnight(DateTime localDateUnspecified)
     {
-        // локальний календарний день -> 00:00 Local -> UTC
         var localMidnight = DateTime.SpecifyKind(localDateUnspecified.Date, DateTimeKind.Local);
         return localMidnight.ToUniversalTime();
     }
