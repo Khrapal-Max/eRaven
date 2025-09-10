@@ -170,8 +170,7 @@ public sealed class StatusSetModalTests : TestContext
         {
             PersonId = person.Id,
             StatusKindId = 30,
-            OpenDate = new DateTime(2025, 8, 20, 8, 0, 0, DateTimeKind.Utc),
-            CloseDate = null
+            OpenDate = new DateTime(2025, 8, 20, 8, 0, 0, DateTimeKind.Utc)
         };
 
         var cut = RenderComponent<StatusSetModal>(p => p

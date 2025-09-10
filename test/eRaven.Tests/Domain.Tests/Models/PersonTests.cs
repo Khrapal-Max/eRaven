@@ -241,36 +241,7 @@ public class PersonTests
         Assert.Contains(p.StatusHistory, x => x.StatusKindId == 1);
         Assert.Contains(p.StatusHistory, x => x.StatusKindId == 2);
         Assert.All(p.StatusHistory, x => Assert.Equal(p.Id, x.PersonId));
-    }
-
-    [Fact]
-    public void StatusHistory_CanContain_Closed_And_Open_Statuses()
-    {
-        var p = new Person { Id = Guid.NewGuid() };
-
-        var open = new PersonStatus
-        {
-            Id = Guid.NewGuid(),
-            PersonId = p.Id,
-            StatusKindId = 1,
-            OpenDate = new DateTime(2025, 1, 10, 10, 0, 0, DateTimeKind.Utc),
-            CloseDate = null
-        };
-        var closed = new PersonStatus
-        {
-            Id = Guid.NewGuid(),
-            PersonId = p.Id,
-            StatusKindId = 2,
-            OpenDate = new DateTime(2025, 1, 5, 9, 0, 0, DateTimeKind.Utc),
-            CloseDate = new DateTime(2025, 1, 6, 18, 0, 0, DateTimeKind.Utc)
-        };
-
-        p.StatusHistory.Add(closed);
-        p.StatusHistory.Add(open);
-
-        Assert.Contains(p.StatusHistory, x => x.CloseDate == null);
-        Assert.Contains(p.StatusHistory, x => x.CloseDate != null);
-    }
+    }   
 
     // ---------- PositionAssignments (історія посад) ----------
 

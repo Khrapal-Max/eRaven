@@ -206,7 +206,6 @@ public class ExcelServiceTests
         Assert.NotNull(valid);
 
         Assert.Equal(new DateTime(2025, 9, 2, 13, 30, 0), valid!.OpenDate);
-        Assert.Null(valid.CloseDate);
         Assert.Equal("tester", valid.Author);
 
         // гарантуємо, що дата конвертувалась без помилки
@@ -226,7 +225,6 @@ public class ExcelServiceTests
                 PersonId = Guid.NewGuid(),
                 StatusKindId = 1,
                 OpenDate = new DateTime(2025, 9, 2, 8, 15, 0),
-                CloseDate = null,
                 Note = "start",
                 Author = "sys",
                 Modified = new DateTime(2025, 9, 2, 8, 16, 0)
