@@ -17,9 +17,6 @@ public class PersonStatusImportView
     [Display(Name = "StatusKindId")]
     public int? StatusKindId { get; set; }
 
-    [Display(Name = "StatusCode")]
-    public string? StatusCode { get; set; } // опціонально, якщо зручно по коду
-
     [Display(Name = "FromDateLocal")]
     public DateTime FromDateLocal { get; set; } // локальна дата (без часу)
 

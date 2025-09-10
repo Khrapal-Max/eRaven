@@ -143,35 +143,76 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
         return Task.CompletedTask;
     }
 
-    // =============================  Імпорт  =============================
-    protected async Task<ImportReportViewModel> ProcessImportedStatusesAsync(IReadOnlyList<PersonStatusImportView> rows)
+    // =============================  Імпорт  =============================   
+    protected async Task<ImportReportViewModel> ProcessImportedStatusesAsync(
+    IReadOnlyList<PersonStatusImportView> rows)
     {
-        int ok = 0, fail = 0;
+        int added = 0;
         var errors = new List<string>();
 
-        foreach (var (row, idx) in rows.Select((r, i) => (r, i: i + 2)))
+        if (rows is null || rows.Count == 0)
+            return new ImportReportViewModel(0, 0, errors);
+
+        // На всяк випадок — щоб мати актуальний кеш осіб
+        if (_all.Count == 0)
+            await ReloadAllAsync();
+
+        foreach (var (row, idx) in rows.Select((r, i) => (r, i: i + 2))) // +2: заголовок + 1-based
         {
+            // 1) Пропускаємо, якщо обов'язкові поля порожні
+            var rnokpp = row.Rnokpp?.Trim();
+            var kindId = row.StatusKindId ?? 0;
+            var dateLocal = row.FromDateLocal; // припускаємо, що це DateTime? в твоїй моделі
+
+            if (string.IsNullOrWhiteSpace(rnokpp) || kindId <= 0 || dateLocal == default)
+            {
+                // Просто скіпаємо рядок (додаю інфо в звіт, щоб було видно, що пропущено)
+                errors.Add($"Row {idx}: skipped (missing RNOKPP/StatusKindId/FromDateLocal).");
+                continue;
+            }
+
+            // 2) Знаходимо особу по RNOKPP (у завантаженому списку)
+            var person = _all.FirstOrDefault(p =>
+                string.Equals(p.Rnokpp?.Trim(), rnokpp, StringComparison.OrdinalIgnoreCase));
+
+            if (person is null)
+            {
+                errors.Add($"Row {idx}: person with RNOKPP '{rnokpp}' not found.");
+                continue;
+            }
+
             try
             {
-                if (string.IsNullOrWhiteSpace(row.Rnokpp))
-                    throw new ArgumentException("RNOKPP порожній.");
-                if ((row.StatusKindId ?? 0) == 0 && string.IsNullOrWhiteSpace(row.StatusCode))
-                    throw new ArgumentException("Не вказано StatusKindId або StatusCode.");
-                if (row.FromDateLocal == default)
-                    throw new ArgumentException("Не вказано дату.");
+                // 3) 00:00 локального дня -> UTC
+                var localUnspec = DateTime.SpecifyKind(dateLocal.Date, DateTimeKind.Unspecified);
+                var openUtc = ToUtcFromLocalMidnight(localUnspec);
 
-                // TODO: інтеграція з пошуком Person за RNOKPP та SetStatusAsync(...)
-                ok++;
+                // 4) Формуємо інтервал та віддаємо сервісу
+                var ps = new PersonStatus
+                {
+                    Id = Guid.Empty,
+                    PersonId = person.Id,
+                    StatusKindId = kindId,
+                    OpenDate = openUtc,
+                    CloseDate = null,
+                    IsActive = true,
+                    Note = string.IsNullOrWhiteSpace(row.Note) ? null : row.Note.Trim(),
+                    Author = "import",
+                    Modified = DateTime.UtcNow
+                };
+
+                await PersonStatusService.SetStatusAsync(ps, _cts.Token);
+                added++;
             }
             catch (Exception ex)
             {
-                fail++;
+                // Будь-яка бізнес-валідація (перетини/заборонений перехід тощо)
                 errors.Add($"Row {idx}: {ex.Message}");
             }
         }
 
-        await ReloadAllAsync();
-        return new ImportReportViewModel(Added: ok, Updated: 0, Errors: errors);
+        await ReloadAllAsync(); // оновимо список після імпорту
+        return new ImportReportViewModel(Added: added, Updated: 0, Errors: errors);
     }
 
     protected Task OnImportCompleted(ImportReportViewModel report)
@@ -214,21 +255,33 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
         var statuses = (_statuses?.Count > 0 ? _statuses : await StatusKindService.GetAllAsync(ct: ct)) ?? [];
         if (statuses.Count == 0) return [];
 
-        static bool eq(string? a, string b) => !string.IsNullOrWhiteSpace(a) && a.Trim().Equals(b, StringComparison.OrdinalIgnoreCase);
+        static bool eq(string? a, string b)
+            => !string.IsNullOrWhiteSpace(a) && a.Trim().Equals(b, StringComparison.OrdinalIgnoreCase);
 
+        // спец-статуси
         var inDistrict = statuses.FirstOrDefault(s => eq(s.Code, "30") || eq(s.Name, "В районі"));
         var inBr = statuses.FirstOrDefault(s => eq(s.Code, "100") || eq(s.Name, "В БР"));
 
+        // перший статус — тільки «В районі»
         if (current is null || current.StatusKindId <= 0)
             return inDistrict is null ? Array.Empty<StatusKind>() : [inDistrict];
 
+        // стандартна карта переходів
         var toIds = await StatusTransitionService.GetToIdsAsync(current.StatusKindId, ct) ?? [];
+        if (toIds.Count == 0) return [];
+
+        // ніколи не пропонуємо «В БР»
         if (inBr is not null) toIds.Remove(inBr.Id);
 
+        // НОВЕ ПРАВИЛО: якщо поточний = «В БР», не показуємо «В районі» (перехід лише по наказу)
+        if (inDistrict is not null && inBr is not null && current.StatusKindId == inBr.Id)
+            toIds.Remove(inDistrict.Id);
+
+        // фінальний перелік
         return [.. statuses
-            .Where(s => toIds.Contains(s.Id))
-            .OrderBy(s => s.Code ?? string.Empty, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(s => s.Name ?? string.Empty, StringComparer.OrdinalIgnoreCase)];
+        .Where(s => toIds.Contains(s.Id))
+        .OrderBy(s => s.Code ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+        .ThenBy(s => s.Name ?? string.Empty, StringComparer.OrdinalIgnoreCase)];
     }
 
     // =============================  Пошук/фільтр  =============================

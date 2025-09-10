@@ -91,7 +91,7 @@
 
                             <div class="col-12">
                                 <div class="small text-secondary">Поточний статус</div>
-                                <div Status="@_person.StatusKind" />
+                                <div title="@_person.StatusKind?.Name">@_person.StatusKind?.Name</div>
                             </div>
                         </div>
 
@@ -179,7 +179,7 @@
                         </div>
                         <div class="col-12">
                             <div class="small text-secondary">Повна назва / шлях</div>
-                            <div Unit="@_person.PositionUnit" />
+                            <div class="small text-secondary">@_person.PositionUnit?.FullName </div>
                         </div>
                     </div>
                     <div class="form-text mt-2">
