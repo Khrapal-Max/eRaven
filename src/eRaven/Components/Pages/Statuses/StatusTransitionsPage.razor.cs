@@ -85,7 +85,7 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
         {
             SetBusy(true);
 
-            var openUtc = ToUtcFromLocalMidnight(vm.Moment);
+            var openUtc = StatusTransitionsUi.ToUtcFromLocalMidnight(vm.Moment);
             var ps = new PersonStatus
             {
                 Id = Guid.Empty,
@@ -185,7 +185,7 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
             {
                 // 3) 00:00 локального дня -> UTC
                 var localUnspec = DateTime.SpecifyKind(dateLocal.Date, DateTimeKind.Unspecified);
-                var openUtc = ToUtcFromLocalMidnight(localUnspec);
+                var openUtc = StatusTransitionsUi.ToUtcFromLocalMidnight(localUnspec);
 
                 // 4) Формуємо інтервал та віддаємо сервісу
                 var ps = new PersonStatus
@@ -294,10 +294,6 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
             await OpenSetStatus(Filtered[0]);
     }
 
-    private static bool Has(string? haystack, string needle)
-        => !string.IsNullOrWhiteSpace(haystack)
-           && haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
-
     private void ApplyLocalFilter()
     {
         Filtered.Clear();
@@ -310,14 +306,8 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
             return;
         }
 
-        foreach (var p in _all.Where(p =>
-                   Has(p.FirstName, s) ||
-                   Has(p.LastName, s) ||
-                   Has(p.MiddleName, s) ||
-                   Has(p.Rnokpp, s) ))
-        {
+        foreach (var p in StatusTransitionsUi.FilterPersons(_all, s))
             Filtered.Add(p);
-        }
 
         StateHasChanged();
     }
@@ -329,12 +319,6 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
     {
         Busy = value;
         StateHasChanged();
-    }
-
-    private static DateTime ToUtcFromLocalMidnight(DateTime localDateUnspecified)
-    {
-        var localMidnight = DateTime.SpecifyKind(localDateUnspecified.Date, DateTimeKind.Local);
-        return localMidnight.ToUniversalTime();
     }
 
     public void Dispose()
