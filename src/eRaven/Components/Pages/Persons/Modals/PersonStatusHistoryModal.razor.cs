@@ -25,7 +25,7 @@ public sealed partial class PersonStatusHistoryModal : ComponentBase
 
     protected override async Task OnParametersSetAsync()
     {
-        if(Person is not null)
+        if (Person is not null)
         {
             _personName = Person?.FullName;
 
