@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// StatusTransitions (code-behind) — cleaned & grouped (with TableBaseComponent)
+// StatusTransitions (code-behind) — managment statuses
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;

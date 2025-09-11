@@ -9,9 +9,9 @@
 
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonStatusService;
+using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
-using eRaven.Components.Shared.ConfirmModal;
 
 namespace eRaven.Components.Pages.Registers;
 

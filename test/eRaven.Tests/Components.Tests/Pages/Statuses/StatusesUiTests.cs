@@ -9,7 +9,7 @@ using eRaven.Domain.Models;
 
 namespace eRaven.Tests.Components.Tests.Pages.Statuses;
 
-public sealed class StatusTransitionsUiTests
+public sealed class StatusesUiTests
 {
     [Fact(DisplayName = "UI: FilterPersons фільтрує по ПІБ або РНОКПП")]
     public void FilterPersons_Works()
@@ -20,9 +20,9 @@ public sealed class StatusTransitionsUiTests
             new() { Id = Guid.NewGuid(), LastName = "Петренко", FirstName = "Петро", MiddleName = "Петрович", Rnokpp = "222" },
         };
 
-        var byFio = StatusTransitionsUi.FilterPersons(src, "Петрен");
-        var byTax = StatusTransitionsUi.FilterPersons(src, "111");
-        var empty = StatusTransitionsUi.FilterPersons(src, "");
+        var byFio = StatusesUi.FilterPersons(src, "Петрен");
+        var byTax = StatusesUi.FilterPersons(src, "111");
+        var empty = StatusesUi.FilterPersons(src, "");
 
         Assert.Single(byFio);
         Assert.Equal("Петренко", byFio[0].LastName);
@@ -37,7 +37,7 @@ public sealed class StatusTransitionsUiTests
     public void ToUtcFromLocalMidnight_Works()
     {
         var local = new DateTime(2025, 9, 1); // Unspecified
-        var utc = StatusTransitionsUi.ToUtcFromLocalMidnight(local);
+        var utc = StatusesUi.ToUtcFromLocalMidnight(local);
 
         Assert.Equal(DateTimeKind.Utc, utc.Kind);
         // базова перевірка: це не наступний день у локальному часі

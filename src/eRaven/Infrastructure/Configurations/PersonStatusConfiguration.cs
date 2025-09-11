@@ -33,7 +33,7 @@ public sealed class PersonStatusConfiguration : IEntityTypeConfiguration<PersonS
 
         e.Property(x => x.StatusKindId)
             .HasColumnName("status_kind_id")
-            .IsRequired();        
+            .IsRequired();
 
         e.Property(x => x.Sequence)
            .HasColumnName("sequence")

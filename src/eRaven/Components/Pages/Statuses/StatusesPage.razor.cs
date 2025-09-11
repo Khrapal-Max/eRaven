@@ -85,7 +85,7 @@ public partial class StatusesPage : ComponentBase, IDisposable
         {
             SetBusy(true);
 
-            var openUtc = StatusTransitionsUi.ToUtcFromLocalMidnight(vm.Moment);
+            var openUtc = StatusesUi.ToUtcFromLocalMidnight(vm.Moment);
             var ps = new PersonStatus
             {
                 Id = Guid.Empty,
@@ -186,7 +186,7 @@ public partial class StatusesPage : ComponentBase, IDisposable
             {
                 // 3) 00:00 локального дня -> UTC
                 var localUnspec = DateTime.SpecifyKind(dateLocal.Date, DateTimeKind.Unspecified);
-                var openUtc = StatusTransitionsUi.ToUtcFromLocalMidnight(localUnspec);
+                var openUtc = StatusesUi.ToUtcFromLocalMidnight(localUnspec);
 
                 // 4) Формуємо інтервал та віддаємо сервісу
                 var ps = new PersonStatus
@@ -308,7 +308,7 @@ public partial class StatusesPage : ComponentBase, IDisposable
             return;
         }
 
-        foreach (var p in StatusTransitionsUi.FilterPersons(_all, s))
+        foreach (var p in StatusesUi.FilterPersons(_all, s))
             Filtered.Add(p);
 
         StateHasChanged();

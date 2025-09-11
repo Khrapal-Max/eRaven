@@ -9,7 +9,7 @@ using eRaven.Domain.Models;
 
 namespace eRaven.Components.Pages.Statuses;
 
-public static class StatusTransitionsUi
+public static class StatusesUi
 {
     /// <summary>Пошук підрядка, ігнорує регістр; null/порожнє не матчиться.</summary>
     public static bool Has(string? haystack, string needle) =>

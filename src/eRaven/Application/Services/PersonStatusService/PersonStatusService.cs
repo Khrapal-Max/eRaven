@@ -88,9 +88,9 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
             throw new InvalidOperationException("Момент має бути пізніший за останній відкритий статус.");
 
         // ====== 3) Присвоюємо Sequence на цей самий момент часу
-        short nextSeq = (short)((await _db.PersonStatuses
+        short nextSeq = (await _db.PersonStatuses
             .Where(s => s.PersonId == ps.PersonId && s.IsActive && s.OpenDate == openUtc)
-            .MaxAsync(s => (short?)s.Sequence, ct)) ?? -1);
+            .MaxAsync(s => (short?)s.Sequence, ct)) ?? -1;
 
         nextSeq++;
 
@@ -160,9 +160,9 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
             if (existsActiveSameKey)
             {
                 // переносимо на наступний sequence на той самий момент
-                short nextSeq = (short)((await _db.PersonStatuses
+                short nextSeq = (await _db.PersonStatuses
                     .Where(s => s.PersonId == status.PersonId && s.IsActive && s.OpenDate == status.OpenDate)
-                    .MaxAsync(s => (short?)s.Sequence, ct)) ?? -1);
+                    .MaxAsync(s => (short?)s.Sequence, ct)) ?? -1;
 
                 status.Sequence = (short)(nextSeq + 1);
             }

@@ -31,7 +31,7 @@ public sealed class StatusSetModalTests : TestContext
     {
         Id = id,
         Name = name,
-        Code = code?? $"CODE{id}"
+        Code = code ?? $"CODE{id}"
     };
 
     [Fact(DisplayName = "Modal: коли Open=false — нічого не рендериться")]

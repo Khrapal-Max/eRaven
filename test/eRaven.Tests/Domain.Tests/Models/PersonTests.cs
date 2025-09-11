@@ -241,7 +241,7 @@ public class PersonTests
         Assert.Contains(p.StatusHistory, x => x.StatusKindId == 1);
         Assert.Contains(p.StatusHistory, x => x.StatusKindId == 2);
         Assert.All(p.StatusHistory, x => Assert.Equal(p.Id, x.PersonId));
-    }   
+    }
 
     // ---------- PositionAssignments (історія посад) ----------
 
