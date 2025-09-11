@@ -8,26 +8,28 @@
 namespace eRaven.Domain.Models;
 
 /// <summary>
-/// Снапшот людини в складі плану (фіксуємо параметри на момент створення плану).
+/// Снапшот людини в складі елемента плану (фіксуємо параметри на момент створення).
 /// </summary>
 public class PlanParticipantSnapshot
 {
     public Guid Id { get; set; }
 
-    /// <summary>Посилання на план (FK).</summary>
-    public Guid PlanId { get; set; }
+    /// <summary>FK на елемент плану.</summary>
+    public Guid PlanElementId { get; set; }
+    public PlanElement PlanElement { get; set; } = null!;
 
-    /// <summary>Ідентифікатор людини (на випадок звірки/аналітики).</summary>
+    /// <summary>Ідентифікатор людини (для звірки/аналітики).</summary>
     public Guid PersonId { get; set; }
 
-    // --- зафіксовані атрибути на момент плану ---
+    // --- зафіксовані атрибути на момент включення ---
     public string FullName { get; set; } = default!;
-    public string? Rank { get; set; }                     // звання
-    public string? PositionSnapshot { get; set; }         // посада/підрозділ «текстом»
+    public string Rnokpp { get; set; } = default!;       // обов’язково, див. конфіг: not blank
+    public string? Rank { get; set; }
+    public string? PositionSnapshot { get; set; }
     public string? Weapon { get; set; }
     public string? Callsign { get; set; }
-    public int? StatusKindId { get; set; }                // поточний статус на момент включення в план (для звіту)
-    public string? StatusKindCode { get; set; }           // денорм. код статусу (зручно для історії)
+    public int? StatusKindId { get; set; }
+    public string? StatusKindCode { get; set; }
 
     // службові
     public string? Author { get; set; }

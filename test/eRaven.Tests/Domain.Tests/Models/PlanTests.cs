@@ -1,225 +1,87 @@
-﻿// -----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// PlanTests
-// -----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+// PlanTests (final for the minimal Plan model)
+//-----------------------------------------------------------------------------
 
 using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
-using eRaven.Tests.Domain.Tests.Models.Helpers; // OrderTestsHelpers.MakePlan
 
 namespace eRaven.Tests.Domain.Tests.Models;
 
 public class PlanTests
 {
-    // ---------- IsQuarterAligned ----------
-
-    [Theory]
-    [InlineData(2025, 1, 1, 0, 0, 0)]
-    [InlineData(2025, 1, 1, 7, 15, 0)]
-    [InlineData(2025, 1, 1, 12, 30, 0)]
-    [InlineData(2025, 1, 1, 23, 45, 0)]
-    public void IsQuarterAligned_ReturnsTrue_ForAlignedTimes(
-        int y, int m, int d, int hh, int mm, int ss)
+    [Fact(DisplayName = "Plan: дефолти — Id/PlanNumber/Author порожні, State=Open, RecordedUtc ~ now (UTC), PlanElements порожній")]
+    public void Defaults_AreCorrect_ForNewPlan()
     {
-        var dt = new DateTime(y, m, d, hh, mm, ss, DateTimeKind.Utc);
-        Assert.True(Plan.IsQuarterAligned(dt));
+        // Act
+        var p = new Plan();
+
+        // Assert
+        Assert.Equal(Guid.Empty, p.Id);
+        Assert.Null(p.PlanNumber);                 // default! у класі → у new() буде null
+        Assert.Equal(PlanState.Open, p.State);
+        Assert.Null(p.Author);
+
+        // RecordedUtc ініціалізується DateTime.UtcNow у властивості
+        Assert.Equal(DateTimeKind.Utc, p.RecordedUtc.Kind);
+        Assert.InRange(DateTime.UtcNow - p.RecordedUtc, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+
+        Assert.NotNull(p.PlanElements);
+        Assert.Empty(p.PlanElements);
     }
 
-    [Theory]
-    [InlineData(2025, 1, 1, 0, 1, 0)]   // 01
-    [InlineData(2025, 1, 1, 7, 16, 0)]  // 16
-    [InlineData(2025, 1, 1, 12, 44, 0)] // 44
-    [InlineData(2025, 1, 1, 23, 45, 1)] // секунда != 0
-    [InlineData(2025, 1, 1, 23, 45, 0, 500)] // мс != 0
-    public void IsQuarterAligned_ReturnsFalse_ForMisalignedTimes(
-        int y, int m, int d, int hh, int mm, int ss, int ms = 0)
+    [Fact(DisplayName = "Plan: можна задати та прочитати базові властивості")]
+    public void Can_Set_And_Read_Properties()
     {
-        var dt = new DateTime(y, m, d, hh, mm, ss, ms, DateTimeKind.Utc);
-        Assert.False(Plan.IsQuarterAligned(dt));
-    }
+        var id = Guid.NewGuid();
+        var when = new DateTime(2025, 9, 10, 12, 0, 0, DateTimeKind.Utc);
 
-    // ---------- EnsureQuarterAligned ----------
-
-    [Fact]
-    public void EnsureQuarterAligned_DoesNotThrow_ForAlignedTime()
-    {
-        var plan = new Plan
+        var p = new Plan
         {
-            Id = Guid.NewGuid(),
-            PlanNumber = "PL-100",
-            Type = PlanType.Dispatch,
-            PlannedAtUtc = new DateTime(2025, 1, 1, 17, 30, 0, DateTimeKind.Utc),
-            TimeKind = PlanTimeKind.Start
+            Id = id,
+            PlanNumber = "R10/1CN",
+            State = PlanState.Close,
+            Author = "tester",
+            RecordedUtc = when
         };
 
-        var ex = Record.Exception(() => plan.EnsureQuarterAligned());
-        Assert.Null(ex);
+        Assert.Equal(id, p.Id);
+        Assert.Equal("R10/1CN", p.PlanNumber);
+        Assert.Equal(PlanState.Close, p.State);
+        Assert.Equal("tester", p.Author);
+        Assert.Equal(when, p.RecordedUtc);
     }
 
-    [Theory]
-    [InlineData(2025, 1, 1, 17, 31, 0)]
-    [InlineData(2025, 1, 1, 17, 30, 1)]
-    public void EnsureQuarterAligned_Throws_ForNonAlignedTime(
-        int y, int m, int d, int hh, int mm, int ss)
+    [Fact(DisplayName = "Plan: PlanElements — додавання/видалення елементів працює")]
+    public void PlanElements_Add_Remove_Works()
     {
-        var plan = new Plan
-        {
-            Id = Guid.NewGuid(),
-            PlanNumber = "PL-101",
-            Type = PlanType.Dispatch,
-            PlannedAtUtc = new DateTime(y, m, d, hh, mm, ss, DateTimeKind.Utc),
-            TimeKind = PlanTimeKind.Start
-        };
+        var p = new Plan { PlanNumber = "P-001" };
 
-        var ex = Assert.Throws<InvalidOperationException>(() => plan.EnsureQuarterAligned());
-        Assert.Contains("00/15/30/45", ex.Message);
+        var e1 = new PlanElement { Id = Guid.NewGuid() };
+        var e2 = new PlanElement { Id = Guid.NewGuid() };
+
+        p.PlanElements.Add(e1);
+        p.PlanElements.Add(e2);
+
+        Assert.Equal(2, p.PlanElements.Count);
+        Assert.Contains(e1, p.PlanElements);
+        Assert.Contains(e2, p.PlanElements);
+
+        p.PlanElements.Remove(e1);
+
+        Assert.Single(p.PlanElements);
+        Assert.DoesNotContain(e1, p.PlanElements);
+        Assert.Contains(e2, p.PlanElements);
     }
 
-    // ---------- Defaults & simple props ----------
-
-    [Fact]
-    public void NewPlan_DefaultState_IsOpen_AndParticipantsEmpty()
+    [Fact(DisplayName = "Plan: RecordedUtc можна задати явно (UTC)")]
+    public void RecordedUtc_CanBeAssigned_Explicitly()
     {
-        var plan = OrderTestsHelpers.MakePlan();
+        var ts = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var p = new Plan { RecordedUtc = ts };
 
-        Assert.Equal(PlanState.Open, plan.State);
-        Assert.NotNull(plan.Participants);
-        Assert.Empty(plan.Participants);
-    }
-
-    [Fact]
-    public void Plan_Persists_TimeKind_Start_And_End()
-    {
-        var startPlan = OrderTestsHelpers.MakePlan(timeKind: PlanTimeKind.Start);
-        var endPlan = OrderTestsHelpers.MakePlan(timeKind: PlanTimeKind.End);
-
-        Assert.Equal(PlanTimeKind.Start, startPlan.TimeKind);
-        Assert.Equal(PlanTimeKind.End, endPlan.TimeKind);
-    }
-
-    [Fact]
-    public void Plan_CanStore_Basic_Metadata()
-    {
-        var plan = OrderTestsHelpers.MakePlan(
-            planNumber: "PL-777",
-            type: PlanType.Return,
-            plannedAtUtc: new DateTime(2025, 2, 10, 9, 45, 0, DateTimeKind.Utc),
-            timeKind: PlanTimeKind.End,
-            location: "Місто Y",
-            groupName: "Група B",
-            toolType: "Інструмент Z"
-        );
-
-        Assert.Equal("PL-777", plan.PlanNumber);
-        Assert.Equal(PlanType.Return, plan.Type);
-        Assert.Equal(new DateTime(2025, 2, 10, 9, 45, 0, DateTimeKind.Utc), plan.PlannedAtUtc);
-        Assert.Equal(PlanTimeKind.End, plan.TimeKind);
-        Assert.Equal("Місто Y", plan.Location);
-        Assert.Equal("Група B", plan.GroupName);
-        Assert.Equal("Інструмент Z", plan.ToolType);
-    }
-
-    // ---------- PlanParticipantSnapshot у Plan ----------
-
-    [Fact]
-    public void Add_Single_Participant_Snapshot_To_Plan()
-    {
-        // arrange
-        var plan = OrderTestsHelpers.MakePlan();
-        var participant = new PlanParticipantSnapshot
-        {
-            Id = Guid.NewGuid(),
-            PlanId = plan.Id,
-            PersonId = Guid.NewGuid(),
-            FullName = "Іванов Іван",
-            Rank = "солдат",
-            PositionSnapshot = "стрілець відділення 1",
-            StatusKindId = 1,
-            StatusKindCode = "READY",
-            Author = "tester"
-        };
-
-        // act
-        plan.Participants.Add(participant);
-
-        // assert
-        Assert.Single(plan.Participants);
-        var saved = plan.Participants.Single();
-        Assert.Equal(plan.Id, saved.PlanId);
-        Assert.Equal("Іванов Іван", saved.FullName);
-        Assert.Equal("солдат", saved.Rank);
-        Assert.Equal("стрілець відділення 1", saved.PositionSnapshot);
-        Assert.Equal(1, saved.StatusKindId);
-        Assert.Equal("READY", saved.StatusKindCode);
-    }
-
-    [Fact]
-    public void Add_Multiple_Participants_Snapshots_To_Plan()
-    {
-        // arrange
-        var plan = OrderTestsHelpers.MakePlan();
-
-        var p1Id = Guid.NewGuid();
-        var p2Id = Guid.NewGuid();
-
-        var s1 = new PlanParticipantSnapshot
-        {
-            Id = Guid.NewGuid(),
-            PlanId = plan.Id,
-            PersonId = p1Id,
-            FullName = "Перший Боєць",
-            Rank = "сержант",
-            StatusKindId = 1,
-            StatusKindCode = "READY"
-        };
-
-        var s2 = new PlanParticipantSnapshot
-        {
-            Id = Guid.NewGuid(),
-            PlanId = plan.Id,
-            PersonId = p2Id,
-            FullName = "Другий Боєць",
-            Rank = "рядовий",
-            StatusKindId = 1,
-            StatusKindCode = "READY"
-        };
-
-        // act
-        plan.Participants.Add(s1);
-        plan.Participants.Add(s2);
-
-        // assert
-        Assert.Equal(2, plan.Participants.Count);
-        Assert.Contains(plan.Participants, x => x.PersonId == p1Id && x.FullName == "Перший Боєць");
-        Assert.Contains(plan.Participants, x => x.PersonId == p2Id && x.FullName == "Другий Боєць");
-        Assert.All(plan.Participants, x => Assert.Equal(plan.Id, x.PlanId));
-    }
-
-    [Fact]
-    public void Participants_List_Is_Independent_Per_Item()
-    {
-        // arrange
-        var plan = OrderTestsHelpers.MakePlan();
-
-        var s = new PlanParticipantSnapshot
-        {
-            Id = Guid.NewGuid(),
-            PlanId = plan.Id,
-            PersonId = Guid.NewGuid(),
-            FullName = "Змінний Боєць",
-            Rank = "ефрейтор",
-            StatusKindId = 1,
-            StatusKindCode = "READY"
-        };
-
-        plan.Participants.Add(s);
-
-        // act: змінюємо локальну змінну, посилання в списку має відображати те саме (це очікувана поведінка)
-        s.FullName = "Оновлене Ім’я";
-
-        // assert
-        Assert.Equal("Оновлене Ім’я", plan.Participants.Single().FullName);
+        Assert.Equal(DateTimeKind.Utc, p.RecordedUtc.Kind);
+        Assert.Equal(ts, p.RecordedUtc);
     }
 }

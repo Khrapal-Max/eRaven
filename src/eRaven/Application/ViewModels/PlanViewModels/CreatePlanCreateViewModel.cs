@@ -5,7 +5,6 @@
 // CreatePlanCreateViewModel
 //-----------------------------------------------------------------------------
 
-
 using eRaven.Domain.Enums;
 
 namespace eRaven.Application.ViewModels.PlanViewModels;
@@ -15,7 +14,6 @@ public class CreatePlanCreateViewModel
     public string PlanNumber { get; set; } = default!;
     public PlanType Type { get; set; }
     public DateTime PlannedAt { get; set; }                    // може бути Unspecified/Local — нормалізуємо в UTC
-    public PlanTimeKind TimeKind { get; set; }
     public string? Location { get; set; }
     public string? GroupName { get; set; }
     public string? ToolType { get; set; }

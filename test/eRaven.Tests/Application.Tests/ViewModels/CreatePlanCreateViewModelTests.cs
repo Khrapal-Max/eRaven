@@ -19,7 +19,6 @@ public class CreatePlanCreateViewModelTests
         Assert.Null(vm.PlanNumber);
         Assert.Equal(default, vm.Type);          // 0
         Assert.Equal(default, vm.PlannedAt);     // 0001-01-01
-        Assert.Equal(default, vm.TimeKind);      // 0
 
         Assert.Null(vm.Location);
         Assert.Null(vm.GroupName);
@@ -45,7 +44,6 @@ public class CreatePlanCreateViewModelTests
             PlanNumber = "PLAN-42",
             Type = PlanType.Dispatch,
             PlannedAt = whenUnspecified,
-            TimeKind = PlanTimeKind.Start,
             Location = "Локація",
             GroupName = "Група-1",
             ToolType = "ТЗ",
@@ -59,7 +57,6 @@ public class CreatePlanCreateViewModelTests
         Assert.Equal(PlanType.Dispatch, vm.Type);
         Assert.Equal(whenUnspecified, vm.PlannedAt);
         Assert.Equal(DateTimeKind.Unspecified, vm.PlannedAt.Kind);
-        Assert.Equal(PlanTimeKind.Start, vm.TimeKind);
         Assert.Equal("Локація", vm.Location);
         Assert.Equal("Група-1", vm.GroupName);
         Assert.Equal("ТЗ", vm.ToolType);

@@ -1,8 +1,7 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// PlanParticipantSnapshotConfiguration
+// PlanParticipantSnapshotConfiguration (final; з RNOKPP; унікальність по (element, person))
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Models;
@@ -16,7 +15,7 @@ public sealed class PlanParticipantSnapshotConfiguration : IEntityTypeConfigurat
     public void Configure(EntityTypeBuilder<PlanParticipantSnapshot> e)
     {
         // ===============================
-        // Table & Keys
+        // Table & Key
         // ===============================
         e.ToTable("plan_participant_snapshots");
         e.HasKey(x => x.Id);
@@ -27,8 +26,8 @@ public sealed class PlanParticipantSnapshotConfiguration : IEntityTypeConfigurat
         // ===============================
         // Columns (lower snake_case)
         // ===============================
-        e.Property(x => x.PlanId)
-         .HasColumnName("plan_id")
+        e.Property(x => x.PlanElementId)
+         .HasColumnName("plan_element_id")
          .IsRequired();
 
         e.Property(x => x.PersonId)
@@ -38,6 +37,11 @@ public sealed class PlanParticipantSnapshotConfiguration : IEntityTypeConfigurat
         e.Property(x => x.FullName)
          .HasColumnName("full_name")
          .HasMaxLength(256)
+         .IsRequired();
+
+        e.Property(x => x.Rnokpp)
+         .HasColumnName("rnokpp")
+         .HasMaxLength(16) // у Person зазвичай 10; даємо запас
          .IsRequired();
 
         e.Property(x => x.Rank)
@@ -77,30 +81,40 @@ public sealed class PlanParticipantSnapshotConfiguration : IEntityTypeConfigurat
         // ===============================
         // Relationships
         // ===============================
-        // Snapshot -> Plan : many-to-1 (каскадне видалення разом із планом)
-        e.HasOne<Plan>()
-         .WithMany(p => p.Participants)
-         .HasForeignKey(x => x.PlanId)
+        e.HasOne(x => x.PlanElement)
+         .WithMany(pe => pe.Participants)
+         .HasForeignKey(x => x.PlanElementId)
          .OnDelete(DeleteBehavior.Cascade);
 
         // ===============================
-        // Constraints & Indexes
+        // Indexes
         // ===============================
-        e.HasIndex(x => x.PlanId)
-         .HasDatabaseName("ix_pps_plan_id");
+        e.HasIndex(x => x.PlanElementId)
+         .HasDatabaseName("ix_pps_plan_element_id");
 
         e.HasIndex(x => x.PersonId)
          .HasDatabaseName("ix_pps_person_id");
 
-        e.HasIndex(x => new { x.PlanId, x.PersonId })
-         .HasDatabaseName("ix_pps_plan_person");
+        e.HasIndex(x => new { x.PlanElementId, x.PersonId })
+         .HasDatabaseName("ux_pps_plan_element_person")
+         .IsUnique(); // один і той самий учасник у межах елемента — лише раз
 
         e.HasIndex(x => x.RecordedUtc)
          .HasDatabaseName("ix_pps_recorded_utc");
 
-        e.ToTable(t => t.HasCheckConstraint(
-            "ck_pps_full_name_not_blank",
-            "length(trim(full_name)) > 0"
-        ));
+        // ===============================
+        // Constraints
+        // ===============================
+        e.ToTable(t =>
+        {
+            t.HasCheckConstraint(
+                "ck_pps_full_name_not_blank",
+                "length(trim(full_name)) > 0"
+            );
+            t.HasCheckConstraint(
+                "ck_pps_rnokpp_not_blank",
+                "length(trim(rnokpp)) > 0"
+            );
+        });
     }
 }

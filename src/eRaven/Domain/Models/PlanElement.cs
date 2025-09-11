@@ -1,0 +1,66 @@
+﻿//-----------------------------------------------------------------------------
+// All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+// PlanElement
+//-----------------------------------------------------------------------------
+
+using eRaven.Domain.Enums;
+
+namespace eRaven.Domain.Models;
+
+/// <summary>
+/// Окремий «рядок» плану: дія над основною особою + (за потреби) супутні учасники.
+/// </summary>
+public class PlanElement
+{
+    public Guid Id { get; set; }
+
+    /// <summary>FK на план.</summary>
+    public Guid PlanId { get; set; }
+    public Plan Plan { get; set; } = null!;
+
+    /// <summary>
+    /// Основна особа цього елемента. ВАЖЛИВО: у <see cref="Participants"/> має бути
+    /// снапшот із таким самим PersonId (див. <see cref="PrimarySnapshot"/>).
+    /// </summary>
+    public Guid PersonId { get; set; }
+
+    // ---- індивідуальна дія та її час ----
+    public PlanType Type { get; set; }          // Відрядити / Повернути
+    public DateTime EventAtUtc { get; set; }    // Дата події (UTC, бажано 00/15/30/45)
+
+    // ---- атрибути події (контекст) ----
+    public string? Location { get; set; }
+    public string? GroupName { get; set; }
+    public string? ToolType { get; set; }
+
+    // ---- службові поля ----
+    public string? Note { get; set; }
+    public string? Author { get; set; }
+    public DateTime RecordedUtc { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Супутні учасники елемента (снапшоти на момент події).
+    /// Можуть включати і основну особу (рекомендовано!).
+    /// </summary>
+    public ICollection<PlanParticipantSnapshot> Participants { get; set; } = [];
+
+    /// <summary>
+    /// Зручний доступ до снапшота основної особи. Може бути null, якщо не додали,
+    /// але тоді варто додати під час створення/редагування.
+    /// </summary>
+    public PlanParticipantSnapshot? PrimarySnapshot
+        => Participants.FirstOrDefault(p => p.PersonId == PersonId);
+
+    // --------- хелпер узгодженості часу ---------
+    public static bool IsQuarterAligned(DateTime dtUtc)
+        => dtUtc.Minute % 15 == 0 && dtUtc.Second == 0 && dtUtc.Millisecond == 0;
+
+    /// <summary>Валідатор для бізнес-інваріанта часу у 15-хв інтервалах.</summary>
+    public void EnsureQuarterAligned()
+    {
+        if (!IsQuarterAligned(EventAtUtc))
+            throw new InvalidOperationException("Час події має бути на інтервалах 00/15/30/45 хв без секунд.");
+    }
+}

@@ -329,25 +329,11 @@ namespace eRaven.Migrations
                         .HasDefaultValue("system")
                         .HasColumnName("author");
 
-                    b.Property<string>("GroupName")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("group_name");
-
-                    b.Property<string>("Location")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("location");
-
                     b.Property<string>("PlanNumber")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("plan_number");
-
-                    b.Property<DateTime>("PlannedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("planned_at_utc");
 
                     b.Property<DateTime>("RecordedUtc")
                         .ValueGeneratedOnAdd()
@@ -359,14 +345,70 @@ namespace eRaven.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("state");
 
-                    b.Property<string>("TaskDescription")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("task_description");
+                    b.HasKey("Id");
 
-                    b.Property<int>("TimeKind")
-                        .HasColumnType("integer")
-                        .HasColumnName("time_kind");
+                    b.HasIndex("PlanNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ux_plans_plan_number");
+
+                    b.HasIndex("RecordedUtc")
+                        .HasDatabaseName("ix_plans_recorded_utc");
+
+                    b.HasIndex("State", "RecordedUtc")
+                        .HasDatabaseName("ix_plans_state_recorded");
+
+                    b.ToTable("plans", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_plans_plan_number_not_blank", "length(trim(plan_number)) > 0");
+                        });
+                });
+
+            modelBuilder.Entity("eRaven.Domain.Models.PlanElement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Author")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasDefaultValue("system")
+                        .HasColumnName("author");
+
+                    b.Property<DateTime>("EventAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("event_at_utc");
+
+                    b.Property<string>("GroupName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("group_name");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("location");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("note");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("person_id");
+
+                    b.Property<Guid>("PlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plan_id");
+
+                    b.Property<DateTime>("RecordedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_utc")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("ToolType")
                         .HasMaxLength(128)
@@ -379,23 +421,19 @@ namespace eRaven.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PlanNumber")
-                        .IsUnique()
-                        .HasDatabaseName("ux_plans_plan_number");
+                    b.HasIndex("PersonId")
+                        .HasDatabaseName("ix_plan_elements_person");
 
-                    b.HasIndex("PlannedAtUtc")
-                        .HasDatabaseName("ix_plans_planned_at_utc");
+                    b.HasIndex("PlanId")
+                        .HasDatabaseName("ix_plan_elements_plan");
 
-                    b.HasIndex("State", "PlannedAtUtc")
-                        .HasDatabaseName("ix_plans_state_planned");
+                    b.HasIndex("PlanId", "EventAtUtc")
+                        .HasDatabaseName("ix_plan_elements_plan_event");
 
-                    b.HasIndex("Type", "PlannedAtUtc")
-                        .HasDatabaseName("ix_plans_type_planned");
+                    b.HasIndex("Type", "EventAtUtc")
+                        .HasDatabaseName("ix_plan_elements_type_event");
 
-                    b.ToTable("plans", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_plans_plan_number_not_blank", "length(trim(plan_number)) > 0");
-                        });
+                    b.ToTable("plan_elements", (string)null);
                 });
 
             modelBuilder.Entity("eRaven.Domain.Models.PlanParticipantSnapshot", b =>
@@ -427,9 +465,9 @@ namespace eRaven.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("person_id");
 
-                    b.Property<Guid>("PlanId")
+                    b.Property<Guid>("PlanElementId")
                         .HasColumnType("uuid")
-                        .HasColumnName("plan_id");
+                        .HasColumnName("plan_element_id");
 
                     b.Property<string>("PositionSnapshot")
                         .HasMaxLength(256)
@@ -447,6 +485,12 @@ namespace eRaven.Migrations
                         .HasColumnName("recorded_utc")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+                    b.Property<string>("Rnokpp")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("rnokpp");
+
                     b.Property<string>("StatusKindCode")
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
@@ -461,29 +505,26 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("weapon");
 
-                    b.Property<Guid>("plan_id")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("PersonId")
                         .HasDatabaseName("ix_pps_person_id");
 
-                    b.HasIndex("PlanId")
-                        .HasDatabaseName("ix_pps_plan_id");
+                    b.HasIndex("PlanElementId")
+                        .HasDatabaseName("ix_pps_plan_element_id");
 
                     b.HasIndex("RecordedUtc")
                         .HasDatabaseName("ix_pps_recorded_utc");
 
-                    b.HasIndex("PlanId", "PersonId")
-                        .HasDatabaseName("ix_pps_plan_person");
+                    b.HasIndex("PlanElementId", "PersonId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_pps_plan_element_person");
 
                     b.ToTable("plan_participant_snapshots", null, t =>
                         {
                             t.HasCheckConstraint("ck_pps_full_name_not_blank", "length(trim(full_name)) > 0");
 
-                            t.Property("plan_id")
-                                .HasColumnName("plan_id1");
+                            t.HasCheckConstraint("ck_pps_rnokpp_not_blank", "length(trim(rnokpp)) > 0");
                         });
                 });
 
@@ -1308,13 +1349,26 @@ namespace eRaven.Migrations
                     b.Navigation("StatusKind");
                 });
 
-            modelBuilder.Entity("eRaven.Domain.Models.PlanParticipantSnapshot", b =>
+            modelBuilder.Entity("eRaven.Domain.Models.PlanElement", b =>
                 {
-                    b.HasOne("eRaven.Domain.Models.Plan", null)
-                        .WithMany("Participants")
+                    b.HasOne("eRaven.Domain.Models.Plan", "Plan")
+                        .WithMany("PlanElements")
                         .HasForeignKey("PlanId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Plan");
+                });
+
+            modelBuilder.Entity("eRaven.Domain.Models.PlanParticipantSnapshot", b =>
+                {
+                    b.HasOne("eRaven.Domain.Models.PlanElement", "PlanElement")
+                        .WithMany("Participants")
+                        .HasForeignKey("PlanElementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PlanElement");
                 });
 
             modelBuilder.Entity("eRaven.Domain.Models.PlanServiceOptions", b =>
@@ -1361,6 +1415,11 @@ namespace eRaven.Migrations
                 });
 
             modelBuilder.Entity("eRaven.Domain.Models.Plan", b =>
+                {
+                    b.Navigation("PlanElements");
+                });
+
+            modelBuilder.Entity("eRaven.Domain.Models.PlanElement", b =>
                 {
                     b.Navigation("Participants");
                 });
