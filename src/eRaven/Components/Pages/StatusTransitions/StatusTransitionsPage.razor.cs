@@ -9,12 +9,12 @@ using Blazored.Toast.Services;
 using eRaven.Application.Services.ConfirmService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.Services.StatusTransitionService;
-using eRaven.Components.Pages.StatusKids.Modals;
+using eRaven.Components.Pages.StatusTransitions.Modals;
 using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
-namespace eRaven.Components.Pages.StatusKids;
+namespace eRaven.Components.Pages.StatusTransitions;
 
 public partial class StatusTransitionsPage : ComponentBase
 {

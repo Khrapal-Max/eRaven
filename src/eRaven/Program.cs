@@ -21,7 +21,7 @@ using eRaven.Components;
 using eRaven.Components.Pages.Persons;
 using eRaven.Components.Pages.Persons.Modals;
 using eRaven.Components.Pages.Positions.Modals;
-using eRaven.Components.Pages.StatusKids.Modals;
+using eRaven.Components.Pages.StatusTransitions.Modals;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
 using FluentValidation;

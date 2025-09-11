@@ -7,7 +7,7 @@
 
 using Bunit;
 using eRaven.Application.Services.StatusKindService;
-using eRaven.Components.Pages.StatusKids.Modals;
+using eRaven.Components.Pages.StatusTransitions.Modals;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;

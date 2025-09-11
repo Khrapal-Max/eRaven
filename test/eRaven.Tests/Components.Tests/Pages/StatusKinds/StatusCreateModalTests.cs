@@ -8,7 +8,7 @@
 using Bunit;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.StatusKindViewModels;
-using eRaven.Components.Pages.StatusKids.Modals;
+using eRaven.Components.Pages.StatusTransitions.Modals;
 using eRaven.Domain.Models;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;

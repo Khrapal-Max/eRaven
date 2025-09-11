@@ -25,7 +25,7 @@ using Moq;
 
 namespace eRaven.Tests.Components.Tests.Pages.Statuses;
 
-public sealed class StatusTransitionsPageTests : TestContext
+public sealed class StatusesPageTests : TestContext
 {
     // ---------- Test data helpers ----------
 
@@ -84,7 +84,7 @@ public sealed class StatusTransitionsPageTests : TestContext
     {
         RegisterServices();
 
-        var componentUnderTest = RenderComponent<StatusTransitionsPage>();
+        var componentUnderTest = RenderComponent<StatusesPage>();
 
         Assert.Contains("Режим: одиничний", componentUnderTest.Markup);
     }
@@ -94,7 +94,7 @@ public sealed class StatusTransitionsPageTests : TestContext
     {
         RegisterServices();
 
-        var componentUnderTest = RenderComponent<StatusTransitionsPage>();
+        var componentUnderTest = RenderComponent<StatusesPage>();
 
         var toggleButton = componentUnderTest.Find("button[title^=\"Одиничний:\"]");
         Assert.Contains("Режим: одиничний", toggleButton.TextContent);
@@ -111,7 +111,7 @@ public sealed class StatusTransitionsPageTests : TestContext
     {
         RegisterServices();
 
-        _ = RenderComponent<StatusTransitionsPage>();
+        _ = RenderComponent<StatusesPage>();
 
         _statusKindSvc.Verify(
             s => s.GetAllAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()),

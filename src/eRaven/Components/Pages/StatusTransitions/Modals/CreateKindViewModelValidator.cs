@@ -9,7 +9,7 @@ using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.StatusKindViewModels;
 using FluentValidation;
 
-namespace eRaven.Components.Pages.StatusKids.Modals;
+namespace eRaven.Components.Pages.StatusTransitions.Modals;
 
 public sealed class CreateKindViewModelValidator : AbstractValidator<CreateKindViewModel>
 {

@@ -17,7 +17,7 @@ using System.Collections.ObjectModel;
 
 namespace eRaven.Components.Pages.Statuses;
 
-public partial class StatusTransitionsPage : ComponentBase, IDisposable
+public partial class StatusesPage : ComponentBase, IDisposable
 {
     // =============================  Дані  =============================
     private IReadOnlyList<Person> _all = [];
@@ -146,6 +146,8 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
     protected async Task<ImportReportViewModel> ProcessImportedStatusesAsync(
     IReadOnlyList<PersonStatusImportView> rows)
     {
+        Toast.ShowInfo("Виконується імпорт...");
+
         int added = 0;
         var errors = new List<string>();
 
@@ -208,6 +210,8 @@ public partial class StatusTransitionsPage : ComponentBase, IDisposable
                 errors.Add($"Row {idx}: {ex.Message}");
             }
         }
+
+        Toast.ShowInfo("Імпорт закінчено.");
 
         await ReloadAllAsync(); // оновимо список після імпорту
         return new ImportReportViewModel(Added: added, Updated: 0, Errors: errors);
