@@ -1,6 +1,7 @@
 ﻿@page "/person/{Id:guid}"
 @using Blazored.FluentValidation
 @using eRaven.Application.ViewModels.PersonViewModels
+@using eRaven.Components.Pages.Persons.Modals
 
 <PageTitle>Картка особи</PageTitle>
 
@@ -207,3 +208,7 @@
         </div>
     </div>
 }
+
+<PersonStatusHistoryModal Open="_historyOpen"
+                          Person="@_person"
+                          OnClose="HandleHistoryClose" />

@@ -11,7 +11,7 @@ using eRaven.Components.Pages.StatusTransitions.Modals;
 using FluentValidation.TestHelper;
 using Moq;
 
-namespace eRaven.Tests.Components.Tests.Pages.StatusKinds;
+namespace eRaven.Tests.Components.Tests.Pages.StatusTransitions;
 
 public class CreateKindViewModelValidatorTests
 {

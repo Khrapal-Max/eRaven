@@ -26,7 +26,7 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
     {
         var list = await _db.PersonStatuses.AsNoTracking()
             .Include(s => s.StatusKind)
-            .Where(s => s.PersonId == personId)
+            .Where(s => s.PersonId == personId && s.IsActive == true)
             .OrderByDescending(s => s.OpenDate)
             .ThenByDescending(s => s.Sequence)
             .ToListAsync(ct);

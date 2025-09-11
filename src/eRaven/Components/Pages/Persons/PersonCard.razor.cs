@@ -27,6 +27,7 @@ public partial class PersonCard : ComponentBase, IDisposable
     // ===================== UI state =====================
     protected bool _initialLoading = true;
     protected Person? _person;
+    protected bool _historyOpen;
 
     // Активний статус (із приміткою)
     protected PersonStatus? _activeStatus; // ⬅️ ДОДАЛИ
@@ -85,12 +86,6 @@ public partial class PersonCard : ComponentBase, IDisposable
         }
     }
 
-    protected Task OpenHistory()
-    {
-        Toast.ShowInfo("На реалізації");
-        return Task.CompletedTask;
-    }
-
     private async Task ReloadAsync()
     {
         try
@@ -128,6 +123,20 @@ public partial class PersonCard : ComponentBase, IDisposable
         Weapon = string.IsNullOrWhiteSpace(vm.Weapon) ? null : vm.Weapon.Trim(),
         PositionUnitId = keepPositionUnitId
     };
+
+    protected Task OpenHistory()
+    {
+        _historyOpen = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task HandleHistoryClose()
+    {
+        _historyOpen = false;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
 
     public void Dispose() => GC.SuppressFinalize(this);
 }

@@ -15,7 +15,7 @@ using eRaven.Domain.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
-namespace eRaven.Tests.Components.Tests.Pages.StatusKinds;
+namespace eRaven.Tests.Components.Tests.Pages.StatusTransitions;
 
 public class StatusTransitionsPageTests : TestContext
 {
