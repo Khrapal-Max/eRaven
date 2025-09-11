@@ -17,8 +17,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PersonPositionAssignment> PersonPositionAssignments => Set<PersonPositionAssignment>();
     public DbSet<PersonStatus> PersonStatuses => Set<PersonStatus>();
     public DbSet<Plan> Plans => Set<Plan>();
+    public DbSet<PlanElement> PlanElements => Set<PlanElement>();
     public DbSet<PlanParticipantSnapshot> PlanParticipantSnapshots => Set<PlanParticipantSnapshot>();
-    public DbSet<PlanServiceOptions> PlanServiceOptions { get; set; } = default!;
+    public DbSet<PlanServiceOptions> PlanServiceOptions => Set<PlanServiceOptions>();
     public DbSet<PositionUnit> PositionUnits => Set<PositionUnit>();
     public DbSet<StatusKind> StatusKinds => Set<StatusKind>();
     public DbSet<StatusTransition> StatusTransitions => Set<StatusTransition>();
