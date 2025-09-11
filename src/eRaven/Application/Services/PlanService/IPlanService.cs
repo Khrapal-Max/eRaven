@@ -34,7 +34,7 @@ public interface IPlanService
     /// <param name="planCreateViewModel"></param>
     /// <param name="ct"></param>
     /// <returns>CreatePlanCreateViewModel(<see cref="CreatePlanCreateViewModel"/>)</returns>
-    Task<Plan> CreateAsync(CreatePlanCreateViewModel planCreateViewModel, CancellationToken ct = default);
+    Task<Plan> CreateAsync(CreatePlanViewModel planCreateViewModel, CancellationToken ct = default);
 
     /// <summary>
     /// редагувати план, якщо він відкритий

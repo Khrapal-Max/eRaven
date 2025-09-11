@@ -20,12 +20,6 @@ public class PlanElement
     public Guid PlanId { get; set; }
     public Plan Plan { get; set; } = null!;
 
-    /// <summary>
-    /// Основна особа цього елемента. ВАЖЛИВО: у <see cref="Participants"/> має бути
-    /// снапшот із таким самим PersonId (див. <see cref="PrimarySnapshot"/>).
-    /// </summary>
-    public Guid PersonId { get; set; }
-
     // ---- індивідуальна дія та її час ----
     public PlanType Type { get; set; }          // Відрядити / Повернути
     public DateTime EventAtUtc { get; set; }    // Дата події (UTC, бажано 00/15/30/45)
@@ -45,13 +39,6 @@ public class PlanElement
     /// Можуть включати і основну особу (рекомендовано!).
     /// </summary>
     public ICollection<PlanParticipantSnapshot> Participants { get; set; } = [];
-
-    /// <summary>
-    /// Зручний доступ до снапшота основної особи. Може бути null, якщо не додали,
-    /// але тоді варто додати під час створення/редагування.
-    /// </summary>
-    public PlanParticipantSnapshot? PrimarySnapshot
-        => Participants.FirstOrDefault(p => p.PersonId == PersonId);
 
     // --------- хелпер узгодженості часу ---------
     public static bool IsQuarterAligned(DateTime dtUtc)

@@ -2,24 +2,21 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CreatePlanCreateViewModel
+// CreatePlanViewModel
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Enums;
+using eRaven.Domain.Models;
 
 namespace eRaven.Application.ViewModels.PlanViewModels;
 
-public class CreatePlanCreateViewModel
+public class CreatePlanViewModel
 {
+    /// <summary>Людський номер плану (унікальний). Зберігайте обрізаним.</summary>
     public string PlanNumber { get; set; } = default!;
-    public PlanType Type { get; set; }
-    public DateTime PlannedAt { get; set; }                    // може бути Unspecified/Local — нормалізуємо в UTC
-    public string? Location { get; set; }
-    public string? GroupName { get; set; }
-    public string? ToolType { get; set; }
-    public string? TaskDescription { get; set; }
-    public string? Author { get; set; }
+
+    public PlanState State { get; set; } = PlanState.Open;
 
     /// <summary>Склад плану — ідентифікатори осіб.</summary>
-    public IReadOnlyCollection<Guid> ParticipantIds { get; set; } = [];
+    public IReadOnlyCollection<PlanElement> PlanElements { get; set; } = [];
 }

@@ -30,10 +30,6 @@ public sealed class PlanElementConfiguration : IEntityTypeConfiguration<PlanElem
          .HasColumnName("plan_id")
          .IsRequired();
 
-        e.Property(x => x.PersonId)
-         .HasColumnName("person_id")
-         .IsRequired();
-
         e.Property(x => x.Type)
          .HasColumnName("type")
          .HasConversion<int>() // enum -> int
@@ -94,9 +90,6 @@ public sealed class PlanElementConfiguration : IEntityTypeConfiguration<PlanElem
 
         e.HasIndex(x => new { x.PlanId, x.EventAtUtc })
          .HasDatabaseName("ix_plan_elements_plan_event");
-
-        e.HasIndex(x => x.PersonId)
-         .HasDatabaseName("ix_plan_elements_person");
 
         e.HasIndex(x => new { x.Type, x.EventAtUtc })
          .HasDatabaseName("ix_plan_elements_type_event");

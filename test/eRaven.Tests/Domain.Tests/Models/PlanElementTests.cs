@@ -18,7 +18,6 @@ public class PlanElementTests
 
         Assert.Equal(Guid.Empty, e.Id);
         Assert.Equal(Guid.Empty, e.PlanId);
-        Assert.Equal(Guid.Empty, e.PersonId);
 
         Assert.Equal(default, e.Type);
         Assert.Equal(default, e.EventAtUtc);
@@ -33,8 +32,6 @@ public class PlanElementTests
 
         Assert.NotNull(e.Participants);
         Assert.Empty(e.Participants);
-
-        Assert.Null(e.PrimarySnapshot);
     }
 
     [Fact(DisplayName = "PlanElement: IsQuarterAligned/EnsureQuarterAligned працюють як очікується")]
@@ -58,26 +55,6 @@ public class PlanElementTests
         Assert.Throws<InvalidOperationException>(() => bad.EnsureQuarterAligned());
     }
 
-    [Fact(DisplayName = "PlanElement: PrimarySnapshot повертає PPS з тим самим PersonId, або null")]
-    public void PrimarySnapshot_Returns_Matching_OrNull()
-    {
-        var personId = Guid.NewGuid();
-        var otherId = Guid.NewGuid();
-
-        var e = new PlanElement { PersonId = personId };
-
-        // без списку — null
-        Assert.Null(e.PrimarySnapshot);
-
-        var p1 = new PlanParticipantSnapshot { PersonId = otherId, FullName = "X", Rnokpp = "1111111111" };
-        var p2 = new PlanParticipantSnapshot { PersonId = personId, FullName = "Y", Rnokpp = "2222222222" };
-
-        e.Participants.Add(p1);
-        e.Participants.Add(p2);
-
-        Assert.Same(p2, e.PrimarySnapshot);
-    }
-
     [Fact(DisplayName = "PlanElement: можна задати та прочитати базові поля")]
     public void Can_Set_And_Read_Properties()
     {
@@ -90,7 +67,6 @@ public class PlanElementTests
         {
             Id = id,
             PlanId = planId,
-            PersonId = personId,
             Type = PlanType.Dispatch,
             EventAtUtc = when,
             Location = "Локація А",
@@ -103,7 +79,6 @@ public class PlanElementTests
 
         Assert.Equal(id, e.Id);
         Assert.Equal(planId, e.PlanId);
-        Assert.Equal(personId, e.PersonId);
         Assert.Equal(PlanType.Dispatch, e.Type);
         Assert.Equal(when, e.EventAtUtc);
         Assert.Equal("Локація А", e.Location);
@@ -112,27 +87,5 @@ public class PlanElementTests
         Assert.Equal("примітка", e.Note);
         Assert.Equal("tester", e.Author);
         Assert.Equal(when, e.RecordedUtc);
-    }
-
-    [Fact(DisplayName = "PlanElement: Participants — додавання/видалення працює")]
-    public void Participants_Add_Remove_Works()
-    {
-        var e = new PlanElement { PersonId = Guid.NewGuid() };
-
-        var s1 = new PlanParticipantSnapshot { PersonId = Guid.NewGuid(), FullName = "A", Rnokpp = "1111111111" };
-        var s2 = new PlanParticipantSnapshot { PersonId = Guid.NewGuid(), FullName = "B", Rnokpp = "2222222222" };
-
-        e.Participants.Add(s1);
-        e.Participants.Add(s2);
-
-        Assert.Equal(2, e.Participants.Count);
-        Assert.Contains(s1, e.Participants);
-        Assert.Contains(s2, e.Participants);
-
-        e.Participants.Remove(s1);
-
-        Assert.Single(e.Participants);
-        Assert.DoesNotContain(s1, e.Participants);
-        Assert.Contains(s2, e.Participants);
     }
 }

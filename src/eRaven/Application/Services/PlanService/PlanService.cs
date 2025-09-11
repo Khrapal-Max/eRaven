@@ -1,8 +1,7 @@
-﻿/*//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// PlanService
+// PlanService (мінімальна логіка: приймає готовий план від UI)
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.ViewModels.PlanViewModels;
@@ -17,64 +16,44 @@ public sealed class PlanService(AppDbContext db) : IPlanService
 {
     private readonly AppDbContext _db = db;
 
-    // -------------------------------- Queries --------------------------------
+    // ------------------------------- Queries --------------------------------
 
+    // Регістр: тільки заголовки (без include)
     public async Task<IEnumerable<Plan>> GetAllPlansAsync(CancellationToken ct = default)
         => await _db.Plans.AsNoTracking()
-            .Include(p => p.Participants)
-            .OrderByDescending(p => p.PlannedAtUtc)
+            .OrderByDescending(p => p.RecordedUtc)
             .ToListAsync(ct);
 
+    // Повний план для перегляду/редагування
     public async Task<Plan?> GetByIdAsync(Guid planId, CancellationToken ct = default)
         => await _db.Plans.AsNoTracking()
-            .Include(p => p.Participants)
+            .Include(p => p.PlanElements)
+                .ThenInclude(pe => pe.Participants)
             .FirstOrDefaultAsync(p => p.Id == planId, ct);
 
-    // -------------------------------- Create ---------------------------------
+    // ------------------------------- Create ---------------------------------
 
-    public async Task<Plan> CreateAsync(CreatePlanCreateViewModel vm, CancellationToken ct = default)
+    /// <summary>
+    /// Створити план. Валідація мінімальна: номер, наявність елементів, в кожному елементі є учасники
+    /// з обовʼязковими полями. Час подій нормалізуємо до UTC. Жодних «правил статусів» тут немає.
+    /// </summary>
+    public async Task<Plan> CreateAsync(CreatePlanViewModel vm, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(vm);
         if (string.IsNullOrWhiteSpace(vm.PlanNumber))
             throw new ArgumentException("PlanNumber обовʼязковий.", nameof(vm));
 
-        var plannedUtc = NormalizeToUtc(vm.PlannedAt);
-
-        var personIds = (vm.ParticipantIds ?? [])
-            .Where(x => x != Guid.Empty)
-            .Distinct()
-            .ToArray();
-
-        if (personIds.Length == 0)
-            throw new InvalidOperationException("План має містити принаймні одного учасника.");
-
-        // Тягнемо людей для побудови снапшотів (без правил переходів)
-        var persons = await _db.Persons
-            .Include(p => p.PositionUnit)
-            .Include(p => p.StatusKind)
-            .Where(p => personIds.Contains(p.Id))
-            .ToListAsync(ct);
-
-        if (persons.Count != personIds.Length)
-            throw new InvalidOperationException("Деякі учасники не знайдені.");
-
-        var snapshots = persons.Select(p => BuildSnapshot(Guid.Empty, p, vm.Author)).ToList();
+        if (vm.PlanElements is null || vm.PlanElements.Count == 0)
+            throw new InvalidOperationException("План має містити принаймні один елемент.");
 
         var plan = new Plan
         {
             Id = Guid.NewGuid(),
             PlanNumber = vm.PlanNumber.Trim(),
-            Type = vm.Type,
-            PlannedAtUtc = plannedUtc,
-            TimeKind = vm.TimeKind,
-            Location = string.IsNullOrWhiteSpace(vm.Location) ? null : vm.Location.Trim(),
-            GroupName = string.IsNullOrWhiteSpace(vm.GroupName) ? null : vm.GroupName.Trim(),
-            ToolType = string.IsNullOrWhiteSpace(vm.ToolType) ? null : vm.ToolType.Trim(),
-            TaskDescription = string.IsNullOrWhiteSpace(vm.TaskDescription) ? null : vm.TaskDescription.Trim(),
-            Participants = snapshots,
-            State = PlanState.Open,
-            Author = vm.Author,
-            RecordedUtc = DateTime.UtcNow
+            State = vm.State,                 // зазвичай Open
+            Author = null,                    // автор може бути заданий сторінкою пізніше, якщо треба
+            RecordedUtc = DateTime.UtcNow,
+            PlanElements = [.. vm.PlanElements.Select(NormalizeElementForCreate)]
         };
 
         _db.Plans.Add(plan);
@@ -83,8 +62,12 @@ public sealed class PlanService(AppDbContext db) : IPlanService
         return plan;
     }
 
-    // -------------------------------- Update ---------------------------------
+    // ------------------------------- Update ---------------------------------
 
+    /// <summary>
+    /// Якщо план відкритий і без наказу — повністю перезаписуємо елементи плану:
+    /// видаляємо поточні та додаємо ті, що прийшли у <paramref name="incoming"/>.
+    /// </summary>
     public async Task<bool> UpdateIfOpenAsync(Plan incoming, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(incoming);
@@ -92,84 +75,53 @@ public sealed class PlanService(AppDbContext db) : IPlanService
 
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
-        var plan = await _db.Plans
-            .Include(p => p.Participants)
+        var dbPlan = await _db.Plans
+            .Include(p => p.PlanElements)
+                .ThenInclude(pe => pe.Participants)
             .FirstOrDefaultAsync(p => p.Id == incoming.Id, ct);
 
-        if (plan is null) return false;
+        if (dbPlan is null) return false;
 
-        if (plan.State != PlanState.Open)
+        if (dbPlan.State != PlanState.Open)
             throw new InvalidOperationException("План закритий — редагування заборонено.");
 
-        var hasOrder = await _db.Orders.AnyAsync(o => o.PlanId == plan.Id, ct);
+        var hasOrder = await _db.Orders.AnyAsync(o => o.PlanId == dbPlan.Id, ct);
         if (hasOrder)
             throw new InvalidOperationException("План має наказ — редагування заборонено.");
 
-        // Поля плану
         if (string.IsNullOrWhiteSpace(incoming.PlanNumber))
             throw new InvalidOperationException("PlanNumber обовʼязковий.");
-        plan.PlanNumber = incoming.PlanNumber.Trim();
 
-        plan.Type = incoming.Type;
-        plan.PlannedAtUtc = NormalizeToUtc(incoming.PlannedAtUtc);
-        plan.TimeKind = incoming.TimeKind;
-        plan.Location = string.IsNullOrWhiteSpace(incoming.Location) ? null : incoming.Location.Trim();
-        plan.GroupName = string.IsNullOrWhiteSpace(incoming.GroupName) ? null : incoming.GroupName.Trim();
-        plan.ToolType = string.IsNullOrWhiteSpace(incoming.ToolType) ? null : incoming.ToolType.Trim();
-        plan.TaskDescription = string.IsNullOrWhiteSpace(incoming.TaskDescription) ? null : incoming.TaskDescription.Trim();
+        // Оновлюємо «шапку»
+        dbPlan.PlanNumber = incoming.PlanNumber.Trim();
+        dbPlan.Author = string.IsNullOrWhiteSpace(incoming.Author) ? null : incoming.Author.Trim();
 
-        // Оновлення складу (якщо передали Participants у incoming)
-        if (incoming.Participants is { Count: > 0 })
-        {
-            var newIds = incoming.Participants
-                .Select(x => x.PersonId)
-                .Where(id => id != Guid.Empty)
-                .Distinct()
-                .ToHashSet();
+        // Перезапис елементів
+        _db.RemoveRange(dbPlan.PlanElements); // каскадом підуть і Participants
 
-            if (newIds.Count == 0)
-                throw new InvalidOperationException("План має містити принаймні одного учасника.");
+        var newElements = (incoming.PlanElements ?? [])
+            .Select(e => NormalizeElementForUpdate(e, dbPlan.Id))
+            .ToList();
 
-            var currentIds = plan.Participants.Select(s => s.PersonId).ToHashSet();
+        if (newElements.Count == 0)
+            throw new InvalidOperationException("План має містити принаймні один елемент.");
 
-            var toRemove = currentIds.Except(newIds).ToArray();
-            var toAdd = newIds.Except(currentIds).ToArray();
-
-            if (toRemove.Length > 0)
-            {
-                var rm = plan.Participants.Where(s => toRemove.Contains(s.PersonId)).ToList();
-                _db.RemoveRange(rm);
-            }
-
-            if (toAdd.Length > 0)
-            {
-                var personsToAdd = await _db.Persons
-                    .Include(p => p.PositionUnit)
-                    .Include(p => p.StatusKind)
-                    .Where(p => toAdd.Contains(p.Id))
-                    .ToListAsync(ct);
-
-                if (personsToAdd.Count != toAdd.Length)
-                    throw new InvalidOperationException("Деякі додані учасники не знайдені.");
-
-                foreach (var p in personsToAdd)
-                    plan.Participants.Add(BuildSnapshot(plan.Id, p, author: incoming.Author));
-            }
-        }
+        dbPlan.PlanElements = newElements;
 
         await _db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return true;
     }
 
-    // -------------------------------- Delete ---------------------------------
+    // ------------------------------- Delete ---------------------------------
 
     public async Task<bool> DeleteIfOpenAsync(Guid planId, CancellationToken ct = default)
     {
         if (planId == Guid.Empty) throw new ArgumentException("planId is required.", nameof(planId));
 
         var plan = await _db.Plans
-            .Include(p => p.Participants)
+            .Include(p => p.PlanElements)
+                .ThenInclude(pe => pe.Participants)
             .FirstOrDefaultAsync(p => p.Id == planId, ct);
 
         if (plan is null) return false;
@@ -178,15 +130,16 @@ public sealed class PlanService(AppDbContext db) : IPlanService
         if (plan.State != PlanState.Open || hasOrder)
             throw new InvalidOperationException("План неможливо видалити: він закритий або має наказ.");
 
-        _db.RemoveRange(plan.Participants);
-        _db.Remove(plan);
+        _db.Remove(plan); // каскадом підуть елементи та їхні учасники
         await _db.SaveChangesAsync(ct);
         return true;
     }
 
-    // -------------------------------- Helpers --------------------------------
+    // ------------------------------- Helpers --------------------------------
 
-    private static DateTime NormalizeToUtc(DateTime dt)
+    private static string? T(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    private static DateTime ToUtc(DateTime dt)
         => dt.Kind switch
         {
             DateTimeKind.Utc => dt,
@@ -194,21 +147,66 @@ public sealed class PlanService(AppDbContext db) : IPlanService
             _ => DateTime.SpecifyKind(dt, DateTimeKind.Utc)
         };
 
-    private static PlanParticipantSnapshot BuildSnapshot(Guid planId, Person p, string? author)
-        => new()
+    private static PlanElement NormalizeElementForCreate(PlanElement e)
+        => NormalizeElementCore(e, planId: Guid.Empty);
+
+    private static PlanElement NormalizeElementForUpdate(PlanElement e, Guid planId)
+        => NormalizeElementCore(e, planId);
+
+    private static PlanElement NormalizeElementCore(PlanElement e, Guid planId)
+    {
+        if (e is null) throw new InvalidOperationException("Елемент плану не заданий.");
+        if (e.EventAtUtc == default) throw new InvalidOperationException("EventAtUtc обовʼязковий.");
+        if (e.Participants is null || e.Participants.Count == 0)
+            throw new InvalidOperationException("Елемент має містити принаймні одного учасника.");
+
+        var elementId = e.Id == Guid.Empty ? Guid.NewGuid() : e.Id;
+
+        var norm = new PlanElement
         {
-            Id = Guid.NewGuid(),
-            PlanId = planId,
-            PersonId = p.Id,
-            FullName = p.FullName,
-            Rank = string.IsNullOrWhiteSpace(p.Rank) ? null : p.Rank,
-            PositionSnapshot = p.PositionUnit?.FullName ?? p.PositionUnit?.ShortName,
-            Weapon = string.IsNullOrWhiteSpace(p.Weapon) ? null : p.Weapon,
-            Callsign = string.IsNullOrWhiteSpace(p.Callsign) ? null : p.Callsign,
-            StatusKindId = p.StatusKindId,
-            StatusKindCode = p.StatusKind?.Code,
-            Author = author,
-            RecordedUtc = DateTime.UtcNow
+            Id = elementId,
+            PlanId = planId == Guid.Empty ? e.PlanId : planId,
+            Type = e.Type,
+            EventAtUtc = ToUtc(e.EventAtUtc),
+            Location = T(e.Location),
+            GroupName = T(e.GroupName),
+            ToolType = T(e.ToolType),
+            Note = T(e.Note),
+            Author = T(e.Author),
+            RecordedUtc = e.RecordedUtc == default ? DateTime.UtcNow : e.RecordedUtc,
+            Participants = [.. e.Participants.Select(p => NormalizeSnapshot(p, elementId, e.Author))]
         };
+
+        // за бажанням можна підкрутити перевірку 15-хв кванту:
+        // if (!PlanElement.IsQuarterAligned(norm.EventAtUtc)) throw new InvalidOperationException(...);
+
+        return norm;
+    }
+
+    private static PlanParticipantSnapshot NormalizeSnapshot(PlanParticipantSnapshot s, Guid elementId, string? fallbackAuthor)
+    {
+        if (s.PersonId == Guid.Empty)
+            throw new InvalidOperationException("Учасник без PersonId.");
+        if (string.IsNullOrWhiteSpace(s.FullName))
+            throw new InvalidOperationException("Учасник без FullName.");
+        if (string.IsNullOrWhiteSpace(s.Rnokpp))
+            throw new InvalidOperationException("Учасник без РНОКПП.");
+
+        return new PlanParticipantSnapshot
+        {
+            Id = s.Id == Guid.Empty ? Guid.NewGuid() : s.Id,
+            PlanElementId = elementId,
+            PersonId = s.PersonId,
+            FullName = s.FullName.Trim(),
+            Rnokpp = s.Rnokpp.Trim(),
+            Rank = T(s.Rank),
+            PositionSnapshot = T(s.PositionSnapshot),
+            Weapon = T(s.Weapon),
+            Callsign = T(s.Callsign),
+            StatusKindId = s.StatusKindId,
+            StatusKindCode = T(s.StatusKindCode),
+            Author = T(s.Author ?? fallbackAuthor),
+            RecordedUtc = s.RecordedUtc == default ? DateTime.UtcNow : s.RecordedUtc
+        };
+    }
 }
-*/
