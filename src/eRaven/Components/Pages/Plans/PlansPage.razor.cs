@@ -6,6 +6,9 @@
 
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PlanService;
+using eRaven.Application.ViewModels.PlanViewModels;
+using eRaven.Components.Shared.ConfirmModal;
+using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -13,38 +16,40 @@ namespace eRaven.Components.Pages.Plans;
 
 public partial class PlansPage : ComponentBase, IDisposable
 {
-    [Inject] private IPlanService PlanService { get; set; } = default!;
-    [Inject] private IToastService Toast { get; set; } = default!;
-    [Inject] private NavigationManager Nav { get; set; } = default!;
-
+    // -------------------- State --------------------
     private readonly CancellationTokenSource _cts = new();
-
     protected bool Busy { get; private set; }
     protected string? Search { get; set; }
 
     private List<Plan> _all = [];
     private IReadOnlyList<Plan> _view = [];
 
-    // -------------------- Lifecycle --------------------
+    // Create modal
+    private bool _createOpen;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await ReloadAsync();
-    }
+    // Delete plan
+    private ConfirmModal _confirm = default!;
+
+    // -------------------- DI --------------------
+    [Inject] private IPlanService PlanService { get; set; } = default!;
+    [Inject] private IToastService ToastService { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;  
+
+    // -------------------- Lifecycle --------------------
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
 
     private async Task ReloadAsync()
     {
         try
         {
             SetBusy(true);
-
             var items = await PlanService.GetAllPlansAsync(_cts.Token);
             _all = [.. items];
             ApplyFilter();
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося завантажити плани: {ex.Message}");
+            ToastService.ShowError($"Не вдалося завантажити плани: {ex.Message}");
             _all.Clear();
             _view = [];
         }
@@ -55,7 +60,6 @@ public partial class PlansPage : ComponentBase, IDisposable
     }
 
     // -------------------- Search --------------------
-
     protected Task OnSearchAsync()
     {
         ApplyFilter();
@@ -65,15 +69,11 @@ public partial class PlansPage : ComponentBase, IDisposable
     private void ApplyFilter()
     {
         var s = (Search ?? string.Empty).Trim();
-
         IEnumerable<Plan> query = _all;
 
-        if (s.Length > 0)
+        if (!string.IsNullOrWhiteSpace(s))
         {
-            bool Has(string? src) => !string.IsNullOrWhiteSpace(src) &&
-                                     src.Contains(s, StringComparison.OrdinalIgnoreCase);
-
-            query = query.Where(p => Has(p.PlanNumber));
+            query = query.Where(p => p.PlanNumber.Contains(s));
         }
 
         _view = query
@@ -84,19 +84,72 @@ public partial class PlansPage : ComponentBase, IDisposable
         StateHasChanged();
     }
 
+    // -------------------- Actions palns --------------------
+
+    private async Task CreatePlanAsync(string planNumber)
+    {
+        try
+        {
+            SetBusy(true);
+
+            // Створюємо ПОРОЖНІЙ план (без елементів), далі переходимо у деталізацію
+            var vm = new CreatePlanViewModel
+            {
+                PlanNumber = (planNumber ?? string.Empty).Trim(),
+                State = PlanState.Open,
+                PlanElements = [] // важливо: пустий список = дозволено
+            };
+
+            var created = await PlanService.CreateAsync(vm, _cts.Token);
+
+            _createOpen = false;
+            ToastService.ShowSuccess("План створено.");
+
+            Navigation.NavigateTo(PlanDetailsHref(created.Id));
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Не вдалося створити план. " + ex.Message);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private async Task DeletePlanAsync(Plan p)
+    {
+        if (p.State != PlanState.Open) { ToastService.ShowWarning("План закритий — видалення заборонено."); return; }
+        var ok = await _confirm.ShowConfirmAsync($"Видалити план {p.PlanNumber}?");
+        if (!ok) return;
+
+        try
+        {
+            SetBusy(true);
+            var res = await PlanService.DeleteIfOpenAsync(p.Id, _cts.Token);
+
+            ToastService.ShowSuccess("План видалено.");
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Не вдалося видалити план. " + ex.Message);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    // -------------------- Create (modal) --------------------
+    private void OpenCreateModal() => _createOpen = true;
+    private Task CloseCreateModal() { _createOpen = false; return Task.CompletedTask; }    
+
     // -------------------- Navigation --------------------
-
-    private void GoCreate() => Nav.NavigateTo("/plans/create");
-
     private static string PlanDetailsHref(Guid id) => $"/plans/{id:D}";
 
     // -------------------- Utils --------------------
-
-    private void SetBusy(bool value)
-    {
-        Busy = value;
-        StateHasChanged();
-    }
+    private void SetBusy(bool value) { Busy = value; StateHasChanged(); }
 
     public void Dispose()
     {
