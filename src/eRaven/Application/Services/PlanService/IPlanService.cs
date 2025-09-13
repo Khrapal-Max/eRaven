@@ -63,4 +63,11 @@ public interface IPlanService
     /// <param name="ct"></param>
     /// <returns>bool</returns>
     Task<bool> RemoveElementAsync(Guid planId, Guid elementId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Повертає опції планування
+    /// </summary>
+    /// <param name="ct"></param>
+    /// <returns>PlanServiceOptions(<see cref="PlanServiceOptions"/>)</returns>
+    Task<PlanServiceOptions?> GetOptionsAsync(CancellationToken ct = default);
 }

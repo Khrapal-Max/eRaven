@@ -1,33 +1,48 @@
-﻿@using eRaven.Domain.Enums
-
-@if (Open)
+﻿@if (Open)
 {
     <div class="modal fade show text-white" style="display:block;" tabindex="-1" aria-modal="true" role="dialog">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
             <div class="modal-content">
 
-                <div class="modal-header py-2" style="background:#492448; color:#fff;">
-                    <h6 class="modal-title">Новий план</h6>
-                    <button type="button" class="btn-close btn-close-white"
+                <div class="modal-header py-2">
+                    <h6 class="modal-title">Створити план</h6>
+                    <button type="button" class="btn-close"
                             aria-label="Close"
-                            @onclick="Cancel" />
+                            @onclick="OnCancelClicked" />
                 </div>
 
                 <div class="modal-body">
-                    <label class="form-label text-white">Номер плану <span class="text-danger">*</span></label>
-                    <input class="form-control" @bind="_number" @bind:event="oninput" maxlength="64" />
-                    @if (!string.IsNullOrEmpty(_error))
+                    <div class="mb-2">
+                        <label class="form-label">Номер/назва плану</label>
+                        <input class="form-control form-control-sm"
+                               placeholder="Напр.: П-23/09"
+                               @bind-Value="_number"
+                               @bind-Value:event="oninput"
+                               maxlength="64"
+                               autofocus />
+                        <div class="form-text">
+                            2–64 символи. Лишні пробіли буде обрізано.
+                        </div>
+                    </div>
+
+                    @if (_error is not null)
                     {
-                        <div class="text-danger small mt-1">@_error</div>
+                        <div class="alert alert-danger py-1 mb-0">@_error</div>
                     }
-                    <div class="form-text">Номер зберігається обрізаним; максимум 64 символи.</div>
                 </div>
 
                 <div class="modal-footer py-2">
-                    <button class="btn btn-outline-secondary btn-sm" @onclick="Cancel">Скасувати</button>
+                    <button class="btn btn-secondary btn-sm"
+                            type="button"
+                            @onclick="OnCancelClicked"
+                            disabled="@Busy">
+                        Скасувати
+                    </button>
+
                     <button class="btn btn-primary btn-sm"
-                            @onclick="Create"
-                            disabled="@(!IsValid || Busy)">
+                            type="button"
+                            @onclick="OnCreateClicked"
+                            disabled="@IsCreateDisabled">
                         Створити
                     </button>
                 </div>
@@ -35,5 +50,4 @@
             </div>
         </div>
     </div>
-    <div class="modal-backdrop fade show"></div>
 }

@@ -32,6 +32,13 @@ public sealed class PlanService(AppDbContext db) : IPlanService
                 .ThenInclude(e => e.PlanParticipantSnapshot)
             .FirstOrDefaultAsync(p => p.Id == planId, ct);
 
+    public async Task<PlanServiceOptions?> GetOptionsAsync(CancellationToken ct = default) =>
+        await _db.PlanServiceOptions
+            .AsNoTracking()
+            .Include(o => o.DispatchStatusKind)
+            .Include(o => o.ReturnStatusKind)
+            .FirstOrDefaultAsync(o => o.Id == 1, ct);
+
     // ---------------- Create / Delete plan ----------------
 
     public async Task<Plan> CreateAsync(CreatePlanViewModel vm, CancellationToken ct = default)
@@ -77,25 +84,36 @@ public sealed class PlanService(AppDbContext db) : IPlanService
 
         var plan = await _db.Plans.FirstOrDefaultAsync(p => p.Id == planId, ct)
                    ?? throw new InvalidOperationException("План не знайдено.");
-        if (plan.State != PlanState.Open) throw new InvalidOperationException("План закритий — редагування заборонено.");
+        if (plan.State != PlanState.Open)
+            throw new InvalidOperationException("План закритий — редагування заборонено.");
 
         if (!PlanElement.IsQuarterAligned(item.EventAtUtc))
             throw new InvalidOperationException("Час події має бути 00/15/30/45 хв без секунд.");
 
-        // Персона існує (підтягнемо дані для PPS)
         var person = await _db.Persons
             .Include(x => x.StatusKind)
             .Include(x => x.PositionUnit)
             .FirstOrDefaultAsync(x => x.Id == item.PersonId, ct)
             ?? throw new InvalidOperationException("Особу не знайдено.");
 
-        // Дублікат на той самий момент
+        // --- Використовуємо опції ---
+        var opts = await GetOptionsAsync(ct);
+
+        if (item.Type == PlanType.Dispatch && opts?.ReturnStatusKindId is int returnStatusId)
+        {
+            // Дозволяємо "Відрядити" лише коли зараз людина у статусі "В районі" (ReturnStatusKind).
+            if (person.StatusKindId != returnStatusId)
+                throw new InvalidOperationException("Статус особи не дозволяє відрядити (очікується «" +
+                                                    (opts.ReturnStatusKind?.Name ?? "В районі") + "»).");
+        }
+
+        // дублікати на той самий момент
         var dup = await _db.PlanElements
             .Where(e => e.PlanId == planId && e.EventAtUtc == item.EventAtUtc)
             .AnyAsync(e => e.PlanParticipantSnapshot.PersonId == item.PersonId, ct);
         if (dup) throw new InvalidOperationException("Вже існує дія для цієї особи на цей час.");
 
-        // Локальний порядок у межах ПЛАНУ (лінійність + чергування типів)
+        // лінійність і чергування для цієї особи в межах плану
         var timeline = await _db.PlanElements
             .AsNoTracking()
             .Include(e => e.PlanParticipantSnapshot)
@@ -103,33 +121,26 @@ public sealed class PlanService(AppDbContext db) : IPlanService
             .OrderBy(e => e.EventAtUtc)
             .ToListAsync(ct);
 
-        // Знайдемо сусідів навколо моменту вставки
-        var prev = timeline.LastOrDefault(e => e.EventAtUtc <= item.EventAtUtc);
-        var next = timeline.FirstOrDefault(e => e.EventAtUtc >= item.EventAtUtc);
+        var prev = timeline.LastOrDefault(e => e.EventAtUtc < item.EventAtUtc);
+        var next = timeline.FirstOrDefault(e => e.EventAtUtc > item.EventAtUtc);
 
-        if (prev is not null && prev.EventAtUtc == item.EventAtUtc)
-            throw new InvalidOperationException("На цей момент уже є дія.");
-
-        // Чергування: ... D, R, D, R ...
         if (prev is not null && prev.Type == item.Type)
             throw new InvalidOperationException("Дії для особи мають чергуватися в межах плану.");
-
         if (next is not null && next.Type == item.Type)
             throw new InvalidOperationException("Дії для особи мають чергуватися в межах плану.");
 
-        // Для Return — підтягнемо контекст з найближчого попереднього Dispatch
         string? loc = item.Location, grp = item.GroupName, tool = item.ToolType;
+
         if (item.Type == PlanType.Return)
         {
+            // потрібен попередній Dispatch (контекст беремо з нього)
             var lastDispatch = timeline.LastOrDefault(e => e.Type == PlanType.Dispatch && e.EventAtUtc < item.EventAtUtc)
                 ?? throw new InvalidOperationException("Повернення можливе тільки після відрядження у межах плану.");
-
             loc = lastDispatch.Location;
             grp = lastDispatch.GroupName;
             tool = lastDispatch.ToolType;
         }
 
-        // PPS
         var pps = new PlanParticipantSnapshot
         {
             Id = Guid.NewGuid(),

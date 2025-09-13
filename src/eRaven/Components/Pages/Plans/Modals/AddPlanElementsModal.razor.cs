@@ -20,6 +20,8 @@ public partial class AddPlanElementsModal : ComponentBase
     // -------- Props --------
     [Parameter] public bool Open { get; set; }
     [Parameter] public Guid PlanId { get; set; }
+    [Parameter] public string? AllowedDispatchFromStatusCode { get; set; } // напр., код «В районі»
+    [Parameter] public string? AllowedDispatchFromStatusName { get; set; } // назва «В районі»
     [Parameter] public IReadOnlyList<PlanRosterViewModel> People { get; set; } = [];
     [Parameter] public IReadOnlyList<PlanElement> ExistingElements { get; set; } = [];
     [Parameter] public EventCallback<IReadOnlyList<CreatePlanElementViewModel>> OnAdd { get; set; }
@@ -145,8 +147,22 @@ public partial class AddPlanElementsModal : ComponentBase
     }
 
     private bool IsInArea(PlanRosterViewModel p)
-        => string.Equals(p.StatusKindCode, "30", StringComparison.OrdinalIgnoreCase)
-           || string.Equals(p.StatusKindName, "В районі", StringComparison.OrdinalIgnoreCase);
+    {
+        // Якщо прийшли опції — використовуємо їх; інакше допускаємо обидва варіанти для зворотної сумісності
+        if (!string.IsNullOrWhiteSpace(AllowedDispatchFromStatusCode) ||
+            !string.IsNullOrWhiteSpace(AllowedDispatchFromStatusName))
+        {
+            var byCode = !string.IsNullOrWhiteSpace(AllowedDispatchFromStatusCode)
+                         && string.Equals(p.StatusKindCode, AllowedDispatchFromStatusCode, StringComparison.OrdinalIgnoreCase);
+            var byName = !string.IsNullOrWhiteSpace(AllowedDispatchFromStatusName)
+                         && string.Equals(p.StatusKindName, AllowedDispatchFromStatusName, StringComparison.OrdinalIgnoreCase);
+            return byCode || byName;
+        }
+
+        // fallback (на випадок відсутності опцій у БД)
+        return string.Equals(p.StatusKindCode, "30", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.StatusKindName, "В районі", StringComparison.OrdinalIgnoreCase);
+    }
 
     private bool IsInsertAllowed(Guid personId, DateTime whenUtc, PlanType newType)
     {

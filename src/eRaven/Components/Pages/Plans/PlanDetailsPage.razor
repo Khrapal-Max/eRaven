@@ -127,5 +127,7 @@
                       PlanId="@Id"
                       People="@_roster"
                       ExistingElements="@_elements"
+                      AllowedDispatchFromStatusCode="@_opts?.ReturnStatusKind?.Code"
+                      AllowedDispatchFromStatusName="@(_opts?.ReturnStatusKind?.Name)"
                       OnAdd="OnModalAddAsync"
                       OnClose="CloseModalAsync" />

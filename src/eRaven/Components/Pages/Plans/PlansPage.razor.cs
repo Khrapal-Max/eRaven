@@ -10,14 +10,15 @@ using eRaven.Application.ViewModels.PlanViewModels;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace eRaven.Components.Pages.Plans;
 
 public partial class PlansPage : ComponentBase, IDisposable
 {
     [Inject] private IPlanService PlanService { get; set; } = default!;
-    [Inject] private IToastService Toast { get; set; } = default!;
-    [Inject] private NavigationManager Nav { get; set; } = default!;
+    [Inject] private IToastService ToastService { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
 
     private readonly CancellationTokenSource _cts = new();
     protected bool Busy { get; private set; }
@@ -27,7 +28,6 @@ public partial class PlansPage : ComponentBase, IDisposable
     private IReadOnlyList<Plan> _view = [];
 
     private bool _createOpen;
-    private string? _newPlanNumber;
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
@@ -42,7 +42,7 @@ public partial class PlansPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError("Не вдалося завантажити плани. " + ex.Message);
+            ToastService.ShowError("Не вдалося завантажити плани. " + ex.Message);
             _all.Clear();
             _view = [];
         }
@@ -63,42 +63,54 @@ public partial class PlansPage : ComponentBase, IDisposable
         StateHasChanged();
     }
 
-    private async Task CreatePlanAsync()
+    private async Task CreatePlanAsync(string planNumber)
     {
-        if (string.IsNullOrWhiteSpace(_newPlanNumber)) return;
-
         try
         {
-            SetBusy(true);
-            var vm = new CreatePlanViewModel { PlanNumber = _newPlanNumber.Trim(), State = PlanState.Open };
-            var created = await PlanService.CreateAsync(vm, _cts.Token);
+            Busy = true;
+            var vm = new CreatePlanViewModel { PlanNumber = planNumber, State = PlanState.Open };
+            var created = await PlanService.CreateAsync(vm);
             _createOpen = false;
-            Toast.ShowSuccess("План створено.");
-            Nav.NavigateTo($"/plans/{created.Id:D}");
+            ToastService.ShowSuccess("План створено.");
+            Navigation.NavigateTo($"/plans/{created.Id:D}");
         }
         catch (Exception ex)
         {
-            Toast.ShowError("Не вдалося створити план. " + ex.Message);
+            ToastService.ShowError("Не вдалося створити план. " + ex.Message);
         }
-        finally { SetBusy(false); }
+        finally
+        {
+            Busy = false;
+            StateHasChanged();
+        }
     }
 
     private async Task DeletePlanAsync(Plan p)
     {
-        if (p.State != PlanState.Open) { Toast.ShowWarning("План закритий — видалення заборонено."); return; }
+        if (p.State != PlanState.Open) { ToastService.ShowWarning("План закритий — видалення заборонено."); return; }
         try
         {
             SetBusy(true);
             var ok = await PlanService.DeleteIfOpenAsync(p.Id, _cts.Token);
-            if (ok) Toast.ShowSuccess("План видалено.");
+            if (ok) ToastService.ShowSuccess("План видалено.");
             await ReloadAsync();
         }
-        catch (Exception ex) { Toast.ShowError("Не вдалося видалити план. " + ex.Message); }
+        catch (Exception ex) { ToastService.ShowError("Не вдалося видалити план. " + ex.Message); }
         finally { SetBusy(false); }
     }
 
-    private void OpenCreateModal() => _createOpen = true;
-    private void CloseCreateModal() { _createOpen = false; _newPlanNumber = null; }
+    private void OpenCreateModal()
+    {
+        _createOpen = true;
+        StateHasChanged();
+    }
+
+    private void CloseCreateModal()
+    {
+        _createOpen = false;
+        StateHasChanged();
+    }
+
 
     private void SetBusy(bool v) { Busy = v; StateHasChanged(); }
 

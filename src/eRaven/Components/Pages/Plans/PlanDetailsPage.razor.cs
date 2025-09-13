@@ -28,6 +28,7 @@ public partial class PlanDetailsPage : ComponentBase
 
     private bool _modalOpen;
     private readonly List<PlanRosterViewModel> _roster = [];
+    private PlanServiceOptions? _opts;
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
@@ -58,7 +59,10 @@ public partial class PlanDetailsPage : ComponentBase
         {
             _busy = true;
 
-            // Підтягнемо активних людей (у прикладі без предиката: заберемо всіх і відсортуємо)
+            // 1) Опції план-сервісу
+            _opts = await PlanService.GetOptionsAsync();
+
+            // 2) Рістер людей
             var persons = await PersonService.SearchAsync(predicate: null);
             _roster.Clear();
             _roster.AddRange(persons.Select(p => new PlanRosterViewModel
@@ -74,7 +78,7 @@ public partial class PlanDetailsPage : ComponentBase
         }
         catch (Exception ex)
         {
-            Toast.ShowError("Не вдалося завантажити список осіб. " + ex.Message);
+            Toast.ShowError("Не вдалося підготувати дані. " + ex.Message);
             return;
         }
         finally { _busy = false; }
