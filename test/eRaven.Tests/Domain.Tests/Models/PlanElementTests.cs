@@ -1,91 +1,116 @@
-﻿//-----------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
-//-----------------------------------------------------------------------------
-// PlanElementTests (final; без TimeKind; з валідацією 15-хвилинної сітки)
-//-----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// PlanElementTests — базові тести доменної інваріанти часу для PlanElement
+// -----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
 
 namespace eRaven.Tests.Domain.Tests.Models;
 
-public class PlanElementTests
+public sealed class PlanElementTests
 {
-    [Fact(DisplayName = "PlanElement: дефолти — GUID-и порожні, enum-и = default, дати = default, колекції ініціалізовані")]
-    public void Defaults_AreCorrect()
+    // -------------------------- IsQuarterAligned --------------------------
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(15)]
+    [InlineData(30)]
+    [InlineData(45)]
+    public void IsQuarterAligned_ReturnsTrue_ForExactQuarters_ZeroSecZeroMs(int minute)
     {
-        var e = new PlanElement();
+        // arrange
+        var dt = new DateTime(2025, 1, 1, 12, minute, 0, DateTimeKind.Utc);
 
-        Assert.Equal(Guid.Empty, e.Id);
-        Assert.Equal(Guid.Empty, e.PlanId);
+        // act
+        var ok = PlanElement.IsQuarterAligned(dt);
 
-        Assert.Equal(default, e.Type);
-        Assert.Equal(default, e.EventAtUtc);
-        Assert.Null(e.Location);
-        Assert.Null(e.GroupName);
-        Assert.Null(e.ToolType);
-        Assert.Null(e.Note);
-        Assert.Null(e.Author);
-
-        Assert.Equal(DateTimeKind.Utc, e.RecordedUtc.Kind);
-        Assert.InRange(DateTime.UtcNow - e.RecordedUtc, TimeSpan.Zero, TimeSpan.FromSeconds(5));
-
-        Assert.NotNull(e.Participants);
-        Assert.Empty(e.Participants);
+        // assert
+        Assert.True(ok);
     }
 
-    [Fact(DisplayName = "PlanElement: IsQuarterAligned/EnsureQuarterAligned працюють як очікується")]
-    public void QuarterAlignment_Checks_Work()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(14)]
+    [InlineData(16)]
+    [InlineData(29)]
+    [InlineData(31)]
+    [InlineData(44)]
+    [InlineData(46)]
+    [InlineData(59)]
+    public void IsQuarterAligned_ReturnsFalse_ForNonQuarterMinutes(int minute)
     {
-        static DateTime T(int h, int m) => new(2025, 9, 10, h, m, 0, DateTimeKind.Utc);
+        // arrange
+        var dt = new DateTime(2025, 1, 1, 12, minute, 0, DateTimeKind.Utc);
 
-        Assert.True(PlanElement.IsQuarterAligned(T(10, 0)));
-        Assert.True(PlanElement.IsQuarterAligned(T(10, 15)));
-        Assert.True(PlanElement.IsQuarterAligned(T(10, 30)));
-        Assert.True(PlanElement.IsQuarterAligned(T(10, 45)));
+        // act
+        var ok = PlanElement.IsQuarterAligned(dt);
 
-        Assert.False(PlanElement.IsQuarterAligned(new DateTime(2025, 9, 10, 10, 1, 0, DateTimeKind.Utc)));
-        Assert.False(PlanElement.IsQuarterAligned(new DateTime(2025, 9, 10, 10, 14, 59, DateTimeKind.Utc)));
-
-        var ok = new PlanElement { EventAtUtc = T(12, 30) };
-        var bad = new PlanElement { EventAtUtc = new DateTime(2025, 9, 10, 12, 31, 0, DateTimeKind.Utc) };
-
-        ok.EnsureQuarterAligned(); // не кидає
-
-        Assert.Throws<InvalidOperationException>(() => bad.EnsureQuarterAligned());
+        // assert
+        Assert.False(ok);
     }
 
-    [Fact(DisplayName = "PlanElement: можна задати та прочитати базові поля")]
-    public void Can_Set_And_Read_Properties()
+    [Fact]
+    public void IsQuarterAligned_ReturnsFalse_WhenSecondsNotZero()
     {
-        var id = Guid.NewGuid();
-        var planId = Guid.NewGuid();
-        var personId = Guid.NewGuid();
-        var when = new DateTime(2025, 9, 10, 18, 0, 0, DateTimeKind.Utc);
+        // arrange
+        var dt = new DateTime(2025, 1, 1, 12, 30, 1, DateTimeKind.Utc);
 
-        var e = new PlanElement
+        // act
+        var ok = PlanElement.IsQuarterAligned(dt);
+
+        // assert
+        Assert.False(ok);
+    }
+
+    [Fact]
+    public void IsQuarterAligned_ReturnsFalse_WhenMillisecondsNotZero()
+    {
+        // arrange
+        var dt = new DateTime(2025, 1, 1, 12, 30, 0, 1, DateTimeKind.Utc);
+
+        // act
+        var ok = PlanElement.IsQuarterAligned(dt);
+
+        // assert
+        Assert.False(ok);
+    }
+
+    // -------------------------- EnsureQuarterAligned ----------------------
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(15)]
+    [InlineData(30)]
+    [InlineData(45)]
+    public void EnsureQuarterAligned_DoesNotThrow_ForValidTimes(int minute)
+    {
+        // arrange
+        var el = new PlanElement
         {
-            Id = id,
-            PlanId = planId,
-            Type = PlanType.Dispatch,
-            EventAtUtc = when,
-            Location = "Локація А",
-            GroupName = "Група 1",
-            ToolType = "Екіпаж",
-            Note = "примітка",
-            Author = "tester",
-            RecordedUtc = when
+            EventAtUtc = new DateTime(2025, 1, 1, 7, minute, 0, DateTimeKind.Utc)
         };
 
-        Assert.Equal(id, e.Id);
-        Assert.Equal(planId, e.PlanId);
-        Assert.Equal(PlanType.Dispatch, e.Type);
-        Assert.Equal(when, e.EventAtUtc);
-        Assert.Equal("Локація А", e.Location);
-        Assert.Equal("Група 1", e.GroupName);
-        Assert.Equal("Екіпаж", e.ToolType);
-        Assert.Equal("примітка", e.Note);
-        Assert.Equal("tester", e.Author);
-        Assert.Equal(when, e.RecordedUtc);
+        // act
+        var ex = Record.Exception(() => el.EnsureQuarterAligned());
+
+        // assert
+        Assert.Null(ex);
+    }
+
+    [Theory]
+    [InlineData(1, 0, 0)]   // неправильна хвилина
+    [InlineData(30, 1, 0)]  // зайві секунди
+    [InlineData(30, 0, 1)]  // зайві мс
+    public void EnsureQuarterAligned_Throws_ForInvalidTimes(int minute, int second, int millisecond)
+    {
+        // arrange
+        var el = new PlanElement
+        {
+            EventAtUtc = new DateTime(2025, 1, 1, 7, minute, second, millisecond, DateTimeKind.Utc)
+        };
+
+        // act + assert
+        Assert.Throws<InvalidOperationException>(() => el.EnsureQuarterAligned());
     }
 }

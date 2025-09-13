@@ -1,10 +1,4 @@
-﻿//-----------------------------------------------------------------------------
-// All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
-//-----------------------------------------------------------------------------
-// PlanElementConfiguration (final; без TimeKind; без снапшот-полів — вони у PPS)
-//-----------------------------------------------------------------------------
-
-using eRaven.Domain.Models;
+﻿using eRaven.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -14,25 +8,19 @@ public sealed class PlanElementConfiguration : IEntityTypeConfiguration<PlanElem
 {
     public void Configure(EntityTypeBuilder<PlanElement> e)
     {
-        // ===============================
-        // Table & Keys
-        // ===============================
+        // ---------------- Table & PK ----------------
         e.ToTable("plan_elements");
         e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasColumnName("id");
 
-        e.Property(x => x.Id)
-         .HasColumnName("id");
-
-        // ===============================
-        // Columns (lower snake_case)
-        // ===============================
+        // ---------------- Columns -------------------
         e.Property(x => x.PlanId)
          .HasColumnName("plan_id")
          .IsRequired();
 
         e.Property(x => x.Type)
          .HasColumnName("type")
-         .HasConversion<int>() // enum -> int
+         .HasConversion<int>()           // enum -> int
          .IsRequired();
 
         e.Property(x => x.EventAtUtc)
@@ -56,7 +44,6 @@ public sealed class PlanElementConfiguration : IEntityTypeConfiguration<PlanElem
          .HasColumnName("note")
          .HasMaxLength(512);
 
-        // --- аудит ---
         e.Property(x => x.Author)
          .HasColumnName("author")
          .HasMaxLength(64)
@@ -68,23 +55,19 @@ public sealed class PlanElementConfiguration : IEntityTypeConfiguration<PlanElem
          .HasDefaultValueSql("CURRENT_TIMESTAMP")
          .IsRequired();
 
-        // ===============================
-        // Relationships
-        // ===============================
+        // ---------------- Relationships -------------
         e.HasOne(x => x.Plan)
          .WithMany(p => p.PlanElements)
          .HasForeignKey(x => x.PlanId)
          .OnDelete(DeleteBehavior.Cascade);
 
-        // PlanElement 1 -> many PlanParticipantSnapshot (cascade)
-        e.HasMany(x => x.Participants)
+        // 1:1 -> PPS тримає FK (PlanElementId)
+        e.HasOne(x => x.PlanParticipantSnapshot)
          .WithOne(p => p.PlanElement)
-         .HasForeignKey(p => p.PlanElementId)
+         .HasForeignKey<PlanParticipantSnapshot>(p => p.PlanElementId)
          .OnDelete(DeleteBehavior.Cascade);
 
-        // ===============================
-        // Indexes
-        // ===============================
+        // ---------------- Indexes -------------------
         e.HasIndex(x => x.PlanId)
          .HasDatabaseName("ix_plan_elements_plan");
 
@@ -93,11 +76,6 @@ public sealed class PlanElementConfiguration : IEntityTypeConfiguration<PlanElem
 
         e.HasIndex(x => new { x.Type, x.EventAtUtc })
          .HasDatabaseName("ix_plan_elements_type_event");
-
-        // ===============================
-        // Constraints (бізнес-інваріанти краще перевіряти у сервісі)
-        // ===============================
-        // Напр.: контроль кратності 15 хв для EventAtUtc робіть у домені/сервісі:
-        // PlanElement.IsQuarterAligned / EnsureQuarterAligned
+        // (за потреби можете додати ix (PlanId, Type, EventAtUtc) для швидкого анти-дубль-пошуку)
     }
 }

@@ -103,6 +103,7 @@ namespace eRaven.Migrations
                     location = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     group_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
                     tool_type = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
+                    GuidParticipantId = table.Column<Guid>(type: "uuid", nullable: false),
                     note = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
                     author = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true, defaultValue: "system"),
                     recorded_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
@@ -519,19 +520,14 @@ namespace eRaven.Migrations
                 column: "person_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_pps_plan_element_id",
-                table: "plan_participant_snapshots",
-                column: "plan_element_id");
-
-            migrationBuilder.CreateIndex(
                 name: "ix_pps_recorded_utc",
                 table: "plan_participant_snapshots",
                 column: "recorded_utc");
 
             migrationBuilder.CreateIndex(
-                name: "ux_pps_plan_element_person",
+                name: "ux_pps_plan_element_id",
                 table: "plan_participant_snapshots",
-                columns: new[] { "plan_element_id", "person_id" },
+                column: "plan_element_id",
                 unique: true);
 
             migrationBuilder.CreateIndex(

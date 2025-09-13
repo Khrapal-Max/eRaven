@@ -1,14 +1,13 @@
-﻿//-----------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
-//-----------------------------------------------------------------------------
-// PlanServiceTests
-//-----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// PlanServiceTests — інтеграційні тести сервісу на SQLite :memory:
+// -----------------------------------------------------------------------------
 
 using eRaven.Application.Services.PlanService;
 using eRaven.Application.ViewModels.PlanViewModels;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
-using eRaven.Infrastructure;
 using eRaven.Tests.Application.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,288 +15,342 @@ namespace eRaven.Tests.Application.Tests.Services;
 
 public sealed class PlanServiceTests : IDisposable
 {
-    private readonly SqliteDbHelper _helper = new();
-    private readonly AppDbContext _db;
+    private readonly SqliteDbHelper _helper;
     private readonly PlanService _svc;
-    private readonly CancellationToken _ct = default;
 
     public PlanServiceTests()
     {
-        _db = _helper.Db;
-        _svc = new PlanService(_db);
+        _helper = new SqliteDbHelper();
+        _svc = new PlanService(_helper.Db);
     }
 
     public void Dispose() => _helper.Dispose();
 
-    // ---------------------- helpers ----------------------
+    // --------------------------- helpers ---------------------------
 
-    private static PlanParticipantSnapshot Snap(Guid? pid = null, string fn = "Іванов І.І.", string rnokpp = "1111111111")
-        => new()
-        {
-            Id = Guid.NewGuid(),
-            PlanElementId = Guid.Empty,        // встановить сервіс при копіюванні
-            PersonId = pid ?? Guid.NewGuid(),
-            FullName = fn,
-            Rnokpp = rnokpp,
-            Rank = "сержант",
-            PositionSnapshot = "Командир відділення",
-            Weapon = "АК-74",
-            Callsign = "Сокіл",
-            StatusKindId = 1,
-            StatusKindCode = "30",
-            Author = "tester"
-        };
-
-    private static PlanElement El(PlanType type, DateTime whenUtc, string? loc = "локація", string? grp = "група", string? tool = "екіпаж", string? note = null, params PlanParticipantSnapshot[] participants)
-        => new()
-        {
-            Id = Guid.NewGuid(),
-            PlanId = Guid.Empty,              // поставить сервіс
-            Type = type,
-            EventAtUtc = whenUtc,             // вже в UTC
-            Location = loc,
-            GroupName = grp,
-            ToolType = tool,
-            Note = note,
-            Author = "tester",
-            Participants = participants?.ToList() ?? []
-        };
-
-    private static DateTime Utc(int y, int M, int d, int h = 0, int m = 0)
+    private static DateTime Utc(int y, int M, int d, int h, int m)
         => new(y, M, d, h, m, 0, DateTimeKind.Utc);
 
-    // ====================== tests: Create ======================
-
-    [Fact(DisplayName = "CreateAsync: створює план з елементами і їх учасниками")]
-    public async Task Create_CreatesPlan_WithElementsAndParticipants()
+    private async Task<Person> SeedPersonAsync(string name = "Тест", string rnokpp = "1234567890")
     {
-        // Arrange
-        var vm = new CreatePlanViewModel
+        var p = new Person
         {
-            PlanNumber = "P-100",
-            State = PlanState.Open,
-            PlanElements =
-            [
-                El(PlanType.Dispatch, Utc(2025,9,10,12), participants: [Snap()]),
-                El(PlanType.Return,   Utc(2025,9,11, 8), participants: [Snap(), Snap()])
-            ]
+            Id = Guid.NewGuid(),
+            FirstName = name,
+            LastName = name,
+            MiddleName = name,
+            Rnokpp = rnokpp,
+            Rank = "рядовий",
+            Weapon = "АК",
+            Callsign = "Тест"
+            // PositionUnit/StatusKind можна не задавати — сервіс це допускає
         };
 
-        // Act
-        var saved = await _svc.CreateAsync(vm, _ct);
-
-        // Assert
-        Assert.NotEqual(Guid.Empty, saved.Id);
-        Assert.Equal("P-100", saved.PlanNumber);
-        Assert.Equal(PlanState.Open, saved.State);
-
-        var reloaded = await _db.Plans
-            .Include(p => p.PlanElements)
-            .ThenInclude(pe => pe.Participants)
-            .FirstAsync(p => p.Id == saved.Id, _ct);
-
-        Assert.Equal(2, reloaded.PlanElements.Count);
+        _helper.Db.Persons.Add(p);
+        await _helper.Db.SaveChangesAsync();
+        return p;
     }
 
-    [Fact(DisplayName = "CreateAsync: відхиляє порожній номер плану")]
-    public async Task Create_Rejects_EmptyPlanNumber()
+    private async Task<Plan> SeedPlanAsync(string number = "PL-001", PlanState state = PlanState.Open)
     {
-        var vm = new CreatePlanViewModel
+        var plan = new Plan
         {
-            PlanNumber = "   ",
-            PlanElements = [El(PlanType.Dispatch, Utc(2025, 9, 10), participants: [Snap()])]
+            Id = Guid.NewGuid(),
+            PlanNumber = number,
+            State = state,
+            Author = "test",
+            RecordedUtc = DateTime.UtcNow
+        };
+        _helper.Db.Plans.Add(plan);
+        await _helper.Db.SaveChangesAsync();
+        return plan;
+    }
+
+    private async Task<PlanElement> SeedDispatchAsync(Guid planId, Person person, DateTime whenUtc,
+        string? location = "СТЕПОВЕ", string? group = "МАЛІБУ", string? tool = "ФПВ", string? note = "seed")
+    {
+        var vm = new CreatePlanElementViewModel
+        {
+            Type = PlanType.Dispatch,
+            EventAtUtc = whenUtc,
+            Location = location,
+            GroupName = group,
+            ToolType = tool,
+            Note = note,
+            PersonId = person.Id
         };
 
-        await Assert.ThrowsAsync<ArgumentException>(() => _svc.CreateAsync(vm, _ct));
+        return await _svc.AddElementAsync(planId, vm);
     }
 
-    [Fact(DisplayName = "CreateAsync: відхиляє порожній список елементів")]
-    public async Task Create_Rejects_NoElements()
-    {
-        var vm = new CreatePlanViewModel
-        {
-            PlanNumber = "P-empty",
-            PlanElements = []
-        };
+    // --------------------------- tests: read/create/delete plan ---------------------------
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.CreateAsync(vm, _ct));
+    [Fact(DisplayName = "GetAllPlansAsync / GetByIdAsync: план створюється і читається з елементами та PPS")]
+    public async Task Read_Create_Plan_With_Includes()
+    {
+        // create empty plan
+        var created = await _svc.CreateAsync(new CreatePlanViewModel { PlanNumber = "PL-READ", State = PlanState.Open });
+
+        // add one element
+        var person = await SeedPersonAsync();
+        var when = Utc(2025, 9, 12, 12, 30);
+        await SeedDispatchAsync(created.Id, person, when);
+
+        // read list
+        var all = await _svc.GetAllPlansAsync();
+        Assert.Contains(all, p => p.Id == created.Id);
+
+        // read by id with includes
+        var loaded = await _svc.GetByIdAsync(created.Id);
+        Assert.NotNull(loaded);
+        Assert.NotNull(loaded!.PlanElements);
+        Assert.Single(loaded.PlanElements);
+
+        var el = loaded.PlanElements.First();
+        Assert.Equal(PlanType.Dispatch, el.Type);
+        Assert.NotNull(el.PlanParticipantSnapshot);
+        Assert.Equal(person.Id, el.PlanParticipantSnapshot.PersonId);
     }
 
-    [Fact(DisplayName = "CreateAsync: відхиляє елемент без жодного учасника")]
-    public async Task Create_Rejects_ElementWithoutParticipants()
+    [Fact(DisplayName = "CreateAsync: унікальність номера плану — кинути помилку при дублі")]
+    public async Task CreatePlan_UniqueNumber()
     {
-        var vm = new CreatePlanViewModel
-        {
-            PlanNumber = "P-err1",
-            PlanElements = [El(PlanType.Dispatch, Utc(2025, 9, 10))] // 0 учасників
-        };
+        await _svc.CreateAsync(new CreatePlanViewModel { PlanNumber = "PL-UNIQ" });
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.CreateAsync(vm, _ct));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await _svc.CreateAsync(new CreatePlanViewModel { PlanNumber = "PL-UNIQ" })
+        );
+
+        Assert.Contains("вже існує", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    // ====================== tests: Queries ======================
-
-    [Fact(DisplayName = "GetAllPlansAsync: повертає відсортовано за RecordedUtc DESC")]
-    public async Task GetAllPlans_Returns_InRecordedDesc()
+    [Fact(DisplayName = "DeleteIfOpenAsync: видаляє відкритий план")]
+    public async Task Delete_Open_Plan()
     {
-        // Arrange
-        var p1 = new Plan { Id = Guid.NewGuid(), PlanNumber = "A", RecordedUtc = Utc(2025, 9, 10, 10) };
-        var p2 = new Plan { Id = Guid.NewGuid(), PlanNumber = "B", RecordedUtc = Utc(2025, 9, 10, 12) };
-        var p3 = new Plan { Id = Guid.NewGuid(), PlanNumber = "C", RecordedUtc = Utc(2025, 9, 10, 11) };
-        _db.AddRange(p1, p2, p3);
-        await _db.SaveChangesAsync(_ct);
-
-        // Act
-        var list = (await _svc.GetAllPlansAsync(_ct)).ToList();
-
-        // Assert
-        Assert.Equal([ "B", "C", "A" ], [.. list.Select(x => x.PlanNumber)]);
-    }
-
-    [Fact(DisplayName = "GetByIdAsync: повертає план з елементами та учасниками")]
-    public async Task GetById_Returns_Plan_WithGraph()
-    {
-        // Arrange: створюємо план через сервіс, щоби мати коректну структуру
-        var vm = new CreatePlanViewModel
-        {
-            PlanNumber = "P-graph",
-            PlanElements =
-            [
-                El(PlanType.Dispatch, Utc(2025,9,10,12), participants: [Snap(), Snap()]),
-            ]
-        };
-        var saved = await _svc.CreateAsync(vm, _ct);
-
-        // Act
-        var found = await _svc.GetByIdAsync(saved.Id, _ct);
-
-        // Assert
-        Assert.NotNull(found);
-        Assert.Equal("P-graph", found!.PlanNumber);
-        Assert.Single(found.PlanElements);
-        Assert.Equal(2, found.PlanElements.First().Participants.Count);
-    }
-
-    [Fact(DisplayName = "GetByIdAsync: повертає null для відсутнього Id")]
-    public async Task GetById_Returns_Null_IfMissing()
-    {
-        var missing = await _svc.GetByIdAsync(Guid.NewGuid(), _ct);
-        Assert.Null(missing);
-    }
-
-    // ====================== tests: Update ======================
-
-    [Fact(DisplayName = "UpdateIfOpenAsync: замінює всі елементи та їх учасників цілком")]
-    public async Task UpdateIfOpen_Replaces_EntireGraph()
-    {
-        // Arrange: початковий план
-        var initial = await _svc.CreateAsync(new CreatePlanViewModel
-        {
-            PlanNumber = "P-upd",
-            PlanElements =
-            [
-                El(PlanType.Dispatch, Utc(2025,9,10,12), participants: [Snap()])
-            ]
-        }, _ct);
-
-        // Incoming (нові дані)
-        var incoming = new Plan
-        {
-            Id = initial.Id,
-            PlanNumber = "P-upd-NEW",
-            State = PlanState.Open,      // сервіс дозволяє лише відкриті
-            Author = "editor",
-            // Повністю новий набір елементів:
-            PlanElements =
-            [
-                El(PlanType.Return, Utc(2025,9,11,8), "Локація X", "Група X", "Тип X", participants: [Snap(), Snap()]),
-                El(PlanType.Dispatch, Utc(2025,9,12,9), "Локація Y", "Група Y", "Тип Y", participants: [Snap()])
-            ]
-        };
-
-        // Act
-        var ok = await _svc.UpdateIfOpenAsync(incoming, _ct);
-
-        // Assert
+        var plan = await SeedPlanAsync("PL-DEL-OPEN", PlanState.Open);
+        var ok = await _svc.DeleteIfOpenAsync(plan.Id);
         Assert.True(ok);
 
-        var reloaded = await _db.Plans
-            .Include(p => p.PlanElements)
-            .ThenInclude(e => e.Participants)
-            .FirstAsync(p => p.Id == initial.Id, _ct);
-
-        Assert.Equal("P-upd-NEW", reloaded.PlanNumber);
-        Assert.Equal(2, reloaded.PlanElements.Count);
-        Assert.Equal([2, 1], [.. reloaded.PlanElements.OrderBy(x => x.EventAtUtc).Select(x => x.Participants.Count)]);
+        var again = await _svc.GetByIdAsync(plan.Id);
+        Assert.Null(again);
     }
 
-    [Fact(DisplayName = "UpdateIfOpenAsync: відхиляє редагування закритого плану")]
-    public async Task UpdateIfOpen_Throws_WhenClosed()
+    [Fact(DisplayName = "DeleteIfOpenAsync: кине помилку для закритого плану")]
+    public async Task Delete_Closed_Plan_Throws()
     {
-        // Arrange
-        var saved = await _svc.CreateAsync(new CreatePlanViewModel
-        {
-            PlanNumber = "P-closed",
-            PlanElements = [El(PlanType.Dispatch, Utc(2025, 9, 10), participants: [Snap()])]
-        }, _ct);
+        // ⚠ якщо у вашому enum інша назва стану, підставте її
+        var plan = await SeedPlanAsync("PL-DEL-CLOSED", state: PlanState.Close);
 
-        // закриваємо
-        var plan = await _db.Plans.FirstAsync(p => p.Id == saved.Id, _ct);
-        plan.State = PlanState.Close;
-        await _db.SaveChangesAsync(_ct);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await _svc.DeleteIfOpenAsync(plan.Id)
+        );
 
-        var incoming = new Plan
-        {
-            Id = saved.Id,
-            PlanNumber = "P-closed-NEW",
-            State = PlanState.Open,
-            PlanElements = [El(PlanType.Return, Utc(2025, 9, 11), participants: [Snap()])]
-        };
-
-        // Act + Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.UpdateIfOpenAsync(incoming, _ct));
+        Assert.Contains("закритий", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    // ====================== tests: Delete ======================
+    // --------------------------- tests: add element ---------------------------
 
-    [Fact(DisplayName = "DeleteIfOpenAsync: видаляє відкритий план разом з ієрархією")]
-    public async Task DeleteIfOpen_DeletesPlan_AndGraph()
+    [Fact(DisplayName = "AddElementAsync: успішний Dispatch створює елемент і PPS")]
+    public async Task Add_Dispatch_Success()
     {
-        // Arrange
-        var saved = await _svc.CreateAsync(new CreatePlanViewModel
+        var plan = await SeedPlanAsync("PL-A1");
+        var person = await SeedPersonAsync();
+        var when = Utc(2025, 9, 12, 12, 30);
+
+        var el = await _svc.AddElementAsync(plan.Id, new CreatePlanElementViewModel
         {
-            PlanNumber = "P-del",
-            PlanElements =
-            [
-                El(PlanType.Dispatch, Utc(2025,9,10,12), participants: [Snap(), Snap()])
-            ]
-        }, _ct);
+            Type = PlanType.Dispatch,
+            EventAtUtc = when,
+            Location = "СТЕПОВЕ",
+            GroupName = "МАЛІБУ",
+            ToolType = "ФПВ",
+            Note = "перший",
+            PersonId = person.Id
+        });
 
-        // Act
-        var ok = await _svc.DeleteIfOpenAsync(saved.Id, _ct);
+        Assert.Equal(plan.Id, el.PlanId);
+        Assert.Equal(PlanType.Dispatch, el.Type);
+        Assert.Equal(when, el.EventAtUtc);
+        Assert.Equal("СТЕПОВЕ", el.Location);
+        Assert.NotNull(el.PlanParticipantSnapshot);
+        Assert.Equal(person.Id, el.PlanParticipantSnapshot.PersonId);
 
-        // Assert
+        // verify persisted
+        var reloaded = await _svc.GetByIdAsync(plan.Id);
+        Assert.NotNull(reloaded);
+        Assert.Single(reloaded!.PlanElements);
+    }
+
+    [Fact(DisplayName = "AddElementAsync: Return без попереднього Dispatch → помилка")]
+    public async Task Add_Return_Without_Dispatch_Fails()
+    {
+        var plan = await SeedPlanAsync("PL-A2");
+        var person = await SeedPersonAsync();
+        var when = Utc(2025, 9, 12, 12, 30);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await _svc.AddElementAsync(plan.Id, new CreatePlanElementViewModel
+            {
+                Type = PlanType.Return,
+                EventAtUtc = when,
+                PersonId = person.Id
+            })
+        );
+
+        Assert.Contains("Повернення", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact(DisplayName = "AddElementAsync: Return підтягує контекст з останнього Dispatch")]
+    public async Task Add_Return_Uses_LastDispatch_Context()
+    {
+        var plan = await SeedPlanAsync("PL-A3");
+        var person = await SeedPersonAsync();
+
+        var t1 = Utc(2025, 9, 12, 12, 30);
+        var t2 = Utc(2025, 9, 12, 15, 45);
+
+        // seed dispatch
+        await SeedDispatchAsync(plan.Id, person, t1, "СТЕПОВЕ", "АНІМЕ", "МАВІК");
+
+        // add return (без контексту у VM)
+        var r = await _svc.AddElementAsync(plan.Id, new CreatePlanElementViewModel
+        {
+            Type = PlanType.Return,
+            EventAtUtc = t2,
+            PersonId = person.Id
+        });
+
+        Assert.Equal(PlanType.Return, r.Type);
+        Assert.Equal("СТЕПОВЕ", r.Location);
+        Assert.Equal("АНІМЕ", r.GroupName);
+        Assert.Equal("МАВІК", r.ToolType);
+    }
+
+    [Fact(DisplayName = "AddElementAsync: дубль на той самий момент (person|type|time) → помилка")]
+    public async Task Add_Duplicate_Same_Time_And_Type_Fails()
+    {
+        var plan = await SeedPlanAsync("PL-A4");
+        var person = await SeedPersonAsync();
+        var when = Utc(2025, 9, 12, 12, 30);
+
+        await SeedDispatchAsync(plan.Id, person, when);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await SeedDispatchAsync(plan.Id, person, when)
+        );
+
+        Assert.Contains("вже є така дія", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact(DisplayName = "AddElementAsync: чергування дій — двічі Dispatch поспіль → помилка")]
+    public async Task Add_Same_Action_Twice_In_A_Row_Fails()
+    {
+        var plan = await SeedPlanAsync("PL-A5");
+        var person = await SeedPersonAsync();
+
+        await SeedDispatchAsync(plan.Id, person, Utc(2025, 9, 12, 12, 30));
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await SeedDispatchAsync(plan.Id, person, Utc(2025, 9, 12, 14, 30))
+        );
+
+        Assert.Contains("Попередня дія", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact(DisplayName = "AddElementAsync: час не на 00/15/30/45 → помилка")]
+    public async Task Add_Invalid_Time_Fails()
+    {
+        var plan = await SeedPlanAsync("PL-A6");
+        var person = await SeedPersonAsync();
+
+        var bad = new DateTime(2025, 9, 12, 12, 10, 0, DateTimeKind.Utc);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await _svc.AddElementAsync(plan.Id, new CreatePlanElementViewModel
+            {
+                Type = PlanType.Dispatch,
+                EventAtUtc = bad,
+                Location = "X",
+                PersonId = person.Id
+            })
+        );
+
+        Assert.Contains("інтервалах 00/15/30/45", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact(DisplayName = "AddElementAsync: особа не існує → помилка")]
+    public async Task Add_With_Unknown_Person_Fails()
+    {
+        var plan = await SeedPlanAsync("PL-A7");
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await _svc.AddElementAsync(plan.Id, new CreatePlanElementViewModel
+            {
+                Type = PlanType.Dispatch,
+                EventAtUtc = Utc(2025, 9, 12, 12, 30),
+                PersonId = Guid.NewGuid()
+            })
+        );
+
+        Assert.Contains("Особу не знайдено", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // --------------------------- tests: remove element ---------------------------
+
+    [Fact(DisplayName = "RemoveElementAsync: видаляє елемент і повертає true")]
+    public async Task Remove_Element_Success()
+    {
+        var plan = await SeedPlanAsync("PL-R1");
+        var person = await SeedPersonAsync();
+        var el = await SeedDispatchAsync(plan.Id, person, Utc(2025, 9, 12, 12, 30));
+
+        var ok = await _svc.RemoveElementAsync(plan.Id, el.Id);
         Assert.True(ok);
-        Assert.Null(await _db.Plans.FirstOrDefaultAsync(p => p.Id == saved.Id, _ct));
-        Assert.False(await _db.PlanElements.AnyAsync(pe => pe.PlanId == saved.Id, _ct));
-        Assert.False(await _db.PlanParticipantSnapshots.AnyAsync(_ct));
+
+        var re = await _svc.GetByIdAsync(plan.Id);
+        Assert.NotNull(re);
+        Assert.Empty(re!.PlanElements);
     }
 
-    [Fact(DisplayName = "DeleteIfOpenAsync: відхиляє видалення закритого плану")]
-    public async Task DeleteIfOpen_Throws_WhenClosed()
+    [Fact(DisplayName = "RemoveElementAsync: план закритий → помилка")]
+    public async Task Remove_Element_From_Closed_Plan_Fails()
     {
-        // Arrange
-        var saved = await _svc.CreateAsync(new CreatePlanViewModel
+        // ⚠ якщо у вашому enum інша назва стану, підставте її
+        var plan = await SeedPlanAsync("PL-R2", PlanState.Close);
+        var person = await SeedPersonAsync();
+
+        // вручну додаємо елемент (через контекст), щоб не спотикатися об гвард AddElementAsync
+        var el = new PlanElement
         {
-            PlanNumber = "P-del-closed",
-            PlanElements = [El(PlanType.Dispatch, Utc(2025, 9, 10), participants: [Snap()])]
-        }, _ct);
+            Id = Guid.NewGuid(),
+            PlanId = plan.Id,
+            Type = PlanType.Dispatch,
+            EventAtUtc = Utc(2025, 9, 12, 12, 30),
+            Location = "X",
+            PlanParticipantSnapshot = new PlanParticipantSnapshot
+            {
+                Id = Guid.NewGuid(),
+                PersonId = person.Id,
+                FullName = person.FullName ?? "N/A",
+                Rnokpp = person.Rnokpp ?? "0000000000",
+                RecordedUtc = DateTime.UtcNow
+            }
+        };
+        _helper.Db.PlanElements.Add(el);
+        await _helper.Db.SaveChangesAsync();
 
-        var plan = await _db.Plans.FirstAsync(p => p.Id == saved.Id, _ct);
-        plan.State = PlanState.Close;
-        await _db.SaveChangesAsync(_ct);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await _svc.RemoveElementAsync(plan.Id, el.Id)
+        );
 
-        // Act + Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.DeleteIfOpenAsync(saved.Id, _ct));
+        Assert.Contains("План закритий", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact(DisplayName = "RemoveElementAsync: елемент не знайдено → false")]
+    public async Task Remove_Element_NotFound_ReturnsFalse()
+    {
+        var plan = await SeedPlanAsync("PL-R3", PlanState.Open);
+        var ok = await _svc.RemoveElementAsync(plan.Id, Guid.NewGuid());
+        Assert.False(ok);
     }
 }

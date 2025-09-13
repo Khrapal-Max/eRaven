@@ -1,16 +1,20 @@
-﻿@page "/plans/{Id:guid}"
+﻿@* -----------------------------------------------------------------------------
+   PlanDetailsPage (view)
+   - таблиця елементів плану
+   - модал додавання елементів (2 кроки)
+   ----------------------------------------------------------------------------- *@
+
+@page "/plans/{Id:guid}"
 
 @using eRaven.Domain.Enums
 @using eRaven.Domain.Models
+@using eRaven.Application.ViewModels.PlanViewModels
 @using eRaven.Components.Pages.Plans.Modals
-@using eRaven.Components.Shared.ConfirmModal
 
 <PageTitle>План @(_plan?.PlanNumber ?? "—")</PageTitle>
 
 <div class="container-fluid py-2" style="min-height:70vh;">
     <div class="row g-3">
-
-        <!-- Header -->
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex align-items-center justify-content-between">
@@ -37,72 +41,91 @@
             </div>
         </div>
 
-        <!-- Таблиця: один рядок = один учасник -->
         <div class="col-12">
             <div class="bg-dark rounded d-flex">
-                @if (_rows.Any())
+                @if (_elements.Any())
                 {
-                    <TableBaseComponent Items="_rows" TItem="PlanRow" Class="table align-middle mb-0">
-                        <TableHeader>
-                            <th class="text-black">ПІБ / ІПН / Посада</th>
-                            <th class="text-black text-center">Дія</th>
-                            <th class="text-black text-center">Дата/час</th>
-                            <th class="text-black">Локація</th>
-                            <th class="text-black">Група</th>
-                            <th class="text-black">Екіпаж</th>
-                            <th class="text-black text-center">Додатково</th>
-                            <th class="text-black text-center">Дії</th>
-                        </TableHeader>
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-black">ПІБ / ІПН / Посада</th>
+                                <th class="text-black text-center">Статус</th>
+                                <th class="text-black text-center">Дія</th>
+                                <th class="text-black text-center">Дата/час</th>
+                                <th class="text-black">Локація</th>
+                                <th class="text-black">Група</th>
+                                <th class="text-black">Екіпаж</th>
+                                <th class="text-black text-center">Нотатка</th>
+                                <th class="text-black text-center">Дії</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var e in _elements)
+                            {
+                                var p = e.PlanParticipantSnapshot;
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold text-truncate" title="@p?.FullName">@p?.FullName</div>
+                                        <div class="small text-secondary">@p?.Rnokpp</div>
+                                        @if (!string.IsNullOrWhiteSpace(p?.PositionSnapshot))
+                                        {
+                                            <div class="small text-secondary">@p!.PositionSnapshot</div>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (!string.IsNullOrWhiteSpace(p?.StatusKindCode))
+                                        {
+                                            <span class="badge text-bg-light">@p!.StatusKindCode</span>
+                                        }
+                                        else
+                                        {
 
-                        <RowTemplate Context="r">
-                            <td>
-                                <div class="fw-semibold">@r.P.FullName</div>
-                                <div class="small text-secondary">@r.P.Rnokpp</div>
-                                @if (!string.IsNullOrWhiteSpace(r.P.PositionSnapshot))
-                                {
-                                    <div class="small text-secondary">@r.P.PositionSnapshot</div>
-                                }
-                            </td>
-                            <td class="text-center">@(r.E.Type == PlanType.Dispatch ? "Відрядити" : "Повернути")</td>
-                            <td class="text-center">@r.E.EventAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
-                            <td>@r.E.Location</td>
-                            <td>@r.E.GroupName</td>
-                            <td>@r.E.ToolType</td>
-                            <td class="text-center">
-                                @if (!string.IsNullOrWhiteSpace(r.E.Note))
-                                {
-                                    <span class="badge text-bg-light" title="@r.E.Note">нотатка</span>
-                                }
-                            </td>
-                            <td class="text-center">
-                                <button class="btn btn-sm btn-danger"
-                                        title="Прибрати цю особу з елемента"
-                                        @onclick="() => RemoveParticipantAsync(r.E.Id, r.P.PersonId)"
-                                        disabled="@(!Editable || _busy)">
-                                    <i class="bi bi-dash-circle"></i>
-                                </button>
-                            </td>
-                        </RowTemplate>
-                    </TableBaseComponent>
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @(e.Type == PlanType.Dispatch ? "Відрядити" : "Повернути")
+                                    </td>
+                                    <td class="text-center">@e.EventAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>@e.Location</td>
+                                    <td>@e.GroupName</td>
+                                    <td>@e.ToolType</td>
+                                    <td class="text-center">
+                                        @if (!string.IsNullOrWhiteSpace(e.Note))
+                                        {
+                                            <span class="badge text-bg-light" title="@e.Note">нотатка</span>
+                                        }
+                                        else
+                                        {
+
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-danger"
+                                                title="Видалити елемент"
+                                                @onclick="() => RemoveElementAsync(_plan!.Id, e.Id)"
+                                                disabled="@(!Editable || _busy)">
+                                            <i class="bi bi-dash-circle"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 }
                 else
                 {
-                    <div class="h5 px-2 py-3 mb-0 text-white">Елементи відсутні.</div>
+                    <div class="h5 px-2 py-3 mb-0">Елементи відсутні.</div>
                 }
             </div>
         </div>
     </div>
 </div>
 
-<!-- Модал додавання -->
 <AddPlanElementsModal Open="@_modalOpen"
-                      Busy="@_pickerBusy"
-                      ErrorText="@_pickerError"
-                      StatusText="@_pickerStatus"
-                      Roster="@_roster"
-                      OnFilter="OnModalFilterChanged"
+                      PlanId="@Id"
+                      People="@_roster"
+                      ExistingElements="@_elements"
                       OnAdd="OnModalAddAsync"
                       OnClose="CloseModalAsync" />
-
-<!-- Confirm -->
-<ConfirmModal @ref="_confirm" Title="Підтвердження" />

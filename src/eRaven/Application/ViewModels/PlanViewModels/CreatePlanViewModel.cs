@@ -2,10 +2,18 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PlanContracts (DTO для точкових операцій і даних модала)
+// CreatePlanViewModel
 //-----------------------------------------------------------------------------
+
+using eRaven.Domain.Enums;
+using eRaven.Domain.Models;
 
 namespace eRaven.Application.ViewModels.PlanViewModels;
 
-// Видалити конкретного учасника зі складу елемента
-public sealed record RemoveParticipantRequest(Guid PlanId, Guid ElementId, Guid PersonId);
+public class CreatePlanViewModel
+{
+    /// <summary>Людський номер плану (унікальний). Зберігайте обрізаним.</summary>
+    public string PlanNumber { get; set; } = default!;
+
+    public PlanState State { get; set; } = PlanState.Open;
+}

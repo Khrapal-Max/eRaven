@@ -1,4 +1,13 @@
-﻿@using eRaven.Domain.Enums
+﻿@* -----------------------------------------------------------------------------
+   AddPlanElementsModal (view)
+   - Крок 1: атрибути (тип, дата/час квартильний, опціональні поля для Dispatch, нотатка)
+   - Крок 2: список людей з пошуком і відбором за правилами (простими)
+   - Обидва кроки однакової ширини/висоти (fixed layout)
+   ----------------------------------------------------------------------------- *@
+
+@using eRaven.Domain.Enums
+@using eRaven.Domain.Models
+@using eRaven.Application.ViewModels.PlanViewModels
 
 @if (Open)
 {
@@ -6,197 +15,103 @@
         <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
             <div class="modal-content">
 
-                <!-- Header -->
-                <div class="modal-header py-2" style="background: var(--ng-bg, #492448); color:#fff;">
+                <div class="modal-header py-2" style="background:#492448;">
                     <h6 class="modal-title">Додати елемент плану</h6>
-                    <button type="button"
-                            class="btn-close btn-close-white"
-                            aria-label="Close"
-                            @onclick="InvokeClose"
-                            @onclick:preventDefault="true"
-                            @onclick:stopPropagation="true" />
+                    <button type="button" class="btn-close btn-close-white" aria-label="Close"
+                            @onclick="CloseAndReset"></button>
                 </div>
 
-                <!-- Body -->
                 <div class="modal-body">
-                    <div class="row g-3">
-                        <!-- Ліва: атрибути (компактно) -->
-                        <div class="col-12 col-lg-4">
-                            <div class="mb-2 fw-semibold">Атрибути елемента</div>
-                            <div class="row g-2">
-                                <div class="col-12">
-                                    <label class="form-label">Дія</label>
-                                    <select class="form-select form-select-sm" @bind="_type" disabled="@_lockContext">
-                                        <option value="@PlanType.Dispatch">Відрядити</option>
-                                        <option value="@PlanType.Return">Повернути</option>
-                                    </select>
-                                </div>
-
-                                <div class="col-12">
-                                    <label class="form-label">Дата</label>
-                                    <input class="form-control form-control-sm" type="date" @bind="_date" />
-                                </div>
-
-                                <div class="col-6">
-                                    <label class="form-label">Година</label>
-                                    <select class="form-select form-select-sm" @bind="_hour">
-                                        @for (var h = 0; h < 24; h++)
-                                        {
-                                            <option value="@h">@h.ToString("00")</option>
-                                        }
-                                    </select>
-                                </div>
-                                <div class="col-6">
-                                    <label class="form-label">Хвилини</label>
-                                    <select class="form-select form-select-sm" @bind="_minute">
-                                        <option value="0">00</option>
-                                        <option value="15">15</option>
-                                        <option value="30">30</option>
-                                        <option value="45">45</option>
-                                    </select>
-                                </div>
-
-                                <div class="col-12">
-                                    <label class="form-label">Локація</label>
-                                    <input class="form-control form-control-sm" @bind="_location" disabled="@_lockContext" />
-                                </div>
-                                <div class="col-12">
-                                    <label class="form-label">Група</label>
-                                    <input class="form-control form-control-sm" @bind="_group" disabled="@_lockContext" />
-                                </div>
-                                <div class="col-12">
-                                    <label class="form-label">Екіпаж</label>
-                                    <input class="form-control form-control-sm" @bind="_tool" disabled="@_lockContext" />
-                                </div>
-
-                                <div class="col-12">
-                                    <label class="form-label">Нотатка</label>
-                                    <input class="form-control form-control-sm" @bind="_note" />
-                                </div>
-
-                                @if (_lockContext)
-                                {
+                    <div class="row g-3" style="min-height:52vh;">
+                        @if (Step == WizardStep.Attributes)
+                        {
+                            <div class="col-12 col-lg-6">
+                                <div class="row g-2">
                                     <div class="col-12">
-                                        <div class="alert alert-warning py-2 mb-0">
-                                            Атрибути повернення підставлено з останнього відрядження. Можна змінювати лише час.
-                                            <button class="btn btn-link btn-sm ps-1" @onclick="UnlockContext">Змінити атрибути</button>
-                                        </div>
+                                        <label class="form-label">Дія</label>
+                                        <select class="form-select form-select-sm" @bind="_type" @bind:after="OnTypeChanged">
+                                            <option value="@PlanType.Dispatch">Відрядити</option>
+                                            <option value="@PlanType.Return">Повернути</option>
+                                        </select>
                                     </div>
+
+                                    <div class="col-6">
+                                        <label class="form-label">Дата</label>
+                                        <input class="form-control form-control-sm" type="date" @bind="_date" />
+                                    </div>
+                                    <div class="col-3">
+                                        <label class="form-label">Година</label>
+                                        <select class="form-select form-select-sm" @bind="_hour">
+                                            @for (var h = 0; h < 24; h++)
+                                            { <option value="@h">@h.ToString("00")</option> }
+                                        </select>
+                                    </div>
+                                    <div class="col-3">
+                                        <label class="form-label">Хвилини</label>
+                                        <select class="form-select form-select-sm" @bind="_minute">
+                                            <option value="0">00</option>
+                                            <option value="15">15</option>
+                                            <option value="30">30</option>
+                                            <option value="45">45</option>
+                                        </select>
+                                    </div>
+
+                                    @if (_type == PlanType.Dispatch)
+                                    {
+                                        <div class="col-12">
+                                            <label class="form-label">Локація</label>
+                                            <input class="form-control form-control-sm" @bind="_location" />
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">Група</label>
+                                            <input class="form-control form-control-sm" @bind="_group" />
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">Екіпаж</label>
+                                            <input class="form-control form-control-sm" @bind="_tool" />
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-lg-6 d-flex flex-column">
+                                <div class="flex-grow-1">
+                                    <label class="form-label">Нотатка</label>
+                                    <textarea class="form-control" rows="8" @bind="_note"></textarea>
+                                </div>
+
+                                @if (_attrErrors.Count > 0)
+                                {
+                                    <ul class="mt-2 small text-warning">
+                                        @foreach (var e in _attrErrors) { <li>@e</li> }
+                                    </ul>
                                 }
                             </div>
-                        </div>
 
-                        <!-- Права: пошук + результати + обрані в СТОВПЧИК -->
-                        <div class="col-12 col-lg-8 d-flex flex-column" style="gap:.5rem;">
-                            <div class="d-flex align-items-center gap-2">
-                                <input class="form-control form-control-sm"
-                                       placeholder="Пошук: ПІБ / ІПН / звання / посада / зброя / позивний / статус"
-                                       @bind="_query" @bind:event="oninput" />
-                                <button class="btn btn-sm btn-primary" @onclick="HandleFilter">Шукати</button>
-                            </div>
-
-                            @if (!string.IsNullOrEmpty(StatusText))
-                            {
-                                <div class="small text-muted">@StatusText</div>
-                            }
-                            @if (!string.IsNullOrEmpty(ErrorText))
-                            {
-                                <div class="alert alert-danger py-2">@ErrorText</div>
-                            }
-                            @if (!string.IsNullOrEmpty(_info))
-                            {
-                                <div class="alert alert-warning py-2">@_info</div>
-                            }
-
-                            @if (Busy)
-                            {
-                                <div>Завантаження…</div>
-                            }
-                            else
-                            {
-                                <div class="table-responsive" style="max-height:34vh;">
-                                    <table class="table table-sm table-hover align-middle mb-0">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th class="text-black">ПІБ</th>
-                                                <th class="text-black">ІПН</th>
-                                                <th class="text-black">Звання</th>
-                                                <th class="text-black">Посада</th>
-                                                <th class="text-black text-center">Статус</th>
-                                                <th class="text-center text-black">Дія</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @if (_filtered is not null && _filtered.Count > 0)
-                                            {
-                                                @foreach (var p in _filtered)
-                                                {
-                                                    var disabledByStatus = _type == PlanType.Dispatch &&
-                                                    !string.Equals(p.StatusKindCode, "AREA", StringComparison.OrdinalIgnoreCase);
-
-                                                    var mustReturn = p.LastPlannedAction == PlanType.Dispatch;
-                                                    var wrongFirstReturn = _type == PlanType.Return && p.LastPlannedAction is null;
-
-                                                    var disabled = _selected.Contains(p.PersonId) || disabledByStatus || wrongFirstReturn;
-
-                                                    <tr>
-                                                        <td>
-                                                            <div class="fw-semibold">@p.FullName</div>
-                                                            <div class="small text-secondary">@p.Rnokpp</div>
-                                                            @if (!string.IsNullOrWhiteSpace(p.Position))
-                                                            {
-                                                                <div class="small text-secondary">@p.Position</div>
-                                                            }
-                                                        </td>
-                                                        <td>@p.Rank</td>
-                                                        <td class="text-center">
-                                                            <span class="badge text-bg-light">@p.StatusKindName ?? p.StatusKindCode</span>
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <button class="btn btn-sm @(disabled ? "btn-outline-secondary" : "btn-success")"
-                                                                    title="@ButtonTitle(p, disabledByStatus, wrongFirstReturn)"
-                                                                    disabled="@disabled"
-                                                                    @onclick="() => TogglePick(p)">
-                                                                <i class="bi @(disabled ? "bi-check-lg" : "bi-plus-lg")"></i>
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                }
-                                            }
-                                            else
-                                            {
-                                                <tr><td colspan="6" class="text-muted">Введіть текст для пошуку.</td></tr>
-                                            }
-                                        </tbody>
-                                    </table>
+                            <div class="col-12">
+                                <div class="small text-secondary">
+                                    Порада: плануйте від старших до молодших часових слотів. Дії в межах плану для кожної особи мають чергуватися.
                                 </div>
-
-                                <div class="card">
-                                    <div class="card-header py-2">Додані до елемента (@_selected.Count)</div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="col-12 col-lg-4">
+                                <div class="card h-100">
+                                    <div class="card-header py-2">Додані (@_selected.Count)</div>
                                     <div class="card-body py-2">
                                         @if (_selected.Count == 0)
                                         {
-                                            <div class="small text-muted">Поки що порожньо.</div>
+                                            <div class="small text-muted">Поки порожньо.</div>
                                         }
                                         else
                                         {
                                             <ul class="list-group list-group-flush">
-                                                @foreach (var pid in _selected)
+                                                @foreach (var item in _selected.Select(id => People.FirstOrDefault(x => x.PersonId == id)).Where(x => x is not null))
                                                 {
-                                                    var pp = Roster.People.FirstOrDefault(x => x.PersonId == pid);
-                                                    if (pp is null) { continue; }
                                                     <li class="list-group-item d-flex align-items-center justify-content-between">
-                                                        <div class="d-flex align-items-center" style="gap:.5rem;">
-                                                            <span class="badge rounded-pill text-bg-light px-3 py-2 fw-semibold" style="font-size:.9rem;">
-                                                                @pp.FullName
-                                                            </span>
-                                                            <span class="small opacity-75">
-                                                                @_type (@_hour:00:@_minute:00)
-                                                            </span>
-                                                        </div>
-                                                        <button type="button" class="btn btn-sm btn-outline-light"
-                                                                title="Прибрати"
-                                                                @onclick="() => RemovePick(pid)">
+                                                        <span class="text-truncate" style="max-width:16rem;" title="@item!.FullName">@item!.FullName</span>
+                                                        <button class="btn btn-sm btn-outline-dark" title="Прибрати" @onclick="() => RemovePick(item!.PersonId)">
                                                             <i class="bi bi-x-lg"></i>
                                                         </button>
                                                     </li>
@@ -205,29 +120,80 @@
                                         }
                                     </div>
                                 </div>
-                            }
-                        </div>
+                            </div>
+
+                            <div class="col-12 col-lg-8 d-flex flex-column" style="gap:.5rem;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <input class="form-control form-control-sm" placeholder="Пошук: ПІБ / ІПН / звання / посада"
+                                           @bind="_query" @bind:event="oninput" />
+                                    <button class="btn btn-sm btn-primary" @onclick="OnSearchClick">Шукати</button>
+                                </div>
+
+                                <div class="table-responsive" style="max-height:44vh;">
+                                    <table class="table table-sm table-hover align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="text-black">ПІБ / ІПН / Посада</th>
+                                                <th class="text-black text-center">Статус</th>
+                                                <th class="text-black text-center">Дія</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @if (_candidates.Count == 0)
+                                            {
+                                                <tr><td colspan="3" class="text-muted">Нічого не знайдено або ніхто не підходить.</td></tr>
+                                            }
+                                            else
+                                            {
+                                                @foreach (var p in _candidates)
+                                                {
+                                                    var disabled = _selected.Contains(p.PersonId) || IsDuplicateAtSameMoment(p.PersonId);
+                                                    <tr>
+                                                        <td>
+                                                            <div class="fw-semibold text-truncate" style="max-width:22rem;" title="@p.FullName">@p.FullName</div>
+                                                            <div class="small text-secondary">@p.Rnokpp</div>
+                                                            @if (!string.IsNullOrWhiteSpace(p.Position))
+                                                            { <div class="small text-secondary">@p.Position</div> }
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <span class="badge text-bg-light">@(!string.IsNullOrWhiteSpace(p.StatusKindName) ? p.StatusKindName : p.StatusKindCode)</span>
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <button class="btn btn-sm @(disabled ? "btn-outline-secondary" : "btn-success")"
+                                                                    title="@(disabled ? "Вже є дія на цей час" : "Додати")"
+                                                                    disabled="@disabled"
+                                                                    @onclick="() => AddPick(p.PersonId)">
+                                                                <i class="bi @(disabled ? "bi-check-lg" : "bi-plus-lg")"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        }
                     </div>
                 </div>
 
-                <!-- Footer -->
-                <div class="modal-footer py-2" style="border-top-color: var(--ng-bg, #492448);">
-                    <button type="button" class="btn btn-outline-secondary btn-sm"
-                            @onclick="InvokeClose"
-                            @onclick:preventDefault="true"
-                            @onclick:stopPropagation="true">
-                        Закрити
-                    </button>
-
-                    <button type="button" class="btn btn-success btn-sm"
-                            @onclick="AddElementAsync"
-                            disabled="@(_selected.Count == 0)">
-                        Додати елемент
-                    </button>
+                <div class="modal-footer py-2" style="border-top-color:#492448;">
+                    @if (Step == WizardStep.Attributes)
+                    {
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CloseAndReset">Скасувати</button>
+                        <button type="button" class="btn btn-primary btn-sm" @onclick="GoNext" disabled="@(!CanGoNext())">Далі</button>
+                    }
+                    else
+                    {
+                        <div class="small me-auto text-secondary">
+                            Обрано: @_selected.Count
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoBack">Назад</button>
+                        <button type="button" class="btn btn-success btn-sm" @onclick="Submit" disabled="@(_selected.Count == 0)">Додати елемент</button>
+                    }
                 </div>
+
             </div>
         </div>
     </div>
-
-    <div class="modal-backdrop fade show"></div>
 }

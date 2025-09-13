@@ -1,23 +1,19 @@
 ﻿@* -----------------------------------------------------------------------------
-   All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
-   -----------------------------------------------------------------------------
    PlansPage (view)
-   - Пошук за номером плану
-   - Список планів (без include)
-   - Кнопки: створити (модал), редагувати (перехід на деталізацію)
+   - Пошук по номеру
+   - Список планів
+   - Створення плану (inline modal)
    ----------------------------------------------------------------------------- *@
 
 @page "/plans"
 
 @using eRaven.Domain.Enums
 @using eRaven.Domain.Models
-@using eRaven.Components.Pages.Plans.Modals
 
 <PageTitle>Плани</PageTitle>
 
 <div class="container-fluid py-2 d-flex flex-column" style="gap:.5rem; min-height:70vh;">
 
-    <!-- Пошук + створення -->
     <div class="d-flex align-items-center gap-2 p-1 flex-wrap justify-content-between w-100">
         <div class="flex-grow-1" style="min-width:260px; max-width:600px;">
             <SearchBox @bind-Value="Search"
@@ -35,7 +31,6 @@
         </button>
     </div>
 
-    <!-- Таблиця -->
     @if (_view.Any())
     {
         <div class="bg-dark rounded flex-grow-1 d-flex">
@@ -51,7 +46,9 @@
                 </TableHeader>
 
                 <RowTemplate Context="p">
-                    <td class="text-center"><a href="@PlanDetailsHref(p.Id)" class="text-decoration-none bange">@p.PlanNumber</a></td>
+                    <td class="text-center">
+                        <a href="@($"/plans/{p.Id:D}")" class="text-decoration-none">@p.PlanNumber</a>
+                    </td>
                     <td class="text-center">@p.RecordedUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
                     <td class="text-center">
                         @if (p.State == PlanState.Open)
@@ -60,14 +57,14 @@
                         }
                         else
                         {
-
                             <span class="badge text-bg-secondary">Закритий</span>
                         }
                     </td>
                     <td class="text-center">@p.Author</td>
                     <td class="text-center">
-                        <button class="btn btn-sm btn-danger" title="Видалити план"
-                                @onclick="() => DeletePlanAsync(p)" disabled="@Busy || p.State != PlanState.Open">
+                        <button class="btn btn-sm btn-danger" title="Видалити"
+                                @onclick="() => DeletePlanAsync(p)"
+                                disabled="@Busy || p.State != PlanState.Open">
                             <i class="bi bi-trash"></i>
                         </button>
                     </td>
@@ -81,10 +78,29 @@
     }
 </div>
 
-<!-- Модальне створення заголовка плану -->
-<CreatePlanModal Open="@_createOpen"
-                 Busy="@Busy"
-                 OnCancel="CloseCreateModal"
-                 OnCreate="CreatePlanAsync" />
+@* Inline Create Modal *@
+@if (_createOpen)
+{
+    <div class="modal fade show text-white" style="display:block;" tabindex="-1" aria-modal="true" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
 
-<ConfirmModal @ref="_confirm" Title="Підтвердження" />
+                <div class="modal-header py-2">
+                    <h6 class="modal-title">Створити план</h6>
+                    <button type="button" class="btn-close" @onclick="CloseCreateModal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <label class="form-label">Номер плану</label>
+                    <input class="form-control" @bind="_newPlanNumber" />
+                </div>
+
+                <div class="modal-footer py-2">
+                    <button class="btn btn-secondary btn-sm" @onclick="CloseCreateModal">Скасувати</button>
+                    <button class="btn btn-primary btn-sm" @onclick="CreatePlanAsync" disabled="@Busy || string.IsNullOrWhiteSpace(_newPlanNumber)">Створити</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}

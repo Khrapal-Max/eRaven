@@ -29,16 +29,13 @@ public class PlanElement
     public string? GroupName { get; set; }
     public string? ToolType { get; set; }
 
+    public Guid GuidParticipantId { get; set; }
+    public PlanParticipantSnapshot PlanParticipantSnapshot { get; set; } = default!; // основна особа
+
     // ---- службові поля ----
     public string? Note { get; set; }
     public string? Author { get; set; }
     public DateTime RecordedUtc { get; set; } = DateTime.UtcNow;
-
-    /// <summary>
-    /// Супутні учасники елемента (снапшоти на момент події).
-    /// Можуть включати і основну особу (рекомендовано!).
-    /// </summary>
-    public ICollection<PlanParticipantSnapshot> Participants { get; set; } = [];
 
     // --------- хелпер узгодженості часу ---------
     public static bool IsQuarterAligned(DateTime dtUtc)

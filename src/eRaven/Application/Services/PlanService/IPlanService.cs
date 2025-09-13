@@ -47,26 +47,20 @@ public interface IPlanService
     // ---------- НОВЕ: точкові операції ----------
 
     /// <summary>
-    /// Дані для модала: всі люди + їх поточні статуси + стан у межах плану
+    /// Видалити елемент плану (особу) з плану, якщо план відкритий
+    /// </summary>
+    /// <param name="planId"></param>
+    /// <param name="elementId"></param>
+    /// <param name="personId"></param>
+    /// <param name="ct"></param>
+    /// <returns>bool</returns>
+    Task<PlanElement> AddElementAsync(Guid planId, CreatePlanElementViewModel item, CancellationToken ct = default);
+
+    /// <summary>
+    /// Видалити елемент плану (особу) з плану, якщо план відкритий
     /// </summary>
     /// <param name="planId"></param>
     /// <param name="ct"></param>
-    /// <returns>PlanRosterResponse(<see cref="PlanRosterResponse"/>)</returns>
-    Task<PlanRosterResponse> GetPlanRosterAsync(Guid planId, CancellationToken ct = default);
-
-    /// <summary>
-    /// Додати один елемент з декількома людьми (без "Save changes" — одразу в БД)
-    /// </summary>
-    /// <param name="request"></param>
-    /// <param name="ct"></param>
-    /// <returns>AddElementsResult(<see cref="AddElementsResult"/>)</returns>
-    Task<AddElementsResult> AddElementsAsync(AddElementsRequest request, CancellationToken ct = default);
-
-    /// <summary>
-    /// Прибрати одного учасника з елемента (якщо порожній — видалити елемент)
-    /// </summary>
-    /// <param name="request"></param>
-    /// <param name="ct"></param>
-    /// <returns>RemoveParticipantResult(<see cref="RemoveParticipantResult"/>)</returns>
-    Task<RemoveParticipantResult> RemoveParticipantAsync(RemoveParticipantRequest request, CancellationToken ct = default);
+    /// <returns>bool</returns>
+    Task<bool> RemoveElementAsync(Guid planId, Guid elementId, CancellationToken ct = default);
 }

@@ -1,4 +1,10 @@
-﻿using Microsoft.AspNetCore.Components;
+﻿// -----------------------------------------------------------------------------
+// All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
+// -----------------------------------------------------------------------------
+// CreatePlanModal
+// -----------------------------------------------------------------------------
+
+using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Plans.Modals;
 

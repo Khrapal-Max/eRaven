@@ -12,7 +12,7 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250911151203_Initial")]
+    [Migration("20250913120055_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -389,6 +389,9 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("group_name");
 
+                    b.Property<Guid>("GuidParticipantId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Location")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
@@ -507,14 +510,11 @@ namespace eRaven.Migrations
                         .HasDatabaseName("ix_pps_person_id");
 
                     b.HasIndex("PlanElementId")
-                        .HasDatabaseName("ix_pps_plan_element_id");
+                        .IsUnique()
+                        .HasDatabaseName("ux_pps_plan_element_id");
 
                     b.HasIndex("RecordedUtc")
                         .HasDatabaseName("ix_pps_recorded_utc");
-
-                    b.HasIndex("PlanElementId", "PersonId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_pps_plan_element_person");
 
                     b.ToTable("plan_participant_snapshots", null, t =>
                         {
@@ -1359,8 +1359,8 @@ namespace eRaven.Migrations
             modelBuilder.Entity("eRaven.Domain.Models.PlanParticipantSnapshot", b =>
                 {
                     b.HasOne("eRaven.Domain.Models.PlanElement", "PlanElement")
-                        .WithMany("Participants")
-                        .HasForeignKey("PlanElementId")
+                        .WithOne("PlanParticipantSnapshot")
+                        .HasForeignKey("eRaven.Domain.Models.PlanParticipantSnapshot", "PlanElementId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1417,7 +1417,8 @@ namespace eRaven.Migrations
 
             modelBuilder.Entity("eRaven.Domain.Models.PlanElement", b =>
                 {
-                    b.Navigation("Participants");
+                    b.Navigation("PlanParticipantSnapshot")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("eRaven.Domain.Models.PositionUnit", b =>
