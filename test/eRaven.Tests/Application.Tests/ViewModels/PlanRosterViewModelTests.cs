@@ -4,9 +4,6 @@
 // PlanRosterViewModelTests (smoke; перевірка дефолтів та set/get)
 // -----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PlanViewModels;
-using eRaven.Domain.Enums;
-
 namespace eRaven.Tests.Application.Tests.ViewModels;
 
 public class PlanRosterViewModelTests

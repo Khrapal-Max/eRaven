@@ -1,4 +1,8 @@
-﻿using eRaven.Domain.Models;
+﻿//-----------------------------------------------------------------------------
+// PlanElementConfiguration (final; з PersonId + анти-дубль індексом)
+//-----------------------------------------------------------------------------
+
+using eRaven.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -18,9 +22,14 @@ public sealed class PlanElementConfiguration : IEntityTypeConfiguration<PlanElem
          .HasColumnName("plan_id")
          .IsRequired();
 
+        // 🔴 денормалізовано для швидких перевірок/індексів
+        e.Property(x => x.PersonId)
+         .HasColumnName("person_id")
+         .IsRequired();
+
         e.Property(x => x.Type)
          .HasColumnName("type")
-         .HasConversion<int>()           // enum -> int
+         .HasConversion<int>()
          .IsRequired();
 
         e.Property(x => x.EventAtUtc)
@@ -61,7 +70,7 @@ public sealed class PlanElementConfiguration : IEntityTypeConfiguration<PlanElem
          .HasForeignKey(x => x.PlanId)
          .OnDelete(DeleteBehavior.Cascade);
 
-        // 1:1 -> PPS тримає FK (PlanElementId)
+        // 1:1 → PPS тримає FK (plan_element_id)
         e.HasOne(x => x.PlanParticipantSnapshot)
          .WithOne(p => p.PlanElement)
          .HasForeignKey<PlanParticipantSnapshot>(p => p.PlanElementId)
@@ -76,6 +85,14 @@ public sealed class PlanElementConfiguration : IEntityTypeConfiguration<PlanElem
 
         e.HasIndex(x => new { x.Type, x.EventAtUtc })
          .HasDatabaseName("ix_plan_elements_type_event");
-        // (за потреби можете додати ix (PlanId, Type, EventAtUtc) для швидкого анти-дубль-пошуку)
+
+        // 🔒 Анти-дубль: в межах плану та сама особа, той самий тип і момент
+        e.HasIndex(x => new { x.PlanId, x.PersonId, x.Type, x.EventAtUtc })
+         .IsUnique()
+         .HasDatabaseName("ux_plan_elements_uni_moment");
+
+        // (опціонально корисний для пошуків історії по особі в плані)
+        e.HasIndex(x => new { x.PlanId, x.PersonId })
+         .HasDatabaseName("ix_plan_elements_plan_person");
     }
 }

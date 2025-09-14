@@ -6,7 +6,6 @@
 
 using eRaven.Application.ViewModels.PlanViewModels;
 using eRaven.Domain.Enums;
-using eRaven.Domain.Models;
 
 namespace eRaven.Tests.Application.Tests.ViewModels;
 

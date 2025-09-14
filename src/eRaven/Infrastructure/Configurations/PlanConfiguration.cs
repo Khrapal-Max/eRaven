@@ -1,7 +1,7 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-// PlanConfiguration (final, minimal Plan model)
+// PlanConfiguration (final; minimal)
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Models;
@@ -14,18 +14,12 @@ public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
 {
     public void Configure(EntityTypeBuilder<Plan> e)
     {
-        // ===============================
-        // Table & PK
-        // ===============================
+        // ---------------- Table & PK ----------------
         e.ToTable("plans");
         e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasColumnName("id");
 
-        e.Property(x => x.Id)
-         .HasColumnName("id");
-
-        // ===============================
-        // Columns (lower snake_case)
-        // ===============================
+        // ---------------- Columns -------------------
         e.Property(x => x.PlanNumber)
          .HasColumnName("plan_number")
          .HasMaxLength(64)
@@ -47,18 +41,13 @@ public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
          .HasDefaultValueSql("CURRENT_TIMESTAMP")
          .IsRequired();
 
-        // ===============================
-        // Relationships
-        // ===============================
-        // Plan 1 -> many PlanElements (cascade delete)
+        // ---------------- Relationships -------------
         e.HasMany(p => p.PlanElements)
          .WithOne(pe => pe.Plan)
          .HasForeignKey(pe => pe.PlanId)
          .OnDelete(DeleteBehavior.Cascade);
 
-        // ===============================
-        // Indexes
-        // ===============================
+        // ---------------- Indexes -------------------
         e.HasIndex(x => x.PlanNumber)
          .HasDatabaseName("ux_plans_plan_number")
          .IsUnique();
@@ -69,9 +58,7 @@ public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
         e.HasIndex(x => new { x.State, x.RecordedUtc })
          .HasDatabaseName("ix_plans_state_recorded");
 
-        // ===============================
-        // Constraints
-        // ===============================
+        // ---------------- Constraints ---------------
         e.ToTable(t =>
         {
             t.HasCheckConstraint(

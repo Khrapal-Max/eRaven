@@ -1,4 +1,8 @@
-﻿using eRaven.Domain.Models;
+﻿//-----------------------------------------------------------------------------
+// PlanParticipantSnapshotConfiguration (final; 1:1 через FK PlanElementId)
+//-----------------------------------------------------------------------------
+
+using eRaven.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -73,7 +77,6 @@ public sealed class PlanParticipantSnapshotConfiguration : IEntityTypeConfigurat
          .OnDelete(DeleteBehavior.Cascade);
 
         // ---------------- Indexes -------------------
-        // 1:1 гарантуємо унікальністю FK
         e.HasIndex(x => x.PlanElementId)
          .IsUnique()
          .HasDatabaseName("ux_pps_plan_element_id");
@@ -84,7 +87,7 @@ public sealed class PlanParticipantSnapshotConfiguration : IEntityTypeConfigurat
         e.HasIndex(x => x.RecordedUtc)
          .HasDatabaseName("ix_pps_recorded_utc");
 
-        // ---------------- Constraints ----------------
+        // ---------------- Constraints ---------------
         e.ToTable(t =>
         {
             t.HasCheckConstraint("ck_pps_full_name_not_blank", "length(trim(full_name)) > 0");

@@ -1,9 +1,8 @@
 ﻿@* -----------------------------------------------------------------------------
    PlanDetailsPage (view)
-   - таблиця елементів плану
-   - модал додавання елементів (2 кроки)
+   - Таблиця елементів плану
+   - Модальне вікно додавання елементів (2 кроки)
    ----------------------------------------------------------------------------- *@
-
 @page "/plans/{Id:guid}"
 
 @using eRaven.Domain.Enums
@@ -11,37 +10,40 @@
 @using eRaven.Application.ViewModels.PlanViewModels
 @using eRaven.Components.Pages.Plans.Modals
 
-<PageTitle>План @(_plan?.PlanNumber ?? "—")</PageTitle>
+<PageTitle>План @Id</PageTitle>
 
 <div class="container-fluid py-2" style="min-height:70vh;">
     <div class="row g-3">
+
+        <!-- Заголовок -->
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <div class="d-flex flex-column">
                         <div class="h5 mb-0">
-                            План: <span class="fw-semibold">@(_plan?.PlanNumber ?? "—")</span>
+                            План: <span class="fw-semibold">@Id</span>
                         </div>
-                        <div class="small text-secondary">
+                        @* <div class="small text-secondary">
                             Стан: @(_plan?.State == PlanState.Open ? "Відкрито" : "Закрито"),
                             записано: @(_plan?.RecordedUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm"))
-                        </div>
+                        </div> *@
                     </div>
 
                     <div class="d-flex gap-2">
-                        <button class="btn btn-sm btn-secondary" @onclick="GoBack" disabled="@_busy">Назад</button>
-                        <button class="btn btn-sm btn-primary"
+                        <button class="btn btn-sm btn-secondary" @onclick="GoBack">Назад</button>
+                      @*   <button class="btn btn-sm btn-primary"
                                 title="Додати елементи"
                                 @onclick="OpenModalAsync"
                                 disabled="@(_busy || !Editable)">
                             <i class="bi bi-plus-circle"></i> Додати елементи
-                        </button>
+                        </button> *@
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-12">
+        <!-- Таблиця елементів -->
+        @* <div class="col-12">
             <div class="bg-dark rounded d-flex">
                 @if (_elements.Any())
                 {
@@ -64,12 +66,12 @@
                             {
                                 var p = e.PlanParticipantSnapshot;
                                 <tr>
-                                    <td>
+                                    <td style="max-width: 280px;">
                                         <div class="fw-semibold text-truncate" title="@p?.FullName">@p?.FullName</div>
                                         <div class="small text-secondary">@p?.Rnokpp</div>
                                         @if (!string.IsNullOrWhiteSpace(p?.PositionSnapshot))
                                         {
-                                            <div class="small text-secondary">@p!.PositionSnapshot</div>
+                                            <div class="small text-secondary text-truncate" title="@p!.PositionSnapshot">@p!.PositionSnapshot</div>
                                         }
                                     </td>
                                     <td class="text-center">
@@ -79,7 +81,6 @@
                                         }
                                         else
                                         {
-
                                             <span class="text-muted">—</span>
                                         }
                                     </td>
@@ -97,7 +98,6 @@
                                         }
                                         else
                                         {
-
                                             <span class="text-muted">—</span>
                                         }
                                     </td>
@@ -106,7 +106,7 @@
                                                 title="Видалити елемент"
                                                 @onclick="() => RemoveElementAsync(_plan!.Id, e.Id)"
                                                 disabled="@(!Editable || _busy)">
-                                            <i class="bi bi-dash-circle"></i>
+                                            <i class="bi bi-trash"></i>
                                         </button>
                                     </td>
                                 </tr>
@@ -119,15 +119,9 @@
                     <div class="h5 px-2 py-3 mb-0">Елементи відсутні.</div>
                 }
             </div>
-        </div>
+        </div> *@
     </div>
 </div>
 
-<AddPlanElementsModal Open="@_modalOpen"
-                      PlanId="@Id"
-                      People="@_roster"
-                      ExistingElements="@_elements"
-                      AllowedDispatchFromStatusCode="@_opts?.ReturnStatusKind?.Code"
-                      AllowedDispatchFromStatusName="@(_opts?.ReturnStatusKind?.Name)"
-                      OnAdd="OnModalAddAsync"
-                      OnClose="CloseModalAsync" />
+<!-- Модальне додавання -->
+

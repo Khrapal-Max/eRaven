@@ -4,7 +4,6 @@
 // CreatePlanElementViewModelTests — прості smoke-тести (домен рівень)
 // -----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PlanViewModels;
 using eRaven.Domain.Enums;
 
 namespace eRaven.Tests.Application.Tests.ViewModels;

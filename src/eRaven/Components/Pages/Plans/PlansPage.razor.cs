@@ -10,7 +10,6 @@ using eRaven.Application.ViewModels.PlanViewModels;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace eRaven.Components.Pages.Plans;
 
@@ -68,8 +67,9 @@ public partial class PlansPage : ComponentBase, IDisposable
         try
         {
             Busy = true;
-            var vm = new CreatePlanViewModel { PlanNumber = planNumber, State = PlanState.Open };
-            var created = await PlanService.CreateAsync(vm);
+            var vm = new CreatePlanViewModel { PlanNumber = (planNumber ?? string.Empty).Trim(), State = PlanState.Open }
+            var created = await PlanService.CreateAsync(vm, _cts.Token);
+
             _createOpen = false;
             ToastService.ShowSuccess("План створено.");
             Navigation.NavigateTo($"/plans/{created.Id:D}");
