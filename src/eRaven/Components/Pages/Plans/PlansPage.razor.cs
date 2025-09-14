@@ -67,7 +67,7 @@ public partial class PlansPage : ComponentBase, IDisposable
         try
         {
             Busy = true;
-            var vm = new CreatePlanViewModel { PlanNumber = (planNumber ?? string.Empty).Trim(), State = PlanState.Open }
+            var vm = new CreatePlanViewModel { PlanNumber = (planNumber ?? string.Empty).Trim(), State = PlanState.Open };
             var created = await PlanService.CreateAsync(vm, _cts.Token);
 
             _createOpen = false;
