@@ -24,6 +24,7 @@ public class PersonService(AppDbContext appDbContext) : IPersonService
        .AsNoTracking()
        .Include(p => p.StatusKind)
        .Include(p => p.PositionUnit)
+       .Include(p => p.PersonPlanning)
        .AsQueryable();
 
         if (predicate is not null)
@@ -81,6 +82,7 @@ public class PersonService(AppDbContext appDbContext) : IPersonService
         current.Callsign = person.Callsign;
         current.BZVP = person.BZVP;
         current.Weapon = person.Weapon;
+        current.PersonPlanning = person.PersonPlanning;
 
         // IsAttached / AttachedFromUnit — теж з картки:
         current.IsAttached = person.IsAttached;

@@ -180,6 +180,74 @@ namespace eRaven.Migrations
                     b.ToTable("persons", (string)null);
                 });
 
+            modelBuilder.Entity("eRaven.Domain.Models.PersonPlanning", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Author")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasDefaultValue("system")
+                        .HasColumnName("author");
+
+                    b.Property<string>("CurrentStatusKindCode")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("current_status_kind_code");
+
+                    b.Property<int?>("CurrentStatusKindId")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_status_kind_id");
+
+                    b.Property<DateTime?>("LastActionAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_action_at_utc");
+
+                    b.Property<int?>("LastActionType")
+                        .HasColumnType("integer")
+                        .HasColumnName("last_action_type");
+
+                    b.Property<DateTime>("ModifiedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("OpenGroup")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("open_group");
+
+                    b.Property<string>("OpenLocation")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("open_location");
+
+                    b.Property<string>("OpenTool")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("open_tool");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("person_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModifiedUtc")
+                        .HasDatabaseName("ix_person_planning_modified");
+
+                    b.HasIndex("PersonId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_person_planning_person_id");
+
+                    b.ToTable("person_planning", (string)null);
+                });
+
             modelBuilder.Entity("eRaven.Domain.Models.PersonPositionAssignment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -386,9 +454,6 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("group_name");
 
-                    b.Property<Guid>("GuidParticipantId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Location")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
@@ -398,6 +463,10 @@ namespace eRaven.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
                         .HasColumnName("note");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("person_id");
 
                     b.Property<Guid>("PlanId")
                         .HasColumnType("uuid")
@@ -426,8 +495,15 @@ namespace eRaven.Migrations
                     b.HasIndex("PlanId", "EventAtUtc")
                         .HasDatabaseName("ix_plan_elements_plan_event");
 
+                    b.HasIndex("PlanId", "PersonId")
+                        .HasDatabaseName("ix_plan_elements_plan_person");
+
                     b.HasIndex("Type", "EventAtUtc")
                         .HasDatabaseName("ix_plan_elements_type_event");
+
+                    b.HasIndex("PlanId", "PersonId", "Type", "EventAtUtc")
+                        .IsUnique()
+                        .HasDatabaseName("ux_plan_elements_uni_moment");
 
                     b.ToTable("plan_elements", (string)null);
                 });
@@ -1304,6 +1380,17 @@ namespace eRaven.Migrations
                     b.Navigation("StatusKind");
                 });
 
+            modelBuilder.Entity("eRaven.Domain.Models.PersonPlanning", b =>
+                {
+                    b.HasOne("eRaven.Domain.Models.Person", "Person")
+                        .WithOne("PersonPlanning")
+                        .HasForeignKey("eRaven.Domain.Models.PersonPlanning", "PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Person");
+                });
+
             modelBuilder.Entity("eRaven.Domain.Models.PersonPositionAssignment", b =>
                 {
                     b.HasOne("eRaven.Domain.Models.Person", "Person")
@@ -1402,6 +1489,8 @@ namespace eRaven.Migrations
 
             modelBuilder.Entity("eRaven.Domain.Models.Person", b =>
                 {
+                    b.Navigation("PersonPlanning");
+
                     b.Navigation("PositionAssignments");
 
                     b.Navigation("StatusHistory");
