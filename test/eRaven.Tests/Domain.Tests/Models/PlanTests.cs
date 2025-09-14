@@ -26,9 +26,6 @@ public class PlanTests
         // RecordedUtc ініціалізується DateTime.UtcNow у властивості
         Assert.Equal(DateTimeKind.Utc, p.RecordedUtc.Kind);
         Assert.InRange(DateTime.UtcNow - p.RecordedUtc, TimeSpan.Zero, TimeSpan.FromSeconds(5));
-
-        Assert.NotNull(p.PlanElements);
-        Assert.Empty(p.PlanElements);
     }
 
     [Fact(DisplayName = "Plan: можна задати та прочитати базові властивості")]
@@ -51,28 +48,6 @@ public class PlanTests
         Assert.Equal(PlanState.Close, p.State);
         Assert.Equal("tester", p.Author);
         Assert.Equal(when, p.RecordedUtc);
-    }
-
-    [Fact(DisplayName = "Plan: PlanElements — додавання/видалення елементів працює")]
-    public void PlanElements_Add_Remove_Works()
-    {
-        var p = new Plan { PlanNumber = "P-001" };
-
-        var e1 = new PlanElement { Id = Guid.NewGuid() };
-        var e2 = new PlanElement { Id = Guid.NewGuid() };
-
-        p.PlanElements.Add(e1);
-        p.PlanElements.Add(e2);
-
-        Assert.Equal(2, p.PlanElements.Count);
-        Assert.Contains(e1, p.PlanElements);
-        Assert.Contains(e2, p.PlanElements);
-
-        p.PlanElements.Remove(e1);
-
-        Assert.Single(p.PlanElements);
-        Assert.DoesNotContain(e1, p.PlanElements);
-        Assert.Contains(e2, p.PlanElements);
     }
 
     [Fact(DisplayName = "Plan: RecordedUtc можна задати явно (UTC)")]

@@ -7,7 +7,7 @@
 using eRaven.Application.ViewModels.PlanViewModels;
 using FluentValidation;
 
-namespace eRaven.Components.Pages.Plans;
+namespace eRaven.Components.Pages.Plans.Modals;
 
 public sealed class CreatePlanViewModelValidator : AbstractValidator<CreatePlanViewModel>
 {

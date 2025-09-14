@@ -67,11 +67,6 @@ public class Person
     public StatusKind? StatusKind { get; set; }
 
     /// <summary>
-    /// Запланова дія снапшот
-    /// </summary>
-    public PersonPlanning? PersonPlanning { get; set; }
-
-    /// <summary>
     /// Придані/прибули
     /// </summary>
     public bool IsAttached { get; set; }               // свої=false, прибули=true

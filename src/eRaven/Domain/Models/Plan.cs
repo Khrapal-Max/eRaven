@@ -26,7 +26,4 @@ public class Plan
 
     /// <summary>Момент запису в БД (UTC).</summary>
     public DateTime RecordedUtc { get; set; } = DateTime.UtcNow;
-
-    /// <summary>Елементи плану (кожен — дія над конкретною особою у певний момент).</summary>
-    public ICollection<PlanElement> PlanElements { get; set; } = [];
 }

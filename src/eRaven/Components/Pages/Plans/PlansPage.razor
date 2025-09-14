@@ -3,7 +3,7 @@
    - Пошук по номеру
    - Список планів
    - Створення плану (inline modal)
-   ----------------------------------------------------------------------------- *@
+   -----------------------------------------------------------------------------
 
 @page "/plans"
 
@@ -79,7 +79,6 @@
     }
 </div>
 
-@* Inline Create Modal *@
 @if (_createOpen)
 {
     <CreatePlanModal Open="@_createOpen"
@@ -87,3 +86,4 @@
                  OnCancel="CloseCreateModal"
                  OnCreate="CreatePlanAsync" />
 }
+ *@

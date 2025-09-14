@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+﻿/*// -----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 // -----------------------------------------------------------------------------
 // PlansPage
@@ -35,8 +35,6 @@ public partial class PlansPage : ComponentBase, IDisposable
         try
         {
             SetBusy(true);
-            var items = await PlanService.GetAllPlansAsync(_cts.Token);
-            _all = [.. items];
             ApplyFilter();
         }
         catch (Exception ex)
@@ -68,7 +66,6 @@ public partial class PlansPage : ComponentBase, IDisposable
         {
             Busy = true;
             var vm = new CreatePlanViewModel { PlanNumber = (planNumber ?? string.Empty).Trim(), State = PlanState.Open };
-            var created = await PlanService.CreateAsync(vm, _cts.Token);
 
             _createOpen = false;
             ToastService.ShowSuccess("План створено.");
@@ -91,7 +88,6 @@ public partial class PlansPage : ComponentBase, IDisposable
         try
         {
             SetBusy(true);
-            var ok = await PlanService.DeleteIfOpenAsync(p.Id, _cts.Token);
             if (ok) ToastService.ShowSuccess("План видалено.");
             await ReloadAsync();
         }
@@ -121,3 +117,4 @@ public partial class PlansPage : ComponentBase, IDisposable
         GC.SuppressFinalize(this);
     }
 }
+*/

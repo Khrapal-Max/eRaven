@@ -41,12 +41,6 @@ public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
          .HasDefaultValueSql("CURRENT_TIMESTAMP")
          .IsRequired();
 
-        // ---------------- Relationships -------------
-        e.HasMany(p => p.PlanElements)
-         .WithOne(pe => pe.Plan)
-         .HasForeignKey(pe => pe.PlanId)
-         .OnDelete(DeleteBehavior.Cascade);
-
         // ---------------- Indexes -------------------
         e.HasIndex(x => x.PlanNumber)
          .HasDatabaseName("ux_plans_plan_number")

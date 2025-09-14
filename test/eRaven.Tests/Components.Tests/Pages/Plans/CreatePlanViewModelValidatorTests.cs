@@ -5,7 +5,7 @@
 // -----------------------------------------------------------------------------
 
 using eRaven.Application.ViewModels.PlanViewModels;
-using eRaven.Components.Pages.Plans; // CreatePlanViewModelValidator
+using eRaven.Components.Pages.Plans.Modals;
 using FluentValidation.TestHelper;
 
 namespace eRaven.Tests.Components.Tests.Pages.Plans;
