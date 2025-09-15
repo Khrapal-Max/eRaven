@@ -84,14 +84,12 @@ public sealed class PlanService(AppDbContext db) : IPlanService
         var planNumber = vm.PlanNumber.Trim();
         var eventAtUtc = EnsureUtc(vm.EventAtUtc);
 
-        using var tx = await _db.Database.BeginTransactionAsync(ct);
+        // НІЯКИХ BeginTransaction тут
 
         var pp = await EnsureParticipantAsync(planNumber, vm.PersonId, author, ct);
 
-        // Бізнес-інваріанти переходів
         await ValidateActionAsync(pp.Id, vm.ActionType, eventAtUtc, ct);
 
-        // Запис дії (порожнечі по Location/Group/Crew відріже БД через IsRequired/CHECK)
         var action = new PlanParticipantAction
         {
             Id = Guid.NewGuid(),
@@ -109,7 +107,6 @@ public sealed class PlanService(AppDbContext db) : IPlanService
         };
         _db.PlanParticipantActions.Add(action);
 
-        // Мапа дії → статус
         var opts = await _db.PlanServiceOptions.SingleAsync(ct);
         var statusKindId = vm.ActionType switch
         {
@@ -118,7 +115,6 @@ public sealed class PlanService(AppDbContext db) : IPlanService
             _ => null
         } ?? throw new InvalidOperationException("PlanServiceOptions not configured: target StatusKind is required.");
 
-        // Факт у журнал + оновлення поточного статусу Person
         await InsertPersonStatusAsync(
             personId: pp.PersonId,
             statusKindId: statusKindId,
@@ -131,8 +127,7 @@ public sealed class PlanService(AppDbContext db) : IPlanService
         person.StatusKindId = statusKindId;
         person.ModifiedUtc = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+        await _db.SaveChangesAsync(ct); // EF сам зробить транзакцію для цього набору змін
         return action;
     }
 
