@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PlanType
+// PlanActionType
 //-----------------------------------------------------------------------------
 
 namespace eRaven.Domain.Enums;
@@ -10,7 +10,7 @@ namespace eRaven.Domain.Enums;
 /// <summary>
 /// Тип плану: відрядити або повернути.
 /// </summary>
-public enum PlanType
+public enum PlanActionType
 {
     Dispatch = 1,  // відрядити / відправити
     Return = 2     // повернути

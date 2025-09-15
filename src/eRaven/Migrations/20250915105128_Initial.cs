@@ -1,10 +1,8 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
 
 namespace eRaven.Migrations
 {
@@ -90,33 +88,6 @@ namespace eRaven.Migrations
                         principalTable: "plans",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "plan_elements",
-                columns: table => new
-                {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    plan_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    person_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    type = table.Column<int>(type: "integer", nullable: false),
-                    event_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    location = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    group_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
-                    tool_type = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
-                    note = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
-                    author = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true, defaultValue: "system"),
-                    recorded_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_plan_elements", x => x.id);
-                    table.ForeignKey(
-                        name: "FK_plan_elements_plans_plan_id",
-                        column: x => x.plan_id,
-                        principalTable: "plans",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -213,64 +184,6 @@ namespace eRaven.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "plan_participant_snapshots",
-                columns: table => new
-                {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    plan_element_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    person_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    full_name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
-                    rnokpp = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),
-                    rank = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
-                    position_snapshot = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    weapon = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
-                    callsign = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
-                    status_kind_id = table.Column<int>(type: "integer", nullable: true),
-                    status_kind_code = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: true),
-                    author = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true, defaultValue: "system"),
-                    recorded_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_plan_participant_snapshots", x => x.id);
-                    table.CheckConstraint("ck_pps_full_name_not_blank", "length(trim(full_name)) > 0");
-                    table.CheckConstraint("ck_pps_rnokpp_not_blank", "length(trim(rnokpp)) > 0");
-                    table.ForeignKey(
-                        name: "FK_plan_participant_snapshots_plan_elements_plan_element_id",
-                        column: x => x.plan_element_id,
-                        principalTable: "plan_elements",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "person_planning",
-                columns: table => new
-                {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    person_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    current_status_kind_id = table.Column<int>(type: "integer", nullable: true),
-                    current_status_kind_code = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: true),
-                    last_action_type = table.Column<int>(type: "integer", nullable: true),
-                    last_action_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    open_location = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    open_group = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
-                    open_tool = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
-                    author = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true, defaultValue: "system"),
-                    modified_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_person_planning", x => x.id);
-                    table.ForeignKey(
-                        name: "FK_person_planning_persons_person_id",
-                        column: x => x.person_id,
-                        principalTable: "persons",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "person_position_assignments",
                 columns: table => new
                 {
@@ -330,6 +243,65 @@ namespace eRaven.Migrations
                         principalTable: "status_kinds",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "plan_participants",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    plan_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    person_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    full_name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    rank_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    position_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    unit_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    author = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true, defaultValue: "system"),
+                    recorded_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_plan_participants", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_plan_participants_persons_person_id",
+                        column: x => x.person_id,
+                        principalTable: "persons",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_plan_participants_plans_plan_id",
+                        column: x => x.plan_id,
+                        principalTable: "plans",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "plan_participant_actions",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    plan_participant_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    plan_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    person_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    action_type = table.Column<int>(type: "integer", nullable: false),
+                    event_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    location = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    group_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    crew_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    note = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
+                    author = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true, defaultValue: "system"),
+                    recorded_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_plan_participant_actions", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_plan_participant_actions_plan_participants_plan_participant~",
+                        column: x => x.plan_participant_id,
+                        principalTable: "plan_participants",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.InsertData(
@@ -453,17 +425,6 @@ namespace eRaven.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "ix_person_planning_modified",
-                table: "person_planning",
-                column: "modified_utc");
-
-            migrationBuilder.CreateIndex(
-                name: "ux_person_planning_person_id",
-                table: "person_planning",
-                column: "person_id",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "ix_ppassign_person_close",
                 table: "person_position_assignments",
                 columns: new[] { "person_id", "close_utc" });
@@ -538,45 +499,25 @@ namespace eRaven.Migrations
                 filter: "\"position_unit_id\" IS NOT NULL");
 
             migrationBuilder.CreateIndex(
-                name: "ix_plan_elements_plan",
-                table: "plan_elements",
-                column: "plan_id");
+                name: "ix_actions_event_at",
+                table: "plan_participant_actions",
+                column: "event_at_utc");
 
             migrationBuilder.CreateIndex(
-                name: "ix_plan_elements_plan_event",
-                table: "plan_elements",
-                columns: new[] { "plan_id", "event_at_utc" });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_plan_elements_plan_person",
-                table: "plan_elements",
-                columns: new[] { "plan_id", "person_id" });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_plan_elements_type_event",
-                table: "plan_elements",
-                columns: new[] { "type", "event_at_utc" });
-
-            migrationBuilder.CreateIndex(
-                name: "ux_plan_elements_uni_moment",
-                table: "plan_elements",
-                columns: new[] { "plan_id", "person_id", "type", "event_at_utc" },
+                name: "ux_actions_participant_type",
+                table: "plan_participant_actions",
+                columns: new[] { "plan_participant_id", "action_type" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "ix_pps_person_id",
-                table: "plan_participant_snapshots",
+                name: "IX_plan_participants_person_id",
+                table: "plan_participants",
                 column: "person_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_pps_recorded_utc",
-                table: "plan_participant_snapshots",
-                column: "recorded_utc");
-
-            migrationBuilder.CreateIndex(
-                name: "ux_pps_plan_element_id",
-                table: "plan_participant_snapshots",
-                column: "plan_element_id",
+                name: "ux_plan_participants_plan_person",
+                table: "plan_participants",
+                columns: new[] { "plan_id", "person_id" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -590,20 +531,15 @@ namespace eRaven.Migrations
                 column: "return_status_kind_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_plans_recorded_utc",
-                table: "plans",
-                column: "recorded_utc");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_plans_state_recorded",
-                table: "plans",
-                columns: new[] { "state", "recorded_utc" });
-
-            migrationBuilder.CreateIndex(
-                name: "ux_plans_plan_number",
+                name: "IX_plans_plan_number",
                 table: "plans",
                 column: "plan_number",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_plans_recorded_utc",
+                table: "plans",
+                column: "recorded_utc");
 
             migrationBuilder.CreateIndex(
                 name: "ix_position_units_code",
@@ -650,16 +586,13 @@ namespace eRaven.Migrations
                 name: "orders");
 
             migrationBuilder.DropTable(
-                name: "person_planning");
-
-            migrationBuilder.DropTable(
                 name: "person_position_assignments");
 
             migrationBuilder.DropTable(
                 name: "person_statuses");
 
             migrationBuilder.DropTable(
-                name: "plan_participant_snapshots");
+                name: "plan_participant_actions");
 
             migrationBuilder.DropTable(
                 name: "plan_service_options");
@@ -668,19 +601,19 @@ namespace eRaven.Migrations
                 name: "status_transitions");
 
             migrationBuilder.DropTable(
+                name: "plan_participants");
+
+            migrationBuilder.DropTable(
                 name: "persons");
 
             migrationBuilder.DropTable(
-                name: "plan_elements");
+                name: "plans");
 
             migrationBuilder.DropTable(
                 name: "position_units");
 
             migrationBuilder.DropTable(
                 name: "status_kinds");
-
-            migrationBuilder.DropTable(
-                name: "plans");
         }
     }
 }

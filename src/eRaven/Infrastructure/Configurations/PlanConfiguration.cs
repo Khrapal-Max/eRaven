@@ -14,12 +14,11 @@ public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
 {
     public void Configure(EntityTypeBuilder<Plan> e)
     {
-        // ---------------- Table & PK ----------------
         e.ToTable("plans");
         e.HasKey(x => x.Id);
+
         e.Property(x => x.Id).HasColumnName("id");
 
-        // ---------------- Columns -------------------
         e.Property(x => x.PlanNumber)
          .HasColumnName("plan_number")
          .HasMaxLength(64)
@@ -41,24 +40,12 @@ public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
          .HasDefaultValueSql("CURRENT_TIMESTAMP")
          .IsRequired();
 
-        // ---------------- Indexes -------------------
-        e.HasIndex(x => x.PlanNumber)
-         .HasDatabaseName("ux_plans_plan_number")
-         .IsUnique();
+        e.HasIndex(x => x.PlanNumber).IsUnique();
+        e.HasIndex(x => x.RecordedUtc);
 
-        e.HasIndex(x => x.RecordedUtc)
-         .HasDatabaseName("ix_plans_recorded_utc");
-
-        e.HasIndex(x => new { x.State, x.RecordedUtc })
-         .HasDatabaseName("ix_plans_state_recorded");
-
-        // ---------------- Constraints ---------------
-        e.ToTable(t =>
-        {
-            t.HasCheckConstraint(
-                "ck_plans_plan_number_not_blank",
-                "length(trim(plan_number)) > 0"
-            );
-        });
+        e.ToTable(t => t.HasCheckConstraint(
+            "ck_plans_plan_number_not_blank",
+            "length(trim(plan_number)) > 0"
+        ));
     }
 }

@@ -17,6 +17,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PersonPositionAssignment> PersonPositionAssignments => Set<PersonPositionAssignment>();
     public DbSet<PersonStatus> PersonStatuses => Set<PersonStatus>();
     public DbSet<Plan> Plans => Set<Plan>();
+    public DbSet<PlanParticipant> PlanParticipants => Set<PlanParticipant>();
+    public DbSet<PlanParticipantAction> PlanParticipantActions => Set<PlanParticipantAction>();
     public DbSet<PlanServiceOptions> PlanServiceOptions => Set<PlanServiceOptions>();
     public DbSet<PositionUnit> PositionUnits => Set<PositionUnit>();
     public DbSet<StatusKind> StatusKinds => Set<StatusKind>();

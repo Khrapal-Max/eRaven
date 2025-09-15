@@ -4,8 +4,6 @@
 // PlanService
 // -----------------------------------------------------------------------------
 
-using eRaven.Infrastructure;
-
 namespace eRaven.Application.Services.PlanService;
 
 public class PlanService : IPlanService
