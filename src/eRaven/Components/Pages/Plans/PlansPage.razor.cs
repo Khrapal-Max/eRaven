@@ -10,7 +10,6 @@ using eRaven.Application.ViewModels.PlanViewModels;
 using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
-using eRaven.Infrastructure;
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,7 +29,7 @@ public partial class PlansPage : ComponentBase, IDisposable
     private IReadOnlyList<Plan> _view = [];
 
     private bool _createOpen;
-    private ConfirmModal _confirm = default!; // ← інстанс модалки
+    private ConfirmModal _confirm = default!;
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
@@ -51,11 +50,7 @@ public partial class PlansPage : ComponentBase, IDisposable
         finally { SetBusy(false); }
     }
 
-    protected Task OnSearchAsync()
-    {
-        ApplyFilter();
-        return Task.CompletedTask;
-    }
+    protected Task OnSearchAsync() { ApplyFilter(); return Task.CompletedTask; }
 
     private void ApplyFilter()
     {
@@ -87,10 +82,6 @@ public partial class PlansPage : ComponentBase, IDisposable
             ToastService.ShowSuccess("План створено.");
             Navigation.NavigateTo($"/plans/{created.Id:D}");
         }
-        catch (DbUpdateException)
-        {
-            ToastService.ShowWarning("Такий номер плану вже існує. Спробуйте інший.");
-        }
         catch (Exception ex)
         {
             ToastService.ShowError("Не вдалося створити план. " + ex.Message);
@@ -110,8 +101,7 @@ public partial class PlansPage : ComponentBase, IDisposable
             return;
         }
 
-        var ok = await _confirm.ShowConfirmAsync(
-            $"Видалити план «{p.PlanNumber}»? Дію неможливо скасувати.");
+        var ok = await _confirm.ShowConfirmAsync($"Видалити план «{p.PlanNumber}»? Дію неможливо скасувати.");
         if (!ok) return;
 
         try
@@ -139,24 +129,9 @@ public partial class PlansPage : ComponentBase, IDisposable
         finally { SetBusy(false); }
     }
 
-    private void OpenCreateModal()
-    {
-        _createOpen = true;
-        StateHasChanged();
-    }
-
-    private void CloseCreateModal()
-    {
-        _createOpen = false;
-        StateHasChanged();
-    }
+    private void OpenCreateModal() { _createOpen = true; StateHasChanged(); }
+    private void CloseCreateModal() { _createOpen = false; StateHasChanged(); }
 
     private void SetBusy(bool v) { Busy = v; StateHasChanged(); }
-
-    public void Dispose()
-    {
-        _cts.Cancel();
-        _cts.Dispose();
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() { _cts.Cancel(); _cts.Dispose(); GC.SuppressFinalize(this); }
 }

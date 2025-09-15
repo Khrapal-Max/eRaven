@@ -8,6 +8,7 @@ using Blazored.Toast.Services;
 using eRaven.Application.Services.PlanService;
 using eRaven.Components.Pages.Plans.Modals;
 using eRaven.Components.Shared.ConfirmModal;
+using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -31,11 +32,10 @@ public partial class PlanDetailsPage : ComponentBase, IDisposable
     private ConfirmModal _confirm = default!;
     private AddActionModal _addActionModal = default!;
     private AddBatchModal _addBatchModal = default!;
+    private Guid? _preselectedPersonId;
+    private bool _loaded;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await ReloadAsync();
-    }
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
 
     private async Task ReloadAsync()
     {
@@ -46,31 +46,42 @@ public partial class PlanDetailsPage : ComponentBase, IDisposable
             _plan = await PlanService.GetPlanAsync(Id, _cts.Token);
             if (_plan is null) return;
 
-            _participants = (await PlanService.GetPlanParticipantsAsync(_plan.Id, _cts.Token)).ToList();
-            _actions = (await PlanService.GetPlanActionsAsync(_plan.Id, _cts.Token)).ToList();
+            _participants = [.. await PlanService.GetPlanParticipantsAsync(_plan.Id, _cts.Token)];
+            _actions = [.. await PlanService.GetPlanActionsAsync(_plan.Id, _cts.Token)];
+            _loaded = true;               // ← позначаємо, що завантаження закінчено
         }
         catch (Exception ex)
         {
             Toasts.ShowError("Не вдалося завантажити деталі плану. " + ex.Message);
+            _loaded = false;
         }
-        finally { SetBusy(false); }
+        finally
+        {
+            Busy = false;                 // ← обов’язково повернути Busy в false
+            StateHasChanged();
+        }
     }
 
     private void Back() => Nav.NavigateTo("/plans");
 
-    private async Task OpenAddAction()
+    private async Task OpenAddAction() => await OpenAddActionCore(null);
+    private async Task OpenAddAction(Guid? personId) => await OpenAddActionCore(personId);
+
+    private async Task OpenAddActionCore(Guid? personId)
     {
         if (_plan is null || _addActionModal is null) return;
-        await _addActionModal.OpenAsync(_plan.PlanNumber);
+
+        // 1) Покласти значення у поле, яке зв’язане з параметром PreselectedPersonId
+        _preselectedPersonId = personId;
+
+        // 2) Попросити Blazor оновити розмітку, щоб параметри доїхали у дочірній компонент
+        await InvokeAsync(StateHasChanged);
+
+        // 3) Відкрити модалку — всередині вона прочитає вже актуальні параметри
+        await _addActionModal.OpenAsync();
     }
 
-    private async Task OpenAddAction(Guid personId)
-    {
-        if (_plan is null || _addActionModal is null) return;
-        await _addActionModal.OpenAsync(_plan.PlanNumber, personId);
-    }
-
-    private Task OpenAddBatch()
+    private async Task OpenAddBatch()
     {
        /* if (_plan is null || _addBatchModal is null) return;
 
@@ -78,8 +89,34 @@ public partial class PlanDetailsPage : ComponentBase, IDisposable
         {
             PlanNumber = _plan.PlanNumber
         });*/
+    }
 
-        return Task.CompletedTask;
+    private async Task ClosePlan()
+    {
+        if (_plan is null) return;
+
+        var ok = await _confirm.ShowConfirmAsync($"Закрити план «{_plan.PlanNumber}»? Подальші дії стануть недоступними.");
+        if (!ok) return;
+
+        try
+        {
+            SetBusy(true);
+            var result = await PlanService.ClosePlanAsync(_plan.Id, author: "ui", _cts.Token);
+            if (result)
+            {
+                Toasts.ShowSuccess("План закрито.");
+                await ReloadAsync();
+            }
+            else
+            {
+                Toasts.ShowWarning("План не знайдено.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Toasts.ShowError("Не вдалося закрити план. " + ex.Message);
+        }
+        finally { SetBusy(false); }
     }
 
     private async Task OnActionSaved()
@@ -95,11 +132,7 @@ public partial class PlanDetailsPage : ComponentBase, IDisposable
     }
 
     private void SetBusy(bool v) { Busy = v; StateHasChanged(); }
-
-    public void Dispose()
-    {
-        _cts.Cancel();
-        _cts.Dispose();
-        GC.SuppressFinalize(this);
-    }
+    private bool CanEdit =>
+    _loaded && !Busy && _plan is not null && _plan.State == PlanState.Open;
+    public void Dispose() { _cts.Cancel(); _cts.Dispose(); GC.SuppressFinalize(this); }
 }

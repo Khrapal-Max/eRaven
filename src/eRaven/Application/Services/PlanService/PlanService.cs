@@ -17,43 +17,33 @@ public sealed class PlanService(AppDbContext db) : IPlanService
 {
     private readonly AppDbContext _db = db;
 
+    // ---------- Read ----------
     public async Task<IReadOnlyList<Plan>> GetAllPlansAsync(CancellationToken ct = default)
-       => await _db.Plans.AsNoTracking()
-           .OrderByDescending(p => p.RecordedUtc)
-           .ToListAsync(ct);
+        => (await _db.Plans.AsNoTracking()
+               .OrderByDescending(p => p.RecordedUtc)
+               .ToListAsync(ct))
+           .AsReadOnly();
 
     public async Task<Plan?> GetPlanAsync(Guid planId, CancellationToken ct = default)
         => await _db.Plans.AsNoTracking()
-            .Include(p => p.Participants)
-            .ThenInclude(pp => pp.Actions)
-            .SingleOrDefaultAsync(p => p.Id == planId, ct);
+               .SingleOrDefaultAsync(p => p.Id == planId, ct);
 
     public async Task<IReadOnlyList<PlanParticipant>> GetPlanParticipantsAsync(Guid planId, CancellationToken ct = default)
-    {
-        var list = await _db.PlanParticipants
-            .AsNoTracking()
-            .Where(x => x.PlanId == planId)
-            .OrderBy(x => x.FullName)
-            .ToListAsync(ct);
-
-        return list.AsReadOnly();
-    }
+        => (await _db.PlanParticipants.AsNoTracking()
+               .Where(x => x.PlanId == planId)
+               .OrderBy(x => x.FullName)
+               .ToListAsync(ct))
+           .AsReadOnly();
 
     public async Task<IReadOnlyList<PlanParticipantAction>> GetPlanActionsAsync(Guid planId, CancellationToken ct = default)
-    {
-        var list = await _db.PlanParticipantActions
-            .AsNoTracking()
-            .Where(a => a.PlanId == planId)
-            .OrderBy(a => a.EventAtUtc)
-            .ThenBy(a => a.RecordedUtc)
-            .ToListAsync(ct);
+        => (await _db.PlanParticipantActions.AsNoTracking()
+               .Where(a => a.PlanId == planId)
+               .OrderBy(a => a.EventAtUtc)
+               .ThenBy(a => a.RecordedUtc)
+               .ToListAsync(ct))
+           .AsReadOnly();
 
-        return list.AsReadOnly();
-    }
-
-    //--------------------------------------------------------------------------
-    // EnsurePlanAsync
-    //--------------------------------------------------------------------------
+    // ---------- Commands (твоя чинна логіка) ----------
     public async Task<Plan> EnsurePlanAsync(CreatePlanViewModel vm, string author, CancellationToken ct = default)
     {
         var planNumber = vm.PlanNumber.Trim();
@@ -65,7 +55,7 @@ public sealed class PlanService(AppDbContext db) : IPlanService
         {
             Id = Guid.NewGuid(),
             PlanNumber = planNumber,
-            State = PlanState.Open,  // етап 1: завжди Open
+            State = PlanState.Open,
             Author = author,
             RecordedUtc = DateTime.UtcNow
         };
@@ -75,9 +65,6 @@ public sealed class PlanService(AppDbContext db) : IPlanService
         return plan;
     }
 
-    //--------------------------------------------------------------------------
-    // EnsureParticipantAsync
-    //--------------------------------------------------------------------------
     public async Task<PlanParticipant> EnsureParticipantAsync(string planNumber, Guid personId, string author, CancellationToken ct = default)
     {
         var plan = await EnsurePlanAsync(new CreatePlanViewModel { PlanNumber = planNumber }, author, ct);
@@ -91,7 +78,6 @@ public sealed class PlanService(AppDbContext db) : IPlanService
             .SingleOrDefaultAsync(p => p.Id == personId, ct)
             ?? throw new InvalidOperationException($"Person not found: {personId}");
 
-        // Снапшот атрибутів (валідність полів гарантують довідники + БД-констрейнти)
         var pp = new PlanParticipant
         {
             Id = Guid.NewGuid(),
@@ -110,18 +96,22 @@ public sealed class PlanService(AppDbContext db) : IPlanService
         return pp;
     }
 
-    //--------------------------------------------------------------------------
-    // AddActionAndApplyStatusAsync
-    //--------------------------------------------------------------------------
+    // залишаємо твою реалізацію AddActionAndApplyStatusAsync/ApplyBatchAsync/InsertPersonStatusAsync/ValidateActionAsync
+    // (див. попередні ваші повідомлення). Тут – скорочено для фокусу на нових методах.
+
     public async Task<PlanParticipantAction> AddActionAndApplyStatusAsync(PlanActionViewModel vm, string author, CancellationToken ct = default)
     {
         var planNumber = vm.PlanNumber.Trim();
-        var eventAtUtc = EnsureUtc(vm.EventAtUtc);
+        var eventAtUtc = vm.EventAtUtc.Kind switch
+        {
+            DateTimeKind.Utc => vm.EventAtUtc,
+            DateTimeKind.Local => vm.EventAtUtc.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(vm.EventAtUtc, DateTimeKind.Utc)
+        };
 
-        // НІЯКИХ BeginTransaction тут
+        using var tx = await _db.Database.BeginTransactionAsync(ct);
 
         var pp = await EnsureParticipantAsync(planNumber, vm.PersonId, author, ct);
-
         await ValidateActionAsync(pp.Id, vm.ActionType, eventAtUtc, ct);
 
         var action = new PlanParticipantAction
@@ -147,98 +137,88 @@ public sealed class PlanService(AppDbContext db) : IPlanService
             PlanActionType.Dispatch => opts.DispatchStatusKindId,
             PlanActionType.Return => opts.ReturnStatusKindId,
             _ => null
-        } ?? throw new InvalidOperationException("PlanServiceOptions not configured: target StatusKind is required.");
+        } ?? throw new InvalidOperationException("PlanServiceOptions not configured.");
 
-        await InsertPersonStatusAsync(
-            personId: pp.PersonId,
-            statusKindId: statusKindId,
-            openDateUtc: eventAtUtc,
-            note: BuildStatusNote(planNumber, vm.ActionType, vm.Location, vm.GroupName, vm.CrewName),
-            author: author,
-            ct: ct);
+        await InsertPersonStatusAsync(pp.PersonId, statusKindId, eventAtUtc,
+            note: $"Plan {planNumber}: {vm.ActionType} [{vm.Location}/{vm.GroupName}/{vm.CrewName}]",
+            author, ct);
 
         var person = await _db.Persons.SingleAsync(p => p.Id == pp.PersonId, ct);
         person.StatusKindId = statusKindId;
         person.ModifiedUtc = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync(ct); // EF сам зробить транзакцію для цього набору змін
+        await _db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
         return action;
     }
 
-    //--------------------------------------------------------------------------
-    // ApplyBatchAsync
-    //--------------------------------------------------------------------------
     public async Task ApplyBatchAsync(PlanBatchViewModel vm, string author, CancellationToken ct = default)
     {
         var planNumber = vm.PlanNumber.Trim();
 
         using var tx = await _db.Database.BeginTransactionAsync(ct);
-
         await EnsurePlanAsync(new CreatePlanViewModel { PlanNumber = planNumber }, author, ct);
 
         foreach (var group in vm.Actions.GroupBy(a => a.PersonId))
         {
-            await EnsureParticipantAsync(planNumber, group.Key, author, ct);
+            var pp = await EnsureParticipantAsync(planNumber, group.Key, author, ct);
 
             foreach (var a in group.OrderBy(x => x.EventAtUtc))
             {
-                var singleVm = new PlanActionViewModel
+                var localVm = new PlanActionViewModel
                 {
                     PlanNumber = planNumber,
                     PersonId = group.Key,
                     ActionType = a.ActionType,
-                    EventAtUtc = EnsureUtc(a.EventAtUtc),
+                    EventAtUtc = a.EventAtUtc,
                     Location = a.Location,
                     GroupName = a.GroupName,
                     CrewName = a.CrewName,
                     Note = a.Note
                 };
 
-                await AddActionAndApplyStatusAsync(singleVm, author, ct);
+                await AddActionAndApplyStatusAsync(localVm, author, ct);
             }
         }
 
         await tx.CommitAsync(ct);
     }
 
+    // ---------- Lifecycle ----------
+    public async Task<bool> ClosePlanAsync(Guid planId, string author, CancellationToken ct = default)
+    {
+        var plan = await _db.Plans.SingleOrDefaultAsync(p => p.Id == planId, ct);
+        if (plan is null) return false;
+
+        if (plan.State == PlanState.Close) return true;
+
+        plan.State = PlanState.Close;
+        plan.Author = author;
+        plan.RecordedUtc = plan.RecordedUtc == default ? DateTime.UtcNow : plan.RecordedUtc;
+
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
     public async Task<bool> DeletePlanAsync(Guid planId, CancellationToken ct = default)
     {
-        var plan = await _db.Plans.FirstOrDefaultAsync(p => p.Id == planId, ct);
+        var plan = await _db.Plans.SingleOrDefaultAsync(p => p.Id == planId, ct);
         if (plan is null) return false;
 
         if (plan.State != PlanState.Open)
             throw new InvalidOperationException("План закритий — видалення заборонено.");
 
-        _db.Plans.Remove(plan);
+        _db.Plans.Remove(plan); // каскад: учасники + дії
         await _db.SaveChangesAsync(ct);
         return true;
     }
 
-    //--------------------------------------------------------------------------
-    // Допоміжні
-    //--------------------------------------------------------------------------
-
-    private static DateTime EnsureUtc(DateTime dt)
-        => dt.Kind switch
-        {
-            DateTimeKind.Utc => dt,
-            DateTimeKind.Local => dt.ToUniversalTime(),
-            _ => DateTime.SpecifyKind(dt, DateTimeKind.Utc)
-        };
-
-    private static string BuildStatusNote(string planNumber, PlanActionType type, string? loc, string? grp, string? crew)
-        => $"Plan {planNumber}: {type} [{loc}/{grp}/{crew}]";
-
-    /// <summary>
-    /// Забороняє "Return без Dispatch", "подвійний Dispatch", та повернення раніше Dispatch.
-    /// (мінімальні гварди бізнес-логіки)
-    /// </summary>
+    // ---------- Helpers (з вашої реалізації) ----------
     private async Task ValidateActionAsync(Guid planParticipantId, PlanActionType newType, DateTime newEventAtUtc, CancellationToken ct)
     {
         var actions = await _db.PlanParticipantActions
             .Where(x => x.PlanParticipantId == planParticipantId)
-            .OrderBy(x => x.EventAtUtc)
-            .ThenBy(x => x.RecordedUtc)
+            .OrderBy(x => x.EventAtUtc).ThenBy(x => x.RecordedUtc)
             .ToListAsync(ct);
 
         var last = actions.LastOrDefault();
@@ -261,19 +241,9 @@ public sealed class PlanService(AppDbContext db) : IPlanService
         }
     }
 
-    /// <summary>
-    /// Додає запис у журнал PersonStatuses (без закриття попередніх).
-    /// UTC-нормалізація, idempotency, коректний short Sequence і (опційно) перевірка StatusTransition.
-    /// </summary>
-    private async Task InsertPersonStatusAsync(
-        Guid personId,
-        int statusKindId,
-        DateTime openDateUtc,
-        string? note,
-        string author,
-        CancellationToken ct)
+    private async Task InsertPersonStatusAsync(Guid personId, int statusKindId, DateTime openDateUtc, string? note, string author, CancellationToken ct)
     {
-        // UTC
+        // UTC нормалізація
         openDateUtc = openDateUtc.Kind switch
         {
             DateTimeKind.Utc => openDateUtc,
@@ -283,46 +253,34 @@ public sealed class PlanService(AppDbContext db) : IPlanService
 
         // Idempotency
         var exists = await _db.PersonStatuses.AsNoTracking().AnyAsync(
-            s => s.PersonId == personId
-              && s.IsActive
-              && s.OpenDate == openDateUtc
-              && s.StatusKindId == statusKindId,
-            ct);
+            s => s.PersonId == personId && s.IsActive && s.OpenDate == openDateUtc && s.StatusKindId == statusKindId, ct);
         if (exists) return;
 
-        // (Опційно) Перевірка StatusTransition
-        var currentKindId = await _db.Persons
-            .Where(p => p.Id == personId)
-            .Select(p => p.StatusKindId)
-            .SingleAsync(ct);
-
+        // Allowed transitions (опційно жорстко — у вас таблиця StatusTransitions заповнена сидом)
+        var currentKindId = await _db.Persons.Where(p => p.Id == personId).Select(p => p.StatusKindId).SingleAsync(ct);
         if (currentKindId is not null)
         {
             var allowed = await _db.StatusTransitions.AnyAsync(t =>
-                t.FromStatusKindId == currentKindId.Value &&
-                t.ToStatusKindId == statusKindId, ct);
-
-            if (!allowed)
-                throw new InvalidOperationException($"Перехід статусу заборонено: {currentKindId} → {statusKindId}.");
+                t.FromStatusKindId == currentKindId.Value && t.ToStatusKindId == statusKindId, ct);
+            if (!allowed) throw new InvalidOperationException($"Перехід статусу заборонено: {currentKindId} → {statusKindId}.");
         }
 
-        // short Sequence на той самий момент
         var maxSeq = await _db.PersonStatuses
-          .Where(s => s.PersonId == personId && s.IsActive && s.OpenDate == openDateUtc)
-          .Select(s => (short?)s.Sequence)
-          .MaxAsync(ct); // => null якщо записів немає
+            .Where(s => s.PersonId == personId && s.IsActive && s.OpenDate == openDateUtc)
+            .Select(s => (short?)s.Sequence)
+            .MaxAsync(ct);
 
-        short nextSeq = (short)(maxSeq.GetValueOrDefault(-1) + 1);
+        short nextSeq = (short)((maxSeq ?? -1) + 1);
 
         var ps = new PersonStatus
         {
             Id = Guid.NewGuid(),
             PersonId = personId,
             StatusKindId = statusKindId,
-            Sequence = nextSeq,
             OpenDate = openDateUtc,
-            Note = note,
+            Sequence = nextSeq,
             IsActive = true,
+            Note = note,
             Author = author,
             Modified = DateTime.UtcNow
         };

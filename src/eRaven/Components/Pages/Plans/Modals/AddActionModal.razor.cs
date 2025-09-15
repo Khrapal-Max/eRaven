@@ -4,7 +4,6 @@
 // CreatePlanViewModelValidator
 // -----------------------------------------------------------------------------
 
-using Blazored.FluentValidation;
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PlanService;
@@ -17,30 +16,24 @@ namespace eRaven.Components.Pages.Plans.Modals;
 
 public partial class AddActionModal : ComponentBase
 {
+    [Parameter] public string PlanNumber { get; set; } = default!;
+    [Parameter] public Guid? PreselectedPersonId { get; set; }
     [Parameter] public EventCallback OnSaved { get; set; }
 
     [Inject] protected IPersonService PersonService { get; set; } = default!;
     [Inject] protected IPlanService PlanService { get; set; } = default!;
-    [Inject] protected IToastService Toasts { get; set; } = default!;
+    [Inject] protected IToastService ToastService { get; set; } = default!;
 
-    // UI state
     protected bool _open;
     protected bool _busy;
 
-    // форма
     public PlanActionViewModel Model { get; private set; } = new();
     protected List<Person> _people = [];
-    protected FluentValidationValidator? _fv;
-
-    // локальний час з інпута
     protected DateTime _whenLocal = DateTime.Now;
 
     private CancellationTokenSource? _cts;
 
-    /// <summary>
-    /// Відкрити модалку й одразу встановити план і (необов’язково) попередньо обрану особу.
-    /// </summary>
-    public async Task OpenAsync(string planNumber, Guid? preselectedPersonId = null)
+    public async Task OpenAsync()
     {
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
@@ -48,12 +41,13 @@ public partial class AddActionModal : ComponentBase
         _busy = false;
         _open = true;
 
+        // ініціалізуємо форму, беручи значення з параметрів
         Model = new PlanActionViewModel
         {
-            PlanNumber = planNumber,
-            PersonId = preselectedPersonId ?? Guid.Empty,
+            PlanNumber = PlanNumber ?? string.Empty,
+            PersonId = PreselectedPersonId ?? Guid.Empty,
             ActionType = PlanActionType.Dispatch,
-            EventAtUtc = DateTime.Now,   // перед сабмітом замінимо на _whenLocal (Local)
+            EventAtUtc = DateTime.Now,      // локальний; сервіс переведе в UTC
             Location = string.Empty,
             GroupName = string.Empty,
             CrewName = string.Empty,
@@ -62,8 +56,8 @@ public partial class AddActionModal : ComponentBase
 
         _whenLocal = DateTime.Now;
 
-        // людей беремо тільки через сервіс
-        _people = [.. await PersonService.SearchAsync(null, _cts.Token)];
+        // лише через сервіс
+        _people = [.. (await PersonService.SearchAsync(null, _cts.Token))];
 
         await InvokeAsync(StateHasChanged);
     }
@@ -77,38 +71,23 @@ public partial class AddActionModal : ComponentBase
 
     protected async Task SubmitAsync()
     {
-        if (!await _fv!.ValidateAsync()) return;
-
         Model.EventAtUtc = DateTime.SpecifyKind(_whenLocal, DateTimeKind.Local);
 
-        await SaveAsync();
-    }
-
-    private async Task SaveAsync()
-    {
         try
         {
             _busy = true;
-
-            // легка нормалізація
-            Model.Location = Model.Location?.Trim() ?? string.Empty;
-            Model.GroupName = Model.GroupName?.Trim() ?? string.Empty;
-            Model.CrewName = Model.CrewName?.Trim() ?? string.Empty;
-            Model.Note = string.IsNullOrWhiteSpace(Model.Note) ? null : Model.Note.Trim();
-
             await PlanService.AddActionAndApplyStatusAsync(Model, author: "ui", ct: _cts?.Token ?? default);
-
             _open = false;
             await OnSaved.InvokeAsync();
         }
         catch (Exception ex)
         {
-            // бізнес-інваріанти (Return без Dispatch тощо) приїдуть сюди
-            Toasts.ShowError(ex.Message);
+            ToastService.ShowError(ex.Message);
         }
-
-        _open = false;
-        _busy = false;
-        await InvokeAsync(StateHasChanged);
+        finally
+        {
+            _busy = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 }

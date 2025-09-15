@@ -24,13 +24,16 @@
                 <i class="bi bi-arrow-left"></i> Назад
             </button>
 
-            <!-- ✅ тепер викликає безпараметровий Task-метод -->
-            <button class="btn btn-sm btn-success" @onclick="OpenAddAction" disabled="@Busy || _plan.State != PlanState.Open">
+            <button class="btn btn-sm btn-success" @onclick="OpenAddAction" disabled="@( !CanEdit )">
                 <i class="bi bi-person-plus"></i> Додати дію
             </button>
 
-            <button class="btn btn-sm btn-primary" @onclick="OpenAddBatch" disabled="@Busy || _plan.State != PlanState.Open">
+            <button class="btn btn-sm btn-primary" @onclick="OpenAddBatch" disabled="@( !CanEdit )">
                 <i class="bi bi-collection"></i> Пакет дій
+            </button>
+
+            <button class="btn btn-sm btn-warning" @onclick="ClosePlan" disabled="@( !CanEdit )">
+                <i class="bi bi-lock"></i> Закрити план
             </button>
         </div>
     </div>
@@ -151,8 +154,10 @@
 
 <ConfirmModal @ref="_confirm" />
 
-<AddActionModal @ref="_addActionModal" 
-               OnSaved="OnActionSaved" />
+<AddActionModal @ref="_addActionModal"
+                PlanNumber="@(_plan?.PlanNumber ?? string.Empty)"
+                PreselectedPersonId="@_preselectedPersonId"
+                OnSaved="OnActionSaved" />
 
 @* <AddBatchModal @ref="_addBatchModal"
                OnSaved="OnBatchSaved" /> *@
