@@ -12,7 +12,7 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250915105128_Initial")]
+    [Migration("20250915144611_Initial")]
     partial class Initial
     {
         /// <inheritdoc />

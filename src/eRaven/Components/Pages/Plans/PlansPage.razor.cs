@@ -1,4 +1,4 @@
-﻿/*// -----------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 // -----------------------------------------------------------------------------
 // PlansPage
@@ -7,9 +7,12 @@
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PlanService;
 using eRaven.Application.ViewModels.PlanViewModels;
+using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
+using eRaven.Infrastructure;
 using Microsoft.AspNetCore.Components;
+using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Components.Pages.Plans;
 
@@ -27,6 +30,7 @@ public partial class PlansPage : ComponentBase, IDisposable
     private IReadOnlyList<Plan> _view = [];
 
     private bool _createOpen;
+    private ConfirmModal _confirm = default!; // ← інстанс модалки
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
@@ -35,6 +39,7 @@ public partial class PlansPage : ComponentBase, IDisposable
         try
         {
             SetBusy(true);
+            _all = [.. await PlanService.GetAllPlansAsync(_cts.Token)];
             ApplyFilter();
         }
         catch (Exception ex)
@@ -46,7 +51,11 @@ public partial class PlansPage : ComponentBase, IDisposable
         finally { SetBusy(false); }
     }
 
-    protected Task OnSearchAsync() { ApplyFilter(); return Task.CompletedTask; }
+    protected Task OnSearchAsync()
+    {
+        ApplyFilter();
+        return Task.CompletedTask;
+    }
 
     private void ApplyFilter()
     {
@@ -65,11 +74,22 @@ public partial class PlansPage : ComponentBase, IDisposable
         try
         {
             Busy = true;
-            var vm = new CreatePlanViewModel { PlanNumber = (planNumber ?? string.Empty).Trim(), State = PlanState.Open };
+
+            var vm = new CreatePlanViewModel
+            {
+                PlanNumber = (planNumber ?? string.Empty).Trim(),
+                State = PlanState.Open
+            };
+
+            var created = await PlanService.EnsurePlanAsync(vm, author: "ui", _cts.Token);
 
             _createOpen = false;
             ToastService.ShowSuccess("План створено.");
             Navigation.NavigateTo($"/plans/{created.Id:D}");
+        }
+        catch (DbUpdateException)
+        {
+            ToastService.ShowWarning("Такий номер плану вже існує. Спробуйте інший.");
         }
         catch (Exception ex)
         {
@@ -84,14 +104,38 @@ public partial class PlansPage : ComponentBase, IDisposable
 
     private async Task DeletePlanAsync(Plan p)
     {
-        if (p.State != PlanState.Open) { ToastService.ShowWarning("План закритий — видалення заборонено."); return; }
+        if (p.State != PlanState.Open)
+        {
+            ToastService.ShowWarning("План закритий — видалення заборонено.");
+            return;
+        }
+
+        var ok = await _confirm.ShowConfirmAsync(
+            $"Видалити план «{p.PlanNumber}»? Дію неможливо скасувати.");
+        if (!ok) return;
+
         try
         {
             SetBusy(true);
-            if (ok) ToastService.ShowSuccess("План видалено.");
-            await ReloadAsync();
+            var deleted = await PlanService.DeletePlanAsync(p.Id, _cts.Token);
+            if (deleted)
+            {
+                ToastService.ShowSuccess("План видалено.");
+                await ReloadAsync();
+            }
+            else
+            {
+                ToastService.ShowWarning("План уже видалено або не знайдено.");
+            }
         }
-        catch (Exception ex) { ToastService.ShowError("Не вдалося видалити план. " + ex.Message); }
+        catch (InvalidOperationException ex)
+        {
+            ToastService.ShowWarning(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Не вдалося видалити план. " + ex.Message);
+        }
         finally { SetBusy(false); }
     }
 
@@ -107,7 +151,6 @@ public partial class PlansPage : ComponentBase, IDisposable
         StateHasChanged();
     }
 
-
     private void SetBusy(bool v) { Busy = v; StateHasChanged(); }
 
     public void Dispose()
@@ -117,4 +160,3 @@ public partial class PlansPage : ComponentBase, IDisposable
         GC.SuppressFinalize(this);
     }
 }
-*/

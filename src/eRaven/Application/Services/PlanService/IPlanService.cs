@@ -3,6 +3,7 @@
 //-----------------------------------------------------------------------------
 // IPlanService
 //-----------------------------------------------------------------------------
+
 using eRaven.Application.ViewModels.PlanViewModels;
 using eRaven.Domain.Models;
 
@@ -14,6 +15,38 @@ namespace eRaven.Application.Services.PlanService;
 /// </summary>
 public interface IPlanService
 {
+    /// <summary>
+    /// Повертає всі плани
+    /// </summary>
+    /// <param name="planId"></param>
+    /// <param name="ct"></param>
+    /// <returns>IEnumerable Plan(<see cref="Plan"/>)</returns>
+    Task<IReadOnlyList<Plan>> GetAllPlansAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Повертає план або null.
+    /// </summary>
+    /// <param name="planId"></param>
+    /// <param name="ct"></param>
+    /// <returns>Plan?(<see cref="Plan"/>)</returns>
+    Task<Plan?> GetPlanAsync(Guid planId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Повертає всіх учасників плану
+    /// </summary>
+    /// <param name="planId"></param>
+    /// <param name="ct"></param>
+    /// <returns>IReadOnlyList PlanParticipant(<see cref="PlanParticipant"/>)</returns>
+    Task<IReadOnlyList<PlanParticipant>> GetPlanParticipantsAsync(Guid planId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Повертає всі дії учасників плану
+    /// </summary>
+    /// <param name="planId"></param>
+    /// <param name="ct"></param>
+    /// <returns>IReadOnlyList PlanParticipantAction(<see cref="PlanParticipantAction"/>)</returns>
+    Task<IReadOnlyList<PlanParticipantAction>> GetPlanActionsAsync(Guid planId, CancellationToken ct = default);
+
     /// <summary>
     /// Створює план або повертає існуючий за унікальним номером.
     /// PlanNumber нормалізується (Trim). State ігнорується (на першому етапі завжди Open).
@@ -38,4 +71,10 @@ public interface IPlanService
     /// На кожній дії виставляється PersonStatus. Порядок всередині кожної особи — за EventAtUtc.
     /// </summary>
     Task ApplyBatchAsync(PlanBatchViewModel vm, string author, CancellationToken ct = default);
+
+    /// <summary>
+    /// Спроба видалення плану. Дозволено лише якщо State = Open.
+    /// Повертає true, якщо видалено.
+    /// </summary>
+    Task<bool> DeletePlanAsync(Guid planId, CancellationToken ct = default);
 }

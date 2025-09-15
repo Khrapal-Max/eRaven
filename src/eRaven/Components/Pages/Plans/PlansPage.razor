@@ -1,15 +1,8 @@
-﻿@* -----------------------------------------------------------------------------
-   PlansPage (view)
-   - Пошук по номеру
-   - Список планів
-   - Створення плану (inline modal)
-   -----------------------------------------------------------------------------
-
-@page "/plans"
+﻿@page "/plans"
 
 @using eRaven.Domain.Enums
 @using eRaven.Domain.Models
-@using eRaven.Components.Pages.Plans.Modals;
+@using eRaven.Components.Pages.Plans.Modals
 
 <PageTitle>Плани</PageTitle>
 
@@ -32,7 +25,11 @@
         </button>
     </div>
 
-    @if (_view.Any())
+    @if (Busy)
+    {
+        <div class="h5 px-2">Завантаження…</div>
+    }
+    else if (_view.Any())
     {
         <div class="bg-dark rounded flex-grow-1 d-flex">
             <TableBaseComponent Items="_view"
@@ -63,7 +60,8 @@
                     </td>
                     <td class="text-center">@p.Author</td>
                     <td class="text-center">
-                        <button class="btn btn-sm btn-danger" title="Видалити"
+                        <button class="btn btn-sm btn-danger"
+                                title="Видалити"
                                 @onclick="() => DeletePlanAsync(p)"
                                 disabled="@Busy || p.State != PlanState.Open">
                             <i class="bi bi-trash"></i>
@@ -75,15 +73,21 @@
     }
     else
     {
-        <div class="h5 px-2">@((Busy ? "Завантаження…" : "Плани відсутні або нічого не знайдено."))</div>
+        <div class="h5 px-2">Плани відсутні або нічого не знайдено.</div>
     }
 </div>
 
 @if (_createOpen)
 {
     <CreatePlanModal Open="@_createOpen"
-                 Busy="@Busy"
-                 OnCancel="CloseCreateModal"
-                 OnCreate="CreatePlanAsync" />
+                     Busy="@Busy"
+                     OnCancel="CloseCreateModal"
+                     OnCreate="CreatePlanAsync" />
 }
- *@
+
+<!-- Confirm modal instance -->
+<ConfirmModal @ref="_confirm"
+              Title="Підтвердження"
+              ConfirmText="Видалити"
+              CancelText="Скасувати"
+              DialogSize="modal-sm" />

@@ -17,6 +17,40 @@ public sealed class PlanService(AppDbContext db) : IPlanService
 {
     private readonly AppDbContext _db = db;
 
+    public async Task<IReadOnlyList<Plan>> GetAllPlansAsync(CancellationToken ct = default)
+       => await _db.Plans.AsNoTracking()
+           .OrderByDescending(p => p.RecordedUtc)
+           .ToListAsync(ct);
+
+    public async Task<Plan?> GetPlanAsync(Guid planId, CancellationToken ct = default)
+        => await _db.Plans.AsNoTracking()
+            .Include(p => p.Participants)
+            .ThenInclude(pp => pp.Actions)
+            .SingleOrDefaultAsync(p => p.Id == planId, ct);
+
+    public async Task<IReadOnlyList<PlanParticipant>> GetPlanParticipantsAsync(Guid planId, CancellationToken ct = default)
+    {
+        var list = await _db.PlanParticipants
+            .AsNoTracking()
+            .Where(x => x.PlanId == planId)
+            .OrderBy(x => x.FullName)
+            .ToListAsync(ct);
+
+        return list.AsReadOnly();
+    }
+
+    public async Task<IReadOnlyList<PlanParticipantAction>> GetPlanActionsAsync(Guid planId, CancellationToken ct = default)
+    {
+        var list = await _db.PlanParticipantActions
+            .AsNoTracking()
+            .Where(a => a.PlanId == planId)
+            .OrderBy(a => a.EventAtUtc)
+            .ThenBy(a => a.RecordedUtc)
+            .ToListAsync(ct);
+
+        return list.AsReadOnly();
+    }
+
     //--------------------------------------------------------------------------
     // EnsurePlanAsync
     //--------------------------------------------------------------------------
@@ -165,6 +199,19 @@ public sealed class PlanService(AppDbContext db) : IPlanService
         }
 
         await tx.CommitAsync(ct);
+    }
+
+    public async Task<bool> DeletePlanAsync(Guid planId, CancellationToken ct = default)
+    {
+        var plan = await _db.Plans.FirstOrDefaultAsync(p => p.Id == planId, ct);
+        if (plan is null) return false;
+
+        if (plan.State != PlanState.Open)
+            throw new InvalidOperationException("План закритий — видалення заборонено.");
+
+        _db.Plans.Remove(plan);
+        await _db.SaveChangesAsync(ct);
+        return true;
     }
 
     //--------------------------------------------------------------------------
