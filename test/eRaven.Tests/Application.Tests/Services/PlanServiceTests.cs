@@ -103,7 +103,7 @@ public class PlanServiceTests
         var db = dbh.Db;
         var svc = new PlanService(db);
         var before = DateTime.UtcNow;
-        var req = new CreatePlanViewModel("PL-100", "tester");
+        var req = new CreatePlanViewModel { PlanNumber = "PL-100", Author = "tester" };
 
         // Act
         var created = await svc.CreateAsync(req);

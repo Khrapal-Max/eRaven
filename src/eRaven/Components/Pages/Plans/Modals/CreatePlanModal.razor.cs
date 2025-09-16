@@ -1,53 +1,54 @@
-﻿/*// -----------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 // -----------------------------------------------------------------------------
 // CreatePlanModal
 // -----------------------------------------------------------------------------
 
+using eRaven.Application.Services.PlanService;
+using eRaven.Application.ViewModels.PlanViewModels;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Plans.Modals;
 
 public partial class CreatePlanModal : ComponentBase
 {
-    // Вхідні параметри
-    [Parameter] public bool Open { get; set; }
-    [Parameter] public bool Busy { get; set; }
-    [Parameter] public EventCallback OnCancel { get; set; }
-    [Parameter] public EventCallback<string> OnCreate { get; set; }
+    [Inject] public IPlanService PlanService { get; set; } = default!;
 
-    // Локальний стан
-    protected string? _number;
-    protected string? _error;
+    // керування модалкою
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
 
-    protected bool IsCreateDisabled
-        => Busy || string.IsNullOrWhiteSpace(Trimmed);
+    // повідомити батька про створення (з поверненням створеного плану)
+    [Parameter] public EventCallback<PlanViewModel> OnCreated { get; set; }
 
-    protected string Trimmed
-        => (_number ?? string.Empty).Trim();
+    private CreatePlanViewModel _model = new(); // мутабельна VM
+    private bool _busy;
 
-    protected async Task OnCancelClicked()
+    public void Open()
     {
-        _error = null;
-        _number = null;
-        await OnCancel.InvokeAsync();
+        _model = new(); // reset
+        _ = InvokeAsync(StateHasChanged);
     }
 
-    protected async Task OnCreateClicked()
+    private async Task CreateAsync()
     {
-        _error = null;
-
-        var v = Trimmed;
-
-        // міні-валідатор
-        if (v.Length < 2 || v.Length > 64)
+        if (_busy) return;
+        _busy = true;
+        try
         {
-            _error = "Довжина назви має бути 2–64 символи.";
-            StateHasChanged();
-            return;
+            var created = await PlanService.CreateAsync(_model);
+            await OnCreated.InvokeAsync(created);
+            await Close();
         }
+        finally
+        {
+            _busy = false;
+        }
+    }
 
-        await OnCreate.InvokeAsync(v);
+    private async Task Close()
+    {
+        if (OnClose.HasDelegate)
+            await OnClose.InvokeAsync();
     }
 }
-*/

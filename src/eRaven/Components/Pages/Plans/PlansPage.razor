@@ -1,93 +1,76 @@
-﻿@* @page "/plans"
+﻿@page "/plans"
 
 @using eRaven.Domain.Enums
-@using eRaven.Domain.Models
+@using eRaven.Application.ViewModels.PlanViewModels
+@using eRaven.Components.Shared.TableBaseComponent
 @using eRaven.Components.Pages.Plans.Modals
 
-<PageTitle>Плани</PageTitle>
 
-<div class="container-fluid py-2 d-flex flex-column" style="gap:.5rem; min-height:70vh;">
-
-    <div class="d-flex align-items-center gap-2 p-1 flex-wrap justify-content-between w-100">
-        <div class="flex-grow-1" style="min-width:260px; max-width:600px;">
-            <SearchBox @bind-Value="Search"
-                       Delay="350"
-                       Placeholder="Пошук за номером плану…"
-                       Disabled="@Busy"
-                       OnSearch="OnSearchAsync" />
-        </div>
-
-        <button class="btn btn-sm btn-primary"
-                @onclick="OpenCreateModal"
-                disabled="@Busy"
-                title="Створити план">
-            <i class="bi bi-plus-circle me-1"></i> Створити план
-        </button>
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="m-0 fw-bold">Плани</h5>
+    <div class="btn-toolbar gap-2">
+        <a class="btn btn-success text-nowrap" href="/orders/publish">Опублікувати добовий наказ</a>
+        <button class="btn btn-primary text-nowrap" @onclick="OpenCreateModal">Новий план</button>
     </div>
-
-    @if (Busy)
-    {
-        <div class="h5 px-2">Завантаження…</div>
-    }
-    else if (_view.Any())
-    {
-        <div class="bg-dark rounded flex-grow-1 d-flex">
-            <TableBaseComponent Items="_view"
-                                TItem="Plan"
-                                Class="table align-middle mb-0">
-                <TableHeader>
-                    <th class="text-black text-center">№ плану</th>
-                    <th class="text-black text-center">Дата запису</th>
-                    <th class="text-black text-center">Стан</th>
-                    <th class="text-black text-center">Автор</th>
-                    <th class="text-black text-center">Дії</th>
-                </TableHeader>
-
-                <RowTemplate Context="p">
-                    <td class="text-center">
-                        <a href="@($"/plans/{p.Id:D}")" class="text-decoration-none">@p.PlanNumber</a>
-                    </td>
-                    <td class="text-center">@p.RecordedUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
-                    <td class="text-center">
-                        @if (p.State == PlanState.Open)
-                        {
-                            <span class="badge text-bg-success">Відкритий</span>
-                        }
-                        else
-                        {
-                            <span class="badge text-bg-secondary">Закритий</span>
-                        }
-                    </td>
-                    <td class="text-center">@p.Author</td>
-                    <td class="text-center">
-                        <button class="btn btn-sm btn-danger"
-                                title="Видалити"
-                                @onclick="() => DeletePlanAsync(p)"
-                                disabled="@Busy || p.State != PlanState.Open">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </td>
-                </RowTemplate>
-            </TableBaseComponent>
-        </div>
-    }
-    else
-    {
-        <div class="h5 px-2">Плани відсутні або нічого не знайдено.</div>
-    }
 </div>
 
-@if (_createOpen)
+<TableBaseComponent TItem="PlanViewModel"
+                    Class="align-middle"
+                    Items="_plans"
+                    SelectedItem="_selected"
+                    SelectedItemChanged="OnSelectedChanged"
+                    OnClick="OnRowClick"
+                    MaxHeight="80vh"
+                    MinHeight="300px">
+    <TableHeader>
+        <th class="text-black" scope="col">Номер</th>
+        <th class="text-black" scope="col">Стан</th>
+        <th class="text-black" scope="col">Автор</th>
+        <th class="text-black" scope="col">Створено (UTC)</th>
+        <th class="text-black" scope="col">Наказ</th>
+        <th class="text-black" scope="col" style="width:180px"></th>
+    </TableHeader>
+
+    <RowTemplate Context="p">
+        <td class="@((p.State == PlanState.Close) ? "table-success" : null) text-center">@p.PlanNumber</td>
+        <td class="text-center">@p.State</td>
+        <td class="text-center">@p.Author</td>
+        <td class="text-center">@p.RecordedUtc.ToString("dd.MM.yyyy HH:mm")</td>
+        <td class="text-center">
+            @if (p.OrderId is Guid oid)
+            {
+                <a class="link" href="@($"/orders/{oid}")">@oid.ToString()[..8]…</a>
+            }
+            else
+            {
+                <span class="text-muted">Очікує наказу</span>
+            }
+        </td>
+        <td class="text-end">
+            <a class="btn btn-sm btn-outline-primary me-2"
+               href="@($"/plans/{p.Id}")"
+               @onclick:stopPropagation="true">Деталі</a>
+
+            <button class="btn btn-sm btn-outline-danger"
+                    @onclick="(e) => DeleteAsync(p.Id)"
+                    @onclick:stopPropagation="true"
+                    disabled="@(_busy || p.State == PlanState.Close || p.OrderId != null)">
+                Видалити
+            </button>
+        </td>
+    </RowTemplate>
+</TableBaseComponent>
+
+@if (_loading)
 {
-    <CreatePlanModal Open="@_createOpen"
-                     Busy="@Busy"
-                     OnCancel="CloseCreateModal"
-                     OnCreate="CreatePlanAsync" />
+    <div class="p-3 text-muted">Завантаження…</div>
+}
+else if (_plans.Count == 0)
+{
+    <div class="p-3 text-muted">Немає планів</div>
 }
 
-<!-- Confirm modal instance -->
-<ConfirmModal @ref="_confirm"
-              Title="Підтвердження"
-              ConfirmText="Видалити"
-              CancelText="Скасувати"
-              DialogSize="modal-sm" /> *@
+<CreatePlanModal @ref="_createModal"
+                 IsOpen="_createOpen"
+                 OnClose="CloseCreateModal"
+                 OnCreated="HandleCreated" />

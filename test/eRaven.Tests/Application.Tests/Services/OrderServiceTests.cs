@@ -161,13 +161,15 @@ public class OrderServiceTests
         await db.PlanActions.AddRangeAsync(a1, a2);
         await db.SaveChangesAsync();
 
-        var req = new CreatePublishDailyOrderViewModel(
-            Name: "НК-ALL",
-            EffectiveMomentUtc: DateTime.UtcNow,
-            Author: "duty",
-            PlanIds: [plan.Id],
-            IncludePlanActionIds: null,                 // ← включити ВСЕ
-            AutoReturnForOpenDispatch: true);
+        var req = new CreatePublishDailyOrderViewModel
+        {
+            Name = "НК-ALL",
+            EffectiveMomentUtc = DateTime.UtcNow,
+            Author = "duty",
+            PlanIds = [plan.Id],
+            IncludePlanActionIds = null,                 // ← включити ВСЕ
+            AutoReturnForOpenDispatch = true
+        };
 
         // Act
         var executed = await svc.CreateAsync(req);
@@ -214,13 +216,15 @@ public class OrderServiceTests
         await db.PlanActions.AddAsync(disp);
         await db.SaveChangesAsync();
 
-        var req = new CreatePublishDailyOrderViewModel(
-            Name: "НК-INC",
-            EffectiveMomentUtc: DateTime.UtcNow,
-            Author: null,
-            PlanIds: [plan.Id],
-            IncludePlanActionIds: [disp.Id],   // підтверджуємо ЛИШЕ Dispatch
-            AutoReturnForOpenDispatch: true);
+        var req = new CreatePublishDailyOrderViewModel
+        {
+            Name = "НК-INC",
+            EffectiveMomentUtc = DateTime.UtcNow,
+            Author = null,
+            PlanIds = [plan.Id],
+            IncludePlanActionIds = [disp.Id],   // підтверджуємо ЛИШЕ Dispatch
+            AutoReturnForOpenDispatch = true
+        };
 
         // Act
         var executed = await svc.CreateAsync(req);
@@ -249,13 +253,15 @@ public class OrderServiceTests
         await db.Plans.AddAsync(closed);
         await db.SaveChangesAsync();
 
-        var req = new CreatePublishDailyOrderViewModel(
-            Name: "НК-EMPTY",
-            EffectiveMomentUtc: DateTime.UtcNow,
-            Author: "duty",
-            PlanIds: [closed.Id], // немає відкритих без наказу
-            IncludePlanActionIds: null,
-            AutoReturnForOpenDispatch: true);
+        var req = new CreatePublishDailyOrderViewModel
+        {
+            Name = "НК-EMPTY",
+            EffectiveMomentUtc = DateTime.UtcNow,
+            Author = "duty",
+            PlanIds = [closed.Id], // немає відкритих без наказу
+            IncludePlanActionIds = null,
+            AutoReturnForOpenDispatch = true
+        };
 
         // Act + Assert
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.CreateAsync(req));

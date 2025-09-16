@@ -2,13 +2,9 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CreatePlanViewModel
+// PersonLookupViewModel
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.ViewModels.PlanViewModels;
+namespace eRaven.Application.ViewModels.PersonViewModels;
 
-public sealed record class CreatePlanViewModel
-{
-    public string PlanNumber { get; set; } = string.Empty;
-    public string? Author { get; set; } = "system";
-}
+public sealed record PersonLookupViewModel(Guid Id, string FullName, string Rnokpp, string Rank, string PositionName);

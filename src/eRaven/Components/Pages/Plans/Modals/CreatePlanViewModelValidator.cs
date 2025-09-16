@@ -15,10 +15,9 @@ public sealed class CreatePlanViewModelValidator : AbstractValidator<CreatePlanV
     {
         RuleFor(x => x.PlanNumber)
             .Cascade(CascadeMode.Stop)
-            .NotEmpty().WithMessage("Номер плану обов’язковий.")
+            .NotEmpty().WithMessage("Номер плану обов'язковий.")
             .Must(s => !string.IsNullOrWhiteSpace(s))
                 .WithMessage("Номер плану не може складатися лише з пробілів.")
-            .MinimumLength(2).WithMessage("Мінімальна довжина — 2 символи.")
-            .MaximumLength(64).WithMessage("Номер плану не повинен перевищувати 64 символи.");
+            .Length(3, 32).WithMessage("Номер плану має бути 3–32 символи.");
     }
 }

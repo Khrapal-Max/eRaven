@@ -54,6 +54,9 @@ public static class PlanMappers
     public static IEnumerable<PlanViewModel> ToViewModels(this IEnumerable<Plan> plans) =>
         plans.Select(p => p.ToViewModel());
 
+    public static IReadOnlyList<PlanActionViewModel> ToViewModels(this IEnumerable<PlanAction> actions) =>
+        [.. actions.Select(a => a.ToViewModel())];
+
     // -------- VM -> Domain --------
     public static Plan ToDomain(this CreatePlanViewModel vm) =>
         new()
