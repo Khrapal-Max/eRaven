@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
-public sealed class StatusTransitionConfiguration : IEntityTypeConfiguration<StatusTransition>
+public class StatusTransitionConfiguration : IEntityTypeConfiguration<StatusTransition>
 {
     public void Configure(EntityTypeBuilder<StatusTransition> e)
     {

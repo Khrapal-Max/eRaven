@@ -22,12 +22,16 @@ public class Plan
     /// <summary>Стан плану: відкритий/закритий (наказом).</summary>
     public PlanState State { get; set; } = PlanState.Open;
 
+    // 🔵 Багато планів можуть бути закриті ОДНИМ наказом (1:N)
+    public Guid? OrderId { get; set; }
+    public Order? Order { get; set; }
+
     /// <summary>Автор створення/змін (аудит).</summary>
     public string? Author { get; set; }
 
     /// <summary>Момент створення (UTC).</summary>
     public DateTime RecordedUtc { get; set; } = DateTime.UtcNow;
 
-    // 👇 Навігація до учасників
-    public ICollection<PlanParticipant> Participants { get; set; } = [];
+    /// <summary>Учасники/дії в межах плану (чернетка до публікації).</summary>
+    public ICollection<PlanAction> PlanActions { get; set; } = [];
 }

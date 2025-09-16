@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+﻿/*// -----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 // -----------------------------------------------------------------------------
 // CreatePlanModal
@@ -50,3 +50,4 @@ public partial class CreatePlanModal : ComponentBase
         await OnCreate.InvokeAsync(v);
     }
 }
+*/

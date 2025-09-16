@@ -10,15 +10,20 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
-public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
+public class PlanConfiguration : IEntityTypeConfiguration<Plan>
 {
     public void Configure(EntityTypeBuilder<Plan> e)
     {
+        // ===============================
+        // Table & Keys
+        // ===============================
         e.ToTable("plans");
         e.HasKey(x => x.Id);
-
         e.Property(x => x.Id).HasColumnName("id");
 
+        // ===============================
+        // Columns (lower snake_case)
+        // ===============================
         e.Property(x => x.PlanNumber)
          .HasColumnName("plan_number")
          .HasMaxLength(64)
@@ -26,26 +31,42 @@ public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
 
         e.Property(x => x.State)
          .HasColumnName("state")
-         .HasConversion<int>()
          .IsRequired();
 
         e.Property(x => x.Author)
          .HasColumnName("author")
-         .HasMaxLength(64)
-         .HasDefaultValue("system");
+         .HasMaxLength(128);
 
         e.Property(x => x.RecordedUtc)
          .HasColumnName("recorded_utc")
          .HasColumnType("timestamp with time zone")
-         .HasDefaultValueSql("CURRENT_TIMESTAMP")
-         .IsRequired();
+         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-        e.HasIndex(x => x.PlanNumber).IsUnique();
-        e.HasIndex(x => x.RecordedUtc);
+        e.Property(x => x.OrderId)
+         .HasColumnName("order_id");
 
-        e.ToTable(t => t.HasCheckConstraint(
-            "ck_plans_plan_number_not_blank",
-            "length(trim(plan_number)) > 0"
-        ));
+        // ===============================
+        // Indexes & Constraints
+        // ===============================
+        e.HasIndex(x => x.PlanNumber)
+         .HasDatabaseName("ux_plans_plan_number")
+         .IsUnique();
+
+        e.HasIndex(x => new { x.State, x.RecordedUtc })
+         .HasDatabaseName("ix_plans_state_recorded");
+
+        e.HasIndex(x => x.OrderId)
+         .HasDatabaseName("ix_plans_order_id");
+
+        // ===============================
+        // Relationships
+        // ===============================
+        // Plan (many) -> Order (one), FK у Plan
+        e.HasOne(x => x.Order)
+         .WithMany(o => o.Plans)
+         .HasForeignKey(x => x.OrderId)
+         .OnDelete(DeleteBehavior.Restrict);
+
+        // Навігація до PlanActions налаштовується у PlanActionConfiguration (1↔many)
     }
 }

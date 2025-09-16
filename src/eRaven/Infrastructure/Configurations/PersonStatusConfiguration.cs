@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
-public sealed class PersonStatusConfiguration : IEntityTypeConfiguration<PersonStatus>
+public class PersonStatusConfiguration : IEntityTypeConfiguration<PersonStatus>
 {
     public void Configure(EntityTypeBuilder<PersonStatus> e)
     {

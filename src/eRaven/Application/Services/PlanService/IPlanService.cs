@@ -15,19 +15,13 @@ namespace eRaven.Application.Services.PlanService;
 /// </summary>
 public interface IPlanService
 {
-    // ---- Read ----
-    Task<IReadOnlyList<Plan>> GetAllPlansAsync(CancellationToken ct = default);
+    Task<IEnumerable<Plan>> GetAllPlanAsync(CancellationToken ct = default);
     Task<Plan?> GetPlanAsync(Guid planId, CancellationToken ct = default);
-    Task<IReadOnlyList<PlanParticipant>> GetPlanParticipantsAsync(Guid planId, CancellationToken ct = default);
-    Task<IReadOnlyList<PlanParticipantAction>> GetPlanActionsAsync(Guid planId, CancellationToken ct = default);
 
-    // ---- Commands (Stage 1) ----
-    Task<Plan> EnsurePlanAsync(CreatePlanViewModel vm, string author, CancellationToken ct = default);
-    Task<PlanParticipant> EnsureParticipantAsync(string planNumber, Guid personId, string author, CancellationToken ct = default);
-    Task<PlanParticipantAction> AddActionAndApplyStatusAsync(PlanActionViewModel vm, string author, CancellationToken ct = default);
-    Task ApplyBatchAsync(PlanBatchViewModel vm, string author, CancellationToken ct = default);
-
-    // ---- Plan lifecycle ----
+    Task<Plan> CreatePlanAsync(CreatePlanViewModel createPlanViewModel, string author, CancellationToken ct = default);
     Task<bool> ClosePlanAsync(Guid planId, string author, CancellationToken ct = default);
     Task<bool> DeletePlanAsync(Guid planId, CancellationToken ct = default);
+
+    Task<PlanAction> AddActioAsync(PlanActionViewModel vm, string author, CancellationToken ct = default);
+    Task<bool> RemoveActionAsync(PlanActionViewModel vm, string author, CancellationToken ct = default);
 }

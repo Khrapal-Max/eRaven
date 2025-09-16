@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
-public sealed class PlanServiceOptionsConfiguration : IEntityTypeConfiguration<PlanServiceOptions>
+public class PlanServiceOptionsConfiguration : IEntityTypeConfiguration<PlanServiceOptions>
 {
     public void Configure(EntityTypeBuilder<PlanServiceOptions> e)
     {

@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+﻿/*// -----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 // -----------------------------------------------------------------------------
 // PlansPage
@@ -134,4 +134,4 @@ public partial class PlansPage : ComponentBase, IDisposable
 
     private void SetBusy(bool v) { Busy = v; StateHasChanged(); }
     public void Dispose() { _cts.Cancel(); _cts.Dispose(); GC.SuppressFinalize(this); }
-}
+}*/

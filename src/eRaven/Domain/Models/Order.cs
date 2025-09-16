@@ -14,20 +14,19 @@ public class Order
 {
     public Guid Id { get; set; }
 
-    /// <summary>План, який закриває цей наказ (1:1).</summary>
-    public Guid PlanId { get; set; }
-    public Plan Plan { get; set; } = null!;
-
-    /// <summary>Назва/номер документа (обов’язкова).</summary>
+    /// <summary>Назва/номер наказу (обов’язково).</summary>
     public string Name { get; set; } = default!;
 
-    /// <summary>
-    /// Дата з плану, яку цей наказ фіксує як «дату початку або кінця».
-    /// Значення береться з Plan.PlannedAtUtc відповідно до Plan.TimeKind.
-    /// </summary>
+    /// <summary>Час набуття чинності (UTC).</summary>
     public DateTime EffectiveMomentUtc { get; set; }
 
-    /// <summary>Службові поля аудиту.</summary>
+    /// <summary>Автор/аудит.</summary>
     public string? Author { get; set; }
     public DateTime RecordedUtc { get; set; } = DateTime.UtcNow;
+
+    /// <summary>Плани, що закриваються цим наказом (1:N).</summary>
+    public ICollection<Plan> Plans { get; set; } = [];
+
+    /// <summary>Підтверджені наказом дії (люди+дії), скопійовані з планів.</summary>
+    public ICollection<OrderAction> Actions { get; set; } = [];
 }

@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+﻿/*// -----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 // -----------------------------------------------------------------------------
 // CreatePlanViewModelValidator
@@ -90,4 +90,4 @@ public partial class AddActionModal : ComponentBase
             await InvokeAsync(StateHasChanged);
         }
     }
-}
+}*/

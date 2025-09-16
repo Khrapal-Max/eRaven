@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+﻿/*// -----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 // -----------------------------------------------------------------------------
 // PlanActionViewModelValidator
@@ -60,4 +60,4 @@ public sealed class PlanActionViewModelValidator : AbstractValidator<PlanActionV
     }
 
     private static bool NotWhiteSpace(string? s) => !string.IsNullOrWhiteSpace(s);
-}
+}*/

@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
-public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
+public class OrderConfiguration : IEntityTypeConfiguration<Order>
 {
     public void Configure(EntityTypeBuilder<Order> e)
     {
@@ -20,20 +20,14 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         // ===============================
         e.ToTable("orders");
         e.HasKey(x => x.Id);
-
-        e.Property(x => x.Id)
-         .HasColumnName("id");
+        e.Property(x => x.Id).HasColumnName("id");
 
         // ===============================
-        // Columns (lower snake_case)
+        // Columns
         // ===============================
-        e.Property(x => x.PlanId)
-         .HasColumnName("plan_id")
-         .IsRequired();
-
         e.Property(x => x.Name)
          .HasColumnName("name")
-         .HasMaxLength(128)
+         .HasMaxLength(64)
          .IsRequired();
 
         e.Property(x => x.EffectiveMomentUtc)
@@ -43,48 +37,28 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         e.Property(x => x.Author)
          .HasColumnName("author")
-         .HasMaxLength(64)
-         .HasDefaultValue("system");
+         .HasMaxLength(128);
 
         e.Property(x => x.RecordedUtc)
          .HasColumnName("recorded_utc")
          .HasColumnType("timestamp with time zone")
-         .HasDefaultValueSql("CURRENT_TIMESTAMP")
-         .IsRequired();
+         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
         // ===============================
-        // Relationships (1:1)
+        // Indexes & Constraints
         // ===============================
-        e.HasOne(x => x.Plan)
-         .WithOne()
-         .HasForeignKey<Order>(x => x.PlanId)
-         .OnDelete(DeleteBehavior.Restrict);
-
-        // ===============================
-        // Constraints & Indexes
-        // ===============================
-        // один наказ ↔ один план
-        e.HasIndex(x => x.PlanId)
-         .HasDatabaseName("ux_orders_plan_id")
+        e.HasIndex(x => x.Name)
+         .HasDatabaseName("ux_orders_name")
          .IsUnique();
 
-        // пошук/звітність
-        e.HasIndex(x => x.Name)
-         .HasDatabaseName("ix_orders_name");
-
-        e.HasIndex(x => x.EffectiveMomentUtc)
-         .HasDatabaseName("ix_orders_effective_moment_utc");
-
-        e.HasIndex(x => x.RecordedUtc)
-         .HasDatabaseName("ix_orders_recorded_utc");
-
-        // CHECK-и: тільки «назва не порожня». Квант 15 хв — перевіряємо в домені.
-        e.ToTable(t =>
-        {
-            t.HasCheckConstraint(
-                "ck_orders_name_not_blank",
-                "length(trim(name)) > 0"
-            );
-        });
+        // ===============================
+        // Relationships
+        // ===============================
+        // Order (one) -> Plans (many) — налаштовано у PlanConfiguration через FK у Plan
+        // Order (one) -> OrderActions (many)
+        e.HasMany(x => x.Actions)
+         .WithOne(a => a.Order)
+         .HasForeignKey(a => a.OrderId)
+         .OnDelete(DeleteBehavior.Restrict);
     }
 }

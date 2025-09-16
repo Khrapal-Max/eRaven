@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
-public sealed class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
+public class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
 {
     public void Configure(EntityTypeBuilder<PositionUnit> e)
     {

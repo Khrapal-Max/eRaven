@@ -15,13 +15,11 @@ using eRaven.Application.Services.PositionService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.Services.StatusTransitionService;
 using eRaven.Application.ViewModels.PersonViewModels;
-using eRaven.Application.ViewModels.PlanViewModels;
 using eRaven.Application.ViewModels.PositionPagesViewModels;
 using eRaven.Application.ViewModels.StatusKindViewModels;
 using eRaven.Components;
 using eRaven.Components.Pages.Persons;
 using eRaven.Components.Pages.Persons.Modals;
-using eRaven.Components.Pages.Plans.Modals;
 using eRaven.Components.Pages.Positions.Modals;
 using eRaven.Components.Pages.StatusTransitions.Modals;
 using eRaven.Extensions;
@@ -45,7 +43,6 @@ builder.Services.AddTransient<IValidator<EditPersonViewModel>, EditPersonViewMod
 builder.Services.AddTransient<IValidator<CreateKindViewModel>, CreateKindViewModelValidator>();
 builder.Services.AddTransient<IValidator<CreatePersonViewModel>, CreatePersonViewModelValidator>();
 builder.Services.AddTransient<IValidator<CreatePositionUnitViewModel>, CreatePositionUnitViewModelValidator>();
-builder.Services.AddTransient<IValidator<PlanActionViewModel>, PlanActionViewModelValidator>();
 
 
 //Services

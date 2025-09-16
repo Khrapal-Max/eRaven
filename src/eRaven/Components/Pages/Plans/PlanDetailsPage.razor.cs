@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+﻿/*// -----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 // -----------------------------------------------------------------------------
 // PlanDetailsPage
@@ -83,12 +83,12 @@ public partial class PlanDetailsPage : ComponentBase, IDisposable
 
     private async Task OpenAddBatch()
     {
-       /* if (_plan is null || _addBatchModal is null) return;
+       *//* if (_plan is null || _addBatchModal is null) return;
 
         await _addBatchModal.OpenAsync(new AddBatchModal.Context
         {
             PlanNumber = _plan.PlanNumber
-        });*/
+        });*//*
     }
 
     private async Task ClosePlan()
@@ -135,4 +135,4 @@ public partial class PlanDetailsPage : ComponentBase, IDisposable
     private bool CanEdit =>
     _loaded && !Busy && _plan is not null && _plan.State == PlanState.Open;
     public void Dispose() { _cts.Cancel(); _cts.Dispose(); GC.SuppressFinalize(this); }
-}
+}*/
