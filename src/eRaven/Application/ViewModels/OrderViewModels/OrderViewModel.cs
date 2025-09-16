@@ -1,10 +1,9 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// CreatePlanViewModel
+// OrderViewModel
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.ViewModels.PlanViewModels;
+namespace eRaven.Application.ViewModels.OrderViewModels;
 
-public sealed record CreatePlanViewModel(string PlanNumber, string? Author);
+public sealed record OrderViewModel(Guid Id, string Name, DateTime EffectiveMomentUtc, string? Author, DateTime RecordedUtc);

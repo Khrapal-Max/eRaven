@@ -12,7 +12,7 @@
 //   - DateLocal (DateTime?) — проксі для _vm.Moment (00:00 локального дня, Kind=Unspecified).
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PersonStatusViewModel;
+using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;

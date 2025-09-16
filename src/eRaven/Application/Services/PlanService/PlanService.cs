@@ -5,46 +5,63 @@
 // План: етап 1 — записуємо планові дії і ОДРАЗУ виставляємо фактичні статуси
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Mappers;
 using eRaven.Application.ViewModels.PlanViewModels;
+using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
+using eRaven.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Application.Services.PlanService;
 
-public sealed class PlanService : IPlanService
+public class PlanService(AppDbContext appDbContext) : IPlanService
 {
-    public Task<IEnumerable<Plan>> GetAllPlanAsync(CancellationToken ct = default)
+    private readonly AppDbContext _appDbContext = appDbContext;
+
+    public async Task<IEnumerable<Plan>> GetAllPlanAsync(CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        // повертаємо доменні сутності (як у твоєму інтерфейсі)
+        return await _appDbContext.Plans
+            .AsNoTracking()
+            .OrderByDescending(p => p.RecordedUtc)
+            .ToListAsync(ct);
     }
 
-    public Task<Plan?> GetPlanAsync(Guid planId, CancellationToken ct = default)
+    public async Task<PlanViewModel?> GetByIdAsync(Guid planId, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        var plan = await _appDbContext.Plans
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == planId, ct);
+
+        return plan?.ToViewModel();
     }
 
-    public Task<Plan> CreatePlanAsync(CreatePlanViewModel createPlanViewModel, string author, CancellationToken ct = default)
+    public async Task<PlanViewModel> CreateAsync(CreatePlanViewModel vm, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        var entity = vm.ToDomain();
+        entity.Id = Guid.NewGuid();
+
+        await _appDbContext.Plans.AddAsync(entity, ct);
+        await _appDbContext.SaveChangesAsync(ct);
+
+        return entity.ToViewModel();
     }
 
-    public Task<bool> ClosePlanAsync(Guid planId, string author, CancellationToken ct = default)
+    public async Task<bool> DeleteAsync(Guid planId, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
-    }
+        // дозволяємо видалення тільки відкритого плану без наказу
+        var plan = await _appDbContext.Plans
+            .Include(p => p.PlanActions)
+            .FirstOrDefaultAsync(p => p.Id == planId, ct);
 
+        if (plan is null) return false;
+        if (plan.State != PlanState.Open || plan.OrderId != null) return false;
 
-    public Task<bool> DeletePlanAsync(Guid planId, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
+        if (plan.PlanActions.Count > 0)
+            _appDbContext.PlanActions.RemoveRange(plan.PlanActions);
 
-    public Task<PlanAction> AddActioAsync(PlanActionViewModel vm, string author, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task<bool> RemoveActionAsync(PlanActionViewModel vm, string author, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
+        _appDbContext.Plans.Remove(plan);
+        await _appDbContext.SaveChangesAsync(ct);
+        return true;
     }
 }

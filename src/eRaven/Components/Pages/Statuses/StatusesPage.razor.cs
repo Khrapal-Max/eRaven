@@ -10,7 +10,7 @@ using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.Services.StatusTransitionService;
 using eRaven.Application.ViewModels;
-using eRaven.Application.ViewModels.PersonStatusViewModel;
+using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 using System.Collections.ObjectModel;

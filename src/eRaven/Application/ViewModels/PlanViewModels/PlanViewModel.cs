@@ -2,16 +2,11 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PlanActionViewModel
+// PlanViewModel
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Enums;
 
 namespace eRaven.Application.ViewModels.PlanViewModels;
 
-public sealed record PlanActionViewModel(
-    Guid Id, Guid PlanId, Guid PersonId,
-    PlanActionType ActionType, DateTime EventAtUtc,
-    string Location, string GroupName, string CrewName,
-    string Rnokpp, string FullName, string RankName, string PositionName,
-    string BZVP, string? Weapon, string? Callsign, string StatusKindOnDate);
+public sealed record PlanViewModel(Guid Id, string PlanNumber, PlanState State, string? Author, DateTime RecordedUtc, Guid? OrderId);

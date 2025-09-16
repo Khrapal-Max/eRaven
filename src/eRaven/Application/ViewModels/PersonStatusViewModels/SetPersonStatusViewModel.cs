@@ -7,7 +7,7 @@
 
 using System.ComponentModel.DataAnnotations;
 
-namespace eRaven.Application.ViewModels.PersonStatusViewModel;
+namespace eRaven.Application.ViewModels.PersonStatusViewModels;
 
 public class SetPersonStatusViewModel
 {

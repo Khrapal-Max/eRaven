@@ -4,7 +4,7 @@
 // PersonStatusImportViewTests
 // -----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PersonStatusViewModel;
+using eRaven.Application.ViewModels.PersonStatusViewModels;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 

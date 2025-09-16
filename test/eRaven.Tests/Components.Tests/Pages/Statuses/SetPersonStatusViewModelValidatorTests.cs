@@ -5,7 +5,7 @@
 // SetPersonStatusViewModelValidatorTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PersonStatusViewModel;
+using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Components.Pages.Statuses.Modals;
 using FluentValidation.TestHelper;
 

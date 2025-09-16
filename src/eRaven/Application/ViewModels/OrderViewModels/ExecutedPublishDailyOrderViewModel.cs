@@ -1,10 +1,13 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// CreatePlanViewModel
+// ExecutedPublishDailyOrderViewModel
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.ViewModels.PlanViewModels;
+namespace eRaven.Application.ViewModels.OrderViewModels;
 
-public sealed record CreatePlanViewModel(string PlanNumber, string? Author);
+public sealed record ExecutedPublishDailyOrderViewModel(
+    OrderViewModel Order,
+    IReadOnlyList<Guid> ClosedPlanIds,
+    IReadOnlyList<OrderActionViewModel> ConfirmedActions
+);
