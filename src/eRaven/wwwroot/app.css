@@ -156,5 +156,16 @@ h1:focus, h2:focus, h3:focus {
     z-index: 99999 !important;
 }
 
-/* --------------Status modal ---------------*/
+/* --------------Action modal ---------------*/
+/* фіксуємо висоту під помилки, щоб розмітка не «стрибала» */
+.val-slot {
+    min-height: 1.25rem;
+}
 
+/* липкий заголовок у списку людей */
+.sticky-th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bs-light);
+}

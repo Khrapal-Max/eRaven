@@ -17,6 +17,7 @@
                         OnClick="_ => {}"
                         MaxHeight="60vh" MinHeight="300px">
         <TableHeader>
+            <th scope="col" class="text-black">Звання</th>
             <th scope="col" class="text-black">Особа</th>
             <th scope="col" class="text-black">Дія</th>
             <th scope="col" class="text-black">UTC</th>
@@ -27,13 +28,23 @@
         </TableHeader>
 
         <RowTemplate Context="a">
-            <td>@a.FullName (@a.Rnokpp)</td>
-            <td>@a.ActionType</td>
-            <td>@a.EventAtUtc:yyyy-MM-dd HH:mm</td>
-            <td>@a.Location</td>
-            <td>@a.GroupName</td>
-            <td>@a.CrewName</td>
-            <td class="text-end">
+            <td class="text-center">@a.RankName</td>
+            <td class="text-center">@a.FullName (@a.Rnokpp)</td>
+            <td class="text-center">
+                @if(a.ActionType == PlanActionType.Dispatch)
+                {
+                    <span>Відрядити</span>
+                }
+                else
+                {
+                    <span>Повернути</span>
+                }
+            </td>
+            <td class="text-center">@a.EventAtUtc.ToString("dd.MM.yyyy HH:mm")</td>
+            <td class="text-center">@a.Location</td>
+            <td class="text-center">@a.GroupName</td>
+            <td class="text-center">@a.CrewName</td>
+            <td class="text-center">
                 <button class="btn btn-sm btn-outline-danger"
                         @onclick="(e) => DeleteAsync(a.Id)"
                         @onclick:stopPropagation="true"

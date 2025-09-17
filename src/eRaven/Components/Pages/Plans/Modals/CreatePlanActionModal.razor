@@ -1,107 +1,169 @@
 ﻿@using Blazored.FluentValidation
 @using eRaven.Application.ViewModels.PlanViewModels
+@using eRaven.Application.ViewModels.PersonViewModels
 @using eRaven.Domain.Enums
+@using eRaven.Components.Shared.TableBaseComponent
 
 @if (_open && !ReadOnly)
 {
-    <div class="modal fade show d-block text-white" tabindex="-1" style="background: rgba(0,0,0,.5);" role="dialog" aria-modal="true">
-        <div class="modal-dialog modal-lg">
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,.5);" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Додати дію</h5>
-                    <button type="button" class="btn-close" @onclick="Close" aria-label="Close"></button>
+                <div class="modal-header" style="background: #492448">
+                    <h5 class="modal-title text-white">Додати дію</h5>
+                    <button type="button" class="btn-close" @onclick="Close" aria-label="Закрити"></button>
                 </div>
 
                 <EditForm Model="_model" OnValidSubmit="CreateAsync">
+                    <AntiforgeryToken />
                     <FluentValidationValidator />
+
                     <div class="modal-body">
 
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Особа</label>
-                                <div class="input-group">
-                                    <input class="form-control"
-                                           placeholder="ПІБ або РНОКПП"
-                                           @bind="_personQuery"
-                                           @bind:event="oninput"
-                                           @onkeydown="@(e => { if (e.Key == "Enter") _ = SearchPersons(); })" />
-                                    <button class="btn btn-outline-secondary" type="button" @onclick="SearchPersons">Шукати</button>
+                        <!-- Верх: параметри дії (2 ряди, широкі поля, стабільні слоти під валідацію) -->
+                        <div class="card mb-3">
+                            <div class="card-body py-3">
+                                <!-- Ряд 1: Дія, Час, Локація -->
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <label class="form-label">Дія</label>
+                                        <InputSelect class="form-select" @bind-Value="_model.ActionType">
+                                            <option value="@PlanActionType.Dispatch">Відрядити</option>
+                                            <option value="@PlanActionType.Return">Повернути</option>
+                                        </InputSelect>
+                                        <div class="val-slot"></div>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label">Час (UTC)</label>
+                                        <input type="datetime-local"
+                                               class="form-control"
+                                               step="900"
+                                               @bind="EventLocalBound"
+                                               @bind:format="yyyy-MM-ddTHH:mm" />
+                                        <div class="val-slot">
+                                            <ValidationMessage For="@(() => _model.EventAtUtc)" />
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Локація</label>
+                                        <input class="form-control" @bind="_model.Location" />
+                                        <div class="val-slot">
+                                            <ValidationMessage For="@(() => _model.Location)" />
+                                        </div>
+                                    </div>
                                 </div>
 
-                                @if (_personResults.Count > 0)
-                                {
-                                    <div class="list-group mt-2" style="max-height: 220px; overflow:auto">
-                                        @foreach (var pr in _personResults)
-                                        {
-                                            <button type="button"
-                                                    class="list-group-item list-group-item-action"
-                                                    @onclick="@(() => SelectPerson(pr))">
-                                                <div class="fw-semibold">@pr.FullName</div>
-                                                <small class="text-muted d-block">
-                                                    РНОКПП: @pr.Rnokpp · Звання: @pr.Rank
-                                                </small>
-                                                <small class="text-muted d-block">
-                                                    Посада: @pr.PositionFullName
-                                                </small>
-                                                <small class="text-muted d-block">
-                                                    БЗВП: @pr.BZVP · Зброя: @(string.IsNullOrWhiteSpace(pr.Weapon) ? "—" : pr.Weapon) · Позивний: @(string.IsNullOrWhiteSpace(pr.Callsign) ? "—" : pr.Callsign)
-                                                </small>
-                                            </button>
-                                        }
-                                    </div>
-                                }
-
-                                @if (_selectedPerson is not null)
-                                {
-                                    <div class="alert alert-secondary mt-2 py-2">
-                                        <div><strong>@_selectedPerson.FullName</strong> (@_selectedPerson.Rnokpp)</div>
-                                        <div class="small">Звання: @_selectedPerson.Rank</div>
-                                        <div class="small">Посада: @_selectedPerson.PositionFullName</div>
-                                        <div class="small">БЗВП: @_selectedPerson.BZVP</div>
-                                        <div class="small">Зброя: @(string.IsNullOrWhiteSpace(_selectedPerson.Weapon) ? "—" : _selectedPerson.Weapon)</div>
-                                        <div class="small">Позивний: @(string.IsNullOrWhiteSpace(_selectedPerson.Callsign) ? "—" : _selectedPerson.Callsign)</div>
-                                    </div>
-                                }
-                                <ValidationMessage For="@(() => _model.PersonId)" />
-                            </div>
-
-                            <div class="col-md-6">
-                                <label class="form-label">Дія</label>
-                                <InputSelect class="form-select" @bind-Value="_model.ActionType" @onchange="OnTextChanged">
-                                    <option value="@PlanActionType.Dispatch">Відрядити</option>
-                                    <option value="@PlanActionType.Return">Повернути</option>
-                                </InputSelect>
-
-                                <label class="form-label mt-3">Час (UTC)</label>
-                                <input type="datetime-local"
-                                       class="form-control"
-                                       step="900"
-                                       @bind="EventLocalBound"
-                                       @bind:format="yyyy-MM-ddTHH:mm" />
-
-                                <label class="form-label mt-3">Локація</label>
-                                <InputText class="form-control" @bind-Value="_model.Location" @oninput="OnTextChanged" />
-                                <ValidationMessage For="@(() => _model.Location)" />
-
-                                <div class="row g-2 mt-3">
-                                    <div class="col">
+                                <!-- Ряд 2: Група, Зміна -->
+                                <div class="row g-3">
+                                    <div class="col-md-4">
                                         <label class="form-label">Група</label>
-                                        <InputText class="form-control" @bind-Value="_model.GroupName" @oninput="OnTextChanged" />
-                                        <ValidationMessage For="@(() => _model.GroupName)" />
+                                        <input class="form-control" @bind="_model.GroupName" />
+                                        <div class="val-slot">
+                                            <ValidationMessage For="@(() => _model.GroupName)" />
+                                        </div>
                                     </div>
-                                    <div class="col">
+
+                                    <div class="col-md-8">
                                         <label class="form-label">Зміна</label>
-                                        <InputText class="form-control" @bind-Value="_model.CrewName" @oninput="OnTextChanged" />
-                                        <ValidationMessage For="@(() => _model.CrewName)" />
+                                        <input class="form-control" @bind="_model.CrewName" />
+                                        <div class="val-slot">
+                                            <ValidationMessage For="@(() => _model.CrewName)" />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
+                        <!-- Низ: пошук і вибір особи -->
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fw-semibold">Обрати особу</span>
+                                    <div class="ms-auto" style="min-width: 340px;">
+                                        <div class="input-group input-group-sm">
+                                            <input class="form-control"
+                                                   placeholder="ПІБ або РНОКПП"
+                                                   @bind="_personQuery"
+                                                   @bind:event="oninput"
+                                                   @onkeydown="@(e => { if (e.Key == "Enter") _ = SearchPersons(); })" />
+                                            <button class="btn btn-outline-secondary" type="button" @onclick="SearchPersons">
+                                                Шукати
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <!-- Зведення про вибрану особу -->
+                                    <div class="col-md-4">
+                                        @if (_selectedPerson is not null)
+                                        {
+                                            <div class="alert alert-secondary py-2">
+                                                <div><strong>@_selectedPerson.FullName</strong> (@_selectedPerson.Rnokpp)</div>
+                                                <div class="small">Звання: @_selectedPerson.Rank</div>
+                                                <div class="small">Посада: @_selectedPerson.PositionFullName</div>
+                                                <div class="small">БЗВП: @_selectedPerson.BZVP</div>
+                                                <div class="small">Зброя: @(string.IsNullOrWhiteSpace(_selectedPerson.Weapon) ? "—" : _selectedPerson.Weapon)</div>
+                                                <div class="small">Позивний: @(string.IsNullOrWhiteSpace(_selectedPerson.Callsign) ? "—" : _selectedPerson.Callsign)</div>
+                                            </div>
+                                        }
+                                        <div class="val-slot">
+                                            <ValidationMessage For="@(() => _model.PersonId)" />
+                                        </div>
+                                    </div>
+
+                                    <!-- Результати пошуку -->
+                                    <div class="col-md-8">
+                                        @if (_personResults.Count == 0)
+                                        {
+                                            <div class="text-muted">Введіть запит і натисніть «Шукати»…</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="table-responsive" style="max-height: 320px; overflow: auto;">
+                                                <TableBaseComponent TItem="PersonSearchViewModel"
+                                                                    Class="table-sm align-middle"
+                                                                    Items="_personResults"
+                                                                    SelectedItem="_selectedPerson"
+                                                                    SelectedItemChanged="OnSelectedPersonChanged"
+                                                                    OnClick="OnPersonRowClick"
+                                                                    MaxHeight="320px"
+                                                                    MinHeight="200px">
+                                                    <TableHeader>
+                                                        <th class="text-black sticky-th" scope="col">ПІБ</th>
+                                                        <th class="text-black sticky-th" scope="col">РНОКПП</th>
+                                                        <th class="text-black sticky-th" scope="col">Звання</th>
+                                                        <th class="text-black sticky-th" scope="col">Посада</th>
+                                                        <th class="text-black sticky-th" scope="col">БЗВП</th>
+                                                        <th class="text-black sticky-th" scope="col">Зброя</th>
+                                                        <th class="text-black sticky-th" scope="col">Позивний</th>
+                                                    </TableHeader>
+
+                                                    <RowTemplate Context="p">
+                                                        <td>@p.FullName</td>
+                                                        <td>@p.Rnokpp</td>
+                                                        <td>@p.Rank</td>
+                                                        <td>@p.PositionFullName</td>
+                                                        <td>@p.BZVP</td>
+                                                        <td>@(string.IsNullOrWhiteSpace(p.Weapon) ? "—" : p.Weapon)</td>
+                                                        <td>@(string.IsNullOrWhiteSpace(p.Callsign) ? "—" : p.Callsign)</td>
+                                                    </RowTemplate>
+                                                </TableBaseComponent>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" @onclick="Close" disabled="@_busy">Скасувати</button>
-                        <button type="submit" class="btn btn-primary" disabled="@(_busy || !_canSubmit)">Додати</button>
+                        <button type="button" class="btn btn-secondary" @onclick="Close" disabled="@_busy">Скасувати</button>
+                        <button type="submit" class="btn btn-primary" disabled="@_busy">Додати</button>
                     </div>
                 </EditForm>
             </div>
