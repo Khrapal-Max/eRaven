@@ -19,8 +19,11 @@ public static class PlanMappers
             PlanNumber: p.PlanNumber,
             State: p.State,
             Author: p.Author,
-            RecordedUtc: p.RecordedUtc.SpecifyUtc(),
-            OrderId: p.OrderId
+            RecordedUtc: p.RecordedUtc.Kind == DateTimeKind.Utc
+                ? p.RecordedUtc
+                : DateTime.SpecifyKind(p.RecordedUtc, DateTimeKind.Utc),
+            OrderId: p.OrderId,
+            OrderName: p.Order?.Name // ← тут
         );
 
     public static PlanActionViewModel ToViewModel(this PlanAction a) =>
@@ -52,7 +55,7 @@ public static class PlanMappers
         );
 
     public static IEnumerable<PlanViewModel> ToViewModels(this IEnumerable<Plan> plans) =>
-        plans.Select(p => p.ToViewModel());
+        plans.Select(ToViewModel);
 
     public static IReadOnlyList<PlanActionViewModel> ToViewModels(this IEnumerable<PlanAction> actions) =>
         [.. actions.Select(a => a.ToViewModel())];

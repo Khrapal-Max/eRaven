@@ -5,12 +5,34 @@
 // IPlanActionService
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Application.ViewModels.PlanViewModels;
+using eRaven.Domain.Enums;
 
 namespace eRaven.Application.Services.PlanActionService;
 
 public interface IPlanActionService
 {
+    /// <summary>
+    /// Пошук осіб з фільтром доступності під обрану дію.
+    /// </summary>
+    Task<IReadOnlyList<PersonEligibilityViewModel>> SearchEligibleAsync(
+        Guid planId,
+        PlanActionType actionType,
+        string query,
+        int take = 50,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Підказки для автозаповнення при виборі особи.
+    /// </summary>
+    Task<PlanActionPrefillViewModel> GetPrefillAsync(
+        Guid planId,
+        Guid personId,
+        PlanActionType actionType,
+        DateTime nowUtc,
+        CancellationToken ct = default);
+
     /// <summary>
     /// Повернути активності плану
     /// </summary>

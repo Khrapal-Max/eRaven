@@ -22,16 +22,18 @@ public class PlanService(AppDbContext appDbContext) : IPlanService
     {
         // повертаємо доменні сутності (як у твоєму інтерфейсі)
         return await _appDbContext.Plans
-            .AsNoTracking()
-            .OrderByDescending(p => p.RecordedUtc)
-            .ToListAsync(ct);
+             .Include(p => p.Order) // ← для OrderName
+             .AsNoTracking()
+             .OrderByDescending(p => p.RecordedUtc)
+             .ToListAsync(ct);
     }
 
     public async Task<PlanViewModel?> GetByIdAsync(Guid planId, CancellationToken ct = default)
     {
         var plan = await _appDbContext.Plans
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == planId, ct);
+        .Include(p => p.Order) // ← для OrderName
+        .AsNoTracking()
+        .FirstOrDefaultAsync(p => p.Id == planId, ct);
 
         return plan?.ToViewModel();
     }

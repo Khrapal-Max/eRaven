@@ -4,6 +4,7 @@
 // CreatePlanActionModal — code-behind
 // -----------------------------------------------------------------------------
 
+using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PlanActionService;
 using eRaven.Application.ViewModels.PersonViewModels;
@@ -18,7 +19,7 @@ namespace eRaven.Components.Pages.Plans.Modals;
 public partial class CreatePlanActionModal : ComponentBase
 {
     [Inject] public IPlanActionService PlanActionService { get; set; } = default!;
-    [Inject] public IPersonService PersonService { get; set; } = default!;
+    [Inject] public IToastService ToastService { get; set; } = default!;
 
     [Parameter] public Guid PlanId { get; set; }
     [Parameter] public bool ReadOnly { get; set; }
@@ -28,38 +29,22 @@ public partial class CreatePlanActionModal : ComponentBase
     private bool _busy;
 
     private CreatePlanActionViewModel _model = new();
-    private DateTime _eventLocal = DateTime.UtcNow; // інтерпретуємо як UTC-значення для зручності
+    private DateTime _eventLocal = DateTime.UtcNow; // прив'язано до input type="datetime-local" (крок 15 хв)
     private string _personQuery = string.Empty;
 
-    private readonly List<PersonSearchViewModel> _personResults = [];
-    private PersonSearchViewModel? _selectedPerson;
-
-    // --------- бінди верхніх полів ---------
-    private DateTime EventLocalBound
-    {
-        get => _eventLocal;
-        set
-        {
-            _eventLocal = value;                                               // step=900 обмежує 00/15/30/45
-            _model.EventAtUtc = DateTime.SpecifyKind(value, DateTimeKind.Utc); // для валідатора (Kind=Utc)
-        }
-    }
+    private readonly List<PersonEligibilityViewModel> _eligible = [];
+    private readonly List<PersonEligibilityViewModel> _ineligible = [];
+    private PersonEligibilityViewModel? _selectedPerson;
 
     public void Open()
     {
         if (ReadOnly) return;
 
-        // починаємо з «квартального» часу, щоб інпут не був «між» значеннями
-        _eventLocal = SnapToQuarter(DateTime.UtcNow);
-        _model = new()
-        {
-            PlanId = PlanId,
-            ActionType = PlanActionType.Dispatch,
-            EventAtUtc = DateTime.SpecifyKind(_eventLocal, DateTimeKind.Utc)
-        };
-
+        _model = new() { PlanId = PlanId, EventAtUtc = DateTime.UtcNow, ActionType = PlanActionType.Dispatch };
+        _eventLocal = DateTime.UtcNow;
         _personQuery = string.Empty;
-        _personResults.Clear();
+        _eligible.Clear();
+        _ineligible.Clear();
         _selectedPerson = null;
 
         _open = true;
@@ -70,74 +55,90 @@ public partial class CreatePlanActionModal : ComponentBase
     {
         if (_busy) return;
         _busy = true;
+
         try
         {
-            // EventAtUtc вже в Kind=Utc з сеттера EventLocalBound
+            // Перетворимо локальний інпут у UTC (крок — 15 хв забезпечує HTML)
+            _model.EventAtUtc = DateTime.SpecifyKind(_eventLocal, DateTimeKind.Utc);
+
             var created = await PlanActionService.CreateAsync(_model);
             await OnCreated.InvokeAsync(created);
             Close();
         }
-        finally { _busy = false; }
+        catch (InvalidOperationException ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Помилка при створенні дії: " + ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private void Close() => _open = false;
 
-    // --------- пошук осіб і вибір ---------
-    private async Task SearchPersons()
+    private async Task SearchPersonsAsync()
     {
-        _personResults.Clear();
+        _eligible.Clear();
+        _ineligible.Clear();
         _selectedPerson = null;
 
-        var q = _personQuery?.Trim();
+        var q = _personQuery?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(q))
+        {
+            StateHasChanged();
             return;
+        }
 
-        Expression<Func<Person, bool>> predicate = q.All(char.IsDigit)
-            ? p => p.Rnokpp.Contains(q)
-            : p => p.Rnokpp.Contains(q)
-                || p.LastName.Contains(q)
-                || p.FirstName.Contains(q)
-                || (p.MiddleName != null && p.MiddleName.Contains(q))
-                || (p.Callsign != null && p.Callsign.Contains(q));
+        var list = await PlanActionService.SearchEligibleAsync(PlanId, _model.ActionType, q, 50);
+        foreach (var item in list)
+        {
+            if (item.IsEligible) _eligible.Add(item);
+            else _ineligible.Add(item);
+        }
 
-        var people = await PersonService.SearchAsync(predicate);
+        // Автовибір, якщо рівно один підходить
+        if (_eligible.Count == 1)
+            await SelectPersonAsync(_eligible[0]);
 
-        _personResults.AddRange(
-            people
-                .OrderBy(p => p.LastName).ThenBy(p => p.FirstName).ThenBy(p => p.MiddleName)
-                .Take(50)
-                .Select(p => new PersonSearchViewModel(
-                    p.Id,
-                    p.FullName,
-                    p.Rnokpp,
-                    p.Rank,
-                    p.PositionUnit?.FullName ?? string.Empty,
-                    p.BZVP,
-                    p.Weapon,
-                    p.Callsign
-                ))
+        StateHasChanged();
+    }
+
+    private async Task OnActionTypeChanged(ChangeEventArgs _)
+    {
+        // Зміна типу дії → перезапустити пошук із тим самим query
+        await SearchPersonsAsync();
+    }
+
+    private async Task SelectPersonAsync(PersonEligibilityViewModel person)
+    {
+        if (!person.IsEligible)
+        {
+            ToastService.ShowWarning(person.IneligibilityReason ?? "Цю особу не можна додати для обраної дії.");
+            return;
+        }
+
+        _selectedPerson = person;
+        _model.PersonId = person.Id;
+
+        // Автозаповнення
+        var prefill = await PlanActionService.GetPrefillAsync(
+            PlanId,
+            person.Id,
+            _model.ActionType,
+            DateTime.UtcNow
         );
-    }
 
-    private Task OnSelectedPersonChanged(PersonSearchViewModel? p)
-    {
-        // 2-way binding від TableBaseComponent (актуалізує підсумок ліворуч)
-        _selectedPerson = p;
-        _model.PersonId = p?.Id ?? Guid.Empty;
-        return Task.CompletedTask;
-    }
+        _model.Location = prefill.Location ?? _model.Location;
+        _model.GroupName = prefill.GroupName ?? _model.GroupName;
+        _model.CrewName = prefill.CrewName ?? _model.CrewName;
 
-    private void OnPersonRowClick(PersonSearchViewModel p)
-    {
-        // клік по рядку теж обирає персону (ідеально для мобільних)
-        _selectedPerson = p;
-        _model.PersonId = p.Id;
-    }
-
-    // --------- утиліти ---------
-    private static DateTime SnapToQuarter(DateTime dtUtc)
-    {
-        var m = (dtUtc.Minute / 15) * 15;
-        return new DateTime(dtUtc.Year, dtUtc.Month, dtUtc.Day, dtUtc.Hour, m, 0, DateTimeKind.Utc);
+        // Поставимо пропонований час (UTC) у локальний інпут
+        _eventLocal = prefill.SuggestedEventAtUtc; // це вже UTC; input покаже yyyy-MM-ddTHH:mm
+        StateHasChanged();
     }
 }

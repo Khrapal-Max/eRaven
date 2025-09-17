@@ -36,14 +36,16 @@
         <td class="text-center">@p.State</td>
         <td class="text-center">@p.Author</td>
         <td class="text-center">@p.RecordedUtc.ToString("dd.MM.yyyy HH:mm")</td>
-        <td class="text-center">
+        <td>
             @if (p.OrderId is Guid oid)
             {
-                <a class="link" href="@($"/orders/{oid}")">@oid.ToString()[..8]…</a>
+                <a class="link text-center" href="@($"/orders/{oid}")">
+                    @(!string.IsNullOrWhiteSpace(p.OrderName) ? p.OrderName : oid.ToString()[..8] + "…")
+                </a>
             }
             else
             {
-                <span class="text-muted">Очікує наказу</span>
+                <span class="text-center">Очікує наказу</span>
             }
         </td>
         <td class="text-end">
