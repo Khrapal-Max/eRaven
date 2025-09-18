@@ -2,13 +2,14 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CreatePlanViewModel
+// PlanActionState
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.ViewModels.PlanViewModels;
+namespace eRaven.Domain.Enums;
 
-public sealed record class CreatePlanViewModel
+public enum PlanActionState : short
 {
-    public string PlanNumber { get; set; } = string.Empty;
-    public string? Author { get; set; } = "system";
+    Draft = 0,      //чернетка
+    Approved = 1,   //погоджено
+    Superseded = 2  //замінено
 }

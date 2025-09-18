@@ -12,23 +12,20 @@ namespace eRaven.Domain.Models;
 public class PlanAction
 {
     public Guid Id { get; set; }
-
-    // План
     public Guid PlanId { get; set; }
-    public Plan Plan { get; set; } = default!;
-
-    // 🔴 Явний зв'язок з особою
     public Guid PersonId { get; set; }
     public Person Person { get; set; } = default!;
 
-    // Контекст дії
-    public PlanActionType ActionType { get; set; }      // Dispatch / Return
-    public DateTime EventAtUtc { get; set; }            // UTC
-    public string Location { get; set; } = default!;
-    public string GroupName { get; set; } = default!;
-    public string CrewName { get; set; } = default!;
+    public DateTime EffectiveAtUtc { get; set; }
 
-    // Знімок особи на момент дії (історична стабільність)
+    public int ToStatusKindId { get; set; }
+
+    public Guid? TripId { get; set; }   // один Trip = Dispatch→Return
+
+    // Стан дії до/після наказу
+    public PlanActionState State { get; set; } = PlanActionState.Draft; // Draft | Approved | Superseded
+
+    // Снапшот залишаємо як є (можна перевести в Owned type)
     public string Rnokpp { get; set; } = default!;
     public string FullName { get; set; } = default!;
     public string RankName { get; set; } = default!;

@@ -26,7 +26,4 @@ public class Order
 
     /// <summary>Плани, що закриваються цим наказом (1:N).</summary>
     public ICollection<Plan> Plans { get; set; } = [];
-
-    /// <summary>Підтверджені наказом дії (люди+дії), скопійовані з планів.</summary>
-    public ICollection<OrderAction> Actions { get; set; } = [];
 }

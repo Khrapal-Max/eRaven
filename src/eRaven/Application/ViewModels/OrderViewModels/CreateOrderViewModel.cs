@@ -1,13 +1,14 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-// OrderDetailsViewModel
+//-----------------------------------------------------------------------------
+// CreateOrderViewModel
 //-----------------------------------------------------------------------------
 
 namespace eRaven.Application.ViewModels.OrderViewModels;
 
-public sealed record OrderDetailsViewModel(
-    OrderViewModel Order,
-    IReadOnlyList<Guid> PlanIds,
-    IReadOnlyList<OrderActionViewModel> Actions
+public record CreateOrderViewModel(
+    string Name,
+    List<Guid> PlanIds,
+    string? Author = null
 );

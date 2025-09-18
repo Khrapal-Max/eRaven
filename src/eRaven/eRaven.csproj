@@ -28,4 +28,10 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Application\Mappers\" />
+    <Folder Include="Components\Pages\Orders\" />
+    <Folder Include="Components\Pages\Plans\" />
+  </ItemGroup>
+
 </Project>

@@ -11,113 +11,117 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
-public class PlanActionConfiguration : IEntityTypeConfiguration<PlanAction>
+public sealed class PlanActionConfiguration : IEntityTypeConfiguration<PlanAction>
 {
     public void Configure(EntityTypeBuilder<PlanAction> e)
     {
-        // ===============================
-        // Table & Keys
-        // ===============================
         e.ToTable("plan_actions");
         e.HasKey(x => x.Id);
+
         e.Property(x => x.Id).HasColumnName("id");
 
-        // ===============================
-        // Columns
-        // ===============================
         e.Property(x => x.PlanId)
-         .HasColumnName("plan_id")
-         .IsRequired();
+            .HasColumnName("plan_id")
+            .IsRequired();
 
         e.Property(x => x.PersonId)
-         .HasColumnName("person_id")
-         .IsRequired();
+            .HasColumnName("person_id")
+            .IsRequired();
 
-        e.Property(x => x.ActionType)
-         .HasColumnName("action_type")
-         .IsRequired();
+        e.Property(x => x.EffectiveAtUtc)
+            .HasColumnName("effective_at_utc")
+            .HasColumnType("timestamp with time zone")
+            .IsRequired();
 
-        e.Property(x => x.EventAtUtc)
-         .HasColumnName("event_at_utc")
-         .HasColumnType("timestamp with time zone")
-         .IsRequired();
+        e.Property(x => x.ToStatusKindId)
+            .HasColumnName("to_status_kind_id")
+            .IsRequired();
 
-        e.Property(x => x.Location)
-         .HasColumnName("location")
-         .HasMaxLength(128)
-         .IsRequired();
+        e.Property(x => x.TripId)
+            .HasColumnName("trip_id");
 
-        e.Property(x => x.GroupName)
-         .HasColumnName("group_name")
-         .HasMaxLength(128)
-         .IsRequired();
+        e.Property(x => x.State)
+            .HasColumnName("state")
+            .HasConversion<short>() // з enum -> smallint
+            .IsRequired();
 
-        e.Property(x => x.CrewName)
-         .HasColumnName("crew_name")
-         .HasMaxLength(128)
-         .IsRequired();
-
-        // ------- Snapshot fields -------
+        // Snapshot
         e.Property(x => x.Rnokpp)
-         .HasColumnName("rnokpp")
-         .HasMaxLength(10)
-         .IsRequired();
+            .HasColumnName("rnokpp")
+            .HasMaxLength(10)
+            .IsRequired();
 
         e.Property(x => x.FullName)
-         .HasColumnName("full_name")
-         .HasMaxLength(256)
-         .IsRequired();
+            .HasColumnName("full_name")
+            .HasMaxLength(384)
+            .IsRequired();
 
         e.Property(x => x.RankName)
-         .HasColumnName("rank_name")
-         .HasMaxLength(64)
-         .IsRequired();
+            .HasColumnName("rank_name")
+            .HasMaxLength(64)
+            .IsRequired();
 
         e.Property(x => x.PositionName)
-         .HasColumnName("position_name")
-         .HasMaxLength(512)
-         .IsRequired();
+            .HasColumnName("position_name")
+            .HasMaxLength(256)
+            .IsRequired();
 
         e.Property(x => x.BZVP)
-         .HasColumnName("bzvp")
-         .HasMaxLength(50)
-         .IsRequired();
+            .HasColumnName("bzvp")
+            .HasMaxLength(50)
+            .IsRequired();
 
         e.Property(x => x.Weapon)
-         .HasColumnName("weapon")
-         .HasMaxLength(128);
+            .HasColumnName("weapon")
+            .HasMaxLength(128)
+            .IsRequired();
 
         e.Property(x => x.Callsign)
-         .HasColumnName("callsign")
-         .HasMaxLength(64);
+            .HasColumnName("callsign")
+            .HasMaxLength(64)
+            .IsRequired();
 
         e.Property(x => x.StatusKindOnDate)
-         .HasColumnName("status_kind_on_date")
-         .HasMaxLength(64)
-         .IsRequired();
+            .HasColumnName("status_kind_on_date")
+            .HasMaxLength(128)
+            .IsRequired();
 
-        // ===============================
-        // Indexes & Constraints
-        // ===============================
-        // швидкий “останній плановий стан по особі”
-        e.HasIndex(x => new { x.PersonId, x.EventAtUtc })
-         .HasDatabaseName("ix_plan_actions_person_last");
-
-        // остання дія в межах плану по особі
-        e.HasIndex(x => new { x.PlanId, x.PersonId, x.EventAtUtc })
-         .HasDatabaseName("ix_plan_actions_plan_person_last");
-
-        // ===============================
-        // Relationships
-        // ===============================
-        e.HasOne(x => x.Plan)
-         .WithMany(p => p.PlanActions)
-         .HasForeignKey(x => x.PlanId)
-         .OnDelete(DeleteBehavior.Restrict);
+        // FK
+        e.HasOne<Plan>()
+            .WithMany(p => p.PlanActions)
+            .HasForeignKey(x => x.PlanId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         e.HasOne(x => x.Person)
-         .WithMany() // якщо додаси навігацію у Person, заміни на .WithMany(p => p.PlanActions)
-         .HasForeignKey(x => x.PersonId)
-         .OnDelete(DeleteBehavior.Restrict);
+            .WithMany()
+            .HasForeignKey(x => x.PersonId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        e.HasOne<StatusKind>()
+            .WithMany()
+            .HasForeignKey(x => x.ToStatusKindId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Indexes
+        e.HasIndex(x => new { x.PersonId, x.EffectiveAtUtc })
+            .HasDatabaseName("ix_planactions_person_effective");
+
+        e.HasIndex(x => new { x.PlanId, x.PersonId })
+            .HasDatabaseName("ix_planactions_plan_person");
+
+        e.HasIndex(x => x.TripId)
+            .HasDatabaseName("ix_planactions_trip");
+
+        // (опційно) Забезпечити унікальний Trip на особу
+        e.HasIndex(x => new { x.PersonId, x.TripId })
+            .HasDatabaseName("ux_planactions_person_trip")
+            .IsUnique()
+            .HasFilter("\"trip_id\" IS NOT NULL");
+
+        // (опційно) контроль валідних значень state
+        e.ToTable(t => t.HasCheckConstraint(
+            "ck_planactions_state_range",
+            "state in (0,1,2)"
+        ));
     }
 }

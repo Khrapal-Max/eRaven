@@ -8,11 +8,8 @@
 using Blazored.Toast;
 using eRaven.Application.Services.ConfirmService;
 using eRaven.Application.Services.ExcelService;
-using eRaven.Application.Services.OrderService;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PersonStatusService;
-using eRaven.Application.Services.PlanActionService;
-using eRaven.Application.Services.PlanService;
 using eRaven.Application.Services.PositionService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.Services.StatusTransitionService;
@@ -50,9 +47,9 @@ builder.Services.AddTransient<IValidator<CreatePositionUnitViewModel>, CreatePos
 //Services
 builder.Services.AddScoped<IConfirmService, ConfirmService>();
 builder.Services.AddScoped<IExcelService, ExcelService>();
-builder.Services.AddScoped<IOrderService, OrderService>();
+/*builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IPlanService, PlanService>();
-builder.Services.AddScoped<IPlanActionService, PlanActionService>();
+builder.Services.AddScoped<IPlanActionService, PlanActionService>();*/
 builder.Services.AddScoped<IPersonService, PersonService>();
 builder.Services.AddScoped<IPersonStatusService, PersonStatusService>();
 builder.Services.AddScoped<IPositionService, PositionService>();

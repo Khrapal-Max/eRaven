@@ -101,16 +101,4 @@ internal static class Seed
 
         return edges;
     }
-
-    public static readonly PlanServiceOptions[] Setoptions =
-    [
-        new PlanServiceOptions
-        {
-            Id = 1,
-            DispatchStatusKindId = 2,   // "В БР"
-            ReturnStatusKindId = 1,     // "В районі"
-            Author = "system",
-            ModifiedUtc = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-        }
-    ];
 }

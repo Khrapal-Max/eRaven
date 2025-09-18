@@ -15,15 +15,9 @@ public class PersonStatusConfiguration : IEntityTypeConfiguration<PersonStatus>
 {
     public void Configure(EntityTypeBuilder<PersonStatus> e)
     {
-        // ===============================
-        // Table & Keys
-        // ===============================
         e.ToTable("person_statuses");
         e.HasKey(x => x.Id);
 
-        // ===============================
-        // Columns (lower snake_case)
-        // ===============================
         e.Property(x => x.Id)
             .HasColumnName("id");
 
@@ -36,13 +30,13 @@ public class PersonStatusConfiguration : IEntityTypeConfiguration<PersonStatus>
             .IsRequired();
 
         e.Property(x => x.Sequence)
-           .HasColumnName("sequence")
-           .HasDefaultValue((short)0)
-           .IsRequired();
+            .HasColumnName("sequence")
+            .HasDefaultValue((short)0)
+            .IsRequired();
 
         e.Property(x => x.OpenDate)
-           .HasColumnName("open_date")
-           .IsRequired();
+            .HasColumnName("open_date")
+            .IsRequired();
 
         e.Property(x => x.Note)
             .HasColumnName("note")
@@ -63,33 +57,49 @@ public class PersonStatusConfiguration : IEntityTypeConfiguration<PersonStatus>
             .HasDefaultValueSql("CURRENT_TIMESTAMP")
             .IsRequired();
 
-        // ===============================
-        // Relationships
-        // ===============================
+        // НОВЕ: джерело
+        e.Property(x => x.OrderId)
+            .HasColumnName("order_id");
+
+        e.Property(x => x.SourcePlanActionId)
+            .HasColumnName("source_plan_action_id");
+
         e.HasOne(x => x.Person)
             .WithMany(p => p.StatusHistory)
             .HasForeignKey(x => x.PersonId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        e.HasOne(x => x.StatusKind)
+        e.HasOne<StatusKind>()
             .WithMany()
             .HasForeignKey(x => x.StatusKindId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // ===============================
+        e.HasOne<Order>()
+            .WithMany()
+            .HasForeignKey(x => x.OrderId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        e.HasOne<PlanAction>()
+            .WithMany()
+            .HasForeignKey(x => x.SourcePlanActionId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // Indexes
-        // ===============================
-        // Основний індекс для історії (перегляди/звітність)
         e.HasIndex(x => new { x.PersonId, x.OpenDate })
             .HasDatabaseName("ix_person_statuses_person_open");
 
         e.HasIndex(x => new { x.PersonId, x.OpenDate, x.Sequence })
-          .IsUnique()
-          .HasFilter("is_active = TRUE")
-          .HasDatabaseName("ux_person_statuses_person_open_seq_active");
+            .IsUnique()
+            .HasFilter("is_active = TRUE")
+            .HasDatabaseName("ux_person_statuses_person_open_seq_active");
 
-        // Додатковий індекс для швидкого пошуку "поточних" (валідних) з сортуванням по даті
         e.HasIndex(x => new { x.PersonId, x.IsActive, x.OpenDate })
             .HasDatabaseName("ix_person_statuses_person_active_open");
+
+        e.HasIndex(x => x.OrderId)
+            .HasDatabaseName("ix_person_statuses_order");
+
+        e.HasIndex(x => x.SourcePlanActionId)
+            .HasDatabaseName("ix_person_statuses_source_action");
     }
 }
