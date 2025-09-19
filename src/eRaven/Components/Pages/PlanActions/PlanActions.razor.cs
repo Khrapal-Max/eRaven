@@ -6,10 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Services.PlanActionService;
-using eRaven.Application.ViewModels.PlanActionViewModels;
-using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
-using FluentValidation;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.PlanActions;
@@ -17,161 +14,96 @@ namespace eRaven.Components.Pages.PlanActions;
 public partial class PlanActions : ComponentBase, IDisposable
 {
     [Inject] public IPlanActionService PlanActionService { get; set; } = default!;
-    [Inject] public IValidator<CreatePlanActionViewModel> CreateValidator { get; set; } = default!;
-    [Inject] public IValidator<ApproveOptionsViewModel> ApproveValidator { get; set; } = default!;
 
-    // state
-    private Guid? PersonId;
-    private string PersonIdRaw { get; set; } = string.Empty;
-    private string TripIdRaw { get; set; } = string.Empty;
+    private string? SearchText;
+    private List<PlanAction> Items = [];
+    private int Total;
+    private PlanAction? Selected;
+    private readonly HashSet<Guid> SelectedIds = [];
 
-    private CreatePlanActionViewModel CreateModel = new();
-    private readonly ApproveOptionsViewModel ApproveModel = new();
+    // модали
+    private bool ShowCreate;
+    private bool ShowEdit;
+    private bool ShowApprove;
+    private Guid? PreselectedPersonId;
+    private PlanAction? EditTarget;
 
-    private List<PlanAction> Items { get; set; } = [];
-    private PlanAction? Selected { get; set; }
-
-    // helpers for datetime-local (uses local time; we store UTC)
-    private DateTime EffectiveLocal
+    protected override async Task OnInitializedAsync()
     {
-        get => DateTime.SpecifyKind(CreateModel.EffectiveAtUtc, DateTimeKind.Utc).ToLocalTime();
-        set => CreateModel.EffectiveAtUtc = DateTime.SpecifyKind(value.ToUniversalTime(), DateTimeKind.Utc);
+        await SearchAsync();
     }
 
-    private bool CanCreate => PersonId.HasValue;
-    private bool CanApprove => ApproveModel.SelectedActionIds.Count > 0;
-
-    protected override void OnInitialized()
+    private async Task SearchAsync()
     {
-        ResetCreate();
+        var page = await PlanActionService.SearchAsync(SearchText);
+        Items = [.. page.Items];
+        Total = page.Total;
+        await InvokeAsync(StateHasChanged);
     }
 
-    private async Task LoadForPerson()
-    {
-        Selected = null;
-        Items.Clear();
-        ApproveModel.SelectedActionIds.Clear();
-
-        if (!Guid.TryParse(PersonIdRaw, out var pid))
-            return;
-
-        PersonId = pid;
-        CreateModel.PersonId = pid;
-
-        Items = [.. (await PlanActionService.GetByPersonAsync(pid, onlyDraft: false))];
-        StateHasChanged();
-    }
-
-    private void OnMoveTypeChanged()
-    {
-        // зручність: підказати ToStatusKindId
-        if (CreateModel.MoveType == MoveType.Dispatch && CreateModel.ToStatusKindId <= 0)
-            CreateModel.ToStatusKindId = 2; // "В БР" за замовчуванням
-        if (CreateModel.MoveType == MoveType.Return && CreateModel.ToStatusKindId <= 0)
-            CreateModel.ToStatusKindId = 1; // "В районі" за замовчуванням
-    }
-
-    private async Task CreateAsync()
-    {
-        var vr = await CreateValidator.ValidateAsync(CreateModel);
-        if (!vr.IsValid) return;
-
-        // нормалізувати TripId
-        CreateModel.TripId = string.IsNullOrWhiteSpace(TripIdRaw) ? null :
-            Guid.TryParse(TripIdRaw, out var t) ? t : null;
-
-        var dto = new CreatePlanActionDto(
-            CreateModel.PersonId,
-            CreateModel.MoveType,
-            CreateModel.ToStatusKindId,
-            CreateModel.EffectiveAtUtc,
-            CreateModel.TripId,
-            CreateModel.Location,
-            CreateModel.GroupName,
-            CreateModel.CrewName,
-            CreateModel.Note
-        );
-
-        var created = await PlanActionService.AddActionAsync(dto);
-        Items.Add(created);
-        Items = [.. Items.OrderBy(i => i.EffectiveAtUtc)];
-
-        ResetCreate();
-        StateHasChanged();
-    }
-
-    private void ResetCreate()
-    {
-        CreateModel = new()
-        {
-            PersonId = PersonId ?? Guid.Empty,
-            MoveType = MoveType.Dispatch,
-            ToStatusKindId = 2, // зручно за замовчуванням
-            EffectiveAtUtc = DateTime.UtcNow,
-            TripId = null,
-            Location = string.Empty,
-            GroupName = string.Empty,
-            CrewName = string.Empty,
-            Note = null
-        };
-        TripIdRaw = string.Empty;
-    }
-
-    private void OnRowClick(PlanAction a)
-    {
-        // керування множинним вибором для approve (простий варіант: toggle)
-        if (ApproveModel.SelectedActionIds.Contains(a.Id))
-            ApproveModel.SelectedActionIds.Remove(a.Id);
-        else
-            ApproveModel.SelectedActionIds.Add(a.Id);
-    }
-
-    private Task OnSelectChanged(PlanAction? a)
+    private Task OnSelectedChanged(PlanAction? a)
     {
         Selected = a;
         return Task.CompletedTask;
     }
 
-    private async Task DeleteSelectedAsync()
+    private void ToggleSelect(PlanAction a)
     {
-        if (Selected is null) return;
-        var ok = await PlanActionService.DeleteAsync(Selected.Id);
-        if (ok)
+        if (SelectedIds.Contains(a.Id)) SelectedIds.Remove(a.Id);
+        else SelectedIds.Add(a.Id);
+    }
+
+    private void OpenCreateModal()
+    {
+        PreselectedPersonId = Selected?.PersonId;
+        ShowCreate = true;
+    }
+    private void CloseCreateModal() => ShowCreate = false;
+
+    private void OpenEditModal(PlanAction a)
+    {
+        EditTarget = a;
+        ShowEdit = true;
+    }
+    private void CloseEditModal() => ShowEdit = false;
+
+    private void ApproveSelected()
+    {
+        if (SelectedIds.Count == 0) return;
+        ShowApprove = true;
+    }
+    private void CloseApproveModal() => ShowApprove = false;
+
+    private async Task OnModalSaved()
+    {
+        ShowCreate = false;
+        ShowEdit = false;
+        await SearchAsync();
+    }
+
+    private async Task OnApproved()
+    {
+        ShowApprove = false;
+        SelectedIds.Clear();
+        await SearchAsync();
+    }
+
+    private async Task DeleteOne(Guid id)
+    {
+        if (await PlanActionService.DeleteAsync(id))
         {
-            Items.RemoveAll(x => x.Id == Selected.Id);
-            Selected = null;
-            await InvokeAsync(StateHasChanged);
+            Items.RemoveAll(x => x.Id == id);
+            StateHasChanged();
         }
-        // (опціонально: показати toast)
     }
 
-    private async Task ApproveSelectedAsync()
+    private async Task DeleteSelected()
     {
-        var vr = await ApproveValidator.ValidateAsync(ApproveModel);
-        if (!vr.IsValid) return;
-
-        // пакетний апрув
-        var result = await PlanActionService.ApproveBatchAsync(
-            ApproveModel.SelectedActionIds,
-            new ApproveOptions(ApproveModel.OrderName, ApproveModel.Author)
-        );
-
-        // оновити локальний список: перевести затверджені в ApprovedOrder + проставити OrderName
-        var approvedIds = result.PerAction.Where(r => r.Applied).Select(r => r.ActionId).ToHashSet();
-        foreach (var a in Items.Where(i => approvedIds.Contains(i.Id)))
-        {
-            a.ActionState = ActionState.ApprovedOrder;
-            a.Order = ApproveModel.OrderName;
-        }
-
-        ApproveModel.SelectedActionIds.Clear();
-        await InvokeAsync(StateHasChanged);
-        // (опціонально: показати summary успіхів/помилок)
+        foreach (var id in SelectedIds.ToList())
+            await DeleteOne(id);
+        SelectedIds.Clear();
+        await SearchAsync();
     }
 
-    public void Dispose()
-    {
-        ApproveModel.SelectedActionIds.Clear();
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() => GC.SuppressFinalize(this);
 }

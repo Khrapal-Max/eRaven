@@ -31,6 +31,14 @@ public interface IPlanActionService
     /// <returns>PlanAction(<see cref="PlanAction"/>)</returns>
     Task<PlanAction?> GetByIdAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>
+    /// Пошук планових дій за фільтром з пагінацією.
+    /// </summary>
+    /// <param name="filter"></param>
+    /// <param name="ct"></param>
+    /// <returns></returns>
+    Task<PagedResult<PlanAction>> SearchAsync(string? search, CancellationToken ct = default);
+
     // ---------- створення / видалення ----------
 
     /// <summary>
@@ -40,6 +48,14 @@ public interface IPlanActionService
     /// <param name="ct"></param>
     /// <returns>PlanAction(<see cref="PlanAction"/>)</returns>
     Task<PlanAction> AddActionAsync(CreatePlanActionDto dto, CancellationToken ct = default);
+
+    /// <summary>
+    /// Змінити існуючу чернетку (ActionState=PlanAction) з усіма валідаціями.
+    /// </summary>
+    /// <param name="dto"></param>
+    /// <param name="ct"></param>
+    /// <returns></returns>
+    Task<PlanAction> UpdateDraftAsync(UpdatePlanActionDto dto, CancellationToken ct = default);
 
     /// <summary>
     /// Видалити дію. Дозволено тільки для стану PlanAction.

@@ -9,7 +9,7 @@ using eRaven.Application.ViewModels.PlanActionViewModels;
 using eRaven.Domain.Enums;
 using FluentValidation;
 
-namespace eRaven.Components.Pages.PlanActions;
+namespace eRaven.Components.Pages.PlanActions.Modals;
 
 public sealed class CreatePlanActionViewModelValidator : AbstractValidator<CreatePlanActionViewModel>
 {

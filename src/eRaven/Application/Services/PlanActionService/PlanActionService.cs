@@ -28,6 +28,61 @@ public sealed class PlanActionService(AppDbContext db) : IPlanActionService
     public async Task<PlanAction?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => await _db.PlanActions.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id, ct);
 
+    public async Task<PagedResult<PlanAction>> SearchAsync(string? search, CancellationToken ct = default)
+    {
+        const int take = 100;
+        IQueryable<PlanAction> q = _db.PlanActions.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var raw = search.Trim();
+            var isNpgsql = _db.Database.IsNpgsql(); // потребує Microsoft.EntityFrameworkCore.Relational
+
+            if (raw.All(char.IsDigit))
+            {
+                // ІПН (РНОКПП)
+                q = raw.Length == 10
+                    ? q.Where(x => x.Rnokpp == raw)
+                    : q.Where(x => x.Rnokpp.StartsWith(raw));
+            }
+            else
+            {
+                // ПІБ / позивний: усі токени мають входити
+                var tokens = raw.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                if (isNpgsql)
+                {
+                    foreach (var t in tokens)
+                    {
+                        var p = $"%{t}%";
+                        q = q.Where(x =>
+                            EF.Functions.ILike(x.FullName, p) ||
+                            (x.Callsign != null && EF.Functions.ILike(x.Callsign, p))
+                        );
+                    }
+                }
+                else
+                {
+                    var lowered = tokens.Select(s => s.ToLower()).ToArray();
+                    foreach (var t in lowered)
+                    {
+                        q = q.Where(x =>
+                            x.FullName.ToLower().Contains(t)
+                        );
+                    }
+                }
+            }
+        }
+
+        var total = await q.CountAsync(ct);
+        var items = await q
+            .OrderByDescending(x => x.EffectiveAtUtc)
+            .Take(take)
+            .ToListAsync(ct);
+
+        return new PagedResult<PlanAction>(items, total, Page: 1, PageSize: items.Count);
+    }
+
     // ---------- створення ----------
     public async Task<PlanAction> AddActionAsync(CreatePlanActionDto dto, CancellationToken ct = default)
     {
@@ -118,6 +173,25 @@ public sealed class PlanActionService(AppDbContext db) : IPlanActionService
         _db.PlanActions.Add(action);
         await _db.SaveChangesAsync(ct);
         return action;
+    }
+
+    public async Task<PlanAction> UpdateDraftAsync(UpdatePlanActionDto dto, CancellationToken ct = default)
+    {
+        var a = await _db.PlanActions.FirstOrDefaultAsync(x => x.Id == dto.Id, ct)
+            ?? throw new InvalidOperationException("Дію не знайдено.");
+
+        if (a.ActionState != ActionState.PlanAction)
+            throw new InvalidOperationException("Редагувати можна лише чернетки.");
+
+        a.EffectiveAtUtc = dto.EffectiveAtUtc.Kind == DateTimeKind.Utc ? dto.EffectiveAtUtc : DateTime.SpecifyKind(dto.EffectiveAtUtc, DateTimeKind.Utc);
+        a.ToStatusKindId = dto.ToStatusKindId;
+        a.Location = dto.Location;
+        a.GroupName = dto.GroupName;
+        a.CrewName = dto.CrewName;
+        a.Note = dto.Note ?? string.Empty;
+
+        await _db.SaveChangesAsync(ct);
+        return a;
     }
 
     // ---------- видалення ----------

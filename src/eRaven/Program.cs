@@ -21,7 +21,7 @@ using eRaven.Application.ViewModels.StatusKindViewModels;
 using eRaven.Components;
 using eRaven.Components.Pages.Persons;
 using eRaven.Components.Pages.Persons.Modals;
-using eRaven.Components.Pages.PlanActions;
+using eRaven.Components.Pages.PlanActions.Modals;
 using eRaven.Components.Pages.Positions.Modals;
 using eRaven.Components.Pages.StatusTransitions.Modals;
 using eRaven.Extensions;

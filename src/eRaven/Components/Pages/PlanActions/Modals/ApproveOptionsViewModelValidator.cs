@@ -8,7 +8,7 @@
 using eRaven.Application.ViewModels.PlanActionViewModels;
 using FluentValidation;
 
-namespace eRaven.Components.Pages.PlanActions;
+namespace eRaven.Components.Pages.PlanActions.Modals;
 
 public sealed class ApproveOptionsViewModelValidator : AbstractValidator<ApproveOptionsViewModel>
 {
