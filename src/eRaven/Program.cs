@@ -45,8 +45,6 @@ builder.Services.AddTransient<IValidator<EditPersonViewModel>, EditPersonViewMod
 builder.Services.AddTransient<IValidator<CreateKindViewModel>, CreateKindViewModelValidator>();
 builder.Services.AddTransient<IValidator<CreatePersonViewModel>, CreatePersonViewModelValidator>();
 builder.Services.AddTransient<IValidator<CreatePositionUnitViewModel>, CreatePositionUnitViewModelValidator>();
-builder.Services.AddTransient<IValidator<CreatePlanActionViewModel>, CreatePlanActionViewModelValidator>();
-builder.Services.AddTransient<IValidator<ApproveOptionsViewModel>, ApproveOptionsViewModelValidator>();
 
 //Services
 builder.Services.AddScoped<IConfirmService, ConfirmService>();

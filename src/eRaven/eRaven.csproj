@@ -30,6 +30,8 @@
 
   <ItemGroup>
     <Folder Include="Application\Mappers\" />
+    <Folder Include="Application\ViewModels\PlanActionViewModels\" />
+    <Folder Include="Components\Pages\PlanActions\Modals\" />
   </ItemGroup>
 
 </Project>
