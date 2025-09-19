@@ -30,8 +30,6 @@
 
   <ItemGroup>
     <Folder Include="Application\Mappers\" />
-    <Folder Include="Components\Pages\Orders\" />
-    <Folder Include="Components\Pages\Plans\" />
   </ItemGroup>
 
 </Project>

@@ -27,6 +27,6 @@ public class PersonStatus
     public DateTime Modified { get; set; }
 
     // НОВЕ: для аудиту, звідки з’явився цей статус
-    public Guid? OrderId { get; set; }
-    public Guid? SourcePlanActionId { get; set; }
+    public Guid? SourceDocumentId { get; set; }
+    public string? SourceDocumentType { get; set; }
 }

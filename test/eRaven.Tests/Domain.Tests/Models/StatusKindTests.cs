@@ -56,10 +56,11 @@ public class StatusKindTests
     public void Toggle_IsActive_Works()
     {
         // Arrange
-        var s = new StatusKind(); // IsActive == true за моделлю
-
-        // Act
-        s.IsActive = false;
+        var s = new StatusKind
+        {
+            // Act
+            IsActive = false
+        }; // IsActive == true за моделлю
 
         // Assert
         Assert.False(s.IsActive);

@@ -1,0 +1,144 @@
+﻿@page "/plan-actions"
+
+@using eRaven.Domain.Enums
+@using eRaven.Domain.Models
+@using eRaven.Application.ViewModels.PlanActionViewModels
+@using eRaven.Application.Services.PlanActionService
+@using eRaven.Components.Shared.TableBaseComponent
+
+<h3 class="mb-3">Планові дії</h3>
+
+<div class="row g-3">
+    <div class="col-lg-3">
+        <div class="card">
+            <div class="card-header fw-semibold">1) Оберіть особу</div>
+            <div class="card-body">
+                <!-- тут твій компонент/селектор осіб; поки простий інпут -->
+                <input class="form-control mb-2" placeholder="PersonId (Guid)" @bind="PersonIdRaw" />
+                <button class="btn btn-primary w-100" @onclick="LoadForPerson">Завантажити</button>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header fw-semibold">3) Затвердження наказом</div>
+            <div class="card-body">
+                <EditForm Model="@ApproveModel" OnValidSubmit="@ApproveSelectedAsync">
+                    <FluentValidationValidator />
+                    <div class="mb-2">
+                        <label class="form-label">Наказ</label>
+                        <input class="form-control" @bind="ApproveModel.OrderName" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Автор</label>
+                        <input class="form-control" @bind="ApproveModel.Author" />
+                    </div>
+                    <button class="btn btn-success w-100" disabled="@(!CanApprove)">Затвердити обрані</button>
+                </EditForm>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header fw-semibold">Видалення</div>
+            <div class="card-body d-grid">
+                <button class="btn btn-outline-danger" disabled="@(Selected is null)" @onclick="DeleteSelectedAsync">
+                    Видалити обраний
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-9">
+        <div class="card">
+            <div class="card-header fw-semibold">2) Додайте дію (строга послідовність)</div>
+            <div class="card-body">
+                <EditForm Model="@CreateModel" OnValidSubmit="@CreateAsync">
+                    <FluentValidationValidator />
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <label class="form-label">Тип</label>
+                            <InputSelect TValue="MoveType" @bind-Value="CreateModel.MoveType" @bind-Value:after="OnMoveTypeChanged">
+                                <option value="Dispatch">Відрядити</option>
+                                <option value="Return">Повернути</option>
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Дата/час (UTC)</label>
+                            <input type="datetime-local" class="form-control" @bind-value="EffectiveLocal" @bind-value:event="oninput" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">TripId</label>
+                            <input class="form-control" @bind="TripIdRaw" placeholder="необов'язково для відрядження" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Цільовий статус</label>
+                            <input type="number" class="form-control" @bind="CreateModel.ToStatusKindId" />
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mt-1">
+                        <div class="col-md-3">
+                            <label class="form-label">Локація</label>
+                            <input class="form-control" @bind="CreateModel.Location" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Група</label>
+                            <input class="form-control" @bind="CreateModel.GroupName" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Розрахунок</label>
+                            <input class="form-control" @bind="CreateModel.CrewName" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Примітка</label>
+                            <input class="form-control" @bind="CreateModel.Note" />
+                        </div>
+                    </div>
+
+                    <div class="mt-3 d-flex gap-2">
+                        <button class="btn btn-primary" type="submit" disabled="@(!CanCreate)">Додати дію</button>
+                        <button class="btn btn-secondary" type="button" @onclick="ResetCreate">Очистити</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header fw-semibold">Дії особи</div>
+            <div class="card-body">
+                <TableBaseComponent TItem="PlanAction"
+                                    Items="Items"
+                                    SelectedItem="Selected"
+                                    SelectedItemChanged="OnSelectChanged"
+                                    OnClick="OnRowClick"
+                                    Class="align-middle">
+                    <TableHeader>
+                        <th scope="col">Тип</th>
+                        <th scope="col">Trip</th>
+                        <th scope="col">Дата/час (UTC)</th>
+                        <th scope="col">Статус</th>
+                        <th scope="col">Стан</th>
+                        <th scope="col">Наказ</th>
+                        <th scope="col">Локація</th>
+                        <th scope="col">Група</th>
+                        <th scope="col">Розрахунок</th>
+                    </TableHeader>
+                    <RowTemplate Context="a">
+                        <td>@a.MoveType</td>
+                        <td class="text-truncate" style="max-width:140px">@a.TripId</td>
+                        <td>@a.EffectiveAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@a.ToStatusKindId</td>
+                        <td>@a.ActionState</td>
+                        <td>@a.Order</td>
+                        <td>@a.Location</td>
+                        <td>@a.GroupName</td>
+                        <td>@a.CrewName</td>
+                    </RowTemplate>
+                </TableBaseComponent>
+
+                <div class="mt-2 small text-muted">
+                    Порада: для повернення вкажіть TripId від пов’язаного відрядження.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

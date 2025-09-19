@@ -1,12 +1,14 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-// PlanTests (final for the minimal Plan model)
+//-----------------------------------------------------------------------------
+// ActionState
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Tests.Domain.Tests.Models;
+namespace eRaven.Domain.Enums;
 
-public class PlanTests
+public enum ActionState : short
 {
-
+    PlanAction = 1,      //планується
+    ApprovedOrder = 2    //виконано наказом
 }

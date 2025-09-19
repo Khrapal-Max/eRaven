@@ -10,15 +10,18 @@ using eRaven.Application.Services.ConfirmService;
 using eRaven.Application.Services.ExcelService;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PersonStatusService;
+using eRaven.Application.Services.PlanActionService;
 using eRaven.Application.Services.PositionService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.Services.StatusTransitionService;
 using eRaven.Application.ViewModels.PersonViewModels;
+using eRaven.Application.ViewModels.PlanActionViewModels;
 using eRaven.Application.ViewModels.PositionPagesViewModels;
 using eRaven.Application.ViewModels.StatusKindViewModels;
 using eRaven.Components;
 using eRaven.Components.Pages.Persons;
 using eRaven.Components.Pages.Persons.Modals;
+using eRaven.Components.Pages.PlanActions;
 using eRaven.Components.Pages.Positions.Modals;
 using eRaven.Components.Pages.StatusTransitions.Modals;
 using eRaven.Extensions;
@@ -42,14 +45,13 @@ builder.Services.AddTransient<IValidator<EditPersonViewModel>, EditPersonViewMod
 builder.Services.AddTransient<IValidator<CreateKindViewModel>, CreateKindViewModelValidator>();
 builder.Services.AddTransient<IValidator<CreatePersonViewModel>, CreatePersonViewModelValidator>();
 builder.Services.AddTransient<IValidator<CreatePositionUnitViewModel>, CreatePositionUnitViewModelValidator>();
-
+builder.Services.AddTransient<IValidator<CreatePlanActionViewModel>, CreatePlanActionViewModelValidator>();
+builder.Services.AddTransient<IValidator<ApproveOptionsViewModel>, ApproveOptionsViewModelValidator>();
 
 //Services
 builder.Services.AddScoped<IConfirmService, ConfirmService>();
 builder.Services.AddScoped<IExcelService, ExcelService>();
-/*builder.Services.AddScoped<IOrderService, OrderService>();
-builder.Services.AddScoped<IPlanService, PlanService>();
-builder.Services.AddScoped<IPlanActionService, PlanActionService>();*/
+builder.Services.AddScoped<IPlanActionService, PlanActionService>();
 builder.Services.AddScoped<IPersonService, PersonService>();
 builder.Services.AddScoped<IPersonStatusService, PersonStatusService>();
 builder.Services.AddScoped<IPositionService, PositionService>();

@@ -16,7 +16,7 @@ public sealed class PersonStatusServiceTests : IDisposable
 {
     private readonly SqliteDbHelper _helper = new();
     private readonly AppDbContext _db;
-    private readonly IPersonStatusService _svc;
+    private readonly PersonStatusService _svc;
     private readonly CancellationToken _ct = default;
 
     public PersonStatusServiceTests()
@@ -101,7 +101,7 @@ public sealed class PersonStatusServiceTests : IDisposable
         Assert.Equal(3, all.Count);
 
         // порядок: s2 (t+2h), s3 (t, seq=5), s1 (t, seq=0)
-        Assert.Equal(new[] { s2.Id, s3.Id, s1.Id }, all.Select(x => x.Id).ToArray());
+        Assert.Equal([s2.Id, s3.Id, s1.Id], [.. all.Select(x => x.Id)]);
 
         // include-и присутні
         Assert.All(all, x =>

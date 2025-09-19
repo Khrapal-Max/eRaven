@@ -2,13 +2,13 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CreateOrderViewModel
+// ApproveResult
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.ViewModels.OrderViewModels;
+namespace eRaven.Application.ViewModels.PlanActionViewModels;
 
-public record CreateOrderViewModel(
-    string Name,
-    List<Guid> PlanIds,
-    string? Author = null
+public record ApproveResult(
+    Guid ActionId,
+    bool Applied,
+    IReadOnlyList<string> Errors
 );

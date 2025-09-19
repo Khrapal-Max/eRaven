@@ -88,8 +88,11 @@ public class PositionUnitTests
     [Fact]
     public void Code_SetGet_Works()
     {
-        var unit = new PositionUnit { ShortName = "механік" };
-        unit.Code = "MECH-01";
+        var unit = new PositionUnit
+        {
+            ShortName = "механік",
+            Code = "MECH-01"
+        };
 
         Assert.Equal("MECH-01", unit.Code);
     }

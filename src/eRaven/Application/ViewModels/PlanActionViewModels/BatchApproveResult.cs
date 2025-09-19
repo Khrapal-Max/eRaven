@@ -1,12 +1,14 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-// PlanTests (final for the minimal Plan model)
+//-----------------------------------------------------------------------------
+// BatchApproveResult
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Tests.Domain.Tests.Models;
+namespace eRaven.Application.ViewModels.PlanActionViewModels;
 
-public class PlanTests
-{
-
-}
+public record BatchApproveResult(
+    int Requested,
+    int Applied,
+    IReadOnlyList<ApproveResult> PerAction
+);

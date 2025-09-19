@@ -2,14 +2,14 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PlanActionState
+// ApproveOptionsViewModel
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Domain.Enums;
+namespace eRaven.Application.ViewModels.PlanActionViewModels;
 
-public enum PlanActionState : short
+public sealed class ApproveOptionsViewModel
 {
-    Draft = 0,      //чернетка
-    Approved = 1,   //погоджено
-    Superseded = 2  //замінено
+    public string OrderName { get; set; } = string.Empty;
+    public string? Author { get; set; }
+    public List<Guid> SelectedActionIds { get; set; } = new();
 }

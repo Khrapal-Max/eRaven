@@ -2,16 +2,12 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PlanState
+// ApproveOptions
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Domain.Enums;
+namespace eRaven.Application.ViewModels.PlanActionViewModels;
 
-/// <summary>
-/// Стан плану: відкрито або закрито (закриття оформлюється наказом).
-/// </summary>
-public enum PlanState
-{
-    Open = 1,
-    Close = 2
-}
+public record ApproveOptions(
+    string OrderName,                 // номер/назва наказу (PlanAction.Order)
+    string? Author = null
+);

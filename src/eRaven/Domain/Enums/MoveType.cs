@@ -2,14 +2,13 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CreatePlanActionViewModel
+// MoveType
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.ViewModels.PlanViewModels;
+namespace eRaven.Domain.Enums;
 
-public record CreatePlanActionModel(
-    Guid PersonId,
-    DateTime EffectiveAtUtc,
-    int ToStatusKindId,
-    string Note // опціонально
-);
+public enum MoveType
+{
+    Dispatch = 1,  // Відправлення
+    Return = 2,    // Повернення
+}

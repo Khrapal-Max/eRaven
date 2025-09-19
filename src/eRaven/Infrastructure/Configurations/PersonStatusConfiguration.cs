@@ -1,9 +1,8 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// PersonStatusConfiguration
-//-----------------------------------------------------------------------------
+//----------------------------------------------------------------------------- 
+// PersonStatusConfiguration 
+//----------------------------------------------------------------------------- 
 
 using eRaven.Domain.Models;
 using Microsoft.EntityFrameworkCore;
@@ -57,32 +56,23 @@ public class PersonStatusConfiguration : IEntityTypeConfiguration<PersonStatus>
             .HasDefaultValueSql("CURRENT_TIMESTAMP")
             .IsRequired();
 
-        // НОВЕ: джерело
-        e.Property(x => x.OrderId)
-            .HasColumnName("order_id");
+        // Джерело статусу (лише для планових дій або майбутніх типів документів)
+        e.Property(x => x.SourceDocumentId)
+            .HasColumnName("source_document_id");
 
-        e.Property(x => x.SourcePlanActionId)
-            .HasColumnName("source_plan_action_id");
+        e.Property(x => x.SourceDocumentType)
+            .HasColumnName("source_document_type")
+            .HasMaxLength(64);
 
         e.HasOne(x => x.Person)
             .WithMany(p => p.StatusHistory)
             .HasForeignKey(x => x.PersonId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        e.HasOne<StatusKind>()
+        e.HasOne(x => x.StatusKind)
             .WithMany()
             .HasForeignKey(x => x.StatusKindId)
             .OnDelete(DeleteBehavior.Restrict);
-
-        e.HasOne<Order>()
-            .WithMany()
-            .HasForeignKey(x => x.OrderId)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        e.HasOne<PlanAction>()
-            .WithMany()
-            .HasForeignKey(x => x.SourcePlanActionId)
-            .OnDelete(DeleteBehavior.SetNull);
 
         // Indexes
         e.HasIndex(x => new { x.PersonId, x.OpenDate })
@@ -96,10 +86,7 @@ public class PersonStatusConfiguration : IEntityTypeConfiguration<PersonStatus>
         e.HasIndex(x => new { x.PersonId, x.IsActive, x.OpenDate })
             .HasDatabaseName("ix_person_statuses_person_active_open");
 
-        e.HasIndex(x => x.OrderId)
-            .HasDatabaseName("ix_person_statuses_order");
-
-        e.HasIndex(x => x.SourcePlanActionId)
-            .HasDatabaseName("ix_person_statuses_source_action");
+        e.HasIndex(x => new { x.SourceDocumentType, x.SourceDocumentId })
+            .HasDatabaseName("ix_person_statuses_source_document");
     }
 }

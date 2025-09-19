@@ -88,6 +88,11 @@ public class Person
     public ICollection<PersonStatus> StatusHistory { get; set; } = [];
 
     /// <summary>
+    /// Історія поточний статусів
+    /// </summary>
+    public ICollection<PlanAction> PlanActions { get; set; } = [];
+
+    /// <summary>
     /// Історія минулих посад
     /// </summary>
     public ICollection<PersonPositionAssignment> PositionAssignments { get; set; } = []; // історія
