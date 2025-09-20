@@ -107,7 +107,7 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
             var actions = await PlanActionService.GetByIdAsync(person.Id, _cts.Token);
             _actions = [.. actions.OrderByDescending(x => x?.EffectiveAtUtc)];
 
-            if(_actions.Count > 0)
+            if (_actions.Count > 0)
             {
                 LastPlanAction = _actions.First();
             }
@@ -173,6 +173,20 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
         }
 
         await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DeletePlanAction(Guid id)
+    {
+        try
+        {
+            await PlanActionService.DeleteAsync(id, _cts.Token);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+
+        await ApplyFilterAndSort();
     }
 
     public void Dispose()

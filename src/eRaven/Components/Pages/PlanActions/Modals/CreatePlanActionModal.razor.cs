@@ -162,11 +162,6 @@ public partial class CreatePlanActionModal : ComponentBase
         CreatePlanAction!.EffectiveAtUtc = dateUtc;
     }
 
-    private void OnLocationChanged(string v) => CreatePlanAction!.Location = v;
-    private void OnGroupNameChanged(string v) => CreatePlanAction!.GroupName = v;
-    private void OnCrewNameChanged(string v) => CreatePlanAction!.CrewName = v;
-    private void OnNoteChanged(string v) => CreatePlanAction!.Note = v;
-
     // ----------------- submit -----------------
 
     private async Task CreateAction()
@@ -174,6 +169,13 @@ public partial class CreatePlanActionModal : ComponentBase
         try
         {
             var ok = _validator is null || await _validator.ValidateAsync();
+
+            if (LastPlanAction?.EffectiveAtUtc >= CreatePlanAction!.EffectiveAtUtc)
+            {
+                ToastService.ShowError("Дата і час планової дії не можуть бути раніше за останню планову дію.");
+                return;
+            }
+
             if (ok && CreatePlanAction is not null)
             {
                 await OnSaved.InvokeAsync(CreatePlanAction);

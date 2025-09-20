@@ -82,17 +82,11 @@ public sealed class PlanActionService(AppDbContext db) : IPlanActionService
     /// <returns>bool</returns>
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        var action = _db.PlanActions
-            .AsNoTracking()
-            .FirstOrDefault(x => x.Id == id);
+        var affected = await _db.PlanActions
+            .Where(x => x.Id == id && x.ActionState == ActionState.PlanAction)
+            .ExecuteDeleteAsync(ct);
 
-        if (action is null || action.ActionState != ActionState.PlanAction)
-            return false;
-
-        _db.Remove(action);
-        await _db.SaveChangesAsync(ct);
-
-        return true;
+        return affected > 0;
     }
 
     /// <summary>

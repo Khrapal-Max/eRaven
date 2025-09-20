@@ -81,6 +81,7 @@
                     <th class="text-black">Локація</th>
                     <th class="text-black">Група</th>
                     <th class="text-black">Екіпаж</th>
+                    <th class="text-black"></th>
                 </TableHeader>
 
                 <RowTemplate Context="action">
@@ -96,7 +97,13 @@
                     <td class="text-center">@action.Location</td>
                     <td class="text-center">@action.GroupName</td>
                     <td class="text-center">@action.CrewName</td>
-
+                    <td>
+                        <button class="btn btn-sm btn-danger"
+                                title="Видалити"
+                                @onclick="() => DeletePlanAction(action.Id)">
+                            <i class="bi bi bi-trash3"></i>
+                        </button>
+                    </td>
                 </RowTemplate>
             </TableBaseComponent>
         </div>
