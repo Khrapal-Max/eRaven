@@ -44,11 +44,8 @@ public partial class CreatePlanActionModal : ComponentBase
     private bool IsReadonly => !_edit;
 
     // ВІДКРИТТЯ модалки — єдиний публічний вхід
-    public void Open(Person person, PlanAction? last)
+    public void Open()
     {
-        Person = person;
-        LastPlanAction = last;
-
         // 1) підготовка моделі
         CreatePlanAction = new PlanAction { Id = Guid.NewGuid() };
         FillSnapshotFromPerson();
@@ -74,7 +71,7 @@ public partial class CreatePlanActionModal : ComponentBase
     private void FillSnapshotFromPerson()
     {
         // наповнюємо лише снапшотні поля та базу
-        CreatePlanAction!.PersonId = Person?.Id ?? Guid.Empty;
+        CreatePlanAction!.PersonId = Person!.Id;
         CreatePlanAction.Person = Person!;
 
         CreatePlanAction.Rnokpp = Person?.Rnokpp ?? string.Empty;

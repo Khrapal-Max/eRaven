@@ -10,7 +10,7 @@
 
                 <EditForm Model="@Model" OnValidSubmit="CreateAsync">
                     <AntiforgeryToken />
-                    <FluentValidationValidator @ref="_fv" />
+                    <FluentValidationValidator @ref="_validator" />
 
                     <div class="modal-body">
                         <div class="mb-2">

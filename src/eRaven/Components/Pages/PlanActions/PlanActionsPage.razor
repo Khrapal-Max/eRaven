@@ -65,9 +65,9 @@
             <TableBaseComponent Items="_actions"
                                 TItem="PlanAction"
                                 Class="table align-middle mb-0"
+                                MinHeight="75vh"
                                 SelectedItem="SelectedPlanAction"
-                                SelectedItemChanged="(it => SelectedPlanAction = it)"
-                                OnClick="OnPlanActionClick">
+                                SelectedItemChanged="(it => SelectedPlanAction = it)">
                 <TableHeader>
                     <th class="text-black">Наказ</th>
 
@@ -82,21 +82,48 @@
                     <th class="text-black">Група</th>
                     <th class="text-black">Екіпаж</th>
                     <th class="text-black"></th>
+                    <th class="text-black"></th>
                 </TableHeader>
 
                 <RowTemplate Context="action">
-                    <td class="text-center">@action.Order</td>
-
+                     <td class="text-center">
+                        @if (string.IsNullOrWhiteSpace(action.Order))
+                        {
+                            <span class="badge bg-warning text-dark">
+                                <i class="bi bi-bookmark-star-fill"></i>
+                            </span>
+                        }
+                        else
+                        {
+                            <span>@action.Order</span>
+                        }
+                    </td>
                     <td class="text-center">@action.Rnokpp</td>
                     <td class="text-center">@action.FullName</td>
                     
                     <td class="text-center">@(action.ActionState == ActionState.PlanAction ? "Рапорт" : "БР")</td>
                     <td class="text-center">@action.PlanActionName</td>
-                    <td class="text-center">@(action.MoveType == MoveType.Dispatch ? "Відрядити" : "Повернути")</td>
+                    <td class="text-center">
+                        @if (action.MoveType == MoveType.Dispatch)
+                        {
+                            <span class="badge bg-warning text-dark">Відрядити</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success">Повернути</span>
+                        }
+                    </td>
                     <td class="text-center">@action.EffectiveAtUtc.ToString("dd.MM.yyyy HH.mm")</td>
                     <td class="text-center">@action.Location</td>
                     <td class="text-center">@action.GroupName</td>
                     <td class="text-center">@action.CrewName</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger"
+                                title="Провести наказом"
+                                @onclick="() => OpenApproveModal(action)">
+                            <i class="bi bi-check-circle-fill"></i>
+                        </button>
+                    </td>
                     <td>
                         <button class="btn btn-sm btn-danger"
                                 title="Видалити"
@@ -120,3 +147,6 @@
                        LastPlanAction="LastPlanAction"
                        StatusKinds="_statusKinds"
                        OnSaved="CreateAsync" />
+
+<ApproveModal @ref="_approveModal"
+              OnApproved="ApprovePlanActionAsync" />

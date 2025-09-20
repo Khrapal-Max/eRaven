@@ -188,7 +188,7 @@ namespace eRaven.Migrations
                     plan_action_name = table.Column<string>(type: "text", nullable: false),
                     effective_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     to_status_kind_id = table.Column<int>(type: "integer", nullable: true),
-                    order_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
+                    order_name = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
                     action_state = table.Column<short>(type: "smallint", nullable: false),
                     move_type = table.Column<short>(type: "smallint", nullable: false),
                     location = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),

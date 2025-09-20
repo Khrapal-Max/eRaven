@@ -6,9 +6,12 @@
 
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
+using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.PlanActionService;
 using eRaven.Application.Services.StatusKindService;
+using eRaven.Application.ViewModels.PlanActionViewModels;
 using eRaven.Components.Pages.PlanActions.Modals;
+using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;
@@ -21,6 +24,7 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
     // [UI state] візуальний стан
     // =========================
     private CreatePlanActionModal? _createModal;
+    private ApproveModal? _approveModal;
     protected bool Busy { get; private set; }
     protected string? Search { get; set; }
 
@@ -48,6 +52,7 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
     // =========================
     [Inject] protected IPlanActionService PlanActionService { get; set; } = default!;
     [Inject] protected IPersonService PersonService { get; set; } = default!;
+    [Inject] protected IPersonStatusService PersonStatusService { get; set; } = default!;
     [Inject] protected IStatusKindService StatusKindService { get; set; } = default!;
     [Inject] protected IToastService ToastService { get; set; } = default!;
 
@@ -124,8 +129,6 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
         await InvokeAsync(StateHasChanged);
     }
 
-    protected void OnPlanActionClick(PlanAction item) => SelectedPlanAction = item;
-
     private async Task CreateAsync(PlanAction planAction)
     {
         try
@@ -151,8 +154,12 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
     {
         if (SelectedPerson is null) return;
 
-        // якщо дій ще не тягнули, не передаємо last
-        _createModal?.Open(SelectedPerson, LastPlanAction);
+        _createModal?.Open();
+    }
+
+    private void OpenApproveModal(PlanAction planAction)
+    {
+        _approveModal?.Open(planAction);
     }
 
     // =========================
@@ -173,6 +180,35 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
         }
 
         await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ApprovePlanActionAsync(ApprovePlanActionViewModel approve)
+    {
+        try
+        {
+            var status = SelectedPlanAction!.MoveType == MoveType.Dispatch ? 2 : 1;
+
+            var ps = new PersonStatus
+            {
+                Id = approve.Id,
+                PersonId = approve!.PersonId,
+                StatusKindId = status,
+                OpenDate = approve.EffectiveAtUtc,
+                IsActive = true,
+                Note = approve.Order,
+                Author = "import",
+                Modified = DateTime.UtcNow
+            };
+
+            await PersonStatusService.SetStatusAsync(ps, _cts.Token);
+
+            await PlanActionService.ApproveAsync(approve, _cts.Token);
+            ToastService.ShowSuccess("Планове завдання затверджено");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
     }
 
     private async Task DeletePlanAction(Guid id)

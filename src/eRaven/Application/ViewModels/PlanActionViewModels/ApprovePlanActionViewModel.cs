@@ -6,7 +6,10 @@
 
 namespace eRaven.Application.ViewModels.PlanActionViewModels;
 
-public record ApprovePlanActionViewModel(
-    Guid Id,
-    string Order
-);
+public sealed class ApprovePlanActionViewModel
+{
+    public Guid Id { get; set; }
+    public Guid PersonId { get; set; }
+    public DateTime EffectiveAtUtc { get; set; }
+    public string Order { get; set; } = string.Empty;
+}

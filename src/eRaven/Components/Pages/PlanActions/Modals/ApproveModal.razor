@@ -1,0 +1,36 @@
+﻿@using Blazored.FluentValidation
+@using eRaven.Application.ViewModels.PlanActionViewModels
+@using eRaven.Domain.Models
+
+<div class="modal fade @(IsOpen ? "show d-block" : "")" tabindex="-1" aria-modal="true" role="dialog">
+    <div class="modal-dialog modal-sm modal-dialog-centered" style="--bs-modal-width: 400px; max-width: 400px;">
+        <div class="modal-content text-white">
+
+            <div class="modal-header py-2">
+                <h6 class="modal-title mb-0">Затвердити наказом</h6>
+                <button type="button" class="btn-close" @onclick="Close" aria-label="Закрити"></button>
+            </div>
+
+            <div class="modal-body p-3">
+                <EditForm Model="ViewModel" OnValidSubmit="ApproveAction">
+                    <FluentValidationValidator @ref="_validator" />
+
+                    <div class="mt-2">
+                        <label class="form-label small mb-1" for="order-input">Номер бойового розпорядження</label>
+                        <InputText id="order-input"
+                                   class="form-control form-control-sm"
+                                   @bind-Value="ViewModel.Order"
+                                   @oninput="OnOrderChanged" />
+                        <ValidationMessage For="() => ViewModel.Order" />
+                    </div>
+
+                    <div class="text-end mt-3">
+                        <button class="btn btn-outline-secondary btn-sm me-2" type="button" @onclick="Close" disabled="@_busy">Скасувати</button>
+                        <button class="btn btn-primary btn-sm" type="submit" disabled="@_busy">Затвердити</button>
+                    </div>
+                </EditForm>
+            </div>
+
+        </div>
+    </div>
+</div>

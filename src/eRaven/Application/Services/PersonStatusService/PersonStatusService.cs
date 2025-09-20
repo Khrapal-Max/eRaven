@@ -84,8 +84,8 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
             throw new InvalidOperationException("Перехід у вказаний статус заборонено правилами.");
 
         // Забороняємо «назад у часі» відносно поточного
-        if (current is not null && openUtc <= current.OpenDate)
-            throw new InvalidOperationException("Момент має бути пізніший за останній відкритий статус.");
+        /*if (current is not null && openUtc <= current.OpenDate)
+            throw new InvalidOperationException("Момент має бути пізніший за останній відкритий статус.");*/
 
         // ====== 3) Присвоюємо Sequence на цей самий момент часу
         short nextSeq = (await _db.PersonStatuses

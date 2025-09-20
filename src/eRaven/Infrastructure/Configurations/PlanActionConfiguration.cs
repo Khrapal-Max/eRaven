@@ -37,7 +37,7 @@ public class PlanActionConfiguration : IEntityTypeConfiguration<PlanAction>
 
         e.Property(x => x.Order)
             .HasColumnName("order_name")
-            .HasMaxLength(128);
+            .HasMaxLength(512);
 
         e.Property(x => x.ActionState)
             .HasColumnName("action_state")

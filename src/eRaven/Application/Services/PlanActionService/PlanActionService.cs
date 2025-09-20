@@ -44,7 +44,7 @@ public sealed class PlanActionService(AppDbContext db) : IPlanActionService
 
         var action = new PlanAction
         {
-            Id = planAction.Id != Guid.Empty ? planAction.Id : Guid.NewGuid(),
+            Id = planAction.Id,
             PersonId = planAction.PersonId,
             PlanActionName = planAction.PlanActionName,
             EffectiveAtUtc = planAction.EffectiveAtUtc,
@@ -83,7 +83,7 @@ public sealed class PlanActionService(AppDbContext db) : IPlanActionService
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
     {
         var affected = await _db.PlanActions
-            .Where(x => x.Id == id && x.ActionState == ActionState.PlanAction)
+            .Where(x => x.Id == id)
             .ExecuteDeleteAsync(ct);
 
         return affected > 0;
@@ -98,19 +98,15 @@ public sealed class PlanActionService(AppDbContext db) : IPlanActionService
     /// <exception cref="InvalidOperationException"></exception>
     public async Task<PlanAction> ApproveAsync(ApprovePlanActionViewModel model, CancellationToken ct = default)
     {
-        var action = _db.PlanActions
-            .AsNoTracking()
-            .FirstOrDefault(x => x.Id == model.Id);
+        var updated = await _db.PlanActions
+            .Where(a => a.Id == model.Id && a.ActionState == ActionState.PlanAction)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.ActionState, ActionState.ApprovedOrder)
+                .SetProperty(a => a.Order, model.Order), ct);
 
-        if (action is null || action.ActionState != ActionState.PlanAction)
+        if (updated == 0)
             throw new InvalidOperationException("PlanAction not found or not in PlanAction state.");
 
-        action.ActionState = ActionState.ApprovedOrder;
-        action.Order = model.Order;
-
-        _db.PlanActions.Update(action);
-        await _db.SaveChangesAsync(ct);
-
-        return action;
+        return await _db.PlanActions.AsNoTracking().FirstAsync(a => a.Id == model.Id, ct);
     }
 }

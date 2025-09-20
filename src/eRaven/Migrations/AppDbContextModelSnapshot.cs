@@ -334,8 +334,8 @@ namespace eRaven.Migrations
                         .HasColumnName("note");
 
                     b.Property<string>("Order")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
                         .HasColumnName("order_name");
 
                     b.Property<Guid>("PersonId")

@@ -12,7 +12,7 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250920131708_Initial")]
+    [Migration("20250920162335_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -337,8 +337,8 @@ namespace eRaven.Migrations
                         .HasColumnName("note");
 
                     b.Property<string>("Order")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
                         .HasColumnName("order_name");
 
                     b.Property<Guid>("PersonId")
