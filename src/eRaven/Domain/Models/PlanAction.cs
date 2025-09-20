@@ -15,8 +15,10 @@ public class PlanAction
 
     public Guid PersonId { get; set; }
     public Person Person { get; set; } = default!;
+
+    public string PlanActionName { get; set; } = default!;
     public DateTime EffectiveAtUtc { get; set; }
-    public int ToStatusKindId { get; set; }
+    public int? ToStatusKindId { get; set; }
     public string? Order { get; set; }
 
     // Стан дії до/після наказу
@@ -24,12 +26,11 @@ public class PlanAction
 
     // Снапшот планової дії
     public MoveType MoveType { get; set; } // Dispatch | Return
-    public Guid? TripId { get; set; }   // один Trip = Dispatch→Return
     public string Location { get; set; } = default!;
     public string GroupName { get; set; } = default!;
     public string CrewName { get; set; } = default!;
     public string Note { get; set; } = default!;
-   
+
 
     // Снапшот залишаємо як є (можна перевести в Owned type)
     public string Rnokpp { get; set; } = default!;

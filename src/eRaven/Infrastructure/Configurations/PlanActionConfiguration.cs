@@ -5,7 +5,6 @@
 // PlanActionConfiguration
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -25,13 +24,16 @@ public class PlanActionConfiguration : IEntityTypeConfiguration<PlanAction>
             .HasColumnName("person_id")
             .IsRequired();
 
+        e.Property(x => x.PlanActionName)
+            .HasColumnName("plan_action_name")
+            .IsRequired();
+
         e.Property(x => x.EffectiveAtUtc)
             .HasColumnName("effective_at_utc")
             .IsRequired();
 
         e.Property(x => x.ToStatusKindId)
-            .HasColumnName("to_status_kind_id")
-            .IsRequired();
+            .HasColumnName("to_status_kind_id");
 
         e.Property(x => x.Order)
             .HasColumnName("order_name")
@@ -46,9 +48,6 @@ public class PlanActionConfiguration : IEntityTypeConfiguration<PlanAction>
             .HasColumnName("move_type")
             .HasConversion<short>()
             .IsRequired();
-
-        e.Property(x => x.TripId)
-            .HasColumnName("trip_id");
 
         e.Property(x => x.Location)
             .HasColumnName("location")
@@ -106,9 +105,6 @@ public class PlanActionConfiguration : IEntityTypeConfiguration<PlanAction>
             .WithMany(p => p.PlanActions)
             .HasForeignKey(x => x.PersonId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        e.HasIndex(x => new { x.PersonId, x.TripId })
-            .HasDatabaseName("ix_plan_actions_trip");
 
         e.HasIndex(x => new { x.PersonId, x.EffectiveAtUtc })
             .HasDatabaseName("ix_plan_actions_person_date");

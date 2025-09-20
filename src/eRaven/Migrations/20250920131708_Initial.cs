@@ -187,12 +187,12 @@ namespace eRaven.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     person_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    plan_action_name = table.Column<string>(type: "text", nullable: false),
                     effective_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    to_status_kind_id = table.Column<int>(type: "integer", nullable: false),
+                    to_status_kind_id = table.Column<int>(type: "integer", nullable: true),
                     order_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
                     action_state = table.Column<short>(type: "smallint", nullable: false),
                     move_type = table.Column<short>(type: "smallint", nullable: false),
-                    trip_id = table.Column<Guid>(type: "uuid", nullable: true),
                     location = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                     group_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     crew_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
@@ -399,11 +399,6 @@ namespace eRaven.Migrations
                 name: "ix_plan_actions_person_date",
                 table: "plan_actions",
                 columns: new[] { "person_id", "effective_at_utc" });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_plan_actions_trip",
-                table: "plan_actions",
-                columns: new[] { "person_id", "trip_id" });
 
             migrationBuilder.CreateIndex(
                 name: "ix_position_units_code",

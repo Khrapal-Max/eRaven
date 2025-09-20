@@ -1,0 +1,181 @@
+﻿@using eRaven.Domain.Enums
+@using Blazored.FluentValidation
+
+<div class="modal fade @(_show ? "show d-block" : "")" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">Нова планова дія</h5>
+                <button type="button" class="btn-close" @onclick="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <EditForm Model="CreatePlanAction" OnValidSubmit="CreateAction">
+                    <FluentValidationValidator @ref="_validator" />
+
+                    <div class="row g-3">
+                        <!-- Ліва колонка: снапшот (read-only) -->
+                        <div class="col-12 col-lg-5">
+                            <div class="card shadow-sm h-100">
+                                <div class="card-body">
+                                    <div class="fw-semibold mb-2">Дані особи (снапшот)</div>
+
+                                    <div class="mb-2">
+                                        <label class="form-label">РНОКПП</label>
+                                        <input class="form-control" value="@CreatePlanAction?.Rnokpp" disabled />
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <label class="form-label">ПІБ</label>
+                                        <input class="form-control" value="@CreatePlanAction?.FullName" disabled />
+                                    </div>
+
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <label class="form-label">Звання</label>
+                                            <input class="form-control" value="@CreatePlanAction?.RankName" disabled />
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label">Позивний</label>
+                                            <input class="form-control" value="@CreatePlanAction?.Callsign" disabled />
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-2 mt-2">
+                                        <label class="form-label">Посада / Підрозділ</label>
+                                        <input class="form-control" value="@CreatePlanAction?.PositionName" disabled />
+                                    </div>
+
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <label class="form-label">БЗВП</label>
+                                            <input class="form-control" value="@CreatePlanAction?.BZVP" disabled />
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label">Зброя</label>
+                                            <input class="form-control" value="@CreatePlanAction?.Weapon" disabled />
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-2">
+                                        <label class="form-label">Поточний статус</label>
+                                        <input class="form-control" value="@_status" disabled />
+                                    </div>
+
+                                    <div class="mt-2">
+                                        <label class="form-label">Статус на дату (текст)</label>
+                                        <input class="form-control" value="@CreatePlanAction?.StatusKindOnDate" disabled />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Права колонка: параметри дії -->
+                        <div class="col-12 col-lg-7">
+                            <div class="card shadow-sm h-100">
+                                <div class="card-body">
+                                    <div class="fw-semibold mb-2">
+                                        Параметри дії
+                                        @if (IsReadonly)
+                                        {
+                                            <small class="text-muted ms-2">(режим «тільки дата/хвилини»: решта взято з останньої дії)</small>
+                                        }
+                                    </div>
+
+                                    <!-- Дата + година + хвилини (00/30) -->
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-6">
+                                            <label class="form-label">Дата (UTC)</label>
+                                            <input type="date"
+                                                   class="form-control"
+                                                   value="@_dateLocalString"
+                                                   @onchange="OnDateChanged" />
+                                            <ValidationMessage For="() => CreatePlanAction!.EffectiveAtUtc" />
+                                        </div>
+                                        <div class="col-3">
+                                            <label class="form-label">Година</label>
+                                            <select class="form-select" value="@_hourLocalString" @onchange="OnHourChanged">
+                                                @for (var h = 0; h <= 23; h++)
+                                                {
+                                                    <option value="@h.ToString("00")">@h.ToString("00")</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-3">
+                                            <label class="form-label">Хвилини</label>
+                                            <select class="form-select" value="@_minuteLocalString" @onchange="OnMinuteChanged">
+                                                <option value="00">00</option>
+                                                <option value="30">30</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-2 mt-2">
+                                        <div class="col-6">
+                                            <label class="form-label">Move</label>
+                                            <InputSelect TValue="MoveType"
+                                                         @bind-Value="CreatePlanAction!.MoveType"
+                                                         class="form-select"
+                                                         disabled="@IsReadonly">
+                                                <option value="@MoveType.Dispatch">Відрядити</option>
+                                                <option value="@MoveType.Return">Повернути</option>
+                                            </InputSelect>
+                                            <ValidationMessage For="() => CreatePlanAction!.MoveType" />
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label">Номер рапорта</label>
+                                            <InputText class="form-control"
+                                                       @bind-Value="CreatePlanAction!.PlanActionName" />
+                                            <ValidationMessage For="() => CreatePlanAction!.PlanActionName" />
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-2 mt-1">
+                                        <div class="col-12">
+                                            <label class="form-label">Локація</label>
+                                            <InputText class="form-control"
+                                                       @bind-Value="CreatePlanAction!.Location"
+                                                       disabled="@IsReadonly" />
+                                            <ValidationMessage For="() => CreatePlanAction!.Location" />
+                                        </div>
+
+                                        <div class="col-6">
+                                            <label class="form-label">Група</label>
+                                            <InputText class="form-control"
+                                                       @bind-Value="CreatePlanAction!.GroupName"
+                                                       disabled="@IsReadonly" />
+                                            <ValidationMessage For="() => CreatePlanAction!.GroupName" />
+                                        </div>
+
+                                        <div class="col-6">
+                                            <label class="form-label">Екіпаж</label>
+                                            <InputText class="form-control"
+                                                       @bind-Value="CreatePlanAction!.CrewName"
+                                                       disabled="@IsReadonly" />
+                                            <ValidationMessage For="() => CreatePlanAction!.CrewName" />
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-2">
+                                        <label class="form-label">Нотатка</label>
+                                        <InputText class="form-control"
+                                                    @bind-Value="CreatePlanAction!.Note" />
+                                        <ValidationMessage For="() => CreatePlanAction!.Note" />
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-end mt-3">
+                        <button class="btn btn-secondary me-2" type="button" @onclick="Close">Скасувати</button>
+                        <button class="btn btn-primary" type="submit">Зберегти</button>
+                    </div>
+                </EditForm>
+            </div>
+
+        </div>
+    </div>
+</div>

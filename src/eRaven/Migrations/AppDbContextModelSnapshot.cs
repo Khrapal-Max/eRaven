@@ -342,6 +342,11 @@ namespace eRaven.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("person_id");
 
+                    b.Property<string>("PlanActionName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("plan_action_name");
+
                     b.Property<string>("PositionName")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -366,13 +371,9 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("status_kind_on_date");
 
-                    b.Property<int>("ToStatusKindId")
+                    b.Property<int?>("ToStatusKindId")
                         .HasColumnType("integer")
                         .HasColumnName("to_status_kind_id");
-
-                    b.Property<Guid?>("TripId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("trip_id");
 
                     b.Property<string>("Weapon")
                         .IsRequired()
@@ -387,9 +388,6 @@ namespace eRaven.Migrations
 
                     b.HasIndex("PersonId", "EffectiveAtUtc")
                         .HasDatabaseName("ix_plan_actions_person_date");
-
-                    b.HasIndex("PersonId", "TripId")
-                        .HasDatabaseName("ix_plan_actions_trip");
 
                     b.ToTable("plan_actions", (string)null);
                 });
