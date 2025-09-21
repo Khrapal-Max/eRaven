@@ -31,7 +31,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Components.Tests\Pages\Plans\" />
     <Folder Include="Helpers\Fixtures\" />
   </ItemGroup>
 
