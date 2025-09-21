@@ -82,6 +82,7 @@
                     <th class="text-black">Група</th>
                     <th class="text-black">Екіпаж</th>
                     <th class="text-black"></th>
+                    <th class="text-black">Дії</th>
                     <th class="text-black"></th>
                 </TableHeader>
 
@@ -118,13 +119,21 @@
                     <td class="text-center">@action.GroupName</td>
                     <td class="text-center">@action.CrewName</td>
                     <td>
-                        <button class="btn btn-sm btn-danger"
+                        <button class="btn btn-sm btn-success"
                                 title="Провести наказом"
+                                disabled="@(action.ActionState == ActionState.ApprovedOrder)"
                                 @onclick="() => OpenApproveModal(action)">
                             <i class="bi bi-check-circle-fill"></i>
                         </button>
                     </td>
                     <td>
+                        <button class="btn btn-sm btn-primary"
+                                title="Деталі"
+                                @onclick="() => _viewModal?.Open(action)">
+                            <i class="bi bi bi-eye-fill"></i>
+                        </button>
+                    </td>
+                    <td>                       
                         <button class="btn btn-sm btn-danger"
                                 title="Видалити"
                                 @onclick="() => DeletePlanAction(action.Id)">
@@ -150,3 +159,5 @@
 
 <ApproveModal @ref="_approveModal"
               OnApproved="ApprovePlanActionAsync" />
+
+<ViewPlanActionModal @ref="_viewModal" />

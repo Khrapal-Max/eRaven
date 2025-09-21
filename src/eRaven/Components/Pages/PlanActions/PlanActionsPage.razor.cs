@@ -25,6 +25,8 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
     // =========================
     private CreatePlanActionModal? _createModal;
     private ApproveModal? _approveModal;
+    private ViewPlanActionModal? _viewModal;
+
     protected bool Busy { get; private set; }
     protected string? Search { get; set; }
 

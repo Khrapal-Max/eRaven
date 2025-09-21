@@ -9,6 +9,7 @@
     /* Layout */
     --navbar-h: 56px; /* стандартна висота Bootstrap navbar */
     --ng-bg: #492448; /* основний зелений #7ef376*/
+    --mg-bg: #007A78; /* основний зелений #7ef376*/
 }
 
 html, body {
@@ -168,4 +169,15 @@ h1:focus, h2:focus, h3:focus {
     top: 0;
     z-index: 1;
     background: var(--bs-light);
+}
+
+/* --------------Modal ---------------*/
+.modal {
+    background-color: rgba(0,0,0,0.4);
+}
+
+.modal-header {
+    background: var(--mg-bg);
+    color: var(--brand-text);
+    border-bottom: none;
 }

@@ -32,7 +32,6 @@
 
   <ItemGroup>
     <Folder Include="Components.Tests\Pages\Plans\" />
-    <Folder Include="Domain.Tests\Models\Helpers\" />
     <Folder Include="Helpers\Fixtures\" />
   </ItemGroup>
 
