@@ -185,7 +185,7 @@ public partial class CreatePlanActionModal : ComponentBase
         finally
         {
             _show = false;
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
         }
     }
 }
