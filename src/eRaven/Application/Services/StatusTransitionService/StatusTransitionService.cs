@@ -67,6 +67,7 @@ public sealed class StatusTransitionService(AppDbContext db) : IStatusTransition
         if (toRemove.Length > 0)
         {
             var rows = await _db.StatusTransitions
+                .AsNoTracking()
                 .Where(t => t.FromStatusKindId == fromStatusKindId && toRemove.Contains(t.ToStatusKindId))
                 .ToListAsync(ct);
             _db.StatusTransitions.RemoveRange(rows);

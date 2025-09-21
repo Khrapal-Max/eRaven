@@ -69,7 +69,10 @@ public class PersonService(AppDbContext appDbContext) : IPersonService
     // ---------- Update (акуратно з трекінгом) ----------
     public async Task<bool> UpdateAsync(Person person, CancellationToken ct = default)
     {
-        var current = await _appDbContext.Persons.FirstOrDefaultAsync(p => p.Id == person.Id, ct);
+        var current = await _appDbContext.Persons
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == person.Id, ct);
+
         if (current is null) return false;
 
         // поля, які дозволено редагувати у картці

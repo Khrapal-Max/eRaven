@@ -48,7 +48,7 @@ public class PositionService(AppDbContext appDbContext) : IPositionService
 
     public async Task<bool> SetActiveStateAsync(Guid id, bool isActive, CancellationToken ct = default)
     {
-        var pos = await _appDbContext.PositionUnits.FirstOrDefaultAsync(p => p.Id == id, ct);
+        var pos = await _appDbContext.PositionUnits.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct);
         if (pos is null) return false;
 
         if (pos.IsActived == isActive)
