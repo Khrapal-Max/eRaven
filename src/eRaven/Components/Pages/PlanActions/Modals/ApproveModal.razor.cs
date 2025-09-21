@@ -47,8 +47,6 @@ public partial class ApproveModal : ComponentBase
 
     private async Task ApproveAction()
     {
-        /* if (await _validator!.ValidateAsync()) return;*/
-
         try
         {
             _busy = true;
