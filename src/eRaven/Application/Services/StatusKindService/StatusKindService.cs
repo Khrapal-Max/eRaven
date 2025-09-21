@@ -51,7 +51,7 @@ public sealed class StatusKindService(AppDbContext db) : IStatusKindService
 
     public async Task<bool> SetActiveAsync(int id, bool isActive, CancellationToken ct = default)
     {
-        var status = await _db.StatusKinds.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        var status = await _db.StatusKinds.FirstOrDefaultAsync(x => x.Id == id, ct);
 
         if (status is null) return false;
         if (status.IsActive == isActive) return true;
@@ -65,7 +65,7 @@ public sealed class StatusKindService(AppDbContext db) : IStatusKindService
 
     public async Task<bool> UpdateOrderAsync(int id, int newOrder, CancellationToken ct = default)
     {
-        var status = await _db.StatusKinds.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        var status = await _db.StatusKinds.FirstOrDefaultAsync(x => x.Id == id, ct);
 
         if (status is null) return false;
 

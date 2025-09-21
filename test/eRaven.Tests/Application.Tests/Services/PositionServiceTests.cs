@@ -75,9 +75,9 @@ public class PositionServiceTests
 
         var items = await sut.GetPositionsAsync(onlyActive: false);
 
-        Assert.Equal(2, items.Count);
+        Assert.Single(items);
         Assert.Contains(items, x => x.ShortName == "A" && x.IsActived);
-        Assert.Contains(items, x => x.ShortName == "B" && !x.IsActived);
+        Assert.DoesNotContain(items, x => x.ShortName == "B" && !x.IsActived);
     }
 
     // -------- GetByIdAsync --------

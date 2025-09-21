@@ -17,8 +17,11 @@ public class PositionService(AppDbContext appDbContext) : IPositionService
 
     public async Task<IReadOnlyList<PositionUnit>> GetPositionsAsync(bool onlyActive = true, CancellationToken ct = default)
     {
-        var q = _appDbContext.PositionUnits.AsNoTracking();
-        if (onlyActive) q = q.Where(p => p.IsActived);
+        var q = _appDbContext.PositionUnits
+            .AsNoTracking()
+            .Include(x => x.CurrentPerson)
+            .Where(p => p.IsActived);
+
         return await q.ToListAsync(ct);
     }
 
@@ -48,7 +51,7 @@ public class PositionService(AppDbContext appDbContext) : IPositionService
 
     public async Task<bool> SetActiveStateAsync(Guid id, bool isActive, CancellationToken ct = default)
     {
-        var pos = await _appDbContext.PositionUnits.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct);
+        var pos = await _appDbContext.PositionUnits.FirstOrDefaultAsync(p => p.Id == id, ct);
         if (pos is null) return false;
 
         if (pos.IsActived == isActive)

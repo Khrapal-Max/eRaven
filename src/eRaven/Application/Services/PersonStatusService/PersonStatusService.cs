@@ -140,10 +140,10 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
 
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
-        var status = await _db.PersonStatuses.AsNoTracking().FirstOrDefaultAsync(s => s.Id == statusId, ct)
+        var status = await _db.PersonStatuses.FirstOrDefaultAsync(s => s.Id == statusId, ct)
             ?? throw new InvalidOperationException("Status not found.");
 
-        var person = await _db.Persons.AsNoTracking().FirstOrDefaultAsync(p => p.Id == status.PersonId, ct)
+        var person = await _db.Persons.FirstOrDefaultAsync(p => p.Id == status.PersonId, ct)
             ?? throw new InvalidOperationException("Person not found.");
 
         var turnOn = !status.IsActive;
@@ -161,7 +161,6 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
             {
                 // переносимо на наступний sequence на той самий момент
                 short nextSeq = (await _db.PersonStatuses
-                    .AsNoTracking()
                     .Where(s => s.PersonId == status.PersonId && s.IsActive && s.OpenDate == status.OpenDate)
                     .MaxAsync(s => (short?)s.Sequence, ct)) ?? -1;
 
@@ -176,7 +175,6 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
 
         // оновлюємо Person.StatusKindId до останнього валідного
         var latestValid = await _db.PersonStatuses
-            .AsNoTracking()
             .Where(s => s.PersonId == status.PersonId && s.IsActive)
             .OrderByDescending(s => s.OpenDate)
             .ThenByDescending(s => s.Sequence)

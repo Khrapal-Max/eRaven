@@ -31,34 +31,34 @@ public class PositionAssignmentService(AppDbContext db) : IPositionAssignmentSer
     public Task<PersonPositionAssignment?> GetActiveAsync(Guid personId, CancellationToken ct = default) =>
         _db.PersonPositionAssignments.AsNoTracking()
            .Include(x => x.PositionUnit)
-           .FirstOrDefaultAsync(x => x.PersonId == personId && x.CloseUtc == null, ct);   
+           .FirstOrDefaultAsync(x => x.PersonId == personId && x.CloseUtc == null, ct);
 
     public async Task<PersonPositionAssignment> AssignAsync(
-        Guid personId,
-        Guid positionUnitId,
-        DateTime openUtc,
-        string? note,
-        CancellationToken ct = default)
+    Guid personId,
+    Guid positionUnitId,
+    DateTime openUtc,
+    string? note,
+    CancellationToken ct = default)
     {
         if (openUtc.Kind != DateTimeKind.Utc)
             openUtc = DateTime.SpecifyKind(openUtc, DateTimeKind.Utc);
 
-        // Перевіряємо існування сутностей
-        var person = await _db.Persons.AsNoTracking().FirstOrDefaultAsync(p => p.Id == personId, ct)
+        // 1) Читаємо ТРЕКАНО
+        var person = await _db.Persons
+            .FirstOrDefaultAsync(p => p.Id == personId, ct)
             ?? throw new InvalidOperationException("Особа не знайдена.");
 
-        var pos = await _db.PositionUnits.AsNoTracking().FirstOrDefaultAsync(p => p.Id == positionUnitId, ct)
+        var pos = await _db.PositionUnits
+            .FirstOrDefaultAsync(p => p.Id == positionUnitId, ct)
             ?? throw new InvalidOperationException("Посада не знайдена.");
 
         if (!pos.IsActived)
             throw new InvalidOperationException("Неможливо призначити на неактивну посаду.");
 
-        // Транзакція: закриваємо активні, призначаємо нову, оновлюємо pointer у Person
         using var tx = await _db.Database.BeginTransactionAsync(ct);
 
-        // 1) Закриваємо активне призначення людини (якщо є)
+        // 2) Закриваємо актив для особи (ТРЕКАНО)
         var activeForPerson = await _db.PersonPositionAssignments
-            .AsNoTracking()
             .FirstOrDefaultAsync(a => a.PersonId == personId && a.CloseUtc == null, ct);
 
         if (activeForPerson is not null)
@@ -70,14 +70,13 @@ public class PositionAssignmentService(AppDbContext db) : IPositionAssignmentSer
             activeForPerson.ModifiedUtc = DateTime.UtcNow;
         }
 
-        // 2) Перевіряємо, що посада не зайнята (індекс теж захистить, але краще явна перевірка)
+        // 3) Перевіряємо, що посада вільна (індекс теж захистить)
         var posOccupied = await _db.PersonPositionAssignments
             .AnyAsync(a => a.PositionUnitId == positionUnitId && a.CloseUtc == null, ct);
-
         if (posOccupied)
             throw new InvalidOperationException("Посада вже зайнята іншою особою.");
 
-        // 3) Створюємо новий запис
+        // 4) Створюємо новий запис (ТРЕКАНО)
         var assign = new PersonPositionAssignment
         {
             Id = Guid.NewGuid(),
@@ -89,18 +88,20 @@ public class PositionAssignmentService(AppDbContext db) : IPositionAssignmentSer
             Author = "ui",
             ModifiedUtc = DateTime.UtcNow
         };
-
         await _db.PersonPositionAssignments.AddAsync(assign, ct);
 
-        // 4) Оновлюємо pointer у Person
+        // 5) Оновлюємо pointer у Person (це забезпечує правильний CurrentPerson)
         person.PositionUnitId = positionUnitId;
         person.ModifiedUtc = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
-        // Повертаємо з навігацією
-        assign.PositionUnit = await _db.PositionUnits.AsNoTracking().FirstAsync(x => x.Id == positionUnitId, ct);
+        // 6) Повертаємо з навігацією (для UI)
+        assign.PositionUnit = await _db.PositionUnits
+            .AsNoTracking()
+            .FirstAsync(x => x.Id == positionUnitId, ct);
+
         return assign;
     }
 
@@ -113,16 +114,14 @@ public class PositionAssignmentService(AppDbContext db) : IPositionAssignmentSer
         if (closeUtc.Kind != DateTimeKind.Utc)
             closeUtc = DateTime.SpecifyKind(closeUtc, DateTimeKind.Utc);
 
+        // ТРЕКАНО
         var person = await _db.Persons
-            .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == personId, ct);
         if (person is null) return false;
 
         var active = await _db.PersonPositionAssignments
-            .AsNoTracking()
             .FirstOrDefaultAsync(a => a.PersonId == personId && a.CloseUtc == null, ct);
-
-        if (active is null) return false; // нема що знімати
+        if (active is null) return false;
 
         if (active.OpenUtc >= closeUtc)
             throw new InvalidOperationException("Дата закриття має бути пізніше дати відкриття.");
@@ -131,7 +130,8 @@ public class PositionAssignmentService(AppDbContext db) : IPositionAssignmentSer
 
         // 1) Закриваємо запис
         active.CloseUtc = closeUtc;
-        active.Note = string.IsNullOrWhiteSpace(note) ? active.Note : note.Trim();
+        if (!string.IsNullOrWhiteSpace(note))
+            active.Note = note.Trim();
         active.ModifiedUtc = DateTime.UtcNow;
 
         // 2) Очищаємо pointer у Person

@@ -24,8 +24,8 @@
             <TableBaseComponent Items="_filtered"
                                 TItem="Person"
                                 Class="table align-middle mb-0"
-                                MinHeight="50vh"
-                                MaxHeight="65vh"
+                                MinHeight="70vh"
+                                MaxHeight="75vh"
                                 SelectedItem="SelectedPerson"
                                 SelectedItemChanged="(it => SelectedPerson = it)"
                                 OnClick="OnPersonClick">
@@ -34,6 +34,7 @@
                     <th class="text-black text-center">Звання</th>
                     <th class="text-black text-center">РНОКПП</th>
                     <th class="text-black">Поточна посада</th>
+                    <th class="text-black text-center" style="width:220px;">Дії</th>
                 </TableHeader>
 
                 <RowTemplate Context="p">
@@ -41,81 +42,35 @@
                     <td class="text-center">@p.Rank</td>
                     <td class="text-center">@p.Rnokpp</td>
                     <td>@p.PositionUnit?.FullName</td>
+                    <td class="text-center">
+                        @if (SelectedPerson?.Id == p.Id)
+                        {
+                            <div class="btn-group">
+                                <button class="btn btn-primary"
+                                        title="Призначити"
+                                        @onclick:stopPropagation="true"
+                                        @onclick="OpenAssignModal">
+                                    <i class="bi bi-person-plus"></i>
+                                </button>
+                                <button class="btn btn-warning"
+                                        title="Зняти"
+                                        disabled="@(ActiveAssign is null)"
+                                        @onclick:stopPropagation="true"
+                                        @onclick="OpenUnassignModal">
+                                    <i class="bi bi-person-dash"></i>
+                                </button>
+                            </div>
+                        }
+                    </td>
                 </RowTemplate>
             </TableBaseComponent>
         </div>
     }
-
-    <!-- Details -->
-    @if (SelectedPerson is not null)
+    else
     {
-        <div class="card mt-2">
-            <div class="card-body p-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="fw-semibold">@SelectedPerson.FullName</div>
-                        <div class="text-muted small">
-                            Поточна посада:
-                            @if (ActiveAssign is null)
-                            {
-                                <span class="badge bg-secondary">не призначений</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-success">@ActiveAssign.PositionUnit.FullName</span>
-                                <span class="ms-2 text-muted">з @ActiveAssign.OpenUtc.ToString("dd.MM.yyyy HH:mm 'UTC'")</span>
-                            }
-                        </div>
-                    </div>
-
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-sm btn-primary"
-                                @onclick="OpenAssignModal">
-                            <i class="bi bi-person-plus"></i> Призначити
-                        </button>
-
-                        <button class="btn btn-sm btn-warning"
-                                disabled="@(ActiveAssign is null)"
-                                @onclick="OpenUnassignModal">
-                            <i class="bi bi-person-dash"></i> Зняти
-                        </button>
-                    </div>
-                </div>
-
-                @if (History.Count > 0)
-                {
-                    <hr class="my-2" />
-                    <div class="small text-muted mb-1">Останні призначення</div>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-striped mb-0 align-middle">
-                            <thead>
-                              <tr>
-                                <th>Посада</th>
-                                <th>Від</th>
-                                <th>До</th>
-                                <th>Нотатка</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              @foreach (var a in History)
-                              {
-                                  <tr>
-                                      <td>@a.PositionUnit.FullName</td>
-                                      <td>@a.OpenUtc.ToString("dd.MM.yyyy HH:mm 'UTC'")</td>
-                                      <td>@(a.CloseUtc?.ToString("dd.MM.yyyy HH:mm 'UTC'") ?? "-")</td>
-                                      <td>@(string.IsNullOrWhiteSpace(a.Note) ? "-" : a.Note)</td>
-                                  </tr>
-                              }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-            </div>
-        </div>
+        <div class="text-muted">Нічого не знайдено.</div>
     }
 </div>
-
-
 
 <AssignPositionModal @ref="_assignModal"
                      Positions="_positions"

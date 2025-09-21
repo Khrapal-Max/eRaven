@@ -142,7 +142,6 @@ public partial class PositionsPage : ComponentBase, IDisposable
         catch (Exception ex)
         {
             ToastService.ShowError($"Не вдалося зберегти: {ex.Message}");
-            throw; // важливо: не оновлювати локальний стан при фейлі
         }
         finally
         {

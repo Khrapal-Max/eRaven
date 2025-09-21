@@ -70,7 +70,6 @@ public class PersonService(AppDbContext appDbContext) : IPersonService
     public async Task<bool> UpdateAsync(Person person, CancellationToken ct = default)
     {
         var current = await _appDbContext.Persons
-            .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == person.Id, ct);
 
         if (current is null) return false;

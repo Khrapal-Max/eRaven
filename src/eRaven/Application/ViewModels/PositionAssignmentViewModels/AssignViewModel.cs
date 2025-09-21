@@ -6,7 +6,7 @@
 
 namespace eRaven.Components.Pages.PositionAssignments.Modals;
 
-public  class AssignViewModel
+public class AssignViewModel
 {
     public Guid PersonId { get; set; }
     public Guid PositionUnitId { get; set; }
