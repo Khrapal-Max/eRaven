@@ -4,6 +4,8 @@
 // ApprovePlanActionRequest
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Enums;
+
 namespace eRaven.Application.ViewModels.PlanActionViewModels;
 
 public sealed class ApprovePlanActionViewModel
@@ -12,4 +14,5 @@ public sealed class ApprovePlanActionViewModel
     public Guid PersonId { get; set; }
     public DateTime EffectiveAtUtc { get; set; }
     public string Order { get; set; } = string.Empty;
+    public MoveType MoveType { get; set; }
 }

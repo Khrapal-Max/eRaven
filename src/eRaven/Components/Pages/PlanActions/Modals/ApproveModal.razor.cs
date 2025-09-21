@@ -19,19 +19,20 @@ public partial class ApproveModal : ComponentBase
     private bool _busy;
     private FluentValidationValidator? _validator;
 
-    // Модель для EditForm — НЕ null
+    // НЕ null, щоб EditForm мав модель
     private ApprovePlanActionViewModel ViewModel { get; set; } = new();
 
-    /// <summary>Відкрити модалку. Перед цим обовʼязково передай PlanAction або через параметр, або сюди.</summary>
+    /// <summary>Відкрити модалку для конкретної PlanAction.</summary>
     public void Open(PlanAction planAction)
     {
-        if (planAction is null) return; // або кинути InvalidOperationException
+        if (planAction is null) return;
 
         ViewModel = new ApprovePlanActionViewModel
         {
             Id = planAction.Id,
             PersonId = planAction.PersonId,
             EffectiveAtUtc = planAction.EffectiveAtUtc,
+            MoveType = planAction.MoveType,      // <<< додано
             Order = string.Empty
         };
 
@@ -40,20 +41,22 @@ public partial class ApproveModal : ComponentBase
         StateHasChanged();
     }
 
-    private void OnOrderChanged(ChangeEventArgs e)
-    {
-        ViewModel.Order = Convert.ToString(e.Value) ?? string.Empty;
-    }
-
     private async Task ApproveAction()
     {
+        // якщо валідатор підключений — поважаємо його
+        if (_validator is not null && !await _validator.ValidateAsync())
+            return;
+
         try
         {
             _busy = true;
 
+            // trim номера наказу
             ViewModel.Order = (ViewModel.Order ?? string.Empty).Trim();
 
+            // кидаємо все наверх — тепер включно з MoveType
             await OnApproved.InvokeAsync(ViewModel);
+
             Close();
         }
         finally

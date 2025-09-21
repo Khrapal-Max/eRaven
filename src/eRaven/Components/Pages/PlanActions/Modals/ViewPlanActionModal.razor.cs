@@ -11,7 +11,7 @@ namespace eRaven.Components.Pages.PlanActions.Modals;
 
 public partial class ViewPlanActionModal : ComponentBase
 {
- 
+
     private bool _show;
     private bool IsOpen => _show;
     private PlanAction? Model;

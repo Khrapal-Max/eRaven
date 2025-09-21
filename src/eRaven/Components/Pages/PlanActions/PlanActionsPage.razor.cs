@@ -24,16 +24,14 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
     // [UI state] візуальний стан
     // =========================
     private CreatePlanActionModal? _createModal;
-    private ApproveModal? _approveModal;
     private ViewPlanActionModal? _viewModal;
+    private ApproveModal? _approveModal;
 
     protected bool Busy { get; private set; }
     protected string? Search { get; set; }
 
     protected Person? SelectedPerson { get; set; }
-
     protected PlanAction? LastPlanAction { get; set; }
-    protected PlanAction? SelectedPlanAction { get; set; }
 
     // =========================
     // [Infra] ресурси й токени
@@ -137,12 +135,7 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
         {
             await PlanActionService.CreateAsync(planAction);
 
-            if (SelectedPerson is not null)
-            {
-                var actions = await PlanActionService.GetByIdAsync(SelectedPerson.Id, default, _cts.Token);
-                _actions = [.. actions.OrderByDescending(x => x?.EffectiveAtUtc)];
-                LastPlanAction = _actions.FirstOrDefault();
-            }
+            await ReloadPlanActionAsync();
         }
         catch (Exception ex)
         {
@@ -188,7 +181,7 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
     {
         try
         {
-            var status = SelectedPlanAction!.MoveType == MoveType.Dispatch ? 2 : 1;
+            var status = approve.MoveType == MoveType.Dispatch ? 2 : 1;
 
             var ps = new PersonStatus
             {
@@ -206,6 +199,8 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
 
             await PlanActionService.ApproveAsync(approve, _cts.Token);
             ToastService.ShowSuccess("Планове завдання затверджено");
+
+            await ReloadPlanActionAsync();
         }
         catch (Exception ex)
         {
@@ -225,6 +220,16 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
         }
 
         await ApplyFilterAndSort();
+    }
+
+    private async Task ReloadPlanActionAsync()
+    {
+        if (SelectedPerson is not null)
+        {
+            var actions = await PlanActionService.GetByIdAsync(SelectedPerson.Id, default, _cts.Token);
+            _actions = [.. actions.OrderByDescending(x => x?.EffectiveAtUtc)];
+            LastPlanAction = _actions.FirstOrDefault();
+        }
     }
 
     public void Dispose()
