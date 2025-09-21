@@ -130,8 +130,9 @@ public sealed class SearchBoxTests : TestContext
     }
 
     [Fact]
-    public void Reload_CancelsPendingDebounce()
+    public async Task Reload_CancelsPendingDebounce()
     {
+        // Arrange
         var calls = 0;
         var cut = RenderComponent<SearchBox>(ps => ps
             .Add(p => p.Delay, 200)
@@ -139,11 +140,19 @@ public sealed class SearchBoxTests : TestContext
         );
 
         var input = cut.Find("input.form-control");
-        input.Input("a");              // старт дебаунсу
-        cut.Find("button.btn").Click();// миттєвий виклик
 
-        // дебаунс має бути скасований -> лише 1 виклик
-        cut.WaitForAssertion(() => Assert.Equal(1, calls), TimeSpan.FromMilliseconds(400));
+        // Act: стартуємо дебаунс та відразу тиснемо Reload (який має скасувати CTS)
+        input.Input("a"); // oninput → bind:after → стартує відкладений виклик
+        await cut.InvokeAsync(() => cut.Find("button.btn").Click());
+
+        // Assert (миттєво після Reload) — рівно 1 виклик (через Reload)
+        Assert.Equal(1, calls);
+
+        // Чекаємо трохи довше за Delay, аби переконатись, що відкладений виклик не “догнав”
+        await Task.Delay(350); // > 200ms з запасом
+
+        // Досі лише 1 виклик
+        Assert.Equal(1, calls);
     }
 
     [Fact]
