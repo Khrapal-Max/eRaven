@@ -11,6 +11,7 @@ using eRaven.Application.Services.ExcelService;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.PlanActionService;
+using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Application.Services.PositionService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.Services.StatusTransitionService;
@@ -51,6 +52,7 @@ builder.Services.AddScoped<IPlanActionService, PlanActionService>();
 builder.Services.AddScoped<IPersonService, PersonService>();
 builder.Services.AddScoped<IPersonStatusService, PersonStatusService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
+builder.Services.AddScoped<IPositionAssignmentService, PositionAssignmentService>();
 builder.Services.AddScoped<IStatusKindService, StatusKindService>();
 builder.Services.AddScoped<IStatusTransitionService, StatusTransitionService>();
 
