@@ -22,14 +22,18 @@ public sealed class PlanActionService(AppDbContext db) : IPlanActionService
     /// <param name="personId"></param>
     /// <param name="ct"></param>
     /// <returns>IEnumerable PlanAction?(<see cref="PlanAction"/>)</returns>
-    public async Task<IEnumerable<PlanAction?>> GetByIdAsync(Guid personId, CancellationToken ct = default)
+    public async Task<IEnumerable<PlanAction?>> GetByIdAsync(Guid personId, int limit = 150, CancellationToken ct = default)
     {
+        if (limit <= 0) limit = 150;
+
         var actions = await _db.PlanActions
             .AsNoTracking()
             .Where(x => x.PersonId == personId)
+            .OrderByDescending(x => x.EffectiveAtUtc)
+            .Take(limit)
             .ToListAsync(ct);
 
-        return actions ?? [];
+        return actions;
     }
 
     /// <summary>

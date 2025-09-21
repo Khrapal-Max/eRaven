@@ -111,7 +111,7 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
 
         try
         {
-            var actions = await PlanActionService.GetByIdAsync(person.Id, _cts.Token);
+            var actions = await PlanActionService.GetByIdAsync(person.Id, default, _cts.Token);
             _actions = [.. actions.OrderByDescending(x => x?.EffectiveAtUtc)];
 
             if (_actions.Count > 0)
@@ -139,7 +139,7 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
 
             if (SelectedPerson is not null)
             {
-                var actions = await PlanActionService.GetByIdAsync(SelectedPerson.Id, _cts.Token);
+                var actions = await PlanActionService.GetByIdAsync(SelectedPerson.Id, default, _cts.Token);
                 _actions = [.. actions.OrderByDescending(x => x?.EffectiveAtUtc)];
                 LastPlanAction = _actions.FirstOrDefault();
             }
