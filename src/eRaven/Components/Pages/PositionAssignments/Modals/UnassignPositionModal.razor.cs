@@ -5,6 +5,7 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.FluentValidation;
+using Blazored.Toast.Services;
 using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Application.ViewModels.PositionAssignmentViewModels;
 using eRaven.Domain.Models;
@@ -15,7 +16,8 @@ namespace eRaven.Components.Pages.PositionAssignments.Modals;
 public partial class UnassignPositionModal : ComponentBase
 {
     [Parameter] public EventCallback<bool> OnUnassigned { get; set; }
-    [Inject] public IPositionAssignmentService AssignmentService { get; set; } = default!;
+    [Inject] public IPositionAssignmentService PositionAssignmentService { get; set; } = default!;
+    [Inject] public IToastService ToastService { get; set; } = default!;
 
     private bool IsOpen { get; set; }
     private bool _busy;
@@ -24,7 +26,7 @@ public partial class UnassignPositionModal : ComponentBase
     private Person? _person;
     private PersonPositionAssignment? _active;
 
-    private string _date = string.Empty;              // yyyy-MM-dd
+    private DateTime _date = DateTime.UtcNow;
     private string _currentTitle = "-";
     private string _openStr = "-";
 
@@ -34,9 +36,6 @@ public partial class UnassignPositionModal : ComponentBase
     {
         _person = person ?? throw new ArgumentNullException(nameof(person));
         _active = active ?? throw new ArgumentNullException(nameof(active));
-
-        // сьогоднішня дата за UTC (00:00:00)
-        _date = DateTime.UtcNow.Date.ToString("yyyy-MM-dd");
 
         _currentTitle = active.PositionUnit.FullName;
         _openStr = active.OpenUtc.ToString("dd.MM.yyyy 'UTC' HH:mm");
@@ -53,29 +52,29 @@ public partial class UnassignPositionModal : ComponentBase
 
     private void Close() => IsOpen = false;
 
-    private void OnDateChanged(ChangeEventArgs e)
-        => _date = Convert.ToString(e.Value) ?? string.Empty;
-
     private DateTime BuildUtcOrThrow()
     {
-        if (string.IsNullOrWhiteSpace(_date) || !DateOnly.TryParse(_date, out var d))
-            throw new InvalidOperationException("Оберіть коректну дату.");
-
         // закриття фіксуємо на 00:00:00 UTC обраного дня
-        return new DateTime(d.Year, d.Month, d.Day, 0, 0, 0, DateTimeKind.Utc);
+        return new DateTime(_date.Year, _date.Month, _date.Day, 0, 0, 0, DateTimeKind.Utc);
     }
 
     private async Task OnSubmit()
     {
         if (_person is null) return;
 
+        var closeUtc = BuildUtcOrThrow();
+
+        if (closeUtc < _active!.OpenUtc)
+        {
+            ToastService.ShowInfo("Дата здання посади повинна бути пізнішою ніж призначення.");
+            return;
+        };
+
         try
         {
             _busy = true;
 
-            var closeUtc = BuildUtcOrThrow();
-
-            var ok = await AssignmentService.UnassignAsync(
+            var ok = await PositionAssignmentService.UnassignAsync(
                 _person.Id,
                 closeUtc,
                 string.IsNullOrWhiteSpace(Model.Note) ? null : Model.Note!.Trim(),

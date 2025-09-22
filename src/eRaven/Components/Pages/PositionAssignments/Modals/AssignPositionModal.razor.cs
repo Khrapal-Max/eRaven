@@ -17,7 +17,7 @@ public partial class AssignPositionModal : ComponentBase
     [Parameter] public IReadOnlyList<PositionUnit> Positions { get; set; } = [];
     [Parameter] public EventCallback<PersonPositionAssignment> OnAssigned { get; set; }
 
-    [Inject] public IPositionAssignmentService AssignmentService { get; set; } = default!;
+    [Inject] public IPositionAssignmentService PositionAssignmentService { get; set; } = default!;
     [Inject] public IToastService ToastService { get; set; } = default!;
 
     private bool IsOpen { get; set; }
@@ -47,19 +47,8 @@ public partial class AssignPositionModal : ComponentBase
         StateHasChanged();
     }
 
-    private void Close() => IsOpen = false;
-
     private void OnDateChanged(ChangeEventArgs e)
-        => _date = Convert.ToString(e.Value) ?? string.Empty;
-
-    private DateTime BuildUtcOrThrow()
-    {
-        if (string.IsNullOrWhiteSpace(_date) || !DateOnly.TryParse(_date, out var d))
-            throw new InvalidOperationException("Оберіть коректну дату.");
-
-        // Призначення фіксуємо на 00:00:00 UTC обраного дня
-        return new DateTime(d.Year, d.Month, d.Day, 0, 0, 0, DateTimeKind.Utc);
-    }
+        => _date = Convert.ToString(e.Value) ?? string.Empty;   
 
     private async Task OnSubmit()
     {
@@ -71,7 +60,7 @@ public partial class AssignPositionModal : ComponentBase
 
             var openUtc = BuildUtcOrThrow();
 
-            var created = await AssignmentService.AssignAsync(
+            var created = await PositionAssignmentService.AssignAsync(
                 _person.Id,
                 Model.PositionUnitId,
                 openUtc,
@@ -91,4 +80,15 @@ public partial class AssignPositionModal : ComponentBase
     private static string Trunc(string? s, int max)
        => string.IsNullOrEmpty(s) || s.Length <= max ? (s ?? string.Empty)
                                                      : string.Concat(s.AsSpan(0, max - 1), "…");
+
+    private DateTime BuildUtcOrThrow()
+    {
+        if (string.IsNullOrWhiteSpace(_date) || !DateOnly.TryParse(_date, out var d))
+            throw new InvalidOperationException("Оберіть коректну дату.");
+
+        // Призначення фіксуємо на 00:00:00 UTC обраного дня
+        return new DateTime(d.Year, d.Month, d.Day, 0, 0, 0, DateTimeKind.Utc);
+    }
+
+    private void Close() => IsOpen = false;
 }

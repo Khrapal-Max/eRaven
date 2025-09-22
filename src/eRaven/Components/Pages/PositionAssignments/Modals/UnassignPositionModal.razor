@@ -21,10 +21,9 @@
 
                     <div class="mb-2">
                         <label class="form-label small mb-1">Дата закриття (UTC)</label>
-                        <input type="date"
-                               class="form-control form-control-sm"
-                               value="@_date"
-                               @onchange="OnDateChanged" />
+                        <InputDate @bind-Value="_date"
+                                   TValue="DateTime"
+                                   class="form-control form-control-sm" />
                     </div>
 
                     <div class="mt-2">

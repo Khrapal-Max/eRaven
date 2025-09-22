@@ -98,6 +98,9 @@ public sealed class AssignPositionModalTests : IDisposable
             var select = cut.Find("select.form-select");
             Assert.Equal(Guid.Empty.ToString(), select.GetAttribute("value"));
         });
+
+        Assert.NotNull(cut.Instance.PositionAssignmentService);
+        Assert.NotNull(cut.Instance.ToastService);
     }
 
     [Fact]
