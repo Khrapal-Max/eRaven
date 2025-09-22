@@ -181,3 +181,7 @@ h1:focus, h2:focus, h3:focus {
     color: var(--brand-text);
     border-bottom: none;
 }
+
+.break-word {
+    word-break: break-word;
+}

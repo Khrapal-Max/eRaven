@@ -18,19 +18,14 @@ public partial class AssignPositionModal : ComponentBase
     [Parameter] public EventCallback<PersonPositionAssignment> OnAssigned { get; set; }
 
     [Inject] public IPositionAssignmentService AssignmentService { get; set; } = default!;
-
     [Inject] public IToastService ToastService { get; set; } = default!;
 
     private bool IsOpen { get; set; }
     private bool _busy;
-
     private FluentValidationValidator? _validator;
 
     private Person? _person;
-
-    private string _date = "";
-    private string _hour = "00";
-    private string _min = "00";
+    private string _date = string.Empty; // yyyy-MM-dd
 
     private AssignViewModel Model { get; set; } = new();
 
@@ -38,12 +33,15 @@ public partial class AssignPositionModal : ComponentBase
     {
         _person = person ?? throw new ArgumentNullException(nameof(person));
 
-        var now = DateTime.UtcNow;
-        _date = now.ToString("yyyy-MM-dd");
-        _hour = now.Hour.ToString("00");
-        _min = now.Minute >= 30 ? "30" : "00";
+        var todayUtc = DateTime.UtcNow.Date; // опівніч UTC
+        _date = todayUtc.ToString("yyyy-MM-dd");
 
-        Model = new AssignViewModel { PersonId = person.Id };
+        Model = new AssignViewModel
+        {
+            PersonId = person.Id,
+            PositionUnitId = Guid.Empty,
+            Note = null
+        };
 
         IsOpen = true;
         StateHasChanged();
@@ -51,16 +49,16 @@ public partial class AssignPositionModal : ComponentBase
 
     private void Close() => IsOpen = false;
 
-    private void OnDateChanged(ChangeEventArgs e) => _date = Convert.ToString(e.Value) ?? "";
-    private void OnHourChanged(ChangeEventArgs e) => _hour = Convert.ToString(e.Value) ?? "00";
-    private void OnMinChanged(ChangeEventArgs e) => _min = Convert.ToString(e.Value) ?? "00";
+    private void OnDateChanged(ChangeEventArgs e)
+        => _date = Convert.ToString(e.Value) ?? string.Empty;
 
-    private DateTime BuildUtc()
+    private DateTime BuildUtcOrThrow()
     {
-        var d = DateOnly.Parse(_date);
-        var h = int.Parse(_hour);
-        var m = int.Parse(_min);
-        return new DateTime(d.Year, d.Month, d.Day, h, m, 0, DateTimeKind.Utc);
+        if (string.IsNullOrWhiteSpace(_date) || !DateOnly.TryParse(_date, out var d))
+            throw new InvalidOperationException("Оберіть коректну дату.");
+
+        // Призначення фіксуємо на 00:00:00 UTC обраного дня
+        return new DateTime(d.Year, d.Month, d.Day, 0, 0, 0, DateTimeKind.Utc);
     }
 
     private async Task OnSubmit()
@@ -71,13 +69,13 @@ public partial class AssignPositionModal : ComponentBase
         {
             _busy = true;
 
-            var openUtc = BuildUtc();
+            var openUtc = BuildUtcOrThrow();
 
             var created = await AssignmentService.AssignAsync(
                 _person.Id,
                 Model.PositionUnitId,
                 openUtc,
-                Model.Note,
+                string.IsNullOrWhiteSpace(Model.Note) ? null : Model.Note!.Trim(),
                 default);
 
             await OnAssigned.InvokeAsync(created);
@@ -89,4 +87,8 @@ public partial class AssignPositionModal : ComponentBase
         }
         finally { _busy = false; }
     }
+
+    private static string Trunc(string? s, int max)
+       => string.IsNullOrEmpty(s) || s.Length <= max ? (s ?? string.Empty)
+                                                     : string.Concat(s.AsSpan(0, max - 1), "…");
 }
