@@ -2,6 +2,8 @@
 
 @using eRaven.Domain.Models
 @using eRaven.Components.Pages.PositionAssignments.Modals
+@using eRaven.Components.Shared.ExcelExportButton  @* <- для кнопки експорту *@
+@using eRaven.Application.ViewModels.PositionAssignmentViewModels
 
 <PageTitle>Призначення на посаду</PageTitle>
 
@@ -12,8 +14,16 @@
             <SearchBox @bind-Value="Search"
                        Delay="300"
                        Placeholder="Пошук: ПІБ / ІПН / позивний"
-                       Disabled="@Busy"
                        OnSearch="OnSearchAsync" />
+        </div>
+
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <ExcelExportButton TItem="PersonAssignmentExportRow"
+                               Items="_exportItems"
+                               FileName="Призначення_на_посаду"
+                               Text="Експорт"
+                               Title="Експорт видимого списку у Excel"
+                               OnBusyChanged="OnBusyChanged" />
         </div>
     </div>
 
@@ -45,21 +55,26 @@
                     <td class="text-center">
                         @if (SelectedPerson?.Id == p.Id)
                         {
-                            <div class="btn-group">
+                            @* якщо немає активного призначення — лише "Призначити"; якщо є — лише "Зняти" *@
+                            @if (ActiveAssign is null)
+                            {
                                 <button class="btn btn-primary"
-                                        title="Призначити"
+                                        title="@((_freePositions?.Count ?? 0) == 0 ? "Немає вільних посад" : "Призначити на посаду")"
+                                        disabled="@((_freePositions?.Count ?? 0) == 0)"
                                         @onclick:stopPropagation="true"
                                         @onclick="OpenAssignModal">
                                     <i class="bi bi-person-plus"></i>
                                 </button>
+                            }
+                            else
+                            {
                                 <button class="btn btn-warning"
-                                        title="Зняти"
-                                        disabled="@(ActiveAssign is null)"
+                                        title="Зняти з посади"
                                         @onclick:stopPropagation="true"
                                         @onclick="OpenUnassignModal">
                                     <i class="bi bi-person-dash"></i>
                                 </button>
-                            </div>
+                            }
                         }
                     </td>
                 </RowTemplate>
@@ -73,7 +88,7 @@
 </div>
 
 <AssignPositionModal @ref="_assignModal"
-                     Positions="_positions"
+                     Positions="_freePositions"
                      OnAssigned="HandleAssigned" />
 
 <UnassignPositionModal @ref="_unassignModal"
