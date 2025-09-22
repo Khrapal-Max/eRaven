@@ -19,7 +19,7 @@ public sealed class SearchBoxTests : TestContext
         // Arrange
         var calls = 0;
         var cut = RenderComponent<SearchBox>(ps => ps
-            .Add(p => p.Delay, 20)
+            .Add(p => p.Delay, 100)
             .Add(p => p.OnSearch, EventCallback.Factory.Create(this, () => calls++))
         );
 

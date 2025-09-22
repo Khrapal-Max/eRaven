@@ -163,7 +163,14 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
     private void OpenAssignModal()
     {
         if (SelectedPerson is null) return;
-        _assignModal?.Open(SelectedPerson);
+
+        var lastClose = History?
+            .Where(h => h.CloseUtc.HasValue)
+            .OrderByDescending(h => h.CloseUtc!.Value)
+            .Select(h => (DateTime?)h.CloseUtc!.Value)
+            .FirstOrDefault();
+
+        _assignModal?.Open(SelectedPerson, lastClose);
     }
 
     private void OpenUnassignModal()

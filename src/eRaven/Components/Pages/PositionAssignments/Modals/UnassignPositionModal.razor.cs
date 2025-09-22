@@ -29,6 +29,7 @@ public partial class UnassignPositionModal : ComponentBase
     private DateTime _date = DateTime.UtcNow;
     private string _currentTitle = "-";
     private string _openStr = "-";
+    private int _lastDayonPosition = -1;
 
     private UnassignViewModel Model { get; set; } = new();
 
@@ -76,7 +77,7 @@ public partial class UnassignPositionModal : ComponentBase
 
             var ok = await PositionAssignmentService.UnassignAsync(
                 _person.Id,
-                closeUtc,
+                closeUtc.AddDays(_lastDayonPosition),
                 string.IsNullOrWhiteSpace(Model.Note) ? null : Model.Note!.Trim(),
                 default);
 

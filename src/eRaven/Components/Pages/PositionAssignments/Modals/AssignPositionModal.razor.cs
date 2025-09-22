@@ -27,14 +27,28 @@ public partial class AssignPositionModal : ComponentBase
     private Person? _person;
     private string _date = string.Empty; // yyyy-MM-dd
 
+    /// <summary>Остання дата ЗНЯТТЯ з посади (UTC 00:00:00 очікується), якщо є.</summary>
+    private DateTime? _lastUnassignCloseUtc;
+    private string? _minDateAttr;
+
     private AssignViewModel Model { get; set; } = new();
 
-    public void Open(Person person)
+    /// <summary>
+    /// Відкриття модала. Можна (і бажано) передати останню дату зняття з посади,
+    /// щоб не дозволяти призначення на більш ранню/ту саму дату.
+    /// </summary>
+    public void Open(Person person, DateTime? lastUnassignCloseUtc = null)
     {
         _person = person ?? throw new ArgumentNullException(nameof(person));
+        _lastUnassignCloseUtc = lastUnassignCloseUtc;
 
-        var todayUtc = DateTime.UtcNow.Date; // опівніч UTC
+        var todayUtc = DateTime.UtcNow.Date;
         _date = todayUtc.ToString("yyyy-MM-dd");
+
+        // календар дозволяє обрати лише ДАТУ ПІСЛЯ останнього зняття
+        _minDateAttr = lastUnassignCloseUtc.HasValue
+            ? lastUnassignCloseUtc.Value.AddDays(1).ToString("yyyy-MM-dd")
+            : null;
 
         Model = new AssignViewModel
         {
@@ -48,7 +62,7 @@ public partial class AssignPositionModal : ComponentBase
     }
 
     private void OnDateChanged(ChangeEventArgs e)
-        => _date = Convert.ToString(e.Value) ?? string.Empty;   
+        => _date = Convert.ToString(e.Value) ?? string.Empty;
 
     private async Task OnSubmit()
     {
@@ -59,6 +73,13 @@ public partial class AssignPositionModal : ComponentBase
             _busy = true;
 
             var openUtc = BuildUtcOrThrow();
+
+            // додаткова перевірка для надійності
+            if (_lastUnassignCloseUtc.HasValue && openUtc <= _lastUnassignCloseUtc.Value)
+            {
+                ToastService.ShowInfo("Дата призначення має бути пізнішою за останню дату зняття з посади.");
+                return;
+            }
 
             var created = await PositionAssignmentService.AssignAsync(
                 _person.Id,

@@ -1,5 +1,4 @@
-﻿@* AssignPositionModal.razor *@
-@using Blazored.FluentValidation
+﻿@* ...інші імпорти *@
 @using eRaven.Domain.Models
 
 <div class="modal fade @(IsOpen ? "show d-block" : "")" tabindex="-1" aria-modal="true" role="dialog">
@@ -16,27 +15,23 @@
 
                     <div class="mb-2">
                         <label class="form-label small mb-1">Посада</label>
-
                         <InputSelect class="form-select form-select-sm w-100"
                                      TValue="Guid"
                                      @bind-Value="Model.PositionUnitId">
                             <option value="@Guid.Empty">-- Оберіть посаду --</option>
                             @foreach (var p in Positions)
                             {
-                                <option value="@p.Id" title="@p.FullName">
-                                    @Trunc(p.FullName, 70)
-                                </option>
+                                <option value="@p.Id" title="@p.FullName">@Trunc(p.FullName, 70)</option>
                             }
                         </InputSelect>
                         <ValidationMessage For="() => Model.PositionUnitId" />
 
-                        @* Показуємо повну назву вибраної посади, перенос із словами *@
                         @if (Model.PositionUnitId != Guid.Empty)
                         {
                             var full = Positions.FirstOrDefault(x => x.Id == Model.PositionUnitId)?.FullName;
                             if (!string.IsNullOrWhiteSpace(full))
                             {
-                                <div class="form-text small text-muted mt-1 text-wrap break-word" style="white-space: normal;">
+                                <div class="form-text small text-muted mt-1 text-wrap" style="white-space:normal;">
                                     @full
                                 </div>
                             }
@@ -48,7 +43,15 @@
                         <input type="date"
                                class="form-control form-control-sm"
                                value="@_date"
+                               min="@_minDateAttr"
                                @onchange="OnDateChanged" />
+                        @if (_lastUnassignCloseUtc.HasValue)
+                        {
+                            <div class="form-text small text-muted mt-1">
+                                Останнє доба на попередній посаді: @_lastUnassignCloseUtc.Value.ToString("dd.MM.yyyy 'UTC'")
+                                — нове призначення має бути <strong>пізніше</strong> цієї дати.
+                            </div>
+                        }
                     </div>
 
                     <div class="mt-2">
