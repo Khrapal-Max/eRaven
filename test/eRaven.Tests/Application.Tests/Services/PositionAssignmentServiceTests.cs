@@ -19,7 +19,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
     public PositionAssignmentServiceTests()
     {
         _dbh = new SqliteDbHelper();
-        _svc = new PositionAssignmentService(_dbh.Db);
+        _svc = new PositionAssignmentService(_dbh.Factory);
     }
 
     public void Dispose() => _dbh.Dispose();

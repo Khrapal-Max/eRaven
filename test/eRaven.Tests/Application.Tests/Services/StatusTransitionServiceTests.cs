@@ -24,7 +24,7 @@ public class StatusTransitionServiceTests
     public async Task GetAllMapAsync_Returns_Map_Grouped_By_FromId()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        await using var db = h.CreateContext();
 
         // Arrange kinds without explicit Ids
         var a = K("A", "A");
@@ -44,7 +44,7 @@ public class StatusTransitionServiceTests
         );
         await db.SaveChangesAsync();
 
-        var sut = new StatusTransitionService(db);
+        var sut = new StatusTransitionService(h.Factory);
 
         // Act
         var map = await sut.GetAllMapAsync();
@@ -57,19 +57,17 @@ public class StatusTransitionServiceTests
         var aTos = map[aId];
         Assert.Contains(bId, aTos);
         Assert.Contains(cId, aTos);
-        // Ми не перевіряємо Count тут, бо у сидінгу можуть бути додаткові рядки для інших fromId
 
         // b -> {c}
         var bTos = map[bId];
         Assert.Contains(cId, bTos);
-        // Аналогічно, не перевіряємо загальний Count мапи
     }
 
     [Fact]
     public async Task GetToIdsAsync_Returns_ToIds_For_SpecificFrom()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        await using var db = h.CreateContext();
 
         // Arrange: додаємо три статуси (Id згенеруються БД)
         var a = K("A", "A");
@@ -89,7 +87,7 @@ public class StatusTransitionServiceTests
         );
         await db.SaveChangesAsync();
 
-        var sut = new StatusTransitionService(db);
+        var sut = new StatusTransitionService(h.Factory);
 
         // Act
         var toIds = await sut.GetToIdsAsync(aId);
@@ -104,7 +102,7 @@ public class StatusTransitionServiceTests
     public async Task SaveAllowedAsync_Adds_New_And_Removes_Obsolete()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        await using var db = h.CreateContext();
 
         var a = K("A", "A");
         var b = K("B", "B");
@@ -120,7 +118,7 @@ public class StatusTransitionServiceTests
         db.StatusTransitions.Add(T(aId, bId));
         await db.SaveChangesAsync();
 
-        var sut = new StatusTransitionService(db);
+        var sut = new StatusTransitionService(h.Factory);
 
         // Save {c} only: remove a->b, add a->c
         await sut.SaveAllowedAsync(aId, [cId]);
@@ -138,7 +136,7 @@ public class StatusTransitionServiceTests
     public async Task SaveAllowedAsync_Filters_SelfLoop()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        await using var db = h.CreateContext();
 
         var a = K("A", "A");
         var b = K("B", "B");
@@ -148,7 +146,7 @@ public class StatusTransitionServiceTests
         var aId = a.Id;
         var bId = b.Id;
 
-        var sut = new StatusTransitionService(db);
+        var sut = new StatusTransitionService(h.Factory);
 
         // Ask to allow {a,b}; self-loop a->a must be ignored; only a->b remains
         await sut.SaveAllowedAsync(aId, [aId, bId]);
@@ -165,7 +163,7 @@ public class StatusTransitionServiceTests
     public async Task SaveAllowedAsync_Idempotent_When_No_Changes()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        await using var db = h.CreateContext();
 
         var a = K("A", "A");
         var b = K("B", "B");
@@ -180,7 +178,7 @@ public class StatusTransitionServiceTests
         db.StatusTransitions.AddRange(T(aId, bId), T(aId, cId));
         await db.SaveChangesAsync();
 
-        var sut = new StatusTransitionService(db);
+        var sut = new StatusTransitionService(h.Factory);
 
         await sut.SaveAllowedAsync(aId, [bId, cId]);
 
@@ -198,7 +196,7 @@ public class StatusTransitionServiceTests
     public async Task SaveAllowedAsync_Removes_All_When_Empty_Set()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        await using var db = h.CreateContext();
 
         var a = K("A", "A");
         var b = K("B", "B");
@@ -211,7 +209,7 @@ public class StatusTransitionServiceTests
         db.StatusTransitions.Add(T(aId, bId));
         await db.SaveChangesAsync();
 
-        var sut = new StatusTransitionService(db);
+        var sut = new StatusTransitionService(h.Factory);
 
         // Save empty set => must remove all for 'a'
         await sut.SaveAllowedAsync(aId, []);

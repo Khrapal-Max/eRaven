@@ -10,21 +10,27 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Application.Services.PersonStatusService;
 
-public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
+public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : IPersonStatusService
 {
-    private readonly AppDbContext _db = db;
+    private readonly IDbContextFactory<AppDbContext> _dbf = dbf;
 
     public async Task<IEnumerable<PersonStatus>> GetAllAsync(CancellationToken ct = default)
-        => await _db.PersonStatuses.AsNoTracking()
+    {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        return await db.PersonStatuses.AsNoTracking()
             .Include(p => p.Person)
             .Include(s => s.StatusKind)
             .OrderByDescending(s => s.OpenDate)
             .ThenByDescending(s => s.Sequence)
             .ToListAsync(ct);
+    }
 
     public async Task<IReadOnlyList<PersonStatus>> GetHistoryAsync(Guid personId, CancellationToken ct = default)
     {
-        var list = await _db.PersonStatuses.AsNoTracking()
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var list = await db.PersonStatuses.AsNoTracking()
             .Include(s => s.StatusKind)
             .Where(s => s.PersonId == personId && s.IsActive == true)
             .OrderByDescending(s => s.OpenDate)
@@ -38,12 +44,16 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
     /// «Поточний» статус = останній валідний (IsActive=TRUE) за (OpenDate DESC, Sequence DESC).
     /// </summary>
     public async Task<PersonStatus?> GetActiveAsync(Guid personId, CancellationToken ct = default)
-        => await _db.PersonStatuses.AsNoTracking()
+    {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        return await db.PersonStatuses.AsNoTracking()
             .Include(s => s.StatusKind)
             .Where(s => s.PersonId == personId && s.IsActive)
             .OrderByDescending(s => s.OpenDate)
             .ThenByDescending(s => s.Sequence)
             .FirstOrDefaultAsync(ct);
+    }
 
     /// <summary>
     /// Встановити новий статус: перевіряємо перехід згідно правил, нормалізуємо момент (UTC),
@@ -51,6 +61,8 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
     /// </summary>
     public async Task<PersonStatus> SetStatusAsync(PersonStatus ps, CancellationToken ct = default)
     {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
         // ====== 1) Валідації та нормалізація ======
         ArgumentNullException.ThrowIfNull(ps);
         if (ps.PersonId == Guid.Empty) throw new ArgumentException("PersonId обовʼязковий.", nameof(ps));
@@ -65,16 +77,16 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
         };
 
         // Перевіряємо існування Person/StatusKind
-        var person = await _db.Persons.FirstOrDefaultAsync(p => p.Id == ps.PersonId, ct)
+        var person = await db.Persons.FirstOrDefaultAsync(p => p.Id == ps.PersonId, ct)
             ?? throw new InvalidOperationException("Особа не знайдена.");
 
-        var toKindExists = await _db.StatusKinds.AnyAsync(k => k.Id == ps.StatusKindId, ct);
+        var toKindExists = await db.StatusKinds.AnyAsync(k => k.Id == ps.StatusKindId, ct);
         if (!toKindExists) throw new InvalidOperationException("Вказаний статус не існує.");
 
-        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         // ====== 2) Правила переходів: від поточного (останнього валідного) → до нового
-        var current = await _db.PersonStatuses
+        var current = await db.PersonStatuses
             .Where(s => s.PersonId == ps.PersonId && s.IsActive)
             .OrderByDescending(s => s.OpenDate).ThenByDescending(s => s.Sequence)
             .FirstOrDefaultAsync(ct);
@@ -88,7 +100,7 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
             throw new InvalidOperationException("Момент має бути пізніший за останній відкритий статус.");
 
         // ====== 3) Присвоюємо Sequence на цей самий момент часу
-        short nextSeq = (await _db.PersonStatuses
+        short nextSeq = (await db.PersonStatuses
             .Where(s => s.PersonId == ps.PersonId && s.IsActive && s.OpenDate == openUtc)
             .MaxAsync(s => (short?)s.Sequence, ct)) ?? -1;
 
@@ -108,13 +120,13 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
             Modified = DateTime.UtcNow
         };
 
-        _db.PersonStatuses.Add(toSave);
+        db.PersonStatuses.Add(toSave);
 
         // Оновлюємо «поточний» статус у Person
         person.StatusKindId = ps.StatusKindId;
         person.ModifiedUtc = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
         return toSave;
@@ -122,10 +134,12 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
 
     public async Task<bool> IsTransitionAllowedAsync(int? fromStatusKindId, int toStatusKindId, CancellationToken ct = default)
     {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
         // Перша установка — дозволяємо
         if (fromStatusKindId is null) return true;
 
-        return await _db.Set<StatusTransition>()
+        return await db.StatusTransitions
             .AnyAsync(t => t.FromStatusKindId == fromStatusKindId && t.ToStatusKindId == toStatusKindId, ct);
     }
 
@@ -136,14 +150,16 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
     /// </summary>
     public async Task<bool> UpdateStateIsActive(Guid statusId, CancellationToken ct = default)
     {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
         if (statusId == Guid.Empty) throw new ArgumentException("statusId is required.", nameof(statusId));
 
-        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        var status = await _db.PersonStatuses.FirstOrDefaultAsync(s => s.Id == statusId, ct)
+        var status = await db.PersonStatuses.FirstOrDefaultAsync(s => s.Id == statusId, ct)
             ?? throw new InvalidOperationException("Status not found.");
 
-        var person = await _db.Persons.FirstOrDefaultAsync(p => p.Id == status.PersonId, ct)
+        var person = await db.Persons.FirstOrDefaultAsync(p => p.Id == status.PersonId, ct)
             ?? throw new InvalidOperationException("Person not found.");
 
         var turnOn = !status.IsActive;
@@ -151,7 +167,7 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
         if (turnOn)
         {
             // при активації — уникаємо конфлікту унікального індексу (person_id, open_date, sequence) WHERE is_active=TRUE
-            var existsActiveSameKey = await _db.PersonStatuses.AnyAsync(
+            var existsActiveSameKey = await db.PersonStatuses.AnyAsync(
                 s => s.PersonId == status.PersonId
                   && s.IsActive
                   && s.OpenDate == status.OpenDate
@@ -160,7 +176,7 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
             if (existsActiveSameKey)
             {
                 // переносимо на наступний sequence на той самий момент
-                short nextSeq = (await _db.PersonStatuses
+                short nextSeq = (await db.PersonStatuses
                     .Where(s => s.PersonId == status.PersonId && s.IsActive && s.OpenDate == status.OpenDate)
                     .MaxAsync(s => (short?)s.Sequence, ct)) ?? -1;
 
@@ -171,10 +187,10 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
         status.IsActive = turnOn;
         status.Modified = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);
 
         // оновлюємо Person.StatusKindId до останнього валідного
-        var latestValid = await _db.PersonStatuses
+        var latestValid = await db.PersonStatuses
             .Where(s => s.PersonId == status.PersonId && s.IsActive)
             .OrderByDescending(s => s.OpenDate)
             .ThenByDescending(s => s.Sequence)
@@ -183,7 +199,7 @@ public sealed class PersonStatusService(AppDbContext db) : IPersonStatusService
         person.StatusKindId = latestValid?.StatusKindId;
         person.ModifiedUtc = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
         return status.IsActive;

@@ -71,7 +71,7 @@
                     <td class="text-center">@p.Rank</td>
                     <td class="text-center">@p.Rnokpp</td>
                     <td class="text-center">@p.Callsign</td>
-                    <td>@p.PositionUnit?.ShortName</td>
+                    <td title="@p.PositionUnit?.FullName">@(Trunc(p.PositionUnit?.FullName, 30))</td>
                     <td class="text-center">@(p.StatusKind?.Name ?? string.Empty)</td>
                     <td class="text-end">
                         <a class="btn btn-sm btn-warning" href="@($"/person/{p.Id}")">

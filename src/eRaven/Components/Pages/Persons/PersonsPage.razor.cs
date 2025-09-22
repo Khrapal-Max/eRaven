@@ -209,6 +209,10 @@ public partial class PersonsPage : ComponentBase, IDisposable
         StateHasChanged();
     }
 
+    private static string Trunc(string? s, int max)
+       => string.IsNullOrEmpty(s) || s.Length <= max ? (s ?? string.Empty)
+                                                     : string.Concat(s.AsSpan(0, max - 1), "…");
+
     public void Dispose()
     {
         _cts.Cancel();

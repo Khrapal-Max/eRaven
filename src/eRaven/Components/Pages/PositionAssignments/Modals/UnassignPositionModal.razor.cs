@@ -19,16 +19,12 @@ public partial class UnassignPositionModal : ComponentBase
 
     private bool IsOpen { get; set; }
     private bool _busy;
-
     private FluentValidationValidator? _validator;
 
     private Person? _person;
     private PersonPositionAssignment? _active;
 
-    private string _date = "";
-    private string _hour = "00";
-    private string _min = "00";
-
+    private string _date = string.Empty;              // yyyy-MM-dd
     private string _currentTitle = "-";
     private string _openStr = "-";
 
@@ -36,18 +32,20 @@ public partial class UnassignPositionModal : ComponentBase
 
     public void Open(Person person, PersonPositionAssignment active)
     {
-        _person = person;
-        _active = active;
+        _person = person ?? throw new ArgumentNullException(nameof(person));
+        _active = active ?? throw new ArgumentNullException(nameof(active));
 
-        var now = DateTime.UtcNow;
-        _date = now.ToString("yyyy-MM-dd");
-        _hour = now.Hour.ToString("00");
-        _min = now.Minute >= 30 ? "30" : "00";
+        // сьогоднішня дата за UTC (00:00:00)
+        _date = DateTime.UtcNow.Date.ToString("yyyy-MM-dd");
 
         _currentTitle = active.PositionUnit.FullName;
-        _openStr = active.OpenUtc.ToString("dd.MM.yyyy HH:mm 'UTC'");
+        _openStr = active.OpenUtc.ToString("dd.MM.yyyy 'UTC' HH:mm");
 
-        Model = new UnassignViewModel { PersonId = person.Id, Note = string.Empty };
+        Model = new UnassignViewModel
+        {
+            PersonId = person.Id,
+            Note = string.Empty
+        };
 
         IsOpen = true;
         StateHasChanged();
@@ -55,16 +53,16 @@ public partial class UnassignPositionModal : ComponentBase
 
     private void Close() => IsOpen = false;
 
-    private void OnDateChanged(ChangeEventArgs e) => _date = Convert.ToString(e.Value) ?? "";
-    private void OnHourChanged(ChangeEventArgs e) => _hour = Convert.ToString(e.Value) ?? "00";
-    private void OnMinChanged(ChangeEventArgs e) => _min = Convert.ToString(e.Value) ?? "00";
+    private void OnDateChanged(ChangeEventArgs e)
+        => _date = Convert.ToString(e.Value) ?? string.Empty;
 
-    private DateTime BuildUtc()
+    private DateTime BuildUtcOrThrow()
     {
-        var d = DateOnly.Parse(_date);
-        var h = int.Parse(_hour);
-        var m = int.Parse(_min);
-        return new DateTime(d.Year, d.Month, d.Day, h, m, 0, DateTimeKind.Utc);
+        if (string.IsNullOrWhiteSpace(_date) || !DateOnly.TryParse(_date, out var d))
+            throw new InvalidOperationException("Оберіть коректну дату.");
+
+        // закриття фіксуємо на 00:00:00 UTC обраного дня
+        return new DateTime(d.Year, d.Month, d.Day, 0, 0, 0, DateTimeKind.Utc);
     }
 
     private async Task OnSubmit()
@@ -75,10 +73,12 @@ public partial class UnassignPositionModal : ComponentBase
         {
             _busy = true;
 
+            var closeUtc = BuildUtcOrThrow();
+
             var ok = await AssignmentService.UnassignAsync(
                 _person.Id,
-                BuildUtc(),
-                Model.Note,
+                closeUtc,
+                string.IsNullOrWhiteSpace(Model.Note) ? null : Model.Note!.Trim(),
                 default);
 
             await OnUnassigned.InvokeAsync(ok);

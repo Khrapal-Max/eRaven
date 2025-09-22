@@ -35,7 +35,7 @@ public class StatusKindServiceTests
     public async Task GetAllAsync_Default_Returns_All_Sorted_Order_Then_Name()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
         // Додаємо ТІЛЬКИ наші 3 записи (сидингові ігноруємо в асертах)
         var k1 = NewKind("Бета", "B", order: 2, isActive: true);
@@ -45,7 +45,7 @@ public class StatusKindServiceTests
         db.StatusKinds.AddRange(k1, k2, k3);
         await db.SaveChangesAsync();
 
-        var sut = new StatusKindService(db);
+        var sut = new StatusKindService(h.Factory);
 
         // Беремо весь список (разом із сидингом), як робить сервіс
         var all = await sut.GetAllAsync(includeInactive: true);
@@ -67,7 +67,7 @@ public class StatusKindServiceTests
     public async Task GetAllAsync_OnlyActive_Returns_Only_Active()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
         var a = NewKind("Active1", "A1", isActive: true);
         var i = NewKind("Inactive1", "I1", isActive: false);
@@ -75,7 +75,7 @@ public class StatusKindServiceTests
         db.StatusKinds.AddRange(a, i);
         await db.SaveChangesAsync();
 
-        var sut = new StatusKindService(db);
+        var sut = new StatusKindService(h.Factory);
 
         var all = await sut.GetAllAsync(includeInactive: false);
 
@@ -95,13 +95,13 @@ public class StatusKindServiceTests
     public async Task GetByIdAsync_When_Exists_Returns_Entity()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
         var k = NewKind("X", "X1");
         db.StatusKinds.Add(k);
         await db.SaveChangesAsync();
 
-        var sut = new StatusKindService(db);
+        var sut = new StatusKindService(h.Factory);
 
         var got = await sut.GetByIdAsync(k.Id);
 
@@ -114,9 +114,9 @@ public class StatusKindServiceTests
     public async Task GetByIdAsync_When_NotExists_Returns_Null()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
-        var sut = new StatusKindService(db);
+        var sut = new StatusKindService(h.Factory);
 
         var got = await sut.GetByIdAsync(123456);
 
@@ -129,9 +129,9 @@ public class StatusKindServiceTests
     public async Task CreateAsync_Throws_When_Name_Missing()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
-        var sut = new StatusKindService(db);
+        var sut = new StatusKindService(h.Factory);
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
             sut.CreateAsync(new CreateKindViewModel
@@ -148,9 +148,9 @@ public class StatusKindServiceTests
     public async Task CreateAsync_Throws_When_Code_Missing()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
-        var sut = new StatusKindService(db);
+        var sut = new StatusKindService(h.Factory);
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
             sut.CreateAsync(new CreateKindViewModel
@@ -167,9 +167,9 @@ public class StatusKindServiceTests
     public async Task CreateAsync_Persists_And_Trims()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
-        var sut = new StatusKindService(db);
+        var sut = new StatusKindService(h.Factory);
 
         var created = await sut.CreateAsync(new CreateKindViewModel
         {
@@ -199,13 +199,13 @@ public class StatusKindServiceTests
     public async Task SetActiveAsync_NoChange_Returns_True_And_PersistsNothing()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
         var k = NewKind("Same", "S1", isActive: true);
         db.StatusKinds.Add(k);
         await db.SaveChangesAsync();
 
-        var sut = new StatusKindService(db);
+        var sut = new StatusKindService(h.Factory);
 
         var ok = await sut.SetActiveAsync(k.Id, isActive: true);
 
@@ -218,13 +218,13 @@ public class StatusKindServiceTests
     public async Task SetActiveAsync_Toggles_And_Saves()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
         var k = NewKind("Toggle", "T1", isActive: false);
         db.StatusKinds.Add(k);
         await db.SaveChangesAsync();
 
-        var sut = new StatusKindService(db);
+        var sut = new StatusKindService(h.Factory);
 
         var ok = await sut.SetActiveAsync(k.Id, isActive: true);
 
@@ -238,9 +238,9 @@ public class StatusKindServiceTests
     public async Task SetActiveAsync_ReturnsFalse_When_NotFound()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
-        var sut = new StatusKindService(db);
+        var sut = new StatusKindService(h.Factory);
 
         var ok = await sut.SetActiveAsync(id: 999999, isActive: false);
 
@@ -253,13 +253,13 @@ public class StatusKindServiceTests
     public async Task UpdateOrderAsync_Updates_Order_And_Saves()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
         var k = NewKind("Ordered", "OR1", order: 1);
         db.StatusKinds.Add(k);
         await db.SaveChangesAsync();
 
-        var sut = new StatusKindService(db);
+        var sut = new StatusKindService(h.Factory);
 
         var ok = await sut.UpdateOrderAsync(k.Id, newOrder: 42);
 
@@ -273,9 +273,9 @@ public class StatusKindServiceTests
     public async Task UpdateOrderAsync_ReturnsFalse_When_NotFound()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
-        var sut = new StatusKindService(db);
+        var sut = new StatusKindService(h.Factory);
 
         var ok = await sut.UpdateOrderAsync(id: 123456, newOrder: 5);
 
@@ -288,12 +288,12 @@ public class StatusKindServiceTests
     public async Task NameExistsAsync_True_When_ExactMatch_Exists()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
         db.StatusKinds.Add(NewKind("Dup", "D1"));
         await db.SaveChangesAsync();
 
-        var sut = new StatusKindService(db);
+        var sut = new StatusKindService(h.Factory);
 
         Assert.True(await sut.NameExistsAsync("Dup"));
         Assert.False(await sut.NameExistsAsync("dup")); // чутливість до регістру — як у сервісі
@@ -304,12 +304,12 @@ public class StatusKindServiceTests
     public async Task CodeExistsAsync_True_When_ExactMatch_Exists()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
         db.StatusKinds.Add(NewKind("Kind", "KX"));
         await db.SaveChangesAsync();
 
-        var sut = new StatusKindService(db);
+        var sut = new StatusKindService(h.Factory);
 
         Assert.True(await sut.CodeExistsAsync("KX"));
         Assert.False(await sut.CodeExistsAsync("kx")); // чутливість до регістру

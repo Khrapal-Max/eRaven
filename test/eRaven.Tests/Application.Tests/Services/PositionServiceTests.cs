@@ -43,7 +43,7 @@ public class PositionServiceTests
     public async Task GetPositionsAsync_Default_ReturnsOnlyActive()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
         db.PositionUnits.AddRange(
             NewWithCode("A", true, "A"),
             NewWithCode("B", true, "B"),
@@ -51,7 +51,7 @@ public class PositionServiceTests
         );
         await db.SaveChangesAsync();
 
-        var sut = new PositionService(db);
+        var sut = new PositionService(h.Factory);
 
         var items = await sut.GetPositionsAsync(); // onlyActive = true
 
@@ -64,14 +64,14 @@ public class PositionServiceTests
     public async Task GetPositionsAsync_OnlyActiveFalse_ReturnsAll()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
         db.PositionUnits.AddRange(
             NewWithCode("A", true, "A"),
             NewWithCode("B", false, "B")
         );
         await db.SaveChangesAsync();
 
-        var sut = new PositionService(db);
+        var sut = new PositionService(h.Factory);
 
         var items = await sut.GetPositionsAsync(onlyActive: false);
 
@@ -86,12 +86,12 @@ public class PositionServiceTests
     public async Task GetByIdAsync_WhenExists_ReturnsEntity()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
         var p = NewWithCode("X", true, "X");
         db.PositionUnits.Add(p);
         await db.SaveChangesAsync();
 
-        var sut = new PositionService(db);
+        var sut = new PositionService(h.Factory);
 
         var got = await sut.GetByIdAsync(p.Id);
 
@@ -104,8 +104,8 @@ public class PositionServiceTests
     public async Task GetByIdAsync_WhenMissing_ReturnsNull()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
-        var sut = new PositionService(db);
+        var db = h.CreateContext();
+        var sut = new PositionService(h.Factory);
 
         var got = await sut.GetByIdAsync(Guid.NewGuid());
 
@@ -118,8 +118,8 @@ public class PositionServiceTests
     public async Task CreatePositionAsync_Throws_When_ShortName_Missing()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
-        var sut = new PositionService(db);
+        var db = h.CreateContext();
+        var sut = new PositionService(h.Factory);
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(async () =>
             await sut.CreatePositionAsync(new PositionUnit
@@ -139,8 +139,8 @@ public class PositionServiceTests
     public async Task CreatePositionAsync_Persists_WithoutForcingActive()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
-        var sut = new PositionService(db);
+        var db = h.CreateContext();
+        var sut = new PositionService(h.Factory);
 
         // Створення НЕ повинно примусово активувати
         var created = await sut.CreatePositionAsync(new PositionUnit
@@ -170,8 +170,8 @@ public class PositionServiceTests
     public async Task CreatePositionAsync_Throws_When_DuplicateActiveCode()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
-        var sut = new PositionService(db);
+        var db = h.CreateContext();
+        var sut = new PositionService(h.Factory);
 
         // Перша активна з кодом A1
         await sut.CreatePositionAsync(new PositionUnit
@@ -199,8 +199,8 @@ public class PositionServiceTests
     public async Task CreatePositionAsync_Allows_DuplicateCode_IfFirstIsInactive()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
-        var sut = new PositionService(db);
+        var db = h.CreateContext();
+        var sut = new PositionService(h.Factory);
 
         // Перша з кодом B1, але неактивна
         await sut.CreatePositionAsync(new PositionUnit
@@ -232,8 +232,8 @@ public class PositionServiceTests
     public async Task SetActiveStateAsync_ReturnsFalse_When_NotFound()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
-        var sut = new PositionService(db);
+        var db = h.CreateContext();
+        var sut = new PositionService(h.Factory);
 
         var ok = await sut.SetActiveStateAsync(Guid.NewGuid(), isActive: false);
 
@@ -244,12 +244,12 @@ public class PositionServiceTests
     public async Task SetActiveStateAsync_NoChange_When_SameState()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
         var pos = NewWithCode("SAME", true, "Same");
         db.PositionUnits.Add(pos);
         await db.SaveChangesAsync();
 
-        var sut = new PositionService(db);
+        var sut = new PositionService(h.Factory);
 
         var ok = await sut.SetActiveStateAsync(pos.Id, isActive: true);
 
@@ -262,12 +262,12 @@ public class PositionServiceTests
     public async Task SetActiveStateAsync_Deactivate_When_NotOccupied_Succeeds()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
         var pos = NewWithCode("FREE1", true, "Free");
         db.PositionUnits.Add(pos);
         await db.SaveChangesAsync();
 
-        var sut = new PositionService(db);
+        var sut = new PositionService(h.Factory);
 
         var ok = await sut.SetActiveStateAsync(pos.Id, isActive: false);
 
@@ -280,7 +280,7 @@ public class PositionServiceTests
     public async Task SetActiveStateAsync_Deactivate_When_Occupied_Throws_And_PersistsNoChange()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
         var pos = NewWithCode("BUSY1", true, "Busy");
         db.PositionUnits.Add(pos);
 
@@ -296,7 +296,7 @@ public class PositionServiceTests
 
         await db.SaveChangesAsync();
 
-        var sut = new PositionService(db);
+        var sut = new PositionService(h.Factory);
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await sut.SetActiveStateAsync(pos.Id, isActive: false)
@@ -310,12 +310,12 @@ public class PositionServiceTests
     public async Task SetActiveStateAsync_Activate_Succeeds()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
         var pos = NewWithCode("REEN1", false, "ReEnable");
         db.PositionUnits.Add(pos);
         await db.SaveChangesAsync();
 
-        var sut = new PositionService(db);
+        var sut = new PositionService(h.Factory);
 
         var ok = await sut.SetActiveStateAsync(pos.Id, isActive: true);
 
@@ -328,7 +328,7 @@ public class PositionServiceTests
     public async Task SetActiveStateAsync_Activate_Throws_When_AnotherActiveWithSameCodeExists()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
         // Активна з кодом A1 вже існує
         var existingActive = NewWithCode("A1", true, "Active1");
@@ -340,7 +340,7 @@ public class PositionServiceTests
 
         await db.SaveChangesAsync();
 
-        var sut = new PositionService(db);
+        var sut = new PositionService(h.Factory);
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await sut.SetActiveStateAsync(toActivate.Id, isActive: true));
@@ -350,7 +350,7 @@ public class PositionServiceTests
     public async Task SetActiveStateAsync_Activate_Succeeds_When_CodeIsUnique()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
 
         // Активна з кодом A1
         db.PositionUnits.Add(NewWithCode("A1", true, "Active1"));
@@ -361,7 +361,7 @@ public class PositionServiceTests
 
         await db.SaveChangesAsync();
 
-        var sut = new PositionService(db);
+        var sut = new PositionService(h.Factory);
 
         var ok = await sut.SetActiveStateAsync(toActivateUnique.Id, isActive: true);
 
@@ -377,11 +377,11 @@ public class PositionServiceTests
     public async Task CodeExistsActiveAsync_ReturnsTrue_WhenActivePositionWithCodeExists()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
         db.PositionUnits.Add(NewWithCode("A1", true, "AAA"));
         await db.SaveChangesAsync();
 
-        var sut = new PositionService(db);
+        var sut = new PositionService(h.Factory);
 
         var result = await sut.CodeExistsActiveAsync("A1");
 
@@ -392,11 +392,11 @@ public class PositionServiceTests
     public async Task CodeExistsActiveAsync_ReturnsFalse_WhenOnlyInactivePositionWithCodeExists()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
         db.PositionUnits.Add(NewWithCode("B2", false, "BBB"));
         await db.SaveChangesAsync();
 
-        var sut = new PositionService(db);
+        var sut = new PositionService(h.Factory);
 
         var result = await sut.CodeExistsActiveAsync("B2");
 
@@ -407,8 +407,8 @@ public class PositionServiceTests
     public async Task CodeExistsActiveAsync_ReturnsFalse_WhenNoPositionWithCode()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
-        var sut = new PositionService(db);
+        var db = h.CreateContext();
+        var sut = new PositionService(h.Factory);
 
         var result = await sut.CodeExistsActiveAsync("ZZZ");
 
@@ -419,11 +419,11 @@ public class PositionServiceTests
     public async Task CodeExistsActiveAsync_IgnoresWhitespace_And_IsCaseSensitive()
     {
         using var h = new SqliteDbHelper();
-        var db = h.Db;
+        var db = h.CreateContext();
         db.PositionUnits.Add(NewWithCode("C3", true, "CCC"));
         await db.SaveChangesAsync();
 
-        var sut = new PositionService(db);
+        var sut = new PositionService(h.Factory);
 
         var resultTrimmed = await sut.CodeExistsActiveAsync(" C3 ");
         var resultDifferentCase = await sut.CodeExistsActiveAsync("c3"); // якщо треба case-insensitive — міняємо сервіс

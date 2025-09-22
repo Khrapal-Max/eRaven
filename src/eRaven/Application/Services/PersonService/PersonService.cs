@@ -12,15 +12,17 @@ using System.Linq.Expressions;
 
 namespace eRaven.Application.Services.PersonService;
 
-public class PersonService(AppDbContext appDbContext) : IPersonService
+public class PersonService(IDbContextFactory<AppDbContext> dbf) : IPersonService
 {
-    private readonly AppDbContext _appDbContext = appDbContext;
+    private readonly IDbContextFactory<AppDbContext> _dbf = dbf;
 
     // ---------- Search (легкий, без історій) ----------
 
     public async Task<IReadOnlyList<Person>> SearchAsync(Expression<Func<Person, bool>>? predicate, CancellationToken ct = default)
     {
-        var q = _appDbContext.Persons
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var q = db.Persons
        .AsNoTracking()
        .Include(p => p.StatusKind)
        .Include(p => p.PositionUnit)
@@ -40,7 +42,9 @@ public class PersonService(AppDbContext appDbContext) : IPersonService
     // ---------- GetById (для картки; без історій поки) ----------
     public async Task<Person?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
-        return await _appDbContext.Persons
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        return await db.Persons
             .AsNoTracking()
             .Include(p => p.StatusKind)
             .Include(p => p.PositionUnit)
@@ -50,26 +54,30 @@ public class PersonService(AppDbContext appDbContext) : IPersonService
     // ---------- Create ----------
     public async Task<Person> CreateAsync(Person person, CancellationToken ct = default)
     {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
         if (string.IsNullOrWhiteSpace(person.Rnokpp))
             throw new ArgumentException("RNOKPP обов'язковий.", nameof(person));
 
         // ручна перевірка унікальності (краще повідомлення ніж SQL-виняток)
-        var exists = await _appDbContext.Persons.AnyAsync(p => p.Rnokpp == person.Rnokpp, ct);
+        var exists = await db.Persons.AnyAsync(p => p.Rnokpp == person.Rnokpp, ct);
         if (exists) throw new InvalidOperationException("Особа з таким РНОКПП вже існує.");
 
         person.Id = person.Id == Guid.Empty ? Guid.NewGuid() : person.Id;
         person.CreatedUtc = DateTime.UtcNow;
         person.ModifiedUtc = person.CreatedUtc;
 
-        _appDbContext.Persons.Add(person);
-        await _appDbContext.SaveChangesAsync(ct);
+        db.Persons.Add(person);
+        await db.SaveChangesAsync(ct);
         return person;
     }
 
     // ---------- Update (акуратно з трекінгом) ----------
     public async Task<bool> UpdateAsync(Person person, CancellationToken ct = default)
     {
-        var current = await _appDbContext.Persons
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var current = await db.Persons
             .FirstOrDefaultAsync(p => p.Id == person.Id, ct);
 
         if (current is null) return false;
@@ -92,7 +100,7 @@ public class PersonService(AppDbContext appDbContext) : IPersonService
 
         current.ModifiedUtc = DateTime.UtcNow;
 
-        await _appDbContext.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);
         return true;
     }
 }

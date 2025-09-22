@@ -2,7 +2,7 @@
 @using eRaven.Domain.Models
 
 <div class="modal fade @(IsOpen ? "show d-block" : "")" tabindex="-1">
-    <div class="modal-dialog modal-sm modal-dialog-centered" style="--bs-modal-width: 600px; max-width: 600px;">
+    <div class="modal-dialog modal-sm modal-dialog-centered" style="--bs-modal-width: 560px; max-width: 760px;">
         <div class="modal-content">
 
             <div class="modal-header py-2">
@@ -19,27 +19,12 @@
                         Відкрито: @_openStr
                     </div>
 
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <label class="form-label small mb-1">Дата закриття (UTC)</label>
-                            <input type="date" class="form-control form-control-sm" value="@_date" @onchange="OnDateChanged" />
-                        </div>
-                        <div class="col-3">
-                            <label class="form-label small mb-1">Година</label>
-                            <select class="form-select form-select-sm" value="@_hour" @onchange="OnHourChanged">
-                                @for (var h = 0; h <= 23; h++)
-                                {
-                                    <option value="@h.ToString("00")">@h.ToString("00")</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="col-3">
-                            <label class="form-label small mb-1">Хвилини</label>
-                            <select class="form-select form-select-sm" value="@_min" @onchange="OnMinChanged">
-                                <option value="00">00</option>
-                                <option value="30">30</option>
-                            </select>
-                        </div>
+                    <div class="mb-2">
+                        <label class="form-label small mb-1">Дата закриття (UTC)</label>
+                        <input type="date"
+                               class="form-control form-control-sm"
+                               value="@_date"
+                               @onchange="OnDateChanged" />
                     </div>
 
                     <div class="mt-2">
@@ -48,7 +33,7 @@
                     </div>
 
                     <div class="text-end mt-3">
-                        <button class="btn btn-outline-secondary btn-sm me-2" type="button" @onclick="Close" disabled="@_busy">Скасувати</button>
+                        <button class="btn btn-secondary btn-sm me-2" type="button" @onclick="Close" disabled="@_busy">Скасувати</button>
                         <button class="btn btn-warning btn-sm" type="submit" disabled="@_busy">Зняти</button>
                     </div>
                 </EditForm>

@@ -21,10 +21,10 @@ namespace eRaven.Tests.Application.Tests.Services
         public PlanActionServiceTests()
         {
             _dbh = new SqliteDbHelper();
-            _svc = new PlanActionService(_dbh.Db);
+            _svc = new PlanActionService(_dbh.Factory);
         }
 
-        public void Dispose() => _dbh.Dispose();
+        public void Dispose() => GC.SuppressFinalize(this);
 
         // ---------- helpers ----------
 
@@ -132,7 +132,7 @@ namespace eRaven.Tests.Application.Tests.Services
                     atUtc: start.AddMinutes(i), // зростаюча дата
                     move: i % 2 == 0 ? MoveType.Dispatch : MoveType.Return));
             }
-            await SeedAsync(many.ToArray());
+            await SeedAsync([.. many]);
 
             // Act
             var result = await _svc.GetByIdAsync(personId, limit: 150);
@@ -195,10 +195,10 @@ namespace eRaven.Tests.Application.Tests.Services
             };
 
             // Act
-            var act = () => _svc.ApproveAsync(vm);
+            Task<PlanAction> act() => _svc.ApproveAsync(vm);
 
             // Assert
-            await Assert.ThrowsAsync<InvalidOperationException>(act);
+            await Assert.ThrowsAsync<InvalidOperationException>((Func<Task<PlanAction>>)act);
         }
 
         [Fact]

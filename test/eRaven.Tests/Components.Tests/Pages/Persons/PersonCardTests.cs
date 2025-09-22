@@ -142,7 +142,7 @@ public sealed class PersonCardTests : TestContext
 
         var cut = Render(id, person);
         cut.Find("button.btn-warning").Click();      // Edit
-        cut.Find("button.btn-outline-dark").Click(); // Cancel
+        cut.Find("button.btn-warning").Click(); // Cancel
 
         Assert.DoesNotContain("form#person-edit-form", cut.Markup);
     }

@@ -34,9 +34,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents(opt => { opt.DetailedErrors = true; });
 
-// DbContext (рядок підключення можна пробросити через env: ConnectionStrings__DefaultConnection)
-builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
+{
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")); // або ваш провайдер
+});
 
 builder.Services.AddBlazoredToast();
 

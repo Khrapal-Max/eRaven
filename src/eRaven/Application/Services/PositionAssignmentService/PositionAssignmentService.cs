@@ -10,15 +10,17 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Application.Services.PositionAssignmentService;
 
-public class PositionAssignmentService(AppDbContext db) : IPositionAssignmentService
+public class PositionAssignmentService(IDbContextFactory<AppDbContext> dbf) : IPositionAssignmentService
 {
-    private readonly AppDbContext _db = db;
+    private readonly IDbContextFactory<AppDbContext> _dbf = dbf;
 
     public async Task<IReadOnlyList<PersonPositionAssignment>> GetHistoryAsync(Guid personId, int limit = 50, CancellationToken ct = default)
     {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
         if (limit <= 0) limit = 50;
 
-        var list = await _db.PersonPositionAssignments.AsNoTracking()
+        var list = await db.PersonPositionAssignments.AsNoTracking()
             .Include(x => x.PositionUnit)
             .Where(x => x.PersonId == personId)
             .OrderByDescending(x => x.OpenUtc)
@@ -28,10 +30,14 @@ public class PositionAssignmentService(AppDbContext db) : IPositionAssignmentSer
         return list.AsReadOnly();
     }
 
-    public Task<PersonPositionAssignment?> GetActiveAsync(Guid personId, CancellationToken ct = default) =>
-        _db.PersonPositionAssignments.AsNoTracking()
+    public async Task<PersonPositionAssignment?> GetActiveAsync(Guid personId, CancellationToken ct = default)
+    {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        return await db.PersonPositionAssignments.AsNoTracking()
            .Include(x => x.PositionUnit)
            .FirstOrDefaultAsync(x => x.PersonId == personId && x.CloseUtc == null, ct);
+    }
 
     public async Task<PersonPositionAssignment> AssignAsync(
     Guid personId,
@@ -40,25 +46,27 @@ public class PositionAssignmentService(AppDbContext db) : IPositionAssignmentSer
     string? note,
     CancellationToken ct = default)
     {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
         if (openUtc.Kind != DateTimeKind.Utc)
             openUtc = DateTime.SpecifyKind(openUtc, DateTimeKind.Utc);
 
         // 1) Читаємо ТРЕКАНО
-        var person = await _db.Persons
+        var person = await db.Persons
             .FirstOrDefaultAsync(p => p.Id == personId, ct)
             ?? throw new InvalidOperationException("Особа не знайдена.");
 
-        var pos = await _db.PositionUnits
+        var pos = await db.PositionUnits
             .FirstOrDefaultAsync(p => p.Id == positionUnitId, ct)
             ?? throw new InvalidOperationException("Посада не знайдена.");
 
         if (!pos.IsActived)
             throw new InvalidOperationException("Неможливо призначити на неактивну посаду.");
 
-        using var tx = await _db.Database.BeginTransactionAsync(ct);
+        using var tx = await db.Database.BeginTransactionAsync(ct);
 
         // 2) Закриваємо актив для особи (ТРЕКАНО)
-        var activeForPerson = await _db.PersonPositionAssignments
+        var activeForPerson = await db.PersonPositionAssignments
             .FirstOrDefaultAsync(a => a.PersonId == personId && a.CloseUtc == null, ct);
 
         if (activeForPerson is not null)
@@ -71,7 +79,7 @@ public class PositionAssignmentService(AppDbContext db) : IPositionAssignmentSer
         }
 
         // 3) Перевіряємо, що посада вільна (індекс теж захистить)
-        var posOccupied = await _db.PersonPositionAssignments
+        var posOccupied = await db.PersonPositionAssignments
             .AnyAsync(a => a.PositionUnitId == positionUnitId && a.CloseUtc == null, ct);
         if (posOccupied)
             throw new InvalidOperationException("Посада вже зайнята іншою особою.");
@@ -88,17 +96,17 @@ public class PositionAssignmentService(AppDbContext db) : IPositionAssignmentSer
             Author = "ui",
             ModifiedUtc = DateTime.UtcNow
         };
-        await _db.PersonPositionAssignments.AddAsync(assign, ct);
+        await db.PersonPositionAssignments.AddAsync(assign, ct);
 
         // 5) Оновлюємо pointer у Person (це забезпечує правильний CurrentPerson)
         person.PositionUnitId = positionUnitId;
         person.ModifiedUtc = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
         // 6) Повертаємо з навігацією (для UI)
-        assign.PositionUnit = await _db.PositionUnits
+        assign.PositionUnit = await db.PositionUnits
             .AsNoTracking()
             .FirstAsync(x => x.Id == positionUnitId, ct);
 
@@ -111,22 +119,24 @@ public class PositionAssignmentService(AppDbContext db) : IPositionAssignmentSer
         string? note,
         CancellationToken ct = default)
     {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
         if (closeUtc.Kind != DateTimeKind.Utc)
             closeUtc = DateTime.SpecifyKind(closeUtc, DateTimeKind.Utc);
 
         // ТРЕКАНО
-        var person = await _db.Persons
+        var person = await db.Persons
             .FirstOrDefaultAsync(p => p.Id == personId, ct);
         if (person is null) return false;
 
-        var active = await _db.PersonPositionAssignments
+        var active = await db.PersonPositionAssignments
             .FirstOrDefaultAsync(a => a.PersonId == personId && a.CloseUtc == null, ct);
         if (active is null) return false;
 
         if (active.OpenUtc >= closeUtc)
             throw new InvalidOperationException("Дата закриття має бути пізніше дати відкриття.");
 
-        using var tx = await _db.Database.BeginTransactionAsync(ct);
+        using var tx = await db.Database.BeginTransactionAsync(ct);
 
         // 1) Закриваємо запис
         active.CloseUtc = closeUtc;
@@ -138,7 +148,7 @@ public class PositionAssignmentService(AppDbContext db) : IPositionAssignmentSer
         person.PositionUnitId = null;
         person.ModifiedUtc = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
         return true;

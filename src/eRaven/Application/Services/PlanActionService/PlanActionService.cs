@@ -12,9 +12,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Application.Services.PlanActionService;
 
-public sealed class PlanActionService(AppDbContext db) : IPlanActionService
+public sealed class PlanActionService(IDbContextFactory<AppDbContext> dbf) : IPlanActionService
 {
-    private readonly AppDbContext _db = db;
+    private readonly IDbContextFactory<AppDbContext> _dbf = dbf;
 
     /// <summary>
     /// Повертає всі PlanAction для конкретної особи
@@ -24,9 +24,11 @@ public sealed class PlanActionService(AppDbContext db) : IPlanActionService
     /// <returns>IEnumerable PlanAction?(<see cref="PlanAction"/>)</returns>
     public async Task<IEnumerable<PlanAction?>> GetByIdAsync(Guid personId, int limit = 150, CancellationToken ct = default)
     {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
         if (limit <= 0) limit = 150;
 
-        var actions = await _db.PlanActions
+        var actions = await db.PlanActions
             .AsNoTracking()
             .Where(x => x.PersonId == personId)
             .OrderByDescending(x => x.EffectiveAtUtc)
@@ -44,6 +46,8 @@ public sealed class PlanActionService(AppDbContext db) : IPlanActionService
     /// <returns>PlanAction(<see cref="PlanAction"/>)</returns>
     public async Task<PlanAction> CreateAsync(PlanAction planAction, CancellationToken ct = default)
     {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
         ArgumentNullException.ThrowIfNull(planAction, nameof(planAction));
 
         var action = new PlanAction
@@ -72,8 +76,8 @@ public sealed class PlanActionService(AppDbContext db) : IPlanActionService
             StatusKindOnDate = planAction.StatusKindOnDate
         };
 
-        _db.PlanActions.Add(action);          // графу більше немає — лише сам PlanAction
-        await _db.SaveChangesAsync(ct);
+        db.PlanActions.Add(action);          // графу більше немає — лише сам PlanAction
+        await db.SaveChangesAsync(ct);
 
         return action;
     }
@@ -86,7 +90,9 @@ public sealed class PlanActionService(AppDbContext db) : IPlanActionService
     /// <returns>bool</returns>
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        var affected = await _db.PlanActions
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var affected = await db.PlanActions
             .Where(x => x.Id == id)
             .ExecuteDeleteAsync(ct);
 
@@ -102,7 +108,9 @@ public sealed class PlanActionService(AppDbContext db) : IPlanActionService
     /// <exception cref="InvalidOperationException"></exception>
     public async Task<PlanAction> ApproveAsync(ApprovePlanActionViewModel model, CancellationToken ct = default)
     {
-        var updated = await _db.PlanActions
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var updated = await db.PlanActions
             .Where(a => a.Id == model.Id && a.ActionState == ActionState.PlanAction)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(a => a.ActionState, ActionState.ApprovedOrder)
@@ -111,6 +119,6 @@ public sealed class PlanActionService(AppDbContext db) : IPlanActionService
         if (updated == 0)
             throw new InvalidOperationException("PlanAction not found or not in PlanAction state.");
 
-        return await _db.PlanActions.AsNoTracking().FirstAsync(a => a.Id == model.Id, ct);
+        return await db.PlanActions.AsNoTracking().FirstAsync(a => a.Id == model.Id, ct);
     }
 }

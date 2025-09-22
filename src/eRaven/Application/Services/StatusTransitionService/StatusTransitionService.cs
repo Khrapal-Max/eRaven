@@ -11,13 +11,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Application.Services.StatusTransitionService;
 
-public sealed class StatusTransitionService(AppDbContext db) : IStatusTransitionService
+public sealed class StatusTransitionService(IDbContextFactory<AppDbContext> dbf) : IStatusTransitionService
 {
-    private readonly AppDbContext _db = db;
+    private readonly IDbContextFactory<AppDbContext> _dbf = dbf;
 
     public async Task<Dictionary<int, HashSet<int>>> GetAllMapAsync(CancellationToken ct = default)
     {
-        var rows = await _db.StatusTransitions
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var rows = await db.StatusTransitions
             .AsNoTracking()
             .Select(t => new { t.FromStatusKindId, t.ToStatusKindId })
             .ToListAsync(ct);
@@ -35,7 +37,9 @@ public sealed class StatusTransitionService(AppDbContext db) : IStatusTransition
 
     public async Task<HashSet<int>> GetToIdsAsync(int fromStatusKindId, CancellationToken ct = default)
     {
-        var ids = await _db.StatusTransitions
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var ids = await db.StatusTransitions
             .AsNoTracking()
             .Where(t => t.FromStatusKindId == fromStatusKindId)
             .Select(t => t.ToStatusKindId)
@@ -47,13 +51,15 @@ public sealed class StatusTransitionService(AppDbContext db) : IStatusTransition
 
     public async Task SaveAllowedAsync(int fromStatusKindId, IReadOnlyCollection<int> allowedToIds, CancellationToken ct = default)
     {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
         // Забороняємо self-loop на рівні сервісу теж
         var clean = allowedToIds.Where(id => id != fromStatusKindId).ToHashSet();
 
-        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         // Текущі
-        var current = await _db.StatusTransitions
+        var current = await db.StatusTransitions
             .Where(t => t.FromStatusKindId == fromStatusKindId)
             .Select(t => t.ToStatusKindId)
             .ToListAsync(ct);
@@ -65,22 +71,22 @@ public sealed class StatusTransitionService(AppDbContext db) : IStatusTransition
 
         if (toRemove.Length > 0)
         {
-            var rows = await _db.StatusTransitions
+            var rows = await db.StatusTransitions
                 .Where(t => t.FromStatusKindId == fromStatusKindId && toRemove.Contains(t.ToStatusKindId))
                 .ToListAsync(ct);
-            _db.StatusTransitions.RemoveRange(rows);
+            db.StatusTransitions.RemoveRange(rows);
         }
 
         foreach (var to in toAdd)
         {
-            _db.StatusTransitions.Add(new StatusTransition
+            db.StatusTransitions.Add(new StatusTransition
             {
                 FromStatusKindId = fromStatusKindId,
                 ToStatusKindId = to
             });
         }
 
-        await _db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
     }
 }
