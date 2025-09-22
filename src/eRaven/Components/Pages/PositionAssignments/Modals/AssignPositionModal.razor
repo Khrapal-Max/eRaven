@@ -1,4 +1,5 @@
 ﻿@* ...інші імпорти *@
+@using Blazored.FluentValidation
 @using eRaven.Domain.Models
 
 <div class="modal fade @(IsOpen ? "show d-block" : "")" tabindex="-1" aria-modal="true" role="dialog">
@@ -45,11 +46,18 @@
                                value="@_date"
                                min="@_minDateAttr"
                                @onchange="OnDateChanged" />
-                        @if (_lastUnassignCloseUtc.HasValue)
+                        @if (_activeAssign is not null)
                         {
                             <div class="form-text small text-muted mt-1">
-                                Останнє доба на попередній посаді: @_lastUnassignCloseUtc.Value.ToString("dd.MM.yyyy 'UTC'")
-                                — нове призначення має бути <strong>пізніше</strong> цієї дати.
+                                Наразі на посаді: <strong>@_activeAssign.PositionUnit?.FullName</strong><br />
+                                Вона буде <u>автоматично закрита</u> датою <strong>(дата призначення − 1 день)</strong>.
+                            </div>
+                        }
+                        else if (_lastUnassignCloseUtc.HasValue)
+                        {
+                            <div class="form-text small text-muted mt-1">
+                                Останній день попередньої посади: @_lastUnassignCloseUtc.Value.ToString("dd.MM.yyyy 'UTC'").
+                                Нове призначення має бути <strong>пізніше</strong> цієї дати.
                             </div>
                         }
                     </div>

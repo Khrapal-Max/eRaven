@@ -8,6 +8,7 @@
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PersonStatusService;
+using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
@@ -22,12 +23,15 @@ public partial class PersonCard : ComponentBase, IDisposable
     [Inject] private IToastService Toast { get; set; } = default!;
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!; // ⬅️ ДОДАЛИ
+    [Inject] private IPositionAssignmentService PositionAssignmentService { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
     // ===================== UI state =====================
     protected bool _initialLoading = true;
     protected Person? _person;
     protected bool _historyOpen;
+    protected bool _assignHistoryOpen;
+
 
     // Активний статус (із приміткою)
     protected PersonStatus? _activeStatus; // ⬅️ ДОДАЛИ
@@ -38,6 +42,9 @@ public partial class PersonCard : ComponentBase, IDisposable
     protected EditPersonViewModel _editModel = new();
 
     // Історія (поки лічильник)
+    protected int _assignHistoryCount = 0;
+    protected string AssignHistoryCountText => _assignHistoryCount == 0 ? "0" : _assignHistoryCount.ToString();
+
     protected int _historyCount = 0;
     protected string HistoryCountText => _historyCount == 0 ? "0" : _historyCount.ToString();
 
@@ -98,11 +105,12 @@ public partial class PersonCard : ComponentBase, IDisposable
                 return;
             }
 
-            // Тягнемо «живий» активний запис статусу з приміткою
             _activeStatus = await PersonStatusService.GetActiveAsync(_person.Id);
+            _historyCount = (await PersonStatusService.GetHistoryAsync(_person.Id))
+                            .Count(s => s.IsActive);
 
-            // (опційно) оновити лічильник історії — тільки валідні записи
-            _historyCount = (await PersonStatusService.GetHistoryAsync(_person.Id)).Count(s => s.IsActive);
+            // ⬇️ нове: лічильник історії посад
+            _assignHistoryCount = (await PositionAssignmentService.GetHistoryAsync(_person.Id, limit: 500)).Count;
         }
         catch (Exception ex)
         {
@@ -134,6 +142,20 @@ public partial class PersonCard : ComponentBase, IDisposable
     private Task HandleHistoryClose()
     {
         _historyOpen = false;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    protected Task OpenAssignHistory()
+    {
+        _assignHistoryOpen = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task HandleAssignHistoryClose()
+    {
+        _assignHistoryOpen = false;
         StateHasChanged();
         return Task.CompletedTask;
     }

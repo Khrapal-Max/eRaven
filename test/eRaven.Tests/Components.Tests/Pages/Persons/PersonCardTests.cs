@@ -8,6 +8,7 @@ using Blazored.Toast.Services;
 using Bunit;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PersonStatusService;
+using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Components.Pages.Persons;
 using eRaven.Domain.Models;
@@ -22,6 +23,7 @@ public sealed class PersonCardTests : TestContext
 {
     private readonly Mock<IPersonService> _persons = new();
     private readonly Mock<IPersonStatusService> _statuses = new();
+    private readonly Mock<IPositionAssignmentService> _positionAssignment = new();
     private readonly Mock<IToastService> _toast = new(MockBehavior.Loose);
 
     private static int _kindSeed = 100;
@@ -32,7 +34,7 @@ public sealed class PersonCardTests : TestContext
         Services.AddSingleton(_persons.Object);
         Services.AddSingleton(_statuses.Object);
         Services.AddSingleton(_toast.Object);
-
+        Services.AddSingleton(_positionAssignment.Object);
         // FluentValidation для EditForm
         Services.AddScoped<IValidator<EditPersonViewModel>, EditPersonViewModelValidator>();
     }

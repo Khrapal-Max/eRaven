@@ -29,7 +29,6 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
     private List<PersonAssignmentExportRow> _exportItems = [];
 
     private AssignPositionModal? _assignModal;
-    private UnassignPositionModal? _unassignModal;
 
     protected string? Search { get; set; }
     protected bool Busy { get; private set; }
@@ -98,7 +97,7 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
     }
 
     /// <summary>
-    /// Побудувати дані для експорту (по поточному фільтру).
+    /// Дані для експорту (по поточному фільтру).
     /// </summary>
     private void RebuildExportItems()
     {
@@ -150,7 +149,7 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
         {
             ActiveAssign = await PositionAssignmentService.GetActiveAsync(p.Id, _cts.Token);
             History = [.. (await PositionAssignmentService.GetHistoryAsync(p.Id, limit: 25, _cts.Token))];
-            RecomputeFreePositions(); // під оновлену selection
+            RecomputeFreePositions(); // оновимо доступні
         }
         catch (Exception ex)
         {
@@ -164,28 +163,33 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
     {
         if (SelectedPerson is null) return;
 
+        // # НОВА ЛОГІКА
+        // Передаємо в модал поточне активне призначення (якщо є) — щоб він
+        // автоматично закрив попередню посаду датою (дата призначення - 1 день).
+        // Також, якщо в історії є остання CloseUtc — віддамо її як нижню межу.
         var lastClose = History?
             .Where(h => h.CloseUtc.HasValue)
             .OrderByDescending(h => h.CloseUtc!.Value)
             .Select(h => (DateTime?)h.CloseUtc!.Value)
             .FirstOrDefault();
 
-        _assignModal?.Open(SelectedPerson, lastClose);
+        _assignModal?.Open(SelectedPerson, ActiveAssign, lastClose);
     }
 
-    private void OpenUnassignModal()
-    {
-        if (SelectedPerson is null || ActiveAssign is null) return;
-        _unassignModal?.Open(SelectedPerson, ActiveAssign);
-    }
-
-    // --------------------- Callbacks from modals ---------------------
+    // --------------------- Callbacks from modal ---------------------
 
     private async Task HandleAssigned(PersonPositionAssignment created)
     {
         Toast.ShowSuccess("Призначення виконано.");
 
         if (SelectedPerson is null) return;
+
+        // Якщо була активна посада — локально відмітимо її закриття (модал вже викликав UnassignAsync)
+        if (ActiveAssign is not null)
+        {
+            ActiveAssign.CloseUtc = created.OpenUtc.AddDays(-1);
+            // покладемо в історію (внизу/зверху — опційно). Ми додаємо створене згори.
+        }
 
         // Оновити вибраного
         ActiveAssign = created;
@@ -202,33 +206,6 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
 
         // Історія — новий зверху
         History.Insert(0, created);
-
-        RecomputeFreePositions();
-        RebuildExportItems();
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task HandleUnassigned(bool ok)
-    {
-        if (!ok) return;
-
-        Toast.ShowSuccess("Зняття з посади виконано.");
-
-        if (SelectedPerson is null) return;
-
-        ActiveAssign = await PositionAssignmentService.GetActiveAsync(SelectedPerson.Id, _cts.Token);
-        History = [.. (await PositionAssignmentService.GetHistoryAsync(SelectedPerson.Id, 25, _cts.Token))];
-
-        // Локально зняти посаду
-        SelectedPerson.PositionUnitId = null;
-        SelectedPerson.PositionUnit = null;
-
-        var idx = _persons.FindIndex(x => x.Id == SelectedPerson.Id);
-        if (idx >= 0)
-        {
-            _persons[idx].PositionUnitId = null;
-            _persons[idx].PositionUnit = null;
-        }
 
         RecomputeFreePositions();
         RebuildExportItems();

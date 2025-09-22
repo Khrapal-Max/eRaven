@@ -1,7 +1,7 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-// AssignPositionModalTests
+// AssignPositionModalTests (updated for latest modal behavior)
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
@@ -44,33 +44,28 @@ public sealed class AssignPositionModalTests : IDisposable
         {
             Id = Guid.NewGuid(),
             ShortName = shortName,
-            OrgPath = full,             // для FullName в домені
+            OrgPath = full,             // використовується для FullName
             SpecialNumber = "123",
             IsActived = true
         };
 
-    [Fact]
+    [Fact(DisplayName = "Початково модал прихований")]
     public void Initially_Hidden()
     {
-        // Arrange
         var positions = new[] { P("Стрілець", "Стрілець Відділення/Взвод/Рота") };
         var cut = _ctx.RenderComponent<AssignPositionModal>(ps => ps
             .Add(p => p.Positions, positions)
             .Add(p => p.OnAssigned, EventCallback.Factory.Create<PersonPositionAssignment>(this, _ => { }))
         );
 
-        // Act
         var modal = cut.Find("div.modal");
-
-        // Assert
         Assert.DoesNotContain("show", modal.ClassList);
         Assert.DoesNotContain("d-block", modal.ClassList);
     }
 
-    [Fact]
-    public async Task Open_Sets_Today_Utc_And_ModelDefaults()
+    [Fact(DisplayName = "Open(person): дата за замовчуванням = сьогодні (UTC), min відсутній")]
+    public async Task Open_NoLastClose_DefaultsTodayUtc_NoMin()
     {
-        // Arrange
         var person = MakePerson();
         var positions = new[] { P("Стрілець", "Стрілець Відділення/Взвод/Рота") };
 
@@ -79,37 +74,150 @@ public sealed class AssignPositionModalTests : IDisposable
             .Add(p => p.OnAssigned, EventCallback.Factory.Create<PersonPositionAssignment>(this, _ => { }))
         );
 
-        // Act (на Dispatcher)
         await cut.InvokeAsync(() => cut.Instance.Open(person));
 
-        // Assert
         cut.WaitForAssertion(() =>
         {
             var modal = cut.Find("div.modal");
             Assert.Contains("show", modal.ClassList);
 
-            // дата сьогодні (UTC), формат yyyy-MM-dd
             var inputDate = cut.Find("input[type=date]");
             var val = inputDate.GetAttribute("value");
             var todayUtc = DateTime.UtcNow.Date.ToString("yyyy-MM-dd");
             Assert.Equal(todayUtc, val);
 
-            // select існує і стоїть Guid.Empty (початкове значення)
-            var select = cut.Find("select.form-select");
-            Assert.Equal(Guid.Empty.ToString(), select.GetAttribute("value"));
+            Assert.Null(inputDate.GetAttribute("min"));
         });
 
         Assert.NotNull(cut.Instance.PositionAssignmentService);
         Assert.NotNull(cut.Instance.ToastService);
     }
 
-    [Fact]
-    public async Task Submit_Calls_Service_With_MidnightUtc_And_Raises_OnAssigned()
+    [Fact(DisplayName = "Open(person, lastClose): дефолт = lastClose+1 день, min = lastClose+1")]
+    public async Task Open_WithLastClose_DefaultsNextDay_And_MinSet()
     {
-        // Arrange
         var person = MakePerson();
         var pos = P("Снайпер", "Снайпер Взвод/Рота/Батальйон");
         var positions = new[] { pos };
+
+        var lastCloseUtc = new DateTime(2025, 09, 21, 0, 0, 0, DateTimeKind.Utc);
+        var expected = lastCloseUtc.AddDays(1); // 2025-09-22
+
+        var cut = _ctx.RenderComponent<AssignPositionModal>(ps => ps
+            .Add(p => p.Positions, positions)
+            .Add(p => p.OnAssigned, EventCallback.Factory.Create<PersonPositionAssignment>(this, _ => { }))
+        );
+
+        await cut.InvokeAsync(() => cut.Instance.Open(person, activeAssign: null, lastUnassignCloseUtc: lastCloseUtc));
+
+        cut.WaitForAssertion(() =>
+        {
+            var inputDate = cut.Find("input[type=date]");
+            Assert.Equal(expected.ToString("yyyy-MM-dd"), inputDate.GetAttribute("value"));
+            Assert.Equal(expected.ToString("yyyy-MM-dd"), inputDate.GetAttribute("min"));
+
+            // Підказка про останній день попередньої посади присутня
+            Assert.Contains(lastCloseUtc.ToString("dd.MM.yyyy 'UTC'"), cut.Markup);
+        });
+    }
+
+    [Fact(DisplayName = "Open(person, activeAssign): min = activeOpen+1 день; дефолт = max(min, сьогодні)")]
+    public async Task Open_WithActiveAssign_MinFromActiveOpen_Plus1()
+    {
+        var person = MakePerson();
+        var pos = P("Оператор", "Оператор Відділення/Взвод");
+        var positions = new[] { pos };
+
+        var active = new PersonPositionAssignment
+        {
+            Id = Guid.NewGuid(),
+            PersonId = person.Id,
+            PositionUnitId = pos.Id,
+            OpenUtc = new DateTime(2025, 09, 10, 14, 0, 0, DateTimeKind.Utc),
+            PositionUnit = pos,
+            ModifiedUtc = DateTime.UtcNow
+        };
+
+        var minExpected = active.OpenUtc.Date.AddDays(1); // 2025-09-11
+
+        var cut = _ctx.RenderComponent<AssignPositionModal>(ps => ps
+            .Add(p => p.Positions, positions)
+            .Add(p => p.OnAssigned, EventCallback.Factory.Create<PersonPositionAssignment>(this, _ => { }))
+        );
+
+        await cut.InvokeAsync(() => cut.Instance.Open(person, activeAssign: active, lastUnassignCloseUtc: null));
+
+        cut.WaitForAssertion(() =>
+        {
+            var inputDate = cut.Find("input[type=date]");
+            Assert.Equal(minExpected.ToString("yyyy-MM-dd"), inputDate.GetAttribute("min"));
+
+            // дефолт або = minExpected (якщо сьогодні менше), або = сьогодні
+            var today = DateTime.UtcNow.Date;
+            var expectedDefault = (minExpected > today ? minExpected : today).ToString("yyyy-MM-dd");
+            Assert.Equal(expectedDefault, inputDate.GetAttribute("value"));
+
+            // Текст-пояснення про авто-закриття є
+            Assert.Contains("автоматично закрита", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
+    [Fact(DisplayName = "Submit: дата < (activeOpen+1) → блок, info-toast, сервіс не викликається")]
+    public async Task Submit_Blocks_When_Date_Before_Min_WithActiveAssign()
+    {
+        var person = MakePerson();
+        var pos = P("Оператор", "Оператор Відділення/Взвод");
+        var positions = new[] { pos };
+
+        var active = new PersonPositionAssignment
+        {
+            Id = Guid.NewGuid(),
+            PersonId = person.Id,
+            PositionUnitId = pos.Id,
+            OpenUtc = new DateTime(2025, 09, 10, 14, 0, 0, DateTimeKind.Utc),
+            PositionUnit = pos,
+            ModifiedUtc = DateTime.UtcNow
+        };
+
+        var cut = _ctx.RenderComponent<AssignPositionModal>(ps => ps
+            .Add(p => p.Positions, positions)
+            .Add(p => p.OnAssigned, EventCallback.Factory.Create<PersonPositionAssignment>(this, _ => { }))
+        );
+
+        await cut.InvokeAsync(() => cut.Instance.Open(person, activeAssign: active));
+
+        // обираємо посаду
+        cut.Find("select.form-select").Change(pos.Id.ToString());
+
+        // ставимо дату РАНІШЕ за (active.Open+1 день)
+        var invalid = active.OpenUtc.Date; // рівна open-даті, точно < min
+        cut.Find("input[type=date]").Change(invalid.ToString("yyyy-MM-dd"));
+
+        await cut.InvokeAsync(() => cut.Find("form").Submit());
+
+        _svc.Verify(s => s.UnassignAsync(
+            It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _svc.Verify(s => s.AssignAsync(
+            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+
+    }
+
+    [Fact(DisplayName = "Submit: з activeAssign викликає UnassignAsync(open-1) і AssignAsync(open 00:00 UTC); нотатка трімиться")]
+    public async Task Submit_With_ActiveAssign_Performs_Unassign_Then_Assign()
+    {
+        var person = MakePerson();
+        var posNew = P("Снайпер", "Снайпер Взвод/Рота/Батальйон");
+        var positions = new[] { posNew };
+
+        var active = new PersonPositionAssignment
+        {
+            Id = Guid.NewGuid(),
+            PersonId = person.Id,
+            PositionUnitId = Guid.NewGuid(), // стара посада
+            OpenUtc = new DateTime(2025, 09, 15, 9, 0, 0, DateTimeKind.Utc),
+            PositionUnit = new PositionUnit { Id = Guid.NewGuid(), ShortName = "Стара", OrgPath = "Стара/Шлях", IsActived = true },
+            ModifiedUtc = DateTime.UtcNow
+        };
 
         PersonPositionAssignment? created = null;
 
@@ -131,9 +239,9 @@ public sealed class AssignPositionModalTests : IDisposable
                     PositionUnit = new PositionUnit
                     {
                         Id = puid,
-                        ShortName = pos.ShortName,
-                        OrgPath = pos.OrgPath,
-                        SpecialNumber = "123",
+                        ShortName = posNew.ShortName,
+                        OrgPath = posNew.OrgPath,
+                        SpecialNumber = "SN",
                         IsActived = true
                     }
                 };
@@ -147,32 +255,39 @@ public sealed class AssignPositionModalTests : IDisposable
             .Add(p => p.OnAssigned, EventCallback.Factory.Create<PersonPositionAssignment>(this, a => received = a))
         );
 
-        await cut.InvokeAsync(() => cut.Instance.Open(person));
+        await cut.InvokeAsync(() => cut.Instance.Open(person, activeAssign: active));
 
-        // Обираємо посаду
-        cut.Find("select.form-select").Change(pos.Id.ToString());
+        // обираємо нову посаду
+        cut.Find("select.form-select").Change(posNew.Id.ToString());
 
-        // Встановлюємо дату (завтра) → очікуємо 00:00:00 UTC цього дня
-        var target = DateTime.UtcNow.Date.AddDays(1);
-        cut.Find("input[type=date]").Change(target.ToString("yyyy-MM-dd"));
+        // виставляємо валідну дату: active.Open.Date + 1 (мінімальна дозволена)
+        var openDate = active.OpenUtc.Date.AddDays(1);
+        cut.Find("input[type=date]").Change(openDate.ToString("yyyy-MM-dd"));
 
-        // Нотатка (не date): візьмемо перший input, який не має type=date
-        var noteInput = cut.Find("input:not([type=date])");
-        noteInput.Change("   Призначити згідно наказу   ");
+        // нотатка (трімаємо)
+        cut.Find("input:not([type=date])").Change("   Наказ №123   ");
 
-        // Act: важливо виконати сабміт через Dispatcher
         await cut.InvokeAsync(() => cut.Find("form").Submit());
 
-        // Assert: почекаємо, поки асинхронний хендлер завершиться
         cut.WaitForAssertion(() =>
         {
+            // 1) закриття попередньої посади: open-1 день (00:00 UTC)
+            var expectedClose = new DateTime(openDate.Year, openDate.Month, openDate.Day, 0, 0, 0, DateTimeKind.Utc).AddDays(-1);
+            _svc.Verify(s => s.UnassignAsync(
+                    person.Id,
+                    It.Is<DateTime>(d => d == expectedClose && d.Kind == DateTimeKind.Utc),
+                    null,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // 2) нове призначення: open 00:00 UTC
             _svc.Verify(s => s.AssignAsync(
                     person.Id,
-                    pos.Id,
+                    posNew.Id,
                     It.Is<DateTime>(d => d.Kind == DateTimeKind.Utc
-                                         && d.Date == target
+                                         && d.Date == openDate
                                          && d.TimeOfDay == TimeSpan.Zero),
-                    It.Is<string?>(n => n == "Призначити згідно наказу"),
+                    It.Is<string?>(n => n == "Наказ №123"),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -181,13 +296,12 @@ public sealed class AssignPositionModalTests : IDisposable
 
             var modal = cut.Find("div.modal");
             Assert.DoesNotContain("show", modal.ClassList);
-        }, timeout: TimeSpan.FromSeconds(1));
+        });
     }
 
-    [Fact]
+    [Fact(DisplayName = "Довгі назви: <option> урізано «…», повна назва показується під селектом")]
     public async Task LongOptionText_Is_Truncated_And_FullShown_Below()
     {
-        // Arrange
         var longName = new string('A', 120) + " / Дуже довга назва посади";
         var pos = new PositionUnit
         {
@@ -213,12 +327,11 @@ public sealed class AssignPositionModalTests : IDisposable
         Assert.Equal(pos.FullName, option!.GetAttribute("title"));
 
         var optionText = option.TextContent?.Trim();
-        Assert.EndsWith("…", optionText);                   // урізано
-        Assert.True(optionText!.Length <= 70);              // межа з Trunc(..., 70)
+        Assert.EndsWith("…", optionText);
+        Assert.True(optionText!.Length <= 70);
 
-        // Оберемо цю посаду — під селектом має з’явитися повна назва
-        var select = cut.Find("select.form-select");
-        select.Change(pos.Id.ToString());
+        // Обираємо — під селектом має з’явитися повна назва
+        cut.Find("select.form-select").Change(pos.Id.ToString());
 
         var fullBlock = cut.FindAll("div.form-text.small.text-muted")
                            .FirstOrDefault();

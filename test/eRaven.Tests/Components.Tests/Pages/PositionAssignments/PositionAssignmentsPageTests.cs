@@ -32,7 +32,7 @@ public class PositionAssignmentsPageTests : TestContext
 
     public PositionAssignmentsPageTests()
     {
-        // ДАНІ
+        // ТЕСТОВІ ДАНІ
         _posA = new PositionUnit { Id = Guid.NewGuid(), Code = "A", ShortName = "Оператор", OrgPath = "Взвод", SpecialNumber = "111", IsActived = true };
         _posB = new PositionUnit { Id = Guid.NewGuid(), Code = "B", ShortName = "Снайпер", OrgPath = "Рота", SpecialNumber = "222", IsActived = true };
 
@@ -65,7 +65,7 @@ public class PositionAssignmentsPageTests : TestContext
         _positionSvc.Setup(s => s.GetPositionsAsync(true, It.IsAny<CancellationToken>()))
                     .ReturnsAsync([_posA, _posB]);
 
-        // За замовчуванням — активне призначення тільки для p2
+        // Активне призначення лише для p2
         _assignSvc.Setup(s => s.GetActiveAsync(_p1.Id, It.IsAny<CancellationToken>()))
                   .ReturnsAsync((PersonPositionAssignment?)null);
 
@@ -95,10 +95,9 @@ public class PositionAssignmentsPageTests : TestContext
     {
         var cut = RenderComponent<PositionAssignmentsPage>();
 
-        // Дочекаємось, поки дані підтягнуться і таблиця з'явиться
+        // дочекаймося першого завантаження
         cut.WaitForAssertion(() =>
         {
-            // принаймні два ПІБ у таблиці
             cut.Markup.Contains("Перший Іван");
             cut.Markup.Contains("Другий Петро");
         }, timeout: TimeSpan.FromSeconds(2));
@@ -106,7 +105,7 @@ public class PositionAssignmentsPageTests : TestContext
         return cut;
     }
 
-    [Fact(DisplayName = "Initial render: показує список осіб з їх чинним станом посади")]
+    [Fact(DisplayName = "Initial render: показує список осіб з їх чинним станом та DI підкладено")]
     public void Renders_Table_With_Persons()
     {
         var cut = RenderPage();
@@ -117,6 +116,8 @@ public class PositionAssignmentsPageTests : TestContext
 
         // посада у другого відображається (повна назва)
         Assert.Contains(_posA.FullName, cut.Markup);
+
+        // DI
         Assert.NotNull(cut.Instance.PersonService);
         Assert.NotNull(cut.Instance.PositionService);
         Assert.NotNull(cut.Instance.PositionAssignmentService);
@@ -128,44 +129,99 @@ public class PositionAssignmentsPageTests : TestContext
     {
         var cut = RenderPage();
 
-        // клік по рядку p1 (без посади)
+        // клік по рядку p1
         var rowOfP1 = cut.FindAll("tbody tr").First(tr => tr.InnerHtml.Contains("Перший Іван"));
         rowOfP1.Click();
 
-        // дочекаємось підвантаження активного призначення/історії
         cut.WaitForAssertion(() =>
         {
-            // Кнопка 'Призначити' повинна бути
-            var hasAssign = cut.Markup.Contains("bi bi-person-plus");
-            Assert.True(hasAssign);
+            // Є іконка призначення
+            Assert.Contains("bi bi-person-plus", cut.Markup);
 
-            // Кнопки 'Зняти' бути не повинно
-            var hasUnassign = cut.Markup.Contains("bi bi-person-dash");
-            Assert.False(hasUnassign);
+            // Немає іконки зняття (взагалі не використовується тепер)
+            Assert.DoesNotContain("bi bi-person-dash", cut.Markup);
 
-            // Вільні посади є (posB), отже кнопка не disabled
+            // Кнопка 'Призначити' не disabled (бо _posB вільна)
             var btn = cut.Find("button.btn.btn-primary");
             Assert.False(btn.HasAttribute("disabled"));
         });
     }
 
-    [Fact(DisplayName = "Обрання особи з активним призначенням → показується лише кнопка 'Зняти'")]
-    public void Select_Assigned_Shows_Unassign_Only()
+    [Fact(DisplayName = "Обрання особи з активним призначенням → теж показуємо лише 'Призначити' (для пере призначення)")]
+    public void Select_Assigned_Still_Shows_Assign_Only()
     {
         var cut = RenderPage();
 
-        // клік по рядку p2 (із посадою)
+        // клік по p2 (є активна посада)
         var rowOfP2 = cut.FindAll("tbody tr").First(tr => tr.InnerHtml.Contains("Другий Петро"));
         rowOfP2.Click();
 
         cut.WaitForAssertion(() =>
         {
-            // Лише 'Зняти'
-            var hasUnassign = cut.Markup.Contains("bi bi-person-dash");
-            Assert.True(hasUnassign);
+            // Лише 'Призначити'
+            Assert.Contains("bi bi-person-plus", cut.Markup);
+            Assert.DoesNotContain("bi bi-person-dash", cut.Markup);
 
-            var hasAssign = cut.Markup.Contains("bi bi-person-plus");
-            Assert.False(hasAssign);
+            // Є вільна posB → кнопка активна
+            var btn = cut.Find("button.btn.btn-primary");
+            Assert.False(btn.HasAttribute("disabled"));
+        });
+    }
+
+    [Fact(DisplayName = "Коли немає жодної вільної посади — кнопка 'Призначити' вимкнена для обраної особи")]
+    public void Assign_Disabled_When_No_Free_Positions()
+    {
+        // Переналаштовуємо мок даних: обидві посади зайняті
+        var p1WithPos = new Person
+        {
+            Id = _p1.Id,
+            LastName = _p1.LastName,
+            FirstName = _p1.FirstName,
+            MiddleName = _p1.MiddleName,
+            Rnokpp = _p1.Rnokpp,
+            Rank = _p1.Rank,
+            Callsign = _p1.Callsign,
+            BZVP = _p1.BZVP,
+            Weapon = _p1.Weapon,
+
+            // оновлюємо зайняту посаду як треба для тесту
+            PositionUnitId = _posB.Id,
+            PositionUnit = _posB
+        };
+
+        _personSvc.Reset(); // скинемо старі сетапи, щоб явно задати нові
+        _personSvc.Setup(s => s.SearchAsync(null, It.IsAny<CancellationToken>()))
+                  .ReturnsAsync([p1WithPos, _p2]);
+
+        // Активні призначення для обох (щоб сторінка підтягнула ActiveAssign)
+        _assignSvc.Setup(s => s.GetActiveAsync(p1WithPos.Id, It.IsAny<CancellationToken>()))
+                  .ReturnsAsync(new PersonPositionAssignment
+                  {
+                      Id = Guid.NewGuid(),
+                      PersonId = p1WithPos.Id,
+                      PositionUnitId = _posB.Id,
+                      OpenUtc = DateTime.UtcNow.AddDays(-2),
+                      PositionUnit = _posB,
+                      ModifiedUtc = DateTime.UtcNow
+                  });
+
+        // Рендеримо заново
+        var cut = RenderComponent<PositionAssignmentsPage>();
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Contains("Перший Іван");
+            cut.Markup.Contains("Другий Петро");
+        });
+
+        // Клік по p1 (тепер він теж на посаді)
+        var rowOfP1 = cut.FindAll("tbody tr").First(tr => tr.InnerHtml.Contains("Перший Іван"));
+        rowOfP1.Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            // Кнопка призначення є, але має бути disabled (усі посади зайняті)
+            var btn = cut.Find("button.btn.btn-primary");
+            Assert.True(btn.HasAttribute("disabled"));
         });
     }
 }

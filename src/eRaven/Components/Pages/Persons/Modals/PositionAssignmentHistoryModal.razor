@@ -1,0 +1,98 @@
+﻿@*-----------------------------------------------------------------------------
+ All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
+-----------------------------------------------------------------------------
+ PositionAssignmentHistoryModal (view)
+ - Керований модал (Open керує батько)
+ - Завантажує історію для PersonId
+-----------------------------------------------------------------------------*@
+
+@using eRaven.Domain.Models
+
+@if (Open)
+{
+    <div class="modal fade show" style="display:block;" tabindex="-1" aria-modal="true" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+
+                <!-- Header -->
+                <div class="modal-header py-2" style="background: var(--ng-bg, #1e3a8a); color:#fff;">
+                    <h6 class="modal-title">Історія посад: @(_personName ?? "—")</h6>
+                    <button type="button"
+                            class="btn-close btn-close-white"
+                            aria-label="Close"
+                            @onclick="CloseAsync"
+                            @onclick:preventDefault="true"
+                            @onclick:stopPropagation="true" />
+                </div>
+
+                <!-- Body -->
+                <div class="modal-body">
+                    @if (_busy)
+                    {
+                        <div>Завантаження…</div>
+                    }
+                    else if (_view.Count == 0)
+                    {
+                        <div class="text-muted">Історія призначень порожня.</div>
+                    }
+                    else
+                    {
+                        <TableBaseComponent Items="_view"
+                                            TItem="PersonPositionAssignment"
+                                            Class="table align-middle mb-0">
+                            <TableHeader>
+                                <th class="text-black text-center" style="width:120px;">Від (UTC)</th>
+                                <th class="text-black text-center" style="width:120px;">До (UTC)</th>
+                                <th class="text-black">Індекс</th>
+                                <th class="text-black">Коротка назва</th>
+                                <th class="text-black">Повна назва / шлях</th>
+                                <th class="text-black text-center" style="width:110px;">ВОС</th>
+                                <th class="text-black">Нотатка</th>
+                            </TableHeader>
+
+                            <RowTemplate Context="a">
+                                <td class="text-center">@a.OpenUtc.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                                <td class="text-center">
+                                    @if (a.CloseUtc is null)
+                                    {
+                                        <span class="badge text-bg-success">активно</span>
+                                    }
+                                    else
+                                    {
+                                        @a.CloseUtc.Value.ToLocalTime().ToString("dd.MM.yyyy")
+                                    }
+                                </td>
+                                <td>@a.PositionUnit?.Code</td>
+                                <td>
+                                    <span class="text-truncate d-inline-block" style="max-width:220px;" title="@a.PositionUnit?.ShortName">
+                                        @a.PositionUnit?.ShortName
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="text-wrap" title="@a.PositionUnit?.FullName">
+                                        @a.PositionUnit?.FullName
+                                    </span>
+                                </td>
+                                <td class="text-center">@a.PositionUnit?.SpecialNumber</td>
+                                <td class="text-wrap">@a.Note</td>
+                            </RowTemplate>
+                        </TableBaseComponent>
+                    }
+                </div>
+
+                <!-- Footer -->
+                <div class="modal-footer py-2" style="border-top-color: var(--ng-bg, #1e3a8a);">
+                    <button type="button"
+                            class="btn btn-success btn-sm"
+                            @onclick="CloseAsync"
+                            @onclick:preventDefault="true"
+                            @onclick:stopPropagation="true">
+                        Закрити
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop fade show"></div>
+}

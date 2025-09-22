@@ -180,24 +180,33 @@
 
         <div class="col-12 col-lg-6">
             <div class="card h-100">
-                <div class="card-header">Підрозділ / Посада</div>
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <span>Підрозділ / Посада</span>
+                    <button class="btn btn-sm btn-primary"
+                            @onclick="OpenAssignHistory"
+                            title="Переглянути історію призначень">
+                        <i class="bi bi-clock-history"></i>
+                        <span class="ms-1">Історія</span>
+                        <span class="badge text-bg-light ms-1">@AssignHistoryCountText</span>
+                    </button>
+                </div>
                 <div class="card-body">
                     <div class="row g-2">
                         <div class="col-4">
                             <div class="small text-secondary">Індекс посади</div>
-                            <div>@(_person.PositionUnit?.Code ?? "")</div>
+                            <div>@(_person?.PositionUnit?.Code ?? "")</div>
                         </div>
                         <div class="col-8">
                             <div class="small text-secondary">Коротка назва</div>
                             <div>
-                                <span class="cell-clip cell-name" title="@_person.PositionUnit?.ShortName">
-                                    @_person.PositionUnit?.ShortName
+                                <span class="cell-clip cell-name" title="@_person?.PositionUnit?.ShortName">
+                                    @_person?.PositionUnit?.ShortName
                                 </span>
                             </div>
                         </div>
                         <div class="col-12">
                             <div class="small text-secondary">Повна назва / шлях</div>
-                            <div class="small text-secondary">@_person.PositionUnit?.FullName </div>
+                            <div class="small text-secondary">@_person?.PositionUnit?.FullName </div>
                         </div>
                     </div>
                     <div class="form-text mt-2">
@@ -210,5 +219,9 @@
 }
 
 <PersonStatusHistoryModal Open="_historyOpen"
-                          Person="@_person"
+                          Person="_person"
                           OnClose="HandleHistoryClose" />
+
+<PositionAssignmentHistoryModal Open="_assignHistoryOpen"
+                                Person="_person"
+                                OnClose="HandleAssignHistoryClose" />

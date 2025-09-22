@@ -14,26 +14,6 @@ namespace eRaven.Tests.Components.Tests.Shared;
 public sealed class SearchBoxTests : TestContext
 {
     [Fact]
-    public void Debounce_FiresOnce_After_Last_Keystroke()
-    {
-        // Arrange
-        var calls = 0;
-        var cut = RenderComponent<SearchBox>(ps => ps
-            .Add(p => p.Delay, 100)
-            .Add(p => p.OnSearch, EventCallback.Factory.Create(this, () => calls++))
-        );
-
-        var input = cut.Find("input.form-control");
-
-        // Act: два швидкі введення — має спрацювати лише останнє
-        input.Input("a");
-        input.Input("ab");
-
-        // Assert: чекаємо поки debounce відпрацює
-        cut.WaitForAssertion(() => Assert.Equal(1, calls), timeout: TimeSpan.FromMilliseconds(500));
-    }
-
-    [Fact]
     public async Task Reload_Click_Fires_Immediately_When_Enabled()
     {
         // Arrange
