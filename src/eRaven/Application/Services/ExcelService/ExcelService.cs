@@ -1,7 +1,6 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
 // ExcelService
 //-----------------------------------------------------------------------------
 
@@ -17,39 +16,52 @@ namespace eRaven.Application.Services.ExcelService;
 /// <summary>
 /// Сервіс для експорту звітів в ексель
 /// </summary>
-/// <param name="db"></param>
 public sealed class ExcelService : IExcelService
 {
     public Task<Stream> ExportAsync<T>(IEnumerable<T> items, CancellationToken ct = default)
     {
         items ??= [];
 
-        // Матеріалізуємо один раз — потрібно, щоб порахувати макс. довжину масивів
+        // Матеріалізуємо, щоб:
+        //  - дізнатися довжини масивів (string[])
+        //  - уникнути багаторазового перебирання
         var list = items.ToList();
 
         var wb = new XLWorkbook();
 
+        // Назва аркуша: Display(Name) або назва типу; санітизуємо під Excel
         var sheetName = typeof(T).GetCustomAttribute<DisplayAttribute>()?.Name ?? typeof(T).Name;
         var ws = wb.Worksheets.Add(SanitizeSheetName(sheetName));
 
-        // --- виявляємо проперті ---
-        var props = GetMappableProps(typeof(T)); // скалярні
+        // --- Виявляємо властивості ---
+        // 1) скалярні (string, Guid, DateTime, числа, bool, enum)
+        var props = GetMappableProps(typeof(T));
+
+        // 2) масиви string[]
         var arrayProps = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Where(p => p.CanRead && p.PropertyType == typeof(string[]))
             .ToArray();
 
-        // заголовки: спочатку скаляри, потім масиви (розгорнуті)
+        // --- Шапка: спочатку скаляри, потім масиви (розгорнуті у 01..NN) ---
         int col = 1;
 
-        // 1) скалярні
+        // Словник: початкова колонка та довжина для кожного string[]-поля
+        var arrayColumnStarts = new Dictionary<string, (int startCol, int length)>();
+
+        // 1) Скалярні заголовки
         foreach (var p in props)
         {
             var header = p.GetCustomAttribute<DisplayAttribute>()?.Name ?? p.Name;
-            ws.Cell(1, col++).Value = header;
+            var cell = ws.Cell(1, col++);
+            cell.Value = header;
+            cell.Style.Font.Bold = true;
+            cell.Style.Fill.BackgroundColor = XLColor.LightGray;
+            cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            cell.Style.Alignment.WrapText = true;
         }
 
-        // 2) масиви string[] → 01..NN (NN = макс. довжина серед рядків)
-        var arrayColumnStarts = new Dictionary<string, (int startCol, int length)>();
+        // 2) Масиви string[]: розгортаємо у 01..NN (NN = макс. довжина серед рядків)
         foreach (var ap in arrayProps)
         {
             int maxLen = 0;
@@ -59,22 +71,24 @@ public sealed class ExcelService : IExcelService
                 if (arr.Length > maxLen) maxLen = arr.Length;
             }
 
-            if (maxLen <= 0)
-            {
-                arrayColumnStarts[ap.Name] = (col, 0);
-                continue;
-            }
-
             arrayColumnStarts[ap.Name] = (col, maxLen);
 
-            // Заголовки: 01..NN
-            for (int i = 1; i <= maxLen; i++)
+            if (maxLen > 0)
             {
-                ws.Cell(1, col++).Value = i.ToString("00");
+                for (int i = 1; i <= maxLen; i++)
+                {
+                    var cell = ws.Cell(1, col++);
+                    cell.Value = i.ToString("00");
+                    cell.Style.Font.Bold = true;
+                    cell.Style.Fill.BackgroundColor = XLColor.LightGray;
+                    cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                    cell.Style.Alignment.WrapText = true;
+                }
             }
         }
 
-        // Рядки
+        // --- Дані ---
         int r = 2;
         foreach (var item in list)
         {
@@ -82,7 +96,7 @@ public sealed class ExcelService : IExcelService
 
             int c = 1;
 
-            // 1) скалярні
+            // 1) Скалярні
             foreach (var p in props)
             {
                 var val = p.GetValue(item);
@@ -99,7 +113,7 @@ public sealed class ExcelService : IExcelService
                 }
             }
 
-            // 2) масиви
+            // 2) Масиви (string[])
             foreach (var ap in arrayProps)
             {
                 var (startCol, length) = arrayColumnStarts[ap.Name];
@@ -112,7 +126,7 @@ public sealed class ExcelService : IExcelService
                     cell.Value = s;
                 }
 
-                c = startCol + length; // підтримуємо правильний індекс
+                c = Math.Max(c, startCol + length);
             }
 
             r++;
@@ -121,21 +135,69 @@ public sealed class ExcelService : IExcelService
         var lastRow = Math.Max(1, r - 1);
         var lastCol = Math.Max(1, col - 1);
 
+        // ==== Загальні стилі таблиці ====
         var used = ws.Range(1, 1, lastRow, lastCol);
+
+        // Вирівнювання + переноси тексту
         used.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        used.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
         used.Style.Alignment.WrapText = true;
 
+        // Рамки
+        used.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        used.Style.Border.InsideBorder = XLBorderStyleValues.Hair;
+
+        // «Зебра» з 3-го рядка (1 — шапка, 2 — перший рядок даних)
+        if (lastRow >= 3)
+        {
+            for (int rr = 3; rr <= lastRow; rr += 2)
+                ws.Range(rr, 1, rr, lastCol).Style.Fill.BackgroundColor = XLColor.WhiteSmoke;
+        }
+
+        // Фіксація шапки + автофільтр
         ws.SheetView.FreezeRows(1);
         if (lastRow >= 2)
             ws.Range(1, 1, lastRow, lastCol).SetAutoFilter();
 
-        ws.Columns(1, lastCol).AdjustToContents();
+        // Автопідбір ширин з обмеженнями
+        for (int c = 1; c <= lastCol; c++)
+        {
+            var colRef = ws.Column(c);
+            colRef.AdjustToContents();
+            if (colRef.Width > 60) colRef.Width = 60; // максимум
+            if (colRef.Width < 8) colRef.Width = 8;  // мінімум
+        }
 
+        // ===== Уніфікація висоти рядків даних =====
+        if (lastRow >= 2)
+        {
+            // 1) Піджени висоту під контент, щоб врахувати переноси
+            ws.Rows(2, lastRow).AdjustToContents();
+
+            // 2) Знайди максимальну висоту серед рядків даних
+            double maxDataHeight = 0;
+            for (int rr2 = 2; rr2 <= lastRow; rr2++)
+                if (ws.Row(rr2).Height > maxDataHeight) maxDataHeight = ws.Row(rr2).Height;
+
+            // Мінімальна читабельна висота (≈18pt)
+            if (maxDataHeight < 18) maxDataHeight = 18;
+
+            // 3) Встанови однакову висоту всім рядкам даних
+            for (int rr2 = 2; rr2 <= lastRow; rr2++)
+                ws.Row(rr2).Height = maxDataHeight;
+
+            // 4) Шапка — трохи нижча/звична
+            ws.Row(1).AdjustToContents();
+            if (ws.Row(1).Height < 18) ws.Row(1).Height = 18;
+        }
+
+        // Вивід у пам'ять
         var ms = new MemoryStream();
         wb.SaveAs(ms);
         ms.Position = 0;
         return Task.FromResult<Stream>(ms);
 
+        // --- локальний helper ---
         static string SanitizeSheetName(string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return "Sheet1";
@@ -144,7 +206,6 @@ public sealed class ExcelService : IExcelService
             return name.Length <= 31 ? name : name[..31];
         }
     }
-
 
     public async Task<(List<T> Rows, List<string> Errors)> ImportAsync<T>(Stream xlsx, CancellationToken ct = default) where T : new()
     {
@@ -229,7 +290,6 @@ public sealed class ExcelService : IExcelService
                 try
                 {
                     var value = ConvertCell(cell, prop.PropertyType);
-                    // якщо null і властивість nullable — норм; інакше залишаємо дефолт
                     if (value != null || IsNullable(prop))
                         prop.SetValue(inst, value);
                     else if (!prop.PropertyType.IsValueType)
@@ -401,19 +461,12 @@ public sealed class ExcelService : IExcelService
         }
         else if (t == typeof(PersonStatus))
         {
-            // Ідентифікатори
             dict["PersonId"] = ["person id", "ід особи", "ідентифікатор особи", "id працівника", "worker id"];
             dict["StatusKindId"] = ["статус", "status", "statusid", "status kind id", "код статусу", "код статуса"];
-
-            // Дати (головне — FromDate/ToDate → OpenDate/CloseDate)
             dict["OpenDate"] = ["fromdate", "from", "start", "open", "open date", "від", "з", "дата від", "відкрито"];
             dict["CloseDate"] = ["todate", "to", "end", "close", "close date", "до", "дата до", "закрито"];
-
-            // Текстові поля
             dict["Note"] = ["примітка", "замітка", "коментар", "note", "comment"];
             dict["Author"] = ["автор", "створив", "created by", "author"];
-
-            // Не обов’язково, але корисно для round-trip
             dict["Modified"] = ["змінено", "modified", "updated at", "updated"];
             dict["Id"] = ["ід", "id", "row id"];
         }
