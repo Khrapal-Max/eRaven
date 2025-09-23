@@ -24,35 +24,69 @@ public sealed class ExcelService : IExcelService
     {
         items ??= [];
 
-        var props = GetMappableProps(typeof(T)); // лишаємо твою логіку вибору властивостей
-                                                 // якщо треба поважати Display(Order) – це можна зробити тут:
-                                                 // props = props.OrderBy(p => p.GetCustomAttribute<DisplayAttribute>()?.GetOrder() ?? int.MaxValue)
-                                                 //              .ThenBy(p => p.Name)
-                                                 //              .ToArray();
+        // Матеріалізуємо один раз — потрібно, щоб порахувати макс. довжину масивів
+        var list = items.ToList();
 
         var wb = new XLWorkbook();
 
-        // назва аркуша: Display(Name) на типі T -> Type.Name; санітизуємо під Excel (<=31 символ, без :\/?*[])
         var sheetName = typeof(T).GetCustomAttribute<DisplayAttribute>()?.Name ?? typeof(T).Name;
         var ws = wb.Worksheets.Add(SanitizeSheetName(sheetName));
 
-        // Заголовки з Display(Name) на властивостях (fallback: Property.Name)
-        for (int c = 0; c < props.Length; c++)
+        // --- виявляємо проперті ---
+        var props = GetMappableProps(typeof(T)); // скалярні
+        var arrayProps = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.CanRead && p.PropertyType == typeof(string[]))
+            .ToArray();
+
+        // заголовки: спочатку скаляри, потім масиви (розгорнуті)
+        int col = 1;
+
+        // 1) скалярні
+        foreach (var p in props)
         {
-            var header = props[c].GetCustomAttribute<DisplayAttribute>()?.Name ?? props[c].Name;
-            ws.Cell(1, c + 1).Value = header;
+            var header = p.GetCustomAttribute<DisplayAttribute>()?.Name ?? p.Name;
+            ws.Cell(1, col++).Value = header;
+        }
+
+        // 2) масиви string[] → 01..NN (NN = макс. довжина серед рядків)
+        var arrayColumnStarts = new Dictionary<string, (int startCol, int length)>();
+        foreach (var ap in arrayProps)
+        {
+            int maxLen = 0;
+            foreach (var row in list)
+            {
+                var arr = ap.GetValue(row) as string[] ?? [];
+                if (arr.Length > maxLen) maxLen = arr.Length;
+            }
+
+            if (maxLen <= 0)
+            {
+                arrayColumnStarts[ap.Name] = (col, 0);
+                continue;
+            }
+
+            arrayColumnStarts[ap.Name] = (col, maxLen);
+
+            // Заголовки: 01..NN
+            for (int i = 1; i <= maxLen; i++)
+            {
+                ws.Cell(1, col++).Value = i.ToString("00");
+            }
         }
 
         // Рядки
         int r = 2;
-        foreach (var item in items)
+        foreach (var item in list)
         {
             ct.ThrowIfCancellationRequested();
 
-            for (int c = 0; c < props.Length; c++)
+            int c = 1;
+
+            // 1) скалярні
+            foreach (var p in props)
             {
-                var val = props[c].GetValue(item);
-                var cell = ws.Cell(r, c + 1);
+                var val = p.GetValue(item);
+                var cell = ws.Cell(r, c++);
 
                 if (val is DateTime dt)
                 {
@@ -64,44 +98,57 @@ public sealed class ExcelService : IExcelService
                     cell.Value = val?.ToString() ?? string.Empty;
                 }
             }
+
+            // 2) масиви
+            foreach (var ap in arrayProps)
+            {
+                var (startCol, length) = arrayColumnStarts[ap.Name];
+                var arr = ap.GetValue(item) as string[] ?? [];
+
+                for (int i = 0; i < length; i++)
+                {
+                    var cell = ws.Cell(r, startCol + i);
+                    var s = (i < arr.Length) ? (arr[i] ?? string.Empty) : string.Empty;
+                    cell.Value = s;
+                }
+
+                c = startCol + length; // підтримуємо правильний індекс
+            }
+
             r++;
         }
 
         var lastRow = Math.Max(1, r - 1);
+        var lastCol = Math.Max(1, col - 1);
 
-        // Стилі: вертикальне вирівнювання + перенос тексту для всієї використаної області
-        var used = ws.Range(1, 1, lastRow, Math.Max(1, props.Length));
+        var used = ws.Range(1, 1, lastRow, lastCol);
         used.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
         used.Style.Alignment.WrapText = true;
 
-        // Фіксуємо перший рядок (шапку)
         ws.SheetView.FreezeRows(1);
-
-        // Автофільтр (ставимо, якщо є хоча б 1 рядок даних під шапкою)
         if (lastRow >= 2)
-            ws.Range(1, 1, lastRow, props.Length).SetAutoFilter();
+            ws.Range(1, 1, lastRow, lastCol).SetAutoFilter();
 
-        // Автопідбір ширин
-        ws.Columns(1, props.Length).AdjustToContents();
+        ws.Columns(1, lastCol).AdjustToContents();
 
         var ms = new MemoryStream();
         wb.SaveAs(ms);
         ms.Position = 0;
         return Task.FromResult<Stream>(ms);
 
-        // --- helpers ---
         static string SanitizeSheetName(string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return "Sheet1";
             var invalid = new[] { ':', '\\', '/', '?', '*', '[', ']' };
             foreach (var ch in invalid) name = name.Replace(ch, ' ');
-            return name.Length <= 31 ? name : name.Substring(0, 31);
+            return name.Length <= 31 ? name : name[..31];
         }
     }
 
+
     public async Task<(List<T> Rows, List<string> Errors)> ImportAsync<T>(Stream xlsx, CancellationToken ct = default) where T : new()
     {
-        if (xlsx is null) throw new ArgumentNullException(nameof(xlsx));
+        ArgumentNullException.ThrowIfNull(xlsx);
 
         // 1) Буферизуємо у пам’ять — це обходить заборону sync-читань BrowserFileStream
         using var ms = new MemoryStream();
@@ -162,7 +209,7 @@ public sealed class ExcelService : IExcelService
                 }
             }
 
-            if (prop != null && !colMap.Values.Contains(prop))
+            if (prop != null && !colMap.ContainsValue(prop))
                 colMap[cell.Address.ColumnNumber] = prop;
         }
 
@@ -203,9 +250,7 @@ public sealed class ExcelService : IExcelService
     // ================= helpers =================
 
     private static PropertyInfo[] GetMappableProps(Type t) =>
-        t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-         .Where(p => p.CanRead && p.CanWrite && IsScalar(p.PropertyType))
-         .ToArray();
+        [.. t.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanRead && p.CanWrite && IsScalar(p.PropertyType))];
 
     private static bool IsScalar(Type t)
     {

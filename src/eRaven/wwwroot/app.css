@@ -157,6 +157,11 @@ h1:focus, h2:focus, h3:focus {
     z-index: 99999 !important;
 }
 
+.text-bg-purple {
+    background-color: #6f42c1;
+    color: #fff;
+}
+
 /* --------------Action modal ---------------*/
 /* фіксуємо висоту під помилки, щоб розмітка не «стрибала» */
 .val-slot {
