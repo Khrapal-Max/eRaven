@@ -93,32 +93,42 @@ public sealed class AssignPositionModalTests : IDisposable
         Assert.NotNull(cut.Instance.ToastService);
     }
 
-    [Fact(DisplayName = "Open(person, lastClose): дефолт = lastClose+1 день, min = lastClose+1")]
+    [Fact(DisplayName = "Open(person, lastClose): дефолт = max(lastClose+1, сьогодні UTC), min = lastClose+1")]
     public async Task Open_WithLastClose_DefaultsNextDay_And_MinSet()
     {
+        // Arrange
         var person = MakePerson();
         var pos = P("Снайпер", "Снайпер Взвод/Рота/Батальйон");
         var positions = new[] { pos };
 
         var lastCloseUtc = new DateTime(2025, 09, 21, 0, 0, 0, DateTimeKind.Utc);
-        var expected = lastCloseUtc.AddDays(1); // 2025-09-22
+        var minDate = lastCloseUtc.AddDays(1);               // 2025-09-22
+        var todayUtc = DateTime.UtcNow.Date;
+        var expectedMinStr = minDate.ToString("yyyy-MM-dd");
+        var expectedValueStr = (todayUtc > minDate ? todayUtc : minDate).ToString("yyyy-MM-dd");
 
         var cut = _ctx.RenderComponent<AssignPositionModal>(ps => ps
             .Add(p => p.Positions, positions)
             .Add(p => p.OnAssigned, EventCallback.Factory.Create<PersonPositionAssignment>(this, _ => { }))
         );
 
+        // Act
         await cut.InvokeAsync(() => cut.Instance.Open(person, activeAssign: null, lastUnassignCloseUtc: lastCloseUtc));
 
+        // Assert
         cut.WaitForAssertion(() =>
         {
             var inputDate = cut.Find("input[type=date]");
-            Assert.Equal(expected.ToString("yyyy-MM-dd"), inputDate.GetAttribute("value"));
-            Assert.Equal(expected.ToString("yyyy-MM-dd"), inputDate.GetAttribute("min"));
+            var valueAttr = inputDate.GetAttribute("value") ?? string.Empty;
+            var minAttr = inputDate.GetAttribute("min") ?? string.Empty;
 
-            // Підказка про останній день попередньої посади присутня
-            Assert.Contains(lastCloseUtc.ToString("dd.MM.yyyy 'UTC'"), cut.Markup);
-        });
+            Assert.Equal(expectedValueStr, valueAttr); // дефолт = max(min, today)
+            Assert.Equal(expectedMinStr, minAttr);     // мінімум = lastClose+1
+
+            // є підказка про останній день попередньої посади
+            var hint = lastCloseUtc.ToString("dd.MM.yyyy 'UTC'");
+            Assert.Contains(hint, cut.Markup);
+        }, timeout: TimeSpan.FromSeconds(3));
     }
 
     [Fact(DisplayName = "Open(person, activeAssign): min = activeOpen+1 день; дефолт = max(min, сьогодні)")]

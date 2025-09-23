@@ -1,12 +1,13 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-// StatusTransitionsPage
+// StatusTransitionsPage (code-behind)
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PersonStatusService;
+using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.Services.StatusTransitionService;
 using eRaven.Application.ViewModels;
@@ -42,6 +43,7 @@ public partial class StatusesPage : ComponentBase, IDisposable
     [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!;
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
     [Inject] private IStatusTransitionService StatusTransitionService { get; set; } = default!;
+    [Inject] private IPositionAssignmentService PositionAssignmentService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
 
     // =============================  Життєвий цикл  =============================
@@ -85,7 +87,31 @@ public partial class StatusesPage : ComponentBase, IDisposable
         {
             SetBusy(true);
 
+            // 00:00 локального дня → UTC
             var openUtc = StatusesUi.ToUtcFromLocalMidnight(vm.Moment);
+
+            // 1) Якщо код статусу вимагає зняття — знімаємо з посади ДО зміни статусу
+            if (await RequiresUnassignByCodeAsync(vm.StatusId, _cts.Token))
+            {
+                var active = await PositionAssignmentService.GetActiveAsync(vm.PersonId, _cts.Token);
+                if (active is not null)
+                {
+                    var closeUtc = openUtc.AddDays(-1); // 00:00:00 попереднього дня
+                    var minAllowed = active.OpenUtc.Date;
+                    if (closeUtc < minAllowed) closeUtc = minAllowed;
+
+                    var ok = await PositionAssignmentService.UnassignAsync(
+                        vm.PersonId,
+                        closeUtc,
+                        note: null,
+                        ct: _cts.Token);
+
+                    if (!ok)
+                        Toast.ShowWarning("Не вдалося зняти з посади (активне призначення не знайдено). Статус все одно буде змінено.");
+                }
+            }
+
+            // 2) Встановлюємо статус
             var ps = new PersonStatus
             {
                 Id = Guid.Empty,
@@ -100,7 +126,7 @@ public partial class StatusesPage : ComponentBase, IDisposable
 
             await PersonStatusService.SetStatusAsync(ps, _cts.Token);
 
-            // Закриваємо модаль, оновлюємо
+            // Закриваємо модаль і оновлюємо список/фільтр
             _isStatusModalOpen = false;
             _modalPerson = null;
             _modalCurrentStatus = null;
@@ -110,13 +136,11 @@ public partial class StatusesPage : ComponentBase, IDisposable
 
             if (OneShotMode)
             {
-                // Одиничний: повернення в zero-state
                 Search = string.Empty;
                 Filtered.Clear();
             }
             else
             {
-                // Пакетний: зберегти фільтр/результати
                 ApplyLocalFilter();
             }
 
@@ -142,7 +166,7 @@ public partial class StatusesPage : ComponentBase, IDisposable
         return Task.CompletedTask;
     }
 
-    // =============================  Імпорт  =============================   
+    // =============================  Імпорт  =============================
     protected async Task<ImportReportViewModel> ProcessImportedStatusesAsync(
     IReadOnlyList<PersonStatusImportView> rows)
     {
@@ -281,9 +305,35 @@ public partial class StatusesPage : ComponentBase, IDisposable
 
         // фінальний перелік
         return [.. statuses
-        .Where(s => toIds.Contains(s.Id))
-        .OrderBy(s => s.Code ?? string.Empty, StringComparer.OrdinalIgnoreCase)
-        .ThenBy(s => s.Name ?? string.Empty, StringComparer.OrdinalIgnoreCase)];
+            .Where(s => toIds.Contains(s.Id))
+            .OrderBy(s => s.Code ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(s => s.Name ?? string.Empty, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    // =============================  Правило “зняти з посади” (по Code)  =============================
+    private static bool IsUnassignCode(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return false;
+
+        // нормалізуємо (обрізаємо пробіли; без урахування регістру)
+        var c = code.Trim();
+
+        // Покриваємо «РОЗПОР», «нб» (кирилиця). За потреби тут додати інші службові коди.
+        return c.Equals("РОЗПОР", StringComparison.OrdinalIgnoreCase)
+            || c.Equals("нб", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Чи треба знімати з посади з огляду на обраний статус (Id → Code).
+    /// Дефенсивно гарантуємо наявність `_statuses`.
+    /// </summary>
+    private async Task<bool> RequiresUnassignByCodeAsync(int statusId, CancellationToken ct)
+    {
+        if (_statuses is null || _statuses.Count == 0)
+            _statuses = await StatusKindService.GetAllAsync(ct: ct);
+
+        var sk = _statuses?.FirstOrDefault(s => s.Id == statusId);
+        return IsUnassignCode(sk?.Code);
     }
 
     // =============================  Пошук/фільтр  =============================
