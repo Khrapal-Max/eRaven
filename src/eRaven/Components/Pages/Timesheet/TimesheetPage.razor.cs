@@ -18,7 +18,7 @@ using eRaven.Application.ViewModels.TimesheetViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
-namespace eRaven.Components.Pages.Reports.Timesheet;
+namespace eRaven.Components.Pages.Timesheet;
 
 public partial class TimesheetPage : ComponentBase, IDisposable
 {

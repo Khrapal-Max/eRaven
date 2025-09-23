@@ -14,7 +14,7 @@ using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.TimesheetViewModels;
-using eRaven.Components.Pages.Reports.Timesheet;
+using eRaven.Components.Pages.Timesheet;
 using eRaven.Domain.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -173,8 +173,10 @@ public sealed class TimesheetPageSmokeTests : TestContext
             .Setup(s => s.ExportAsync(It.IsAny<IEnumerable<TimesheetExportRow>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
-                var ms = new MemoryStream(new byte[] { 1, 2, 3, 4 });
-                ms.Position = 0;
+                var ms = new MemoryStream([1, 2, 3, 4])
+                {
+                    Position = 0
+                };
                 return ms;
             });
 
