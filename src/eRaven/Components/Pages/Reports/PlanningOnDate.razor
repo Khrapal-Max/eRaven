@@ -1,0 +1,133 @@
+﻿@page "/reports/planning-on-date"
+
+@using eRaven.Components.Shared.ExcelExportButton
+@using eRaven.Application.ViewModels.PlanningOnDateViewModels
+
+<PageTitle>Планування на дату</PageTitle>
+
+<div class="container-fluid planning-layout">
+
+    <!-- Лівий фільтр (fixed) -->
+    <aside class="planning-aside">
+        <div class="card shadow-sm border-0">
+            <div class="card-header py-2">
+                <div class="fw-semibold small">Фільтри</div>
+            </div>
+            <div class="card-body p-3 d-flex flex-column" style="gap:.5rem;">
+                <label class="form-label mb-1 small text-muted">Дата (UTC 00:00)</label>
+                <InputDate @bind-Value="DateLocal" class="form-control form-control-sm" />
+                <button class="btn btn-primary btn-sm" @onclick="ReloadAsync" disabled="@Busy">
+                    <i class="bi bi-play me-1"></i> Побудувати
+                </button>
+
+                <div class="small text-muted mt-1">
+                    Станом на: <strong class="text-body">@DateLocal.ToString("dd.MM.yyyy")</strong>
+                </div>
+
+                <hr class="my-2" />
+
+                <ExcelExportButton Items="ExportLines"
+                                   FileName="@($"Планування_{DateLocal:yyyy-MM-dd}")"
+                                   Text="Експорт в Excel"
+                                   ButtonClass="btn btn-success btn-sm w-100"
+                                   IconClass="bi bi-file-earmark-excel"
+                                   Title="Експорт в Excel"
+                                   Disabled="@(Busy || ExportLines.Count == 0)"
+                                   OnBusyChanged="OnExportBusyChanged" />
+
+                @if (Busy)
+                {
+                    <div class="text-muted small mt-2">Завантаження…</div>
+                }
+                else if (ExportLines.Count == 0)
+                {
+                    <div class="text-muted small mt-2">Немає даних для експорту.</div>
+                }
+            </div>
+        </div>
+    </aside>
+
+    <!-- Права колонка (єдиний вертикальний скрол) -->
+    <section class="planning-content">
+        @if (Busy)
+        {
+            <div class="fw-bold">Завантаження…</div>
+        }
+        else if (Groups.Count == 0)
+        {
+            <div class="fw-bold">Порожньо (на цю дату немає записів планування типу «Відрядження»).</div>
+        }
+        else
+        {
+            <div class="row g-3">
+                @foreach (var loc in Groups)
+                {
+                    @foreach (var grp in loc.Groups)
+                    {
+                        @foreach (var crew in grp.Crews)
+                        {
+                            <div class="col-12 col-lg-6">
+                                <div class="card planning-card h-100 shadow-sm border-0">
+                                    <!-- Хедер картки -->
+                                    <h5 class="card-header bg-secondary text-black">
+                                        <span class="me-2 text-break" title="@loc.Location">@loc.Location</span>
+                                        <span class="mx-2 text-break" title="@grp.GroupName">@grp.GroupName</span>
+                                        <span class="ms-2 text-break" title="@crew.CrewName">@crew.CrewName</span>
+                                    </h5>
+
+                                    <!-- Тіло картки -->
+                                    <div class="card-body">
+                                        @if (crew.Rows.Count == 0)
+                                        {
+                                            <div class="text-muted small">Немає записів</div>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var r in crew.Rows)
+                                            {
+                                                <div class="planning-person">
+                                                    <!-- Верхній ряд: ліворуч ПІБ, праворуч час/дата -->
+                                                    <div class="d-flex align-items-start justify-content-between gap-2">
+                                                        <!-- Ліва частина: звання + ПІБ + позивний -->
+                                                        <div class="gap-2">
+                                                            <div class="small text-uppercase">@r.RankName</div>
+                                                            <div class="me-1">@r.FullName</div>
+                                                            @if (!string.IsNullOrWhiteSpace(r.Callsign))
+                                                            {
+                                                                <div class="small text-muted">Позивний: @r.Callsign</div>
+                                                            }
+                                                        </div>
+
+                                                        <!-- Права частина: час/дата -->
+                                                        <div>
+                                                            @r.EffectiveAtUtc.ToString("HH:mm dd.MM.yyyy")
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Футер рядка: рапорт / наказ / нотатка -->
+                                                    <div class="mt-1 small">
+                                                        <div class="text-muted">
+                                                            <div class="me-3 badge rounded-pill text-bg-warning">Рапорт: @r.PlanActionName</div>
+                                                            @if (!string.IsNullOrWhiteSpace(r.Order))
+                                                            {
+                                                                <div class="me-3 badge rounded-pill text-bg-success">Наказ: @r.Order</div>
+                                                            }                                                           
+                                                            @if (!string.IsNullOrWhiteSpace(r.Note))
+                                                            {
+                                                                <div class="text-body-secondary">@r.Note</div>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                }
+            </div>
+        }
+    </section>
+</div>

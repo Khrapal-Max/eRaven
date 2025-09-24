@@ -27,6 +27,8 @@ body {
     padding-top: var(--navbar-h);
 }
 
+
+
 /* щоб контент не ліз під fixed-top */
 .layout-main {
     padding-top: .75rem;
@@ -190,3 +192,137 @@ h1:focus, h2:focus, h3:focus {
 .break-word {
     word-break: break-word;
 }
+
+/* -----------Planning card-------------*/
+
+/* ===== Планування: лейаут ===== */
+.planning-layout {
+  height: 100vh;
+  overflow: hidden; /* прибираємо глобальний скрол; скролиться контент праворуч */
+  position: relative;
+}
+
+/* Фіксований aside зліва */
+.planning-aside {
+  position: fixed;
+  top: 64px;        /* під ваш navbar; за потреби підлаштуй */
+  left: 16px;       /* внутрішній відступ контейнера */
+  width: 220px;
+  z-index: 1010;
+}
+
+/* Права колонка: скрол тільки тут */
+.planning-content {
+  margin-left: 236px;                 /* 220px aside + 16px проміжок */
+  padding: 8px 8px 8px 0;
+  height: calc(100vh - 64px);         /* під navbar */
+  overflow: auto;                     /* вертикальний скрол лише тут */
+  overflow-x: hidden;                 /* без горизонтального */
+}
+
+/* ===== Картки ===== */
+.planning-card { max-width: 100%; }
+
+.planning-card__header {
+  padding: .5rem .75rem;
+  background: var(--bs-success-bg-subtle);
+  border-bottom: 1px solid var(--bs-success-border-subtle);
+}
+
+/* Чіпи груп (без badge) */
+.group-chip {
+  display: inline-block;
+  max-width: 100%;
+  padding: .35rem .6rem;
+  border-radius: 999px;
+  font-size: .85rem;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.group-chip--loc  { background: var(--bs-success-bg-subtle);  border: 1px solid var(--bs-success-border-subtle); }
+.group-chip--grp  { background: var(--bs-info-bg-subtle);     border: 1px solid var(--bs-info-border-subtle); }
+.group-chip--crew { background: var(--bs-secondary-bg-subtle);border: 1px solid var(--bs-secondary-border-subtle); }
+
+.planning-card__body { padding: .5rem; }
+
+/* ===== Список людей у картці ===== */
+.planning-person-list .list-group-item {
+  padding: .6rem .6rem;
+}
+
+/* Більш «повітряний» блок людини, без тісняви */
+.planning-person .person-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.planning-person .person-id {
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  min-width: 0;
+}
+
+/* звання як компактний ярличок (не badge) */
+.person-rank {
+  display: inline-block;
+  font-size: .75rem;
+  padding: .15rem .4rem;
+  background: var(--bs-dark-bg-subtle);
+  color: var(--bs-body-color);
+  border-radius: .25rem;
+}
+
+/* ПІБ — виразніше */
+.person-name {
+  font-weight: 600;
+  font-size: .95rem;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+/* позивний — приглушений */
+.person-callsign {
+  color: var(--bs-secondary-color);
+  font-size: .85rem;
+}
+
+/* час праворуч — моноширинний, щоб стовпчик не «стрибав» */
+.person-time {
+  color: var(--bs-secondary-color);
+  font-family: var(--bs-font-monospace);
+  white-space: nowrap;
+}
+
+/* другий ряд — дихає й переноситься */
+.planning-person .person-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem 1rem;
+  margin-top: .25rem;
+  font-family: var(--bs-font-monospace);
+  font-size: .85rem;
+}
+
+.meta-item { display: inline-flex; gap: .35rem; align-items: baseline; }
+.meta-label { color: var(--bs-secondary-color); }
+.meta-value { color: var(--bs-body-color); }
+.meta-note  { color: var(--bs-secondary-color); }
+.meta-sep   { color: var(--bs-secondary-color); }
+
+/* Технічні підстроювання, аби картки не тягнули горизонтальний скрол */
+.planning-card * { min-width: 0; }
+
+.planning-person {
+    padding: .5rem .25rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+    .planning-person:last-child {
+        border-bottom: 0;
+    }

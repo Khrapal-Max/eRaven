@@ -17,6 +17,52 @@ public sealed class PlanActionService(IDbContextFactory<AppDbContext> dbf) : IPl
     private readonly IDbContextFactory<AppDbContext> _dbf = dbf;
 
     /// <summary>
+    /// Повертає планові дії на проміжок часу [fromUtc, toUtc),
+    /// </summary>
+    /// <param name="fromUtc"></param>
+    /// <param name="toUtc"></param>
+    /// <param name="moveType"></param>
+    /// <param name="ct"></param>
+    /// <returns>IReadOnlyList PlanAction(<see cref="PlanAction"/>)</returns>
+    public async Task<IReadOnlyList<PlanAction>> GetActiveDispatchOnDateAsync(
+      DateTime atUtc,
+      CancellationToken ct = default)
+    {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        // 1) Беремо всі дії до моменту (включно) в актуальних станах
+        var items = await db.PlanActions
+            .AsNoTracking()
+            .Where(a => a.EffectiveAtUtc <= atUtc)
+            .Where(a => a.ActionState == ActionState.PlanAction
+                     || a.ActionState == ActionState.ApprovedOrder)
+            // спочатку відсортуємо так, щоб "остання/найпріоритетніша" була першою в групі
+            .OrderByDescending(a => a.EffectiveAtUtc)
+            .ThenByDescending(a => a.ActionState == ActionState.ApprovedOrder) // Approved > PlanAction
+            .ThenByDescending(a => a.Id) // стабілізатор
+            .ToListAsync(ct);
+
+        if (items.Count == 0) return [];
+
+        // 2) По особі беремо останню дію; включаємо лише Dispatch
+        var lastByPerson = items
+            .GroupBy(a => a.PersonId)
+            .Select(g => g.First())                           // завдяки сортуванню вище — це “остання” на дату
+            .Where(a => a.MoveType == MoveType.Dispatch)     // у відрядженні на дату
+            .ToList();
+
+        // 3) Фінальне впорядкування для звіту
+        var ordered = lastByPerson
+            .OrderBy(a => a.Location ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(a => a.GroupName ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(a => a.CrewName ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(a => a.FullName ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return ordered.AsReadOnly();
+    }
+
+    /// <summary>
     /// Повертає всі PlanAction для конкретної особи
     /// </summary>
     /// <param name="personId"></param>
