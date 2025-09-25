@@ -8,7 +8,7 @@ using eRaven.Application.ViewModels.PersonStatusViewModels;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 
-namespace eRaven.Tests.Application.Tests.ViewModels;
+namespace eRaven.Tests.Application.Tests.ViewModels.Excel;
 
 public class PersonStatusImportViewTests
 {

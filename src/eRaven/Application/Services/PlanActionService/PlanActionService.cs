@@ -19,9 +19,7 @@ public sealed class PlanActionService(IDbContextFactory<AppDbContext> dbf) : IPl
     /// <summary>
     /// Повертає планові дії на проміжок часу [fromUtc, toUtc),
     /// </summary>
-    /// <param name="fromUtc"></param>
-    /// <param name="toUtc"></param>
-    /// <param name="moveType"></param>
+    /// <param name="atUtc"></param>
     /// <param name="ct"></param>
     /// <returns>IReadOnlyList PlanAction(<see cref="PlanAction"/>)</returns>
     public async Task<IReadOnlyList<PlanAction>> GetActiveDispatchOnDateAsync(

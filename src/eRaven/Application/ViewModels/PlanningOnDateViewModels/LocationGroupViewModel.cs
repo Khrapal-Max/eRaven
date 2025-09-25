@@ -9,5 +9,5 @@ namespace eRaven.Application.ViewModels.PlanningOnDateViewModels;
 public sealed class LocationGroupViewModel
 {
     public string Location { get; set; } = string.Empty;
-    public List<GroupGroupViewModel> Groups { get; } = new();
+    public List<GroupViewModel> Groups { get; } = new();
 }

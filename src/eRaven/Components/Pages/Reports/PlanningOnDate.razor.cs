@@ -77,7 +77,7 @@ public partial class PlanningOnDate : ComponentBase, IDisposable
 
                 foreach (var grp in byGroup)
                 {
-                    var grpVm = new GroupGroupViewModel { GroupName = grp.Key };
+                    var grpVm = new GroupViewModel { GroupName = grp.Key };
 
                     var byCrew = grp
                         .GroupBy(a => a.CrewName?.Trim() ?? string.Empty,

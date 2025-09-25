@@ -4,9 +4,16 @@
 // AssignViewModelTests
 //-----------------------------------------------------------------------------
 
+
+//-----------------------------------------------------------------------------
+// All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
+//-----------------------------------------------------------------------------
+// AssignViewModelTests
+//-----------------------------------------------------------------------------
+
 using eRaven.Components.Pages.PositionAssignments.Modals;
 
-namespace eRaven.Tests.Application.Tests.ViewModels;
+namespace eRaven.Tests.Application.Tests.ViewModels.PositionUnit;
 
 public class AssignViewModelTests
 {

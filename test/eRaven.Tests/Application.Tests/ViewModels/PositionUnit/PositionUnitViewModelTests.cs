@@ -5,9 +5,17 @@
 // PositionUnitViewModelTests
 //-----------------------------------------------------------------------------
 
+
+//-----------------------------------------------------------------------------
+// All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+// PositionUnitViewModelTests
+//-----------------------------------------------------------------------------
+
 using eRaven.Application.ViewModels.PositionPagesViewModels;
 
-namespace eRaven.Tests.Application.Tests.ViewModels;
+namespace eRaven.Tests.Application.Tests.ViewModels.PositionUnit;
 
 public class PositionUnitViewModelTests
 {

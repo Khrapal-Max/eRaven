@@ -4,9 +4,16 @@
 // StatusOnDateViewModelTests
 // -----------------------------------------------------------------------------
 
+
+// -----------------------------------------------------------------------------
+// All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
+// -----------------------------------------------------------------------------
+// StatusOnDateViewModelTests
+// -----------------------------------------------------------------------------
+
 using eRaven.Application.ViewModels.StaffOnDateViewModels;
 
-namespace eRaven.Tests.Application.Tests.ViewModels;
+namespace eRaven.Tests.Application.Tests.ViewModels.Reports;
 
 public class StatusOnDateViewModelTests
 {

@@ -7,7 +7,7 @@
 using eRaven.Application.ViewModels.PersonStatusViewModels;
 using System.ComponentModel.DataAnnotations;
 
-namespace eRaven.Tests.Application.Tests.ViewModels;
+namespace eRaven.Tests.Application.Tests.ViewModels.Persons;
 
 public sealed class SetPersonStatusViewModelTests
 {

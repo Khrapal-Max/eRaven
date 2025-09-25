@@ -6,7 +6,7 @@
 
 namespace eRaven.Application.ViewModels.PlanningOnDateViewModels;
 
-public sealed class GroupGroupViewModel
+public sealed class GroupViewModel
 {
     public string GroupName { get; set; } = string.Empty;
     public List<CrewGroupViewModel> Crews { get; } = new();

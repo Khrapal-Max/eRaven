@@ -7,7 +7,7 @@
 using eRaven.Application.ViewModels.PositionPagesViewModels;
 using System.ComponentModel.DataAnnotations;
 
-namespace eRaven.Tests.Application.Tests.ViewModels;
+namespace eRaven.Tests.Application.Tests.ViewModels.PositionUnit;
 
 public class CreatePositionUnitViewModelTests
 {
@@ -50,7 +50,7 @@ public class CreatePositionUnitViewModelTests
         var results = Validate(vm);
 
         Assert.Contains(results, r => r.MemberNames is not null &&
-                                      System.Linq.Enumerable.Contains(r.MemberNames, nameof(CreatePositionUnitViewModel.ShortName)));
+                                      r.MemberNames.Contains(nameof(CreatePositionUnitViewModel.ShortName)));
     }
 
     [Fact]
@@ -68,10 +68,10 @@ public class CreatePositionUnitViewModelTests
 
         Assert.Equal(3, results.Count);
         Assert.Contains(results, r => r.MemberNames is not null &&
-                                      System.Linq.Enumerable.Contains(r.MemberNames, nameof(CreatePositionUnitViewModel.ShortName)));
+                                      r.MemberNames.Contains(nameof(CreatePositionUnitViewModel.ShortName)));
         Assert.Contains(results, r => r.MemberNames is not null &&
-                                      System.Linq.Enumerable.Contains(r.MemberNames, nameof(CreatePositionUnitViewModel.SpecialNumber)));
+                                      r.MemberNames.Contains(nameof(CreatePositionUnitViewModel.SpecialNumber)));
         Assert.Contains(results, r => r.MemberNames is not null &&
-                                      System.Linq.Enumerable.Contains(r.MemberNames, nameof(CreatePositionUnitViewModel.OrgPath)));
+                                      r.MemberNames.Contains(nameof(CreatePositionUnitViewModel.OrgPath)));
     }
 }

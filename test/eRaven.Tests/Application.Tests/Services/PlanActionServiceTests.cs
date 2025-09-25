@@ -30,7 +30,13 @@ namespace eRaven.Tests.Application.Tests.Services
 
         private async Task SeedPersonAsync(Guid id)
         {
-            _dbh.Db.Persons.Add(new Person { Id = id });
+            var rnokpp = $"T{id:N}"[..10];
+
+            _dbh.Db.Persons.Add(new Person
+            {
+                Id = id,
+                Rnokpp = rnokpp
+            });
             await _dbh.Db.SaveChangesAsync();
         }
 
@@ -79,6 +85,177 @@ namespace eRaven.Tests.Application.Tests.Services
         }
 
         // ---------- tests ----------
+
+        // ------------------------ GetActiveDispatchOnDateAsync ------------------------
+
+        [Fact(DisplayName = "GetActiveDispatchOnDateAsync: включає тих, чия остання дія ≤ atUtc — Dispatch; виключає тих, хто повернувся")]
+        public async Task GetActiveDispatchOnDateAsync_Basic_Include_Dispatch_Exclude_Returned()
+        {
+            // Arrange
+            var p1 = Guid.NewGuid(); // тільки Dispatch → має бути
+            var p2 = Guid.NewGuid(); // Dispatch, але потім Return до дати → не має бути
+            var p3 = Guid.NewGuid(); // тільки Return → не має бути
+
+            await SeedPersonAsync(p1);
+            await SeedPersonAsync(p2);
+            await SeedPersonAsync(p3);
+
+            var d = new DateTime(2025, 09, 01, 0, 0, 0, DateTimeKind.Utc);
+
+            await SeedAsync(
+                // p1: відряджений і не повернувся
+                NewPlanAction(personId: p1, atUtc: d.AddDays(1), move: MoveType.Dispatch, state: ActionState.PlanAction),
+
+                // p2: відряджений, але ПОВЕРНУВСЯ до дати звіту
+                NewPlanAction(personId: p2, atUtc: d.AddDays(5), move: MoveType.Dispatch, state: ActionState.PlanAction),
+                NewPlanAction(personId: p2, atUtc: d.AddDays(23), move: MoveType.Return, state: ActionState.PlanAction),
+
+                // p3: тільки Return
+                NewPlanAction(personId: p3, atUtc: d.AddDays(10), move: MoveType.Return, state: ActionState.PlanAction)
+            );
+
+            var atUtc = new DateTime(2025, 09, 24, 0, 0, 0, DateTimeKind.Utc);
+
+            // Act
+            var res = await _svc.GetActiveDispatchOnDateAsync(atUtc);
+
+            // Assert
+            var list = res.ToList();
+            Assert.Single(list);                 // лише p1
+            Assert.Equal(p1, list[0].PersonId);  // p1 в результаті
+        }
+
+        [Fact(DisplayName = "GetActiveDispatchOnDateAsync: на більш ранню дату — до Return — особа ще в Dispatch")]
+        public async Task GetActiveDispatchOnDateAsync_Person_In_Dispatch_Before_Return_Date()
+        {
+            // Arrange
+            var p = Guid.NewGuid();
+            await SeedPersonAsync(p);
+
+            var d = new DateTime(2025, 09, 01, 0, 0, 0, DateTimeKind.Utc);
+
+            await SeedAsync(
+                NewPlanAction(personId: p, atUtc: d.AddDays(5), move: MoveType.Dispatch, state: ActionState.PlanAction),
+                NewPlanAction(personId: p, atUtc: d.AddDays(23), move: MoveType.Return, state: ActionState.PlanAction)
+            );
+
+            var atUtc = new DateTime(2025, 09, 22, 12, 0, 0, DateTimeKind.Utc); // ДО повернення
+
+            // Act
+            var res = await _svc.GetActiveDispatchOnDateAsync(atUtc);
+
+            // Assert
+            var list = res.ToList();
+            Assert.Single(list);
+            Assert.Equal(p, list[0].PersonId);
+            Assert.Equal(MoveType.Dispatch, list[0].MoveType);
+        }
+
+        [Fact(DisplayName = "GetActiveDispatchOnDateAsync: однаковий час — пріоритет ApprovedOrder над PlanAction")]
+        public async Task GetActiveDispatchOnDateAsync_Prefers_ApprovedOrder_Over_PlanAction_At_Same_Time()
+        {
+            // Arrange
+            var p = Guid.NewGuid();
+            await SeedPersonAsync(p);
+
+            var t = new DateTime(2025, 09, 10, 10, 0, 0, DateTimeKind.Utc);
+
+            await SeedAsync(
+                // Обидві — Dispatch, той самий час; має обрати ApprovedOrder
+                NewPlanAction(personId: p, atUtc: t, move: MoveType.Dispatch, state: ActionState.PlanAction),
+                NewPlanAction(personId: p, atUtc: t, move: MoveType.Dispatch, state: ActionState.ApprovedOrder)
+            );
+
+            // Act
+            var res = await _svc.GetActiveDispatchOnDateAsync(t);
+
+            // Assert
+            var item = Assert.Single(res);
+            Assert.Equal(p, item.PersonId);
+            Assert.Equal(ActionState.ApprovedOrder, item.ActionState); // пріоритет
+            Assert.Equal(MoveType.Dispatch, item.MoveType);
+        }
+
+        [Fact(DisplayName = "GetActiveDispatchOnDateAsync: сортування Location → Group → Crew → FullName (asc, case-insensitive)")]
+        public async Task GetActiveDispatchOnDateAsync_Sorts_As_Specified()
+        {
+            // Arrange
+            var p1 = Guid.NewGuid();
+            var p2 = Guid.NewGuid();
+            var p3 = Guid.NewGuid();
+            var p4 = Guid.NewGuid();
+
+            await SeedPersonAsync(p1);
+            await SeedPersonAsync(p2);
+            await SeedPersonAsync(p3);
+            await SeedPersonAsync(p4);
+
+            var t = new DateTime(2025, 09, 15, 0, 0, 0, DateTimeKind.Utc);
+
+            // Робимо так, щоб остання дія для кожного — саме Dispatch
+            var a1 = NewPlanAction(personId: p1, atUtc: t.AddMinutes(-5), move: MoveType.Dispatch, state: ActionState.ApprovedOrder);
+            a1.Location = "Bravo"; a1.GroupName = "A"; a1.CrewName = "X"; a1.FullName = "Марко";
+
+            var a2 = NewPlanAction(personId: p2, atUtc: t.AddMinutes(-4), move: MoveType.Dispatch, state: ActionState.ApprovedOrder);
+            a2.Location = "Alpha"; a2.GroupName = "B"; a2.CrewName = "Y"; a2.FullName = "Андрій";
+
+            var a3 = NewPlanAction(personId: p3, atUtc: t.AddMinutes(-3), move: MoveType.Dispatch, state: ActionState.ApprovedOrder);
+            a3.Location = "Alpha"; a3.GroupName = "A"; a3.CrewName = "Z"; a3.FullName = "Богдан";
+
+            var a4 = NewPlanAction(personId: p4, atUtc: t.AddMinutes(-2), move: MoveType.Dispatch, state: ActionState.ApprovedOrder);
+            a4.Location = "Alpha"; a4.GroupName = "A"; a4.CrewName = "Y"; a4.FullName = "Віктор";
+
+            await SeedAsync(a1, a2, a3, a4);
+
+            // Act
+            var res = (await _svc.GetActiveDispatchOnDateAsync(t.AddMinutes(1))).ToList();
+
+            // Assert: за Location asc → Group asc → Crew asc → FullName asc
+            Assert.Equal(4, res.Count);
+            Assert.Collection(res,
+                x => { Assert.Equal("Alpha", x.Location); Assert.Equal("A", x.GroupName); Assert.Equal("Y", x.CrewName); Assert.Equal("Віктор", x.FullName); },
+                x => { Assert.Equal("Alpha", x.Location); Assert.Equal("A", x.GroupName); Assert.Equal("Z", x.CrewName); Assert.Equal("Богдан", x.FullName); },
+                x => { Assert.Equal("Alpha", x.Location); Assert.Equal("B", x.GroupName); Assert.Equal("Y", x.CrewName); Assert.Equal("Андрій", x.FullName); },
+                x => { Assert.Equal("Bravo", x.Location); Assert.Equal("A", x.GroupName); Assert.Equal("X", x.CrewName); Assert.Equal("Марко", x.FullName); }
+            );
+        }
+
+        [Fact(DisplayName = "GetActiveDispatchOnDateAsync: включає події з часом, що дорівнює atUtc (inclusive)")]
+        public async Task GetActiveDispatchOnDateAsync_Inclusive_Boundary_AtUtc()
+        {
+            // Arrange
+            var p = Guid.NewGuid();
+            await SeedPersonAsync(p);
+
+            var at = new DateTime(2025, 09, 20, 12, 30, 0, DateTimeKind.Utc);
+            await SeedAsync(
+                NewPlanAction(personId: p, atUtc: at, move: MoveType.Dispatch, state: ActionState.PlanAction)
+            );
+
+            // Act
+            var res = await _svc.GetActiveDispatchOnDateAsync(at);
+
+            // Assert
+            var item = Assert.Single(res);
+            Assert.Equal(p, item.PersonId);
+            Assert.Equal(at, item.EffectiveAtUtc);
+            Assert.Equal(MoveType.Dispatch, item.MoveType);
+        }
+
+        [Fact(DisplayName = "GetActiveDispatchOnDateAsync: коли подій немає — повертає порожньо")]
+        public async Task GetActiveDispatchOnDateAsync_Empty_When_No_Items()
+        {
+            // Arrange
+            var at = new DateTime(2025, 09, 01, 0, 0, 0, DateTimeKind.Utc);
+
+            // Act
+            var res = await _svc.GetActiveDispatchOnDateAsync(at);
+
+            // Assert
+            Assert.NotNull(res);
+            Assert.Empty(res);
+        }
+
 
         [Fact]
         public async Task CreateAsync_Should_Insert_With_Trims_And_Nulls()

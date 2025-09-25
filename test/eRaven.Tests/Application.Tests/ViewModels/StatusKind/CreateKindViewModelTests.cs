@@ -8,7 +8,7 @@
 using eRaven.Application.ViewModels.StatusKindViewModels;
 using System.ComponentModel.DataAnnotations;
 
-namespace eRaven.Tests.Application.Tests.ViewModels;
+namespace eRaven.Tests.Application.Tests.ViewModels.StatusKind;
 
 public class CreateKindViewModelTests
 {
