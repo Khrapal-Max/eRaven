@@ -239,9 +239,10 @@ public sealed class PersonStatusServiceTests : IDisposable
         Assert.Equal(local.ToUniversalTime(), s2.OpenDate);
     }
 
-    [Fact(DisplayName = "SetStatusAsync: відхиляє момент ≤ останнього валідного")]
-    public async Task SetStatus_Rejects_NonIncreasingMoment()
+    [Fact(DisplayName = "SetStatusAsync: дозволяє момент == останньому (підвищує Sequence) і відхиляє < останнього")]
+    public async Task SetStatus_Allows_EqualMoment_IncrementsSequence_Blocks_PastMoment()
     {
+        // Arrange
         Guid pId; int aId, bId;
         var t1 = new DateTime(2025, 09, 10, 00, 00, 00, DateTimeKind.Utc);
         var t0 = t1.AddHours(-1);
@@ -249,27 +250,53 @@ public sealed class PersonStatusServiceTests : IDisposable
         await using (var db = _helper.CreateContext())
         {
             var p = NewPerson();
-            var a = NewKindUnique("A");
-            var b = NewKindUnique("B");
+            var a = NewKindUnique("A"); // from
+            var b = NewKindUnique("B"); // to
             db.AddRange(p, a, b);
             await db.SaveChangesAsync(_ct);
             pId = p.Id; aId = a.Id; bId = b.Id;
         }
 
-        _ = await _svc.SetStatusAsync(new PersonStatus { PersonId = pId, StatusKindId = aId, OpenDate = t1 }, _ct);
+        // Початковий статус A @ t1 (sequence очікуємо 0)
+        var first = await _svc.SetStatusAsync(
+            new PersonStatus { PersonId = pId, StatusKindId = aId, OpenDate = t1 }, _ct);
+        Assert.Equal((short)0, first.Sequence);
 
+        // Дозволений перехід A -> B
         await using (var db = _helper.CreateContext())
         {
             db.StatusTransitions.Add(Tr(aId, bId));
             await db.SaveChangesAsync(_ct);
         }
 
+        // 1) < останнього — має впасти
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _svc.SetStatusAsync(new PersonStatus { PersonId = pId, StatusKindId = bId, OpenDate = t0 }, _ct));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _svc.SetStatusAsync(new PersonStatus { PersonId = pId, StatusKindId = bId, OpenDate = t1 }, _ct));
+        // 2) == останньому — дозволено, має підняти Sequence
+        var second = await _svc.SetStatusAsync(
+            new PersonStatus { PersonId = pId, StatusKindId = bId, OpenDate = t1 }, _ct);
+
+        Assert.Equal(t1, second.OpenDate);
+        Assert.Equal((short)1, second.Sequence); // після першого запису на той самий момент
+
+        // Перевіримо, що збережено обидва в очікуваному порядку
+        await using (var db = _helper.CreateContext())
+        {
+            var list = await db.PersonStatuses
+                .Where(s => s.PersonId == pId)
+                .OrderBy(s => s.OpenDate).ThenBy(s => s.Sequence)
+                .ToListAsync(_ct);
+
+            Assert.Equal(2, list.Count);
+            Assert.Equal(aId, list[0].StatusKindId); // A @ t1 seq 0
+            Assert.Equal((short)0, list[0].Sequence);
+
+            Assert.Equal(bId, list[1].StatusKindId); // B @ t1 seq 1
+            Assert.Equal((short)1, list[1].Sequence);
+        }
     }
+
 
     [Fact(DisplayName = "SetStatusAsync: кидок при порожньому PersonId")]
     public async Task SetStatus_Throws_When_PersonId_Empty()

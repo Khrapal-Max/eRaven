@@ -96,7 +96,7 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
             throw new InvalidOperationException("Перехід у вказаний статус заборонено правилами.");
 
         // Забороняємо «назад у часі» відносно поточного
-        if (current is not null && openUtc <= current.OpenDate)
+        if (current is not null && openUtc < current.OpenDate)
             throw new InvalidOperationException("Момент має бути пізніший за останній відкритий статус.");
 
         // ====== 3) Присвоюємо Sequence на цей самий момент часу

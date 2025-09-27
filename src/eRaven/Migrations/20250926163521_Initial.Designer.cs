@@ -12,7 +12,7 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250920162335_Initial")]
+    [Migration("20250926163521_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -527,27 +527,17 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "В БР",
-                            Order = 20
+                            Order = 100
                         },
                         new
                         {
-                            Id = 3,
+                            Id = 6,
                             Author = "system",
-                            Code = "нб",
+                            Code = "100",
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Переміщення",
-                            Order = 30
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Author = "system",
-                            Code = "нб",
-                            IsActive = true,
-                            Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Звільнення",
-                            Order = 40
+                            Name = "В БТГр",
+                            Order = 100
                         },
                         new
                         {
@@ -557,17 +547,27 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Розпорядження",
+                            Order = 40
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Author = "system",
+                            Code = "нб",
+                            IsActive = true,
+                            Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Переміщення",
                             Order = 50
                         },
                         new
                         {
-                            Id = 6,
+                            Id = 4,
                             Author = "system",
-                            Code = "ВДР",
+                            Code = "нб",
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "В БТГр",
-                            Order = 60
+                            Name = "Звільнення",
+                            Order = 50
                         },
                         new
                         {
@@ -577,7 +577,7 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Відрядження",
-                            Order = 70
+                            Order = 80
                         },
                         new
                         {
@@ -607,7 +607,7 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Проходження ВЛК",
-                            Order = 100
+                            Order = 120
                         },
                         new
                         {
@@ -617,7 +617,7 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Направлення на МСЕК",
-                            Order = 110
+                            Order = 120
                         },
                         new
                         {
@@ -647,7 +647,7 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Безвісті",
-                            Order = 140
+                            Order = 170
                         },
                         new
                         {
@@ -657,17 +657,7 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Полон",
-                            Order = 150
-                        },
-                        new
-                        {
-                            Id = 16,
-                            Author = "system",
-                            Code = "200",
-                            IsActive = true,
-                            Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Загибель",
-                            Order = 160
+                            Order = 175
                         },
                         new
                         {
@@ -677,7 +667,7 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Арешт",
-                            Order = 170
+                            Order = 178
                         },
                         new
                         {
@@ -688,6 +678,16 @@ namespace eRaven.Migrations
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "СЗЧ",
                             Order = 180
+                        },
+                        new
+                        {
+                            Id = 16,
+                            Author = "system",
+                            Code = "200",
+                            IsActive = true,
+                            Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Загибель",
+                            Order = 190
                         });
                 });
 
