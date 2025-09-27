@@ -15,6 +15,7 @@ using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Application.Services.PositionService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.Services.StatusTransitionService;
+using eRaven.Application.Services.StaffingAggregation;
 using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Application.ViewModels.PositionPagesViewModels;
 using eRaven.Application.ViewModels.StatusKindViewModels;
@@ -36,7 +37,8 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
 {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")); // або ваш провайдер
+builder.Services.AddScoped<IStaffingAggregationService, StaffingAggregationService>();
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")); // Г ГЎГ® ГўГ Гё ГЇГ°Г®ГўГ Г©Г¤ГҐГ°
 });
 
 builder.Services.AddBlazoredToast();

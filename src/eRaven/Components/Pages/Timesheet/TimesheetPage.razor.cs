@@ -4,18 +4,17 @@
 //   1) DI, стан (Working vs Built)
 //   2) Життєвий цикл і Rebuild
 //   3) Навігація (міняє лише Working-*; перерахунок тільки по кнопці)
-//   4) Побудова денних клітинок (baseline + зміни)
+//   4) Побудова денних клітинок (timeline -> зміни)
 //   5) Відображення (кольори/легенда/тултіп)
 //   6) Експорт (формуємо TimesheetExportRow з Day01..Day31 тільки кодами)
 //   7) Утиліти/прибирання
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
-using eRaven.Application.Services.PersonService;
-using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.StatusKindService;
+using eRaven.Application.Services.StaffingAggregation;
 using eRaven.Application.ViewModels.TimesheetViewModels;
-using eRaven.Domain.Models;
+using eRaven.Domain.ValueObjects;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Timesheet;
@@ -23,9 +22,8 @@ namespace eRaven.Components.Pages.Timesheet;
 public partial class TimesheetPage : ComponentBase, IDisposable
 {
     // ============================= 1) DI, стан =============================
-    [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
-    [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!;
+    [Inject] private IStaffingAggregationService StaffingAggregationService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
 
     private readonly CancellationTokenSource _cts = new();
@@ -81,16 +79,15 @@ public partial class TimesheetPage : ComponentBase, IDisposable
 
             _kinds = await StatusKindService.GetAllAsync(ct: _cts.Token) ?? [];
 
-            var persons = await PersonService.SearchAsync(null, _cts.Token) ?? [];
-            if (persons.Count == 0) return;
-
             var fromUtc = ToUtcMidnight(BuiltStartLocal);
             var toUtc = ToUtcMidnight(BuiltEndLocal); // exclusive
 
-            foreach (var p in persons)
+            var timelines = await StaffingAggregationService.BuildTimelineAsync(fromUtc, toUtc, _cts.Token);
+            if (timelines.Count == 0) return;
+
+            foreach (var timeline in timelines)
             {
-                var hist = await PersonStatusService.GetHistoryAsync(p.Id, _cts.Token) ?? [];
-                var days = BuildDailyCellsWithBaseline(hist, fromUtc, toUtc);
+                var days = BuildDailyCellsFromSegments(timeline.Segments, fromUtc, toUtc);
 
                 if (days.Length == 0 || days.All(d => d is null || d.Code is null))
                     continue;
@@ -101,23 +98,22 @@ public partial class TimesheetPage : ComponentBase, IDisposable
 
                 Rows.Add(new TimesheetRow
                 {
-                    PersonId = p.Id,
-                    FullName = p.FullName,
-                    Rank = p.Rank,
-                    Rnokpp = p.Rnokpp,
+                    PersonId = timeline.Person.Id,
+                    FullName = timeline.Person.FullName,
+                    Rank = timeline.Person.Rank,
+                    Rnokpp = timeline.Person.Rnokpp,
                     Days = days
                 });
 
-                // ЕКСПОРТ: лише коди, рівно BuiltDaysInMonth
                 var codes = new string[BuiltDaysInMonth];
                 for (int i = 0; i < BuiltDaysInMonth; i++)
                     codes[i] = days[i]?.Code ?? string.Empty;
 
                 ExportRowsFlex.Add(new TimesheetExportRow
                 {
-                    FullName = p.FullName,
-                    Rank = p.Rank,
-                    Rnokpp = p.Rnokpp,
+                    FullName = timeline.Person.FullName,
+                    Rank = timeline.Person.Rank,
+                    Rnokpp = timeline.Person.Rnokpp,
                     Days = codes
                 });
             }
@@ -149,48 +145,69 @@ public partial class TimesheetPage : ComponentBase, IDisposable
         // НЕ перераховуємо — лише за кнопкою «Побудувати»
     }
 
-    // ========== 4) Побудова денних клітинок (baseline + зміни) ==========
-    private DayCell[] BuildDailyCellsWithBaseline(
-        IReadOnlyList<PersonStatus> history,
+    // ========== 4) Побудова денних клітинок (timeline -> зміни) ==========
+    private DayCell[] BuildDailyCellsFromSegments(
+        IReadOnlyList<StaffingSegment> segments,
         DateTime fromUtc,
         DateTime toUtc)
     {
         var daysCount = (toUtc - fromUtc).Days;
         var result = new DayCell[daysCount];
-        if (daysCount <= 0) return result;
-        if (history is null || history.Count == 0) return result;
+        if (daysCount <= 0 || segments is null || segments.Count == 0)
+            return result;
 
-        var ordered = history
-            .OrderBy(s => s.OpenDate)
-            .ThenBy(s => s.Sequence)
-            .ToList();
-
-        var baseline = ordered.LastOrDefault(s => s.OpenDate <= fromUtc);
-        string? currentCode = baseline?.StatusKind?.Code?.Trim() ?? CodeForKind(baseline?.StatusKindId ?? 0);
-        string? currentTitle = baseline?.StatusKind?.Name ?? NameForKind(baseline?.StatusKindId ?? 0);
-        string? currentNote = baseline?.Note;
-
-        var inRange = ordered.Where(s => s.OpenDate >= fromUtc && s.OpenDate < toUtc).ToList();
-        var idx = 0;
-
-        for (int i = 0; i < daysCount; i++)
+        foreach (var segment in segments.OrderBy(s => s.Range.StartUtc))
         {
-            var dayUtc = fromUtc.AddDays(i);
+            if (!segment.HasStatus)
+                continue;
 
-            while (idx < inRange.Count && inRange[idx].OpenDate <= dayUtc)
+            var clipped = segment.Range.Clamp(fromUtc, toUtc);
+            if (clipped is null)
+                continue;
+
+            var status = segment.Status!;
+            var code = status.Code?.Trim();
+            if (string.IsNullOrWhiteSpace(code))
+                code = CodeForKind(status.Id);
+
+            var title = status.Name ?? NameForKind(status.Id);
+            var note = string.IsNullOrWhiteSpace(segment.StatusNote) ? null : segment.StatusNote.Trim();
+
+            foreach (var slice in clipped.Value.SplitByDay())
             {
-                var s = inRange[idx++];
-                currentCode = s.StatusKind?.Code?.Trim() ?? CodeForKind(s.StatusKindId);
-                currentTitle = s.StatusKind?.Name ?? NameForKind(s.StatusKindId);
-                currentNote = s.Note;
+                var dayStartUtc = DateTime.SpecifyKind(slice.StartUtc.Date, DateTimeKind.Utc);
+                var index = (int)(dayStartUtc - fromUtc).TotalDays;
+                if (index < 0 || index >= daysCount)
+                    continue;
+
+                result[index] = new DayCell
+                {
+                    Code = string.IsNullOrWhiteSpace(code) ? null : code,
+                    Title = title,
+                    Note = note
+                };
             }
+        }
 
-            result[i] = new DayCell
+        DayCell? carry = null;
+        for (int i = 0; i < result.Length; i++)
+        {
+            if (result[i] is null)
             {
-                Code = string.IsNullOrWhiteSpace(currentCode) ? null : currentCode,
-                Title = currentTitle,
-                Note = string.IsNullOrWhiteSpace(currentNote) ? null : currentNote?.Trim()
-            };
+                if (carry is not null)
+                {
+                    result[i] = new DayCell
+                    {
+                        Code = carry.Code,
+                        Title = carry.Title,
+                        Note = carry.Note
+                    };
+                }
+            }
+            else
+            {
+                carry = result[i];
+            }
         }
 
         return result;
