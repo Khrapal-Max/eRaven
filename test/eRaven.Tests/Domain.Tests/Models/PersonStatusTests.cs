@@ -26,7 +26,7 @@ public class PersonStatusTests
         Assert.Equal(default, s.OpenDate);           // 0001-01-01
         Assert.Null(s.Note);
 
-        Assert.False(s.IsActive);
+        Assert.True(s.IsActive);
         Assert.Null(s.Author);
         Assert.Equal(default, s.Modified);
 
@@ -47,7 +47,7 @@ public class PersonStatusTests
             Note = "Будь-яка примітка",
             Author = "tester",
             // Sequence залишаємо за замовчуванням (0)
-            // IsActive залишаємо за замовчуванням (false)
+            // IsActive залишаємо за замовчуванням (true)
         };
 
         // Act

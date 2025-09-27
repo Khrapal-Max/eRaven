@@ -20,7 +20,7 @@ public class PersonStatus
     public StatusKind StatusKind { get; set; } = default!;
 
     public DateTime OpenDate { get; set; }
-    public bool IsActive { get; set; }
+    public bool IsActive { get; set; } = true;
     public short Sequence { get; set; }
     public string? Note { get; set; }
     public string? Author { get; set; }
