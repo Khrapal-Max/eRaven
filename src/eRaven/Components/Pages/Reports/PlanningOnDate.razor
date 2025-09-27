@@ -1,0 +1,134 @@
+﻿@page "/reports/planning-on-date"
+
+@using eRaven.Components.Shared.ExcelExportButton
+@using eRaven.Application.ViewModels.PlanningOnDateViewModels
+
+<PageTitle>Планування на дату</PageTitle>
+
+<div class="planning-root">
+
+    <!-- Тулбар: стоїть на місці -->
+    <div class="planning-toolbar">
+        <div class="container-fluid">
+            <div class="row align-items-end g-2">
+                <!-- Зліва: дата + Побудувати -->
+                <div class="col-12 col-md-auto">                    
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="form-label mb-1 small text-black">Дата (UTC 00:00)</label>
+                        <div class="input-group input-group-sm" style="width: 190px;">
+                            <span class="input-group-text text-black bg-warning"><i class="bi bi-calendar3"></i></span>
+                            <InputDate @bind-Value="DateLocal" class="form-control form-control-sm bg-info" />
+                        </div>
+                        <button class="btn btn-primary btn-sm"
+                                @onclick="ReloadAsync"
+                                disabled="@Busy"
+                                title="Побудувати">
+                            <i class="bi bi-play me-1"></i> Побудувати
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Справа: Експорт -->
+                <div class="col-12 col-md d-flex justify-content-md-end">
+                    <div class="d-inline-block text-nowrap">
+                        <ExcelExportButton Items="ExportLines"
+                                           FileName="@($"Планування_{DateLocal:yyyy-MM-dd}")"
+                                           Text="Експорт"
+                                           ButtonClass="btn btn-success btn-sm"
+                                           IconClass="bi bi-file-earmark-excel"
+                                           Title="Експорт в Excel"
+                                           Disabled="@(Busy || ExportLines.Count == 0)"
+                                           OnBusyChanged="OnExportBusyChanged" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Канвас із картками: скролиться лише він -->
+    <div class="planning-cards-scroll">
+        <div class="container-fluid pe-3 ps-0">
+            @if (Busy)
+            {
+                <div class="fw-bold">Завантаження…</div>
+            }
+            else if (Groups.Count == 0)
+            {
+                <div class="fw-bold">Порожньо (на цю дату немає записів планування типу «Відрядження»).</div>
+            }
+            else
+            {
+                <div class="row row-cols-1 row-cols-lg-2 g-3">
+                    @foreach (var loc in Groups)
+                    {
+                        @foreach (var grp in loc.Groups)
+                        {
+                            @foreach (var crew in grp.Crews)
+                            {
+                                <div class="col">
+                                    <div class="card h-100 shadow-sm border-0">
+                                        <h5 class="card-header bg-secondary text-black">
+                                            <span class="me-2 text-break" title="@loc.Location">@loc.Location</span>
+                                            <span class="mx-2 text-break" title="@grp.GroupName">@grp.GroupName</span>
+                                            <span class="ms-2 text-break" title="@crew.CrewName">@crew.CrewName</span>
+                                        </h5>
+
+                                        <div class="card-body">
+                                            @if (crew.Rows.Count == 0)
+                                            {
+                                                <div class="text-muted small">Немає записів</div>
+                                            }
+                                            else
+                                            {
+                                                @foreach (var r in crew.Rows)
+                                                {
+                                                    <div class="py-2 border-bottom">
+                                                        <div class="d-flex align-items-start justify-content-between gap-2">
+                                                            <div class="min-w-0">
+                                                                <div class="small text-uppercase text-muted mb-1">@r.RankName
+                                                                    <span class="fw-semibold text-truncate text-white">@r.FullName</span>
+                                                                </div>
+                                                                @if (!string.IsNullOrWhiteSpace(r.Callsign))
+                                                                {
+                                                                    <div class="small text-muted">Позивний:
+                                                                        <span class="fw-semibold text-truncate text-white">@r.Callsign</span>
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                            <div class="font-monospace" style="white-space:nowrap;">
+                                                                @r.EffectiveAtUtc.ToString("HH:mm dd.MM.yyyy")
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="mt-1">
+                                                            <div class="badge bg-warning text-black me-2">
+                                                                Рапорт:
+                                                                <span>@r.PlanActionName</span>                                                              
+                                                            </div>
+                                                            @if (!string.IsNullOrWhiteSpace(r.Order))
+                                                            {
+                                                                <span class="badge bg-success ">
+                                                                    Наказ:
+                                                                    <span>@r.Order</span>
+                                                                </span>
+                                                            }
+                                                            @if (!string.IsNullOrWhiteSpace(r.Note))
+                                                            {
+                                                                <div class="text-muted">@r.Note</div>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                }
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+</div>

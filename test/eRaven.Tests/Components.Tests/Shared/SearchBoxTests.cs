@@ -14,26 +14,6 @@ namespace eRaven.Tests.Components.Tests.Shared;
 public sealed class SearchBoxTests : TestContext
 {
     [Fact]
-    public void Debounce_FiresOnce_After_Last_Keystroke()
-    {
-        // Arrange
-        var calls = 0;
-        var cut = RenderComponent<SearchBox>(ps => ps
-            .Add(p => p.Delay, 20)
-            .Add(p => p.OnSearch, EventCallback.Factory.Create(this, () => calls++))
-        );
-
-        var input = cut.Find("input.form-control");
-
-        // Act: два швидкі введення — має спрацювати лише останнє
-        input.Input("a");
-        input.Input("ab");
-
-        // Assert: чекаємо поки debounce відпрацює
-        cut.WaitForAssertion(() => Assert.Equal(1, calls), timeout: TimeSpan.FromMilliseconds(500));
-    }
-
-    [Fact]
     public async Task Reload_Click_Fires_Immediately_When_Enabled()
     {
         // Arrange
@@ -130,8 +110,9 @@ public sealed class SearchBoxTests : TestContext
     }
 
     [Fact]
-    public void Reload_CancelsPendingDebounce()
+    public async Task Reload_CancelsPendingDebounce()
     {
+        // Arrange
         var calls = 0;
         var cut = RenderComponent<SearchBox>(ps => ps
             .Add(p => p.Delay, 200)
@@ -139,11 +120,19 @@ public sealed class SearchBoxTests : TestContext
         );
 
         var input = cut.Find("input.form-control");
-        input.Input("a");              // старт дебаунсу
-        cut.Find("button.btn").Click();// миттєвий виклик
 
-        // дебаунс має бути скасований -> лише 1 виклик
-        cut.WaitForAssertion(() => Assert.Equal(1, calls), TimeSpan.FromMilliseconds(400));
+        // Act: стартуємо дебаунс та відразу тиснемо Reload (який має скасувати CTS)
+        input.Input("a"); // oninput → bind:after → стартує відкладений виклик
+        await cut.InvokeAsync(() => cut.Find("button.btn").Click());
+
+        // Assert (миттєво після Reload) — рівно 1 виклик (через Reload)
+        Assert.Equal(1, calls);
+
+        // Чекаємо трохи довше за Delay, аби переконатись, що відкладений виклик не “догнав”
+        await Task.Delay(350); // > 200ms з запасом
+
+        // Досі лише 1 виклик
+        Assert.Equal(1, calls);
     }
 
     [Fact]

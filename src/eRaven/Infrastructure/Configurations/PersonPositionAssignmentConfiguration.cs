@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
-public sealed class PersonPositionAssignmentConfiguration : IEntityTypeConfiguration<PersonPositionAssignment>
+public class PersonPositionAssignmentConfiguration : IEntityTypeConfiguration<PersonPositionAssignment>
 {
     public void Configure(EntityTypeBuilder<PersonPositionAssignment> e)
     {

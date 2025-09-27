@@ -1,0 +1,126 @@
+﻿@page "/timesheet"
+
+@using eRaven.Application.ViewModels.TimesheetViewModels
+@using eRaven.Components.Pages.Timesheet
+@using eRaven.Components.Shared
+@using eRaven.Components.Shared.ExcelExportButton
+@using eRaven.Domain.Models
+
+<PageTitle>Табель</PageTitle>
+
+<div class="container-fluid py-2 d-flex flex-column" style="gap:.75rem; min-height:70vh;">
+
+    <!-- =====================  Toolbar  ===================== -->
+    <div class="d-flex justify-content-between">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Timesheet nav">
+                <button class="btn btn-warning" @onclick="PrevMonth" title="Попередній місяць">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+
+                <!-- Вибір МІСЯЦЯ (тільки Working*, без автоперерахунку) -->
+                <InputSelect class="form-select form-select-sm"
+                             style="min-width:120px;max-width:160px;"
+                             @bind-Value="WorkingMonth">
+                    @for (var m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">@(new DateTime(2000, m, 1).ToString("MMM"))</option>
+                    }
+                </InputSelect>
+
+                <!-- Вибір РОКУ (тільки Working*, без автоперерахунку) -->
+                <InputNumber class="form-control form-control-sm text-center"
+                             style="width:90px;"
+                             @bind-Value="WorkingYear" />
+
+                <button class="btn btn-warning" @onclick="NextMonth" title="Наступний місяць">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+
+                <!-- Побудова: копіює Working -> Built і рендерить -->
+                <button class="btn btn-primary" @onclick="RebuildAsync" disabled="@Busy" title="Побудувати">
+                    <i class="bi bi-play"></i>
+                </button>
+            </div>
+
+            <!-- Показуємо період ЛИШЕ за Built* -->
+            <div class="text-black small">
+                Період: <strong>@BuiltStartLocal.ToString("dd.MM.yyyy")</strong> — <strong>@BuiltEndLocal.AddDays(-1).ToString("dd.MM.yyyy")</strong>
+            </div>
+        </div>
+
+        <!-- Експорт тільки кодів -->
+        <ExcelExportButton Items="ExportRowsFlex"
+                           FileName="@( $"Табель_{BuiltYear:0000}-{BuiltMonth:00}" )"
+                           Text="Експорт"
+                           ButtonClass="btn btn-success btn-sm"
+                           IconClass="bi bi-file-earmark-excel"
+                           Title="Експорт в Excel"
+                           Disabled="@(Busy || ExportRowsFlex.Count == 0)"
+                           OnBusyChanged="OnExportBusyChanged" />
+    </div>
+
+    <!-- =====================  Таблиця  ===================== -->
+    @if (Busy)
+    {
+        <div class="fw-bold">Завантаження…</div>
+    }
+    else if (Rows.Count == 0)
+    {
+        <div class="fw-bold">Порожньо (весь місяць «нб/РОЗПОР» або взагалі немає статусів).</div>
+    }
+    else
+    {
+        <div class="bg-dark rounded flex-grow-1 d-flex">
+            <TableBaseComponent TItem="TimesheetRow" Items="Rows" Class="table table-sm align-middle mb-0">
+                <TableHeader>
+                    <th class="text-black">ПІБ</th>
+                    <th class="text-black text-center">РНОКПП</th>
+                    @for (int d = 1; d <= BuiltDaysInMonth; d++)
+                    {
+                        <th class="text-black text-center" style="min-width:28px;width:28px;">@d</th>
+                    }
+                </TableHeader>
+
+                <RowTemplate Context="r">
+                    <td><div class="fw-semibold small">@r.FullName</div></td>
+                    <td class="text-center small">@r.Rnokpp</td>
+
+                    @for (var i = 0; i < BuiltDaysInMonth; i++)
+                    {
+                        var cell = (r.Days is not null && i < r.Days.Length) ? r.Days[i] : null;
+                        var status = cell?.Code;
+
+                        <td class="text-center align-middle p-0" style="min-width:28px;width:28px;">
+                            @if (string.IsNullOrWhiteSpace(status))
+                            {
+                                <span class="d-inline-block px-1 small text-muted">—</span>
+                            }
+                            else if (status!.Equals("30", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <span class="d-inline-block px-1 small" title="@BuildTitle(cell)">@status</span>
+                            }
+                            else
+                            {
+                                TouchLegend(status);
+                                <span class="@GetBadgeClass(status)" title="@BuildTitle(cell)">@status</span>
+                            }
+                        </td>
+                    }
+                </RowTemplate>
+            </TableBaseComponent>
+        </div>
+
+        @if (LegendCodes.Count > 0)
+        {
+            <div class="small mt-2 d-flex flex-wrap align-items-center" style="gap:.5rem;">
+                <span class="me-1">Легенда:</span>
+                @foreach (var c in LegendCodes.OrderBy(c => c))
+                {
+                    <span class="@GetBadgeClass(c)" title="@GetStatusTitle(c)">@c</span>
+                }
+                <span class="ms-2">«30» — без підсвітки</span>
+            </div>
+        }
+    }
+</div>

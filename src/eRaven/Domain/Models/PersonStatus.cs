@@ -13,42 +13,20 @@ namespace eRaven.Domain.Models;
 public class PersonStatus
 {
     public Guid Id { get; set; }
-
-    /// <summary>
-    /// Зв'язок з людиною
-    /// </summary>
     public Guid PersonId { get; set; }
-    public Person Person { get; set; } = null!;
+    public Person Person { get; set; } = default!;
 
-    /// <summary>
-    /// Поточний статус
-    /// </summary>
     public int StatusKindId { get; set; }
-    public StatusKind StatusKind { get; set; } = null!;
+    public StatusKind StatusKind { get; set; } = default!;
 
-    /// <summary>
-    /// ДІя з - до
-    /// </summary>
-    public DateTime OpenDate { get; set; }        // UTC
-    public DateTime? CloseDate { get; set; }      // null = активний
-
-    /// <summary>
-    /// Примітка
-    /// </summary>
-    public string? Note { get; set; }
-
-    /// <summary>
-    /// Стан статусу - активний враховуємо для звітів/відмінений не враховуємо
-    /// </summary>
+    public DateTime OpenDate { get; set; }
     public bool IsActive { get; set; }
-
-    /// <summary>
-    /// Автор
-    /// </summary>
+    public short Sequence { get; set; }
+    public string? Note { get; set; }
     public string? Author { get; set; }
-
-    /// <summary>
-    /// Дата та час останбої зміни
-    /// </summary>
     public DateTime Modified { get; set; }
+
+    // НОВЕ: для аудиту, звідки з’явився цей статус
+    public Guid? SourceDocumentId { get; set; }
+    public string? SourceDocumentType { get; set; }
 }

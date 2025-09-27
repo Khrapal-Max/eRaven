@@ -1,0 +1,156 @@
+﻿@page "/status-kinds"
+
+@using eRaven.Domain.Models
+@using eRaven.Components.Pages.StatusTransitions.Modals
+
+<section class="d-flex justify-content-between mb-2">
+    <div class="fw-bold text-black">Правила переходів статусів</div>
+
+    <button class="btn btn-sm btn-primary" @onclick="OpenCreateModal" disabled="@_busy">
+        <i class="bi bi-plus"></i> Додати статус
+    </button>
+</section>
+
+<div class="row g-3">
+    @if(_kinds.Count > 0)
+    {
+
+    <!-- Ліва панель -->
+    <div class="col-12 col-md-5">
+        <div class="card">
+            <div class="card-header py-2">
+                <strong>З якого статусу</strong>
+            </div>
+
+            <div class="card-body p-0">
+                <TableBaseComponent TItem="StatusKind"
+                                    Class="table-sm align-middle mb-0"
+                                    Items="_kinds"
+                                    SelectedItem="_selectedFrom"
+                                    SelectedItemChanged="OnLeftSelectedChangedAsync"
+                                    OnClick="OnLeftRowClick"
+                                    MaxHeight="70vh"
+                                    MinHeight="200px">
+                    <TableHeader>
+                        <th class="text-start text-black">Статус</th>
+                        <th class="text-start text-black" style="width:96px;">Код</th>
+                        <th class="text-center text-black" style="width:80px;">Порядок</th>
+                        <th class="text-center text-black"style="width:90px;">Активний</th>
+                        <th class="text-center text-black"style="width:88px;"><i class="bi bi-arrow-left-right"></i></th>
+                    </TableHeader>
+
+                    <RowTemplate Context="k">
+                        <td>@k.Name</td>
+                        <td><span class="badge bg-light text-dark">@k.Code</span></td>
+                        <td class="text-center">@k.Order</td>
+
+                        <td class="text-center" @onclick:stopPropagation="true">
+                            <!-- ЛІВИЙ ТОГЛ: Активний/Неактивний -->
+                            <TransitionToggle FromId="k.Id"
+                                              ToId="k.Id"
+                                              ToName="k.Name"
+                                              Checked="k.IsActive"
+                                              CheckedChanged="(val => OnActiveCheckedChangedAsync(k.Id, val))"
+                                              Disabled="_busy"
+                                              Title="Змінити активність"
+                                              ConfirmAsync="ConfirmActiveAsync"
+                                              SaveAsync="SaveActiveAsync" />
+                        </td>
+
+                        <td class="text-center" @onclick:stopPropagation="true">
+                            <button class="btn btn-warning btn-sm"
+                                    title="Редагувати порядок"
+                                    disabled="@_busy"
+                                    @onclick="(() => OpenEditOrderModal(k))">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </td>
+                    </RowTemplate>
+                </TableBaseComponent>
+            </div>
+        </div>
+    </div>
+
+    <!-- Права панель -->
+    <div class="col-12 col-md-7">
+        <div class="card">
+            <div class="card-header py-2 d-flex align-items-center justify-content-between">
+                <div>
+                    <strong>Дозволені переходи</strong>
+                    <span class="text-secondary ms-2">
+                        з: @_currentFromName (@_currentFromCode)
+                    </span>
+                </div>
+                <span class="small text-secondary">Вибрано: @_allowedToIds.Count</span>
+            </div>
+
+            <div class="card-body p-0">
+                @if (_selectedFromId == 0)
+                {
+                    <div class="p-3 text-secondary">Оберіть статус зліва.</div>
+                }
+                else
+                {
+                    <TableBaseComponent TItem="StatusKind"
+                                        Class="table-sm align-middle mb-0"
+                                        Items="_kinds"
+                                        MaxHeight="70vh"
+                                        MinHeight="200px">
+                        <TableHeader>
+                                <th class="text-center text-black" style="width:56px;">Дозволено</th>
+                                <th class="text-black">Статус</th>
+                                <th class="text-start text-black" style="width:96px;">Код</th>
+                        </TableHeader>
+
+                        <RowTemplate Context="k">
+                            @{
+                                var self = k.Id == _selectedFromId;
+                                var isChecked = _allowedToIds.Contains(k.Id);
+                            }
+
+                            <td class="text-center" @onclick:stopPropagation="true">
+                                <TransitionToggle FromId="_selectedFromId"
+                                                  ToId="k.Id"
+                                                  ToName="k.Name"
+                                                  Checked="isChecked"
+                                                  CheckedChanged="(val => OnAllowedCheckedChangedAsync(k.Id, val))"
+                                                  Disabled="self || _busy"
+                                                  Title="@(self ? "сам-на-себе — заборонено" : "Дозволити перехід")"
+                                                  ConfirmAsync="ConfirmAllowedAsync"
+                                                  SaveAsync="SaveAllowedAsync" />
+                            </td>
+
+                            <td>
+                                @k.Name
+                                @if (self)
+                                {
+                                    <span class="text-muted small ms-1">(сам-на-себе — заборонено)</span>
+                                }
+                            </td>
+
+                            <td><span class="badge bg-light text-dark">@k.Code</span></td>
+                        </RowTemplate>
+                    </TableBaseComponent>
+                }
+            </div>
+        </div>
+        </div>
+    }
+    else
+    {
+        <div class="text-secondary text-center py-3">Немає статусів</div>
+    }
+</div>
+
+
+<!-- Підтвердження зміни активності / формові сценарії -->
+
+<ConfirmModal @ref="Confirm" Title="Підтвердження" ConfirmText="Підтвердити" CancelText="Скасувати" />
+
+<!-- Створення статусу / формові сценарії -->
+
+<StatusCreateModal @ref="_createModal" OnCreated="OnCreatedAsync" />
+
+<!-- Підтвердження зміни порядку -->
+
+<StatusOrderEditModal @ref="_orderModal" OnSaved="OnOrderSaved" />

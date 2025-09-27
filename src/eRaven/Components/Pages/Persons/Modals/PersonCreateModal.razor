@@ -1,0 +1,81 @@
+﻿@* Components/Pages/Persons/Modals/PersonCreateModal.razor *@
+@using eRaven.Application.ViewModels.PersonViewModels
+@using Blazored.FluentValidation
+
+@if (IsOpen)
+{
+    <div class="modal fade show text-white" style="display:block;" tabindex="-1" aria-modal="true" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title">Створення картки особи</h6>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="CancelAsync"></button>
+                </div>
+
+                <EditForm Model="@Model" OnValidSubmit="CreateAsync">
+                    <AntiforgeryToken />
+                    <FluentValidationValidator @ref="_fv" />
+
+                    <div class="modal-body">
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <label class="form-label form-label-sm">Прізвище <span class="text-danger">*</span></label>
+                                <InputText class="form-control form-control-sm" @bind-Value="Model.LastName" />
+                                <ValidationMessage For="() => Model.LastName" />
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label form-label-sm">Ім’я <span class="text-danger">*</span></label>
+                                <InputText class="form-control form-control-sm" @bind-Value="Model.FirstName" />
+                                <ValidationMessage For="() => Model.FirstName" />
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label form-label-sm">По батькові</label>
+                                <InputText class="form-control form-control-sm" @bind-Value="Model.MiddleName" />
+                                <ValidationMessage For="() => Model.MiddleName" />
+                            </div>
+
+                            <div class="col-4">
+                                <label class="form-label form-label-sm">РНОКПП <span class="text-danger">*</span></label>
+                                <InputText class="form-control form-control-sm" @bind-Value="Model.Rnokpp" />
+                                <ValidationMessage For="() => Model.Rnokpp" />
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label form-label-sm">Звання <span class="text-danger">*</span></label>
+                                <InputText class="form-control form-control-sm" @bind-Value="Model.Rank" />
+                                <ValidationMessage For="() => Model.Rank" />
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label form-label-sm">Позивний</label>
+                                <InputText class="form-control form-control-sm" @bind-Value="Model.Callsign" />
+                                <ValidationMessage For="() => Model.Callsign" />
+                            </div>
+
+                            <div class="col-6">
+                                <label class="form-label form-label-sm">БЗВП <span class="text-danger">*</span></label>
+                                <InputText class="form-control form-control-sm" @bind-Value="Model.BZVP" />
+                                <ValidationMessage For="() => Model.BZVP" />
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label form-label-sm">Зброя</label>
+                                <InputText class="form-control form-control-sm" @bind-Value="Model.Weapon" />
+                                <ValidationMessage For="() => Model.Weapon" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer py-2">
+                        <button type="button" class="btn btn-sm btn-warning" @onclick="CancelAsync" disabled="@Busy">Скасувати</button>
+                        <button type="submit" class="btn btn-sm btn-primary" disabled="@Busy">
+                            @if (Busy)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Створити
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}

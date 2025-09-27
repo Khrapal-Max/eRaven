@@ -1,0 +1,100 @@
+﻿@page "/reports/staff-on-date"
+
+@using eRaven.Domain.Models
+@using eRaven.Components.Shared
+@using eRaven.Components.Shared.ExcelExportButton
+@using eRaven.Application.ViewModels.StaffOnDateViewModels
+
+<PageTitle>Особовий склад на дату</PageTitle>
+
+<div class="container-fluid py-2 d-flex flex-column" style="gap:.75rem; min-height:70vh;">
+
+    <!-- ===================== Toolbar ===================== -->
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <label class="form-label mb-0 small">Дата (UTC 00:00)</label>
+
+            <InputDate @bind-Value="DateLocal"
+                       class="form-control form-control-sm"
+                       style="width: 160px;" />
+
+            <button class="btn btn-primary btn-sm" @onclick="ReloadAsync" disabled="@Busy" title="Побудувати">
+                <i class="bi bi-play"></i>
+            </button>
+
+            <div class="text-black small ms-2">
+                Станом на: <strong>@DateLocal.ToString("dd.MM.yyyy")</strong>
+            </div>
+        </div>
+
+        <ExcelExportButton Items="Rows"
+                           FileName="@($"Особовий_склад_{DateLocal:yyyy-MM-dd}")"
+                           Text="Експорт"
+                           ButtonClass="btn btn-success btn-sm"
+                           IconClass="bi bi-file-earmark-excel"
+                           Title="Експорт в Excel"
+                           Disabled="@(Busy || Rows.Count == 0)"
+                           OnBusyChanged="OnExportBusyChanged" />
+    </div>
+
+    <!-- ===================== Таблиця ===================== -->
+    @if (Busy)
+    {
+        <div class="fw-bold">Завантаження…</div>
+    }
+    else if (Rows.Count == 0)
+    {
+        <div class="fw-bold">Порожньо (на цю дату всі у «нб/РОЗПОР» або немає даних).</div>
+    }
+    else
+    {
+        <div class="bg-dark rounded flex-grow-1 d-flex">
+            <TableBaseComponent TItem="ReportRow"
+                                Items="Rows"
+                                Class="table table-sm align-middle mb-0">
+                <TableHeader>
+                    <th class="text-black text-center">Індекс</th>
+                    <th class="text-black">Посада (коротка)</th>
+                    <th class="text-black">Повна назва</th>
+                    <th class="text-black text-center">ВОС</th>
+                                       
+                    <th class="text-black text-center">Звання</th>
+                    <th class="text-black">ПІБ</th>
+                    <th class="text-black text-center">РНОКПП</th>
+                    <th class="text-black text-center">Позивний</th>
+                    <th class="text-black text-center">БЗВП</th>
+                    <th class="text-black text-center">Зброя</th>
+
+                    <th class="text-black text-center">Статус</th>
+                    <th class="text-black">Нотатка</th>
+                </TableHeader>
+
+                <RowTemplate Context="r">
+                    <td class="text-center small">@r.PositionCode</td>
+                    <td class="small">@r.PositionShort</td>
+                    <td class="small">@r.PositionFull</td>
+                    <td class="text-center small">@((r.SpecialNumber ?? string.Empty))</td>
+                    
+                    <td class="text-center small">@r.Rank</td>
+                    <td class="small fw-semibold">@r.FullName</td>
+                    <td class="text-center small">@r.Rnokpp</td>
+                    <td class="text-center small">@r.Callsign</td>
+                    <td class="text-center small">@r.BZVP</td>
+                    <td class="text-center small">@r.Weapon</td>
+
+                    <td class="text-center">
+                        @if (string.IsNullOrWhiteSpace(r.StatusCode) || r.StatusCode!.Equals("30", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <span class="d-inline-block px-1 small">@r.StatusCode</span>
+                        }
+                        else
+                        {
+                            <span class="@GetBadgeClass(r.StatusCode!)" title="@GetStatusTitle(r.StatusCode!)">@r.StatusCode</span>
+                        }
+                    </td>
+                    <td class="small">@r.StatusNote</td>
+                </RowTemplate>
+            </TableBaseComponent>
+        </div>
+    }
+</div>

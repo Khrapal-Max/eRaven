@@ -1,0 +1,69 @@
+﻿@page "/audit-log-statuses"
+
+@using eRaven.Domain.Models
+@using eRaven.Components.Shared.ConfirmModal
+@using eRaven.Components.Shared.TransitionToggle
+
+<PageTitle>Журнал змін статусів</PageTitle>
+
+<div class="container-fluid py-2 d-flex flex-column" style="gap:.5rem; min-height:70vh;">
+
+    <!-- Search -->
+    <div class="d-flex align-items-center gap-2 p-1 flex-wrap justify-content-between w-100">
+        <div class="flex-grow-1" style="min-width:250px; max-width:600px;">
+        <SearchBox @bind-Value="Search"
+                   Delay="350"
+                   Placeholder="Пошук: ПІБ / ІПН / статус"
+                   Disabled="@Busy"
+                   OnSearch="OnSearchAsync" />
+        </div>
+    </div>
+
+    <!-- Таблиця -->
+    @if (_view.Any())
+    {
+        <div class="bg-dark rounded flex-grow-1 d-flex">
+            <TableBaseComponent Items="_view"
+                                TItem="PersonStatus"
+                                Class="table align-middle mb-0">
+                <TableHeader>
+                    <th class="text-black">Статус</th>
+                    <th class="text-black text-center">Дата події</th>
+                    <th class="text-black">Примітка</th>
+                    <th class="text-black">Особа</th>
+                    <th class="text-black text-center">Автор</th>
+                    <th class="text-black text-center">Дата запису</th>
+                    <th class="text-black text-center">Стан</th>
+                </TableHeader>
+
+                <RowTemplate Context="s">
+                    <td>@(s.StatusKind?.Name ?? $"ID {s.StatusKindId}")</td>
+                    <td class="text-center">@s.OpenDate.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                    <td class="text-wrap">@s.Note</td>
+                    <td>@s.Person?.FullName @s.Person?.Rnokpp</td>
+                    <td class="text-center">@s.Author</td>
+                    <td class="text-center">@s.Modified.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                    <td class="text-center">
+                        <TransitionToggle TiD="Guid"
+                                          FromId="@s.PersonId"
+                                          ToId="@s.Id"
+                                          ToName="@(s.StatusKind?.Name ?? string.Empty)"
+                                          Title="Змінити ознаку активності інтервалу"
+                                          Disabled="@Busy"
+                                          Checked="@s.IsActive"
+                                          CheckedChanged="(val) => OnToggleChangedAsync(s, val)"
+                                          ConfirmAsync="ConfirmToggleAsync"
+                                          SaveAsync="SaveToggleAsync" />
+                    </td>
+                </RowTemplate>
+            </TableBaseComponent>
+        </div>
+    }
+    else
+    {
+        <div class="h5 px-2">@((Busy ? "Завантаження…" : "Регістр порожній або нічого не знайдено."))</div>
+    }
+</div>
+
+<!-- Підтвердження -->
+<ConfirmModal @ref="_confirm" Title="Підтвердження зміни стану" />

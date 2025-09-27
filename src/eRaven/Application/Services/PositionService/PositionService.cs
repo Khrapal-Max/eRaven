@@ -11,22 +11,33 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Application.Services.PositionService;
 
-public class PositionService(AppDbContext appDbContext) : IPositionService
+public class PositionService(IDbContextFactory<AppDbContext> dbf) : IPositionService
 {
-    private readonly AppDbContext _appDbContext = appDbContext;
+    private readonly IDbContextFactory<AppDbContext> _dbf = dbf;
 
     public async Task<IReadOnlyList<PositionUnit>> GetPositionsAsync(bool onlyActive = true, CancellationToken ct = default)
     {
-        var q = _appDbContext.PositionUnits.AsNoTracking();
-        if (onlyActive) q = q.Where(p => p.IsActived);
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var q = db.PositionUnits
+            .AsNoTracking()
+            .Include(x => x.CurrentPerson)
+            .Where(p => p.IsActived);
+
         return await q.ToListAsync(ct);
     }
 
-    public Task<PositionUnit?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
-        _appDbContext.PositionUnits.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct);
+    public async Task<PositionUnit?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        return await db.PositionUnits.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct);
+    }
 
     public async Task<PositionUnit> CreatePositionAsync(PositionUnit positionUnit, CancellationToken ct = default)
     {
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
         if (string.IsNullOrWhiteSpace(positionUnit.ShortName))
             throw new ArgumentException("Назва обов'язкова.", nameof(positionUnit));
 
@@ -41,14 +52,16 @@ public class PositionService(AppDbContext appDbContext) : IPositionService
                 throw new InvalidOperationException("Активна посада з таким кодом вже існує.");
         }
 
-        var entry = await _appDbContext.PositionUnits.AddAsync(positionUnit, ct);
-        await _appDbContext.SaveChangesAsync(ct);
+        var entry = await db.PositionUnits.AddAsync(positionUnit, ct);
+        await db.SaveChangesAsync(ct);
         return entry.Entity;
     }
 
     public async Task<bool> SetActiveStateAsync(Guid id, bool isActive, CancellationToken ct = default)
     {
-        var pos = await _appDbContext.PositionUnits.FirstOrDefaultAsync(p => p.Id == id, ct);
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var pos = await db.PositionUnits.FirstOrDefaultAsync(p => p.Id == id, ct);
         if (pos is null) return false;
 
         if (pos.IsActived == isActive)
@@ -60,7 +73,7 @@ public class PositionService(AppDbContext appDbContext) : IPositionService
         if (!isActive)
         {
             // Забороняємо деактивацію, якщо посада закріплена
-            var occupied = await _appDbContext.Persons.AsNoTracking()
+            var occupied = await db.Persons.AsNoTracking()
                 .AnyAsync(p => p.PositionUnitId == id, ct);
 
             if (occupied)
@@ -81,7 +94,7 @@ public class PositionService(AppDbContext appDbContext) : IPositionService
             pos.IsActived = true;
         }
 
-        await _appDbContext.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);
         return true;
     }
 
@@ -89,16 +102,18 @@ public class PositionService(AppDbContext appDbContext) : IPositionService
         => ExistsActiveWithCodeAsync(code?.Trim() ?? string.Empty, excludeId: null, ct);
 
     // ---- Private helper ----
-    private Task<bool> ExistsActiveWithCodeAsync(string code, Guid? excludeId, CancellationToken ct)
+    private async Task<bool> ExistsActiveWithCodeAsync(string code, Guid? excludeId, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(code)) return Task.FromResult(false);
+        await using var db = await _dbf.CreateDbContextAsync(ct);
 
-        var q = _appDbContext.PositionUnits.AsNoTracking()
+        if (string.IsNullOrWhiteSpace(code)) return false;
+
+        var q = db.PositionUnits.AsNoTracking()
             .Where(p => p.IsActived && p.Code != null && p.Code == code);
 
         if (excludeId is not null)
             q = q.Where(p => p.Id != excludeId.Value);
 
-        return q.AnyAsync(ct);
+        return await q.AnyAsync(ct);
     }
 }

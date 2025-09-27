@@ -12,12 +12,10 @@ namespace eRaven.Infrastructure;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public DbSet<Order> Orders => Set<Order>();
     public DbSet<Person> Persons => Set<Person>();
     public DbSet<PersonPositionAssignment> PersonPositionAssignments => Set<PersonPositionAssignment>();
     public DbSet<PersonStatus> PersonStatuses => Set<PersonStatus>();
-    public DbSet<Plan> Plans => Set<Plan>();
-    public DbSet<PlanParticipantSnapshot> PlanParticipantSnapshots => Set<PlanParticipantSnapshot>();
+    public DbSet<PlanAction> PlanActions => Set<PlanAction>();
     public DbSet<PositionUnit> PositionUnits => Set<PositionUnit>();
     public DbSet<StatusKind> StatusKinds => Set<StatusKind>();
     public DbSet<StatusTransition> StatusTransitions => Set<StatusTransition>();

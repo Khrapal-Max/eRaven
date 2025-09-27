@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonTests (повне покриття властивостей)
+// PersonTests (оновлено під поточну домен-модель)
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Models;
@@ -98,37 +98,34 @@ public class PersonTests
     // ---------- Defaults & Collections ----------
 
     [Fact]
-    public void StatusHistory_Initialized_AsEmptyCollection()
+    public void Collections_Are_Initialized_Empty()
     {
-        var person = new Person();
-        Assert.NotNull(person.StatusHistory);
-        Assert.Empty(person.StatusHistory);
-    }
+        var p = new Person();
+        Assert.NotNull(p.StatusHistory);
+        Assert.Empty(p.StatusHistory);
 
-    [Fact]
-    public void PositionAssignments_Initialized_AsEmptyCollection()
-    {
-        var person = new Person();
-        Assert.NotNull(person.PositionAssignments);
-        Assert.Empty(person.PositionAssignments);
+        Assert.NotNull(p.PositionAssignments);
+        Assert.Empty(p.PositionAssignments);
     }
 
     [Fact]
     public void Default_Scalars_Are_Assigned_As_Declared()
     {
         var p = new Person();
+
+        // string-и порожні за замовчуванням
         Assert.Equal(string.Empty, p.Rnokpp);
         Assert.Equal(string.Empty, p.LastName);
         Assert.Equal(string.Empty, p.FirstName);
+        Assert.Equal(string.Empty, p.BZVP);
 
+        // nullable — null
         Assert.Null(p.MiddleName);
-        Assert.Null(p.BZVP);
         Assert.Null(p.Weapon);
         Assert.Null(p.Callsign);
         Assert.Null(p.PositionUnitId);
         Assert.Null(p.PositionUnit);
-
-        Assert.Equal(0, p.StatusKindId); // int default
+        Assert.Null(p.StatusKindId);
     }
 
     // ---------- Simple property set/get ----------
@@ -149,9 +146,7 @@ public class PersonTests
             Name = "Навчання",
             Code = "TRAIN",
             Order = 3,
-            IsActive = true,
-            Author = "sys",
-            Modified = new DateTime(2025, 1, 5, 12, 0, 0, DateTimeKind.Utc)
+            IsActive = true
         };
 
         var pid = pos.Id;
@@ -212,6 +207,8 @@ public class PersonTests
 
         Assert.Equal(unitId, p.PositionUnitId);
         Assert.Same(unit, p.PositionUnit);
+
+        // Перевірка зручного FullName у PositionUnit (якщо він є у домені)
         Assert.Equal("Сапер Рота 1 / Взвод 2", unit.FullName);
     }
 
@@ -222,19 +219,16 @@ public class PersonTests
     {
         var p = new Person { Id = Guid.NewGuid() };
 
-        var statusFirst = Guid.NewGuid();
-        var statusLast = Guid.NewGuid();
-
         var s1 = new PersonStatus
         {
-            Id = statusFirst,
+            Id = Guid.NewGuid(),
             PersonId = p.Id,
             StatusKindId = 1,
             OpenDate = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc)
         };
         var s2 = new PersonStatus
         {
-            Id = statusLast,
+            Id = Guid.NewGuid(),
             PersonId = p.Id,
             StatusKindId = 2,
             OpenDate = new DateTime(2025, 1, 2, 9, 0, 0, DateTimeKind.Utc)
@@ -244,39 +238,9 @@ public class PersonTests
         p.StatusHistory.Add(s2);
 
         Assert.Equal(2, p.StatusHistory.Count);
-        Assert.Contains(p.StatusHistory, x => x.Id == statusFirst && x.StatusKindId == 1);
-        Assert.Contains(p.StatusHistory, x => x.Id == statusLast && x.StatusKindId == 2);
-    }
-
-    [Fact]
-    public void StatusHistory_CanContain_Closed_And_Open_Statuses()
-    {
-        var p = new Person { Id = Guid.NewGuid() };
-        var statusFirst = Guid.NewGuid();
-        var statusLast = Guid.NewGuid();
-
-        var open = new PersonStatus
-        {
-            Id = statusFirst,
-            PersonId = p.Id,
-            StatusKindId = 1,
-            OpenDate = new DateTime(2025, 1, 10, 10, 0, 0, DateTimeKind.Utc),
-            CloseDate = null
-        };
-        var closed = new PersonStatus
-        {
-            Id = statusLast,
-            PersonId = p.Id,
-            StatusKindId = 2,
-            OpenDate = new DateTime(2025, 1, 5, 9, 0, 0, DateTimeKind.Utc),
-            CloseDate = new DateTime(2025, 1, 6, 18, 0, 0, DateTimeKind.Utc)
-        };
-
-        p.StatusHistory.Add(closed);
-        p.StatusHistory.Add(open);
-
-        Assert.Contains(p.StatusHistory, x => x.Id == statusFirst && x.CloseDate == null);
-        Assert.Contains(p.StatusHistory, x => x.Id == statusLast && x.CloseDate != null);
+        Assert.Contains(p.StatusHistory, x => x.StatusKindId == 1);
+        Assert.Contains(p.StatusHistory, x => x.StatusKindId == 2);
+        Assert.All(p.StatusHistory, x => Assert.Equal(p.Id, x.PersonId));
     }
 
     // ---------- PositionAssignments (історія посад) ----------

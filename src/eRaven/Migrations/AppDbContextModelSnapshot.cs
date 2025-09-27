@@ -23,61 +23,6 @@ namespace eRaven.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "btree_gist");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("eRaven.Domain.Models.Order", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Author")
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasDefaultValue("system")
-                        .HasColumnName("author");
-
-                    b.Property<DateTime>("EffectiveMomentUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("effective_moment_utc");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("name");
-
-                    b.Property<Guid>("PlanId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("plan_id");
-
-                    b.Property<DateTime>("RecordedUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("recorded_utc")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EffectiveMomentUtc")
-                        .HasDatabaseName("ix_orders_effective_moment_utc");
-
-                    b.HasIndex("Name")
-                        .HasDatabaseName("ix_orders_name");
-
-                    b.HasIndex("PlanId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_orders_plan_id");
-
-                    b.HasIndex("RecordedUtc")
-                        .HasDatabaseName("ix_orders_recorded_utc");
-
-                    b.ToTable("orders", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_orders_name_not_blank", "length(trim(name)) > 0");
-                        });
-                });
-
             modelBuilder.Entity("eRaven.Domain.Models.Person", b =>
                 {
                     b.Property<Guid>("Id")
@@ -85,7 +30,13 @@ namespace eRaven.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("AttachedFromUnit")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("attached_from_unit");
+
                     b.Property<string>("BZVP")
+                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("bzvp");
@@ -95,11 +46,23 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("callsign");
 
+                    b.Property<DateTime>("CreatedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("first_name");
+
+                    b.Property<bool>("IsAttached")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_attached");
 
                     b.Property<string>("LastName")
                         .IsRequired()
@@ -112,11 +75,18 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("middle_name");
 
+                    b.Property<DateTime>("ModifiedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<Guid?>("PositionUnitId")
                         .HasColumnType("uuid")
                         .HasColumnName("position_unit_id");
 
                     b.Property<string>("Rank")
+                        .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("rank");
@@ -127,10 +97,8 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("rnokpp");
 
-                    b.Property<int>("StatusKindId")
-                        .ValueGeneratedOnAdd()
+                    b.Property<int?>("StatusKindId")
                         .HasColumnType("integer")
-                        .HasDefaultValue(1)
                         .HasColumnName("status_kind_id");
 
                     b.Property<string>("Weapon")
@@ -234,13 +202,10 @@ namespace eRaven.Migrations
 
                     b.Property<string>("Author")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("text")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
                         .HasDefaultValue("system")
                         .HasColumnName("author");
-
-                    b.Property<DateTime?>("CloseDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("close_date");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
@@ -267,132 +232,78 @@ namespace eRaven.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("person_id");
 
+                    b.Property<short>("Sequence")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)0)
+                        .HasColumnName("sequence");
+
+                    b.Property<Guid?>("SourceDocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_document_id");
+
+                    b.Property<string>("SourceDocumentType")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("source_document_type");
+
                     b.Property<int>("StatusKindId")
                         .HasColumnType("integer")
                         .HasColumnName("status_kind_id");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PersonId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_person_statuses_active_unique_per_person")
-                        .HasFilter("close_date IS NULL");
-
                     b.HasIndex("StatusKindId");
-
-                    b.HasIndex("PersonId", "CloseDate")
-                        .HasDatabaseName("ix_person_statuses_person_close");
 
                     b.HasIndex("PersonId", "OpenDate")
                         .HasDatabaseName("ix_person_statuses_person_open");
 
-                    b.ToTable("person_statuses", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_person_status_dates", "(close_date IS NULL) OR (close_date > open_date)");
-                        });
-                });
+                    b.HasIndex("SourceDocumentType", "SourceDocumentId")
+                        .HasDatabaseName("ix_person_statuses_source_document");
 
-            modelBuilder.Entity("eRaven.Domain.Models.Plan", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                    b.HasIndex("PersonId", "IsActive", "OpenDate")
+                        .HasDatabaseName("ix_person_statuses_person_active_open");
 
-                    b.Property<string>("Author")
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasDefaultValue("system")
-                        .HasColumnName("author");
-
-                    b.Property<string>("GroupName")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("group_name");
-
-                    b.Property<string>("Location")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("location");
-
-                    b.Property<string>("PlanNumber")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("plan_number");
-
-                    b.Property<DateTime>("PlannedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("planned_at_utc");
-
-                    b.Property<DateTime>("RecordedUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("recorded_utc")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<int>("State")
-                        .HasColumnType("integer")
-                        .HasColumnName("state");
-
-                    b.Property<string>("TaskDescription")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("task_description");
-
-                    b.Property<int>("TimeKind")
-                        .HasColumnType("integer")
-                        .HasColumnName("time_kind");
-
-                    b.Property<string>("ToolType")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("tool_type");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PlanNumber")
+                    b.HasIndex("PersonId", "OpenDate", "Sequence")
                         .IsUnique()
-                        .HasDatabaseName("ux_plans_plan_number");
+                        .HasDatabaseName("ux_person_statuses_person_open_seq_active")
+                        .HasFilter("is_active = TRUE");
 
-                    b.HasIndex("PlannedAtUtc")
-                        .HasDatabaseName("ix_plans_planned_at_utc");
-
-                    b.HasIndex("State", "PlannedAtUtc")
-                        .HasDatabaseName("ix_plans_state_planned");
-
-                    b.HasIndex("Type", "PlannedAtUtc")
-                        .HasDatabaseName("ix_plans_type_planned");
-
-                    b.ToTable("plans", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_plans_plan_number_not_blank", "length(trim(plan_number)) > 0");
-                        });
+                    b.ToTable("person_statuses", (string)null);
                 });
 
-            modelBuilder.Entity("eRaven.Domain.Models.PlanParticipantSnapshot", b =>
+            modelBuilder.Entity("eRaven.Domain.Models.PlanAction", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<string>("Author")
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasDefaultValue("system")
-                        .HasColumnName("author");
+                    b.Property<short>("ActionState")
+                        .HasColumnType("smallint")
+                        .HasColumnName("action_state");
+
+                    b.Property<string>("BZVP")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("bzvp");
 
                     b.Property<string>("Callsign")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
                         .HasColumnName("callsign");
+
+                    b.Property<string>("CrewName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("crew_name");
+
+                    b.Property<DateTime>("EffectiveAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_at_utc");
 
                     b.Property<string>("FullName")
                         .IsRequired()
@@ -400,68 +311,85 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(256)")
                         .HasColumnName("full_name");
 
+                    b.Property<string>("GroupName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("group_name");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("location");
+
+                    b.Property<short>("MoveType")
+                        .HasColumnType("smallint")
+                        .HasColumnName("move_type");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("note");
+
+                    b.Property<string>("Order")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("order_name");
+
                     b.Property<Guid>("PersonId")
                         .HasColumnType("uuid")
                         .HasColumnName("person_id");
 
-                    b.Property<Guid>("PlanId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("plan_id");
+                    b.Property<string>("PlanActionName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("plan_action_name");
 
-                    b.Property<string>("PositionSnapshot")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("position_snapshot");
+                    b.Property<string>("PositionName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("position_name");
 
-                    b.Property<string>("Rank")
+                    b.Property<string>("RankName")
+                        .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
-                        .HasColumnName("rank");
+                        .HasColumnName("rank_name");
 
-                    b.Property<DateTime>("RecordedUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("recorded_utc")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<string>("StatusKindCode")
+                    b.Property<string>("Rnokpp")
+                        .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
-                        .HasColumnName("status_kind_code");
+                        .HasColumnName("rnokpp");
 
-                    b.Property<int?>("StatusKindId")
+                    b.Property<string>("StatusKindOnDate")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("status_kind_on_date");
+
+                    b.Property<int?>("ToStatusKindId")
                         .HasColumnType("integer")
-                        .HasColumnName("status_kind_id");
+                        .HasColumnName("to_status_kind_id");
 
                     b.Property<string>("Weapon")
+                        .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("weapon");
 
-                    b.Property<Guid>("plan_id")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("PersonId")
-                        .HasDatabaseName("ix_pps_person_id");
+                    b.HasIndex("MoveType")
+                        .HasDatabaseName("ix_plan_actions_move_type");
 
-                    b.HasIndex("PlanId")
-                        .HasDatabaseName("ix_pps_plan_id");
+                    b.HasIndex("PersonId", "EffectiveAtUtc")
+                        .HasDatabaseName("ix_plan_actions_person_date");
 
-                    b.HasIndex("RecordedUtc")
-                        .HasDatabaseName("ix_pps_recorded_utc");
-
-                    b.HasIndex("PlanId", "PersonId")
-                        .HasDatabaseName("ix_pps_plan_person");
-
-                    b.ToTable("plan_participant_snapshots", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_pps_full_name_not_blank", "length(trim(full_name)) > 0");
-
-                            t.Property("plan_id")
-                                .HasColumnName("plan_id1");
-                        });
+                    b.ToTable("plan_actions", (string)null);
                 });
 
             modelBuilder.Entity("eRaven.Domain.Models.PositionUnit", b =>
@@ -586,7 +514,7 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "В районі",
-                            Order = 30
+                            Order = 10
                         },
                         new
                         {
@@ -596,31 +524,41 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "В БР",
-                            Order = 10
+                            Order = 100
                         },
                         new
                         {
-                            Id = 3,
+                            Id = 6,
                             Author = "system",
                             Code = "100",
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "В БТГр",
-                            Order = 20
+                            Order = 100
                         },
                         new
                         {
-                            Id = 4,
+                            Id = 5,
+                            Author = "system",
+                            Code = "РОЗПОР",
+                            IsActive = true,
+                            Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Розпорядження",
+                            Order = 40
+                        },
+                        new
+                        {
+                            Id = 3,
                             Author = "system",
                             Code = "нб",
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Переміщення",
-                            Order = 40
+                            Order = 50
                         },
                         new
                         {
-                            Id = 5,
+                            Id = 4,
                             Author = "system",
                             Code = "нб",
                             IsActive = true,
@@ -630,23 +568,13 @@ namespace eRaven.Migrations
                         },
                         new
                         {
-                            Id = 6,
-                            Author = "system",
-                            Code = "РОЗПОР",
-                            IsActive = true,
-                            Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Розпорядження",
-                            Order = 60
-                        },
-                        new
-                        {
                             Id = 7,
                             Author = "system",
                             Code = "ВДР",
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Відрядження",
-                            Order = 70
+                            Order = 80
                         },
                         new
                         {
@@ -676,7 +604,7 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Проходження ВЛК",
-                            Order = 100
+                            Order = 120
                         },
                         new
                         {
@@ -686,7 +614,7 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Направлення на МСЕК",
-                            Order = 110
+                            Order = 120
                         },
                         new
                         {
@@ -716,7 +644,7 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Безвісті",
-                            Order = 140
+                            Order = 170
                         },
                         new
                         {
@@ -726,17 +654,7 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Полон",
-                            Order = 150
-                        },
-                        new
-                        {
-                            Id = 16,
-                            Author = "system",
-                            Code = "200",
-                            IsActive = true,
-                            Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Загибель",
-                            Order = 160
+                            Order = 175
                         },
                         new
                         {
@@ -746,7 +664,7 @@ namespace eRaven.Migrations
                             IsActive = true,
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Арешт",
-                            Order = 170
+                            Order = 178
                         },
                         new
                         {
@@ -757,6 +675,16 @@ namespace eRaven.Migrations
                             Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "СЗЧ",
                             Order = 180
+                        },
+                        new
+                        {
+                            Id = 16,
+                            Author = "system",
+                            Code = "200",
+                            IsActive = true,
+                            Modified = new DateTime(2025, 9, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Загибель",
+                            Order = 190
                         });
                 });
 
@@ -1165,17 +1093,6 @@ namespace eRaven.Migrations
                         });
                 });
 
-            modelBuilder.Entity("eRaven.Domain.Models.Order", b =>
-                {
-                    b.HasOne("eRaven.Domain.Models.Plan", "Plan")
-                        .WithOne()
-                        .HasForeignKey("eRaven.Domain.Models.Order", "PlanId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Plan");
-                });
-
             modelBuilder.Entity("eRaven.Domain.Models.Person", b =>
                 {
                     b.HasOne("eRaven.Domain.Models.PositionUnit", "PositionUnit")
@@ -1186,8 +1103,7 @@ namespace eRaven.Migrations
                     b.HasOne("eRaven.Domain.Models.StatusKind", "StatusKind")
                         .WithMany()
                         .HasForeignKey("StatusKindId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("PositionUnit");
 
@@ -1232,13 +1148,15 @@ namespace eRaven.Migrations
                     b.Navigation("StatusKind");
                 });
 
-            modelBuilder.Entity("eRaven.Domain.Models.PlanParticipantSnapshot", b =>
+            modelBuilder.Entity("eRaven.Domain.Models.PlanAction", b =>
                 {
-                    b.HasOne("eRaven.Domain.Models.Plan", null)
-                        .WithMany("Participants")
-                        .HasForeignKey("PlanId")
+                    b.HasOne("eRaven.Domain.Models.Person", "Person")
+                        .WithMany("PlanActions")
+                        .HasForeignKey("PersonId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Person");
                 });
 
             modelBuilder.Entity("eRaven.Domain.Models.StatusTransition", b =>
@@ -1262,14 +1180,11 @@ namespace eRaven.Migrations
 
             modelBuilder.Entity("eRaven.Domain.Models.Person", b =>
                 {
+                    b.Navigation("PlanActions");
+
                     b.Navigation("PositionAssignments");
 
                     b.Navigation("StatusHistory");
-                });
-
-            modelBuilder.Entity("eRaven.Domain.Models.Plan", b =>
-                {
-                    b.Navigation("Participants");
                 });
 
             modelBuilder.Entity("eRaven.Domain.Models.PositionUnit", b =>

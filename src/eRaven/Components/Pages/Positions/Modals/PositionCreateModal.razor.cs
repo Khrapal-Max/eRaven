@@ -28,7 +28,7 @@ public partial class PositionCreateModal : ComponentBase
     public bool Busy { get; private set; }
     public CreatePositionUnitViewModel Model { get; private set; } = new();
 
-    private FluentValidationValidator? _fv;
+    private FluentValidationValidator? _validator;
 
     public void Open()
     {

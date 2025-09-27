@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
-public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
+public class PersonConfiguration : IEntityTypeConfiguration<Person>
 {
     public void Configure(EntityTypeBuilder<Person> e)
     {
@@ -26,82 +26,109 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
         // Columns (lower snake_case)
         // ===============================
         e.Property(x => x.Rnokpp)
-         .HasColumnName("rnokpp")
-         .HasMaxLength(10)
-         .IsRequired();
+            .HasColumnName("rnokpp")
+            .HasMaxLength(10)
+            .IsRequired();
 
         e.Property(x => x.Rank)
-         .HasColumnName("rank")
-         .HasMaxLength(64);
+            .HasColumnName("rank")
+            .HasMaxLength(64)
+            .IsRequired();
 
         e.Property(x => x.LastName)
-         .HasColumnName("last_name")
-         .HasMaxLength(128)
-         .IsRequired();
+            .HasColumnName("last_name")
+            .HasMaxLength(128)
+            .IsRequired();
 
         e.Property(x => x.FirstName)
-         .HasColumnName("first_name")
-         .HasMaxLength(128)
-         .IsRequired();
+            .HasColumnName("first_name")
+            .HasMaxLength(128)
+            .IsRequired();
 
-        e.Property(x => x.MiddleName)
-         .HasColumnName("middle_name")
-         .HasMaxLength(128);
+        e.Property(x => x.MiddleName).
+            HasColumnName("middle_name")
+            .HasMaxLength(128);
 
         e.Property(x => x.BZVP)
-         .HasColumnName("bzvp")
-         .HasMaxLength(50);
+            .HasColumnName("bzvp")
+            .HasMaxLength(50)
+            .IsRequired();
 
         e.Property(x => x.Weapon)
-         .HasColumnName("weapon")
-         .HasMaxLength(128);
+            .HasColumnName("weapon")
+            .HasMaxLength(128);
 
         e.Property(x => x.Callsign)
-         .HasColumnName("callsign")
-         .HasMaxLength(64);
+            .HasColumnName("callsign")
+            .HasMaxLength(64);
 
         e.Property(x => x.PositionUnitId)
-         .HasColumnName("position_unit_id");
+            .HasColumnName("position_unit_id");
 
         e.Property(x => x.StatusKindId)
-         .HasColumnName("status_kind_id")
-         .HasDefaultValue(1); // дефолт = "В районі"
+            .HasColumnName("status_kind_id");
+
+        e.Property(x => x.IsAttached)
+            .HasColumnName("is_attached")
+            .HasDefaultValue(false);
+
+        e.Property(x => x.AttachedFromUnit)
+            .HasColumnName("attached_from_unit")
+            .HasMaxLength(256);
+
+        e.Property(x => x.CreatedUtc)
+            .HasColumnName("created_utc")
+            .HasColumnType("timestamp with time zone")
+            .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+        e.Property(x => x.ModifiedUtc)
+            .HasColumnName("modified_utc")
+            .HasColumnType("timestamp with time zone")
+            .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
         // ===============================
         // Indexes & Constraints
         // ===============================
         e.HasIndex(x => x.Rnokpp)
-         .HasDatabaseName("ix_persons_rnokpp")
-         .IsUnique();
+            .HasDatabaseName("ix_persons_rnokpp")
+            .IsUnique();
 
         e.HasIndex(x => new { x.LastName, x.FirstName, x.MiddleName })
-         .HasDatabaseName("ix_persons_fullname");
+            .HasDatabaseName("ix_persons_fullname");
 
-        // один Person на одну посаду (вакантні дозволені)
         e.HasIndex(x => x.PositionUnitId)
-         .HasDatabaseName("ux_persons_position_unit_id_not_null")
-         .IsUnique()
-         .HasFilter("\"position_unit_id\" IS NOT NULL");
+            .HasDatabaseName("ux_persons_position_unit_id_not_null")
+            .IsUnique()
+            .HasFilter("\"position_unit_id\" IS NOT NULL");
 
         // ===============================
         // Relationships
         // ===============================
-        // Поточна посада: 1↔0..1 (FK лише в Person), при видаленні — SetNull
+        // Поточна посада: 1↔0..1
         e.HasOne(x => x.PositionUnit)
-         .WithOne(u => u.CurrentPerson)
-         .HasForeignKey<Person>(x => x.PositionUnitId)
-         .OnDelete(DeleteBehavior.SetNull);
+            .WithOne(u => u.CurrentPerson)
+            .HasForeignKey<Person>(x => x.PositionUnitId)
+            .OnDelete(DeleteBehavior.SetNull);
 
-        // Обов’язковий довідник статусів: заборонити каскад
+        // Довідник статусів
         e.HasOne(x => x.StatusKind)
-         .WithMany()
-         .HasForeignKey(x => x.StatusKindId)
-         .IsRequired()
-         .OnDelete(DeleteBehavior.Restrict);
+            .WithMany()
+            .HasForeignKey(x => x.StatusKindId)
+            .OnDelete(DeleteBehavior.SetNull);
 
-        // FullName — обчислюване в домені, не мапимо
+        // Історія статусів (було)
+        e.HasMany(x => x.StatusHistory)
+            .WithOne(s => s.Person)
+            .HasForeignKey(s => s.PersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // 🔵 НОВЕ: Планові дії ↔ Person (1↔N)
+        e.HasMany(x => x.PlanActions)
+            .WithOne(a => a.Person)
+            .HasForeignKey(a => a.PersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Обчислюване поле
         e.Ignore(x => x.FullName);
-
-        // Колекції історій (StatusHistory/PositionAssignments) конфігуруються у їхніх конфігураторах
     }
 }

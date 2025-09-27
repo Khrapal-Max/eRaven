@@ -16,13 +16,24 @@
             <!-- ЦЕНТР (lg+): абсолютне центрування відносно всього navbar -->
             <ul class="navbar-nav nav-center mb-2 mb-lg-0 fw-bold">
                 <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navRegs" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Звіти та журнали
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navRegs">
+                        <li><NavLink class="dropdown-item" href="timesheet">Табель</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="reports">Звіти</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="audit-log-statuses">Журнал змін статусів</NavLink></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navOblik" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         Облік
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navOblik">
-                        <li><NavLink class="dropdown-item" href="/status-transitions">Зміна статуса</NavLink></li>
-                        <li><NavLink class="dropdown-item" href="/plans">Планування</NavLink></li>
-                        <li><NavLink class="dropdown-item" href="/orders">Накази</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="status-transitions">Зміна статуса</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="position-assignments">Зміна посади</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="plan-actions">Планування</NavLink></li>
                     </ul>
                 </li>
 
@@ -31,24 +42,14 @@
                         Довідники
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navRefs">
-                        <li><NavLink class="dropdown-item" href="positions">Штатний розклад</NavLink></li>
-                        <li><NavLink class="dropdown-item" href="/people">Особові картки</NavLink></li>
-                        <li><NavLink class="dropdown-item" href="/status-kinds">Правила статусів</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="positions">Штатні посади</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="persons">Особові картки</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="status-kinds">Правила статусів</NavLink></li>
                         <li><hr class="dropdown-divider" /></li>
                         <li><NavLink class="dropdown-item" href="/about">Про систему</NavLink></li>
                     </ul>
                 </li>
-
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="navRegs" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        Регістри
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navRegs">
-                        <li><NavLink class="dropdown-item" href="/timesheets">Табелі</NavLink></li>
-                        <li><NavLink class="dropdown-item" href="/reports">Звіти</NavLink></li>
-                        <li><NavLink class="dropdown-item" href="/audit-log">Журнал змін</NavLink></li>
-                    </ul>
-                </li>
+                
             </ul>
 
             <!-- Правий блок (залишив на місці) -->

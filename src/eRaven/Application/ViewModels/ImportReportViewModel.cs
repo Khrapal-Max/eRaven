@@ -10,7 +10,4 @@ namespace eRaven.Application.ViewModels;
 /// <summary>
 /// Звіт після імпорту ексель файла
 /// </summary>
-/// <param name="Added"></param>
-/// <param name="Updated"></param>
-/// <param name="Errors"></param>
 public sealed record ImportReportViewModel(int Added, int Updated, List<string> Errors);

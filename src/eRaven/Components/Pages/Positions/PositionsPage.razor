@@ -1,0 +1,103 @@
+﻿@page "/positions"
+
+@using eRaven.Application.ViewModels.PositionPagesViewModels
+@using eRaven.Components.Pages.Positions.Modals
+@using eRaven.Domain.Models;
+@using eRaven.Components.Shared
+
+<PageTitle>Штатні посади</PageTitle>
+
+<div class="container-fluid py-2 d-flex flex-column" style="gap:.5rem; min-height:70vh;">
+    <!-- Toolbar -->
+    <div class="d-flex align-items-center gap-2 p-1 flex-wrap justify-content-between w-100">
+        <!-- Пошук займає максимум простору -->
+        <div class="flex-grow-1" style="min-width:250px; max-width:600px;">
+            <SearchBox @bind-Value="Search"
+                       Delay="350"
+                       Placeholder="Пошук: код / коротка / ВОС / повна назва / ПІБ"
+                       Disabled="@Busy"
+                       OnSearch="OnSearchAsync" />
+        </div>
+
+        <!-- Кнопки згруповані праворуч -->
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <button class="btn btn-sm btn-primary"
+                    title="Створити посаду"
+                    disabled="@Busy"
+                    @onclick="CreateAsync">
+                <i class="bi bi-plus-circle"></i>
+                Створити
+            </button>
+
+            <ExcelExportButton TItem="PositionUnitViewModel"
+                               Items="Items"
+                               FileName="Positions"
+                               OnBusyChanged="OnBusyChanged" />
+
+            <ExcelImport TItem="PositionUnit"
+                         MaxSizeMb="10"
+                         OnBusyChanged="OnBusyChanged"
+                         StopOnParseErrors="true"
+                         ProcessAsync="ProcessImportAsync"
+                         OnCompleted="OnImportCompleted"
+                         TemplateUrl="/excel-templates/positions.xlsx" />
+        </div>
+    </div>
+
+    <!-- Table -->
+    @if (Items.Count > 0)
+    {
+        <div class="bg-dark rounded flex-grow-1 d-flex">
+            <TableBaseComponent TItem="PositionUnitViewModel"
+                                Class="table align-middle"
+                                Items="Items"
+                                SelectedItem="Selected"
+                                SelectedItemChanged="(it => Selected = it)"
+                                OnClick="OnRowClick">
+                <TableHeader>
+                    <th class="text-black" scope="col">Код</th>
+                    <th class="text-black" scope="col">Коротка назва</th>
+                    <th class="text-black" scope="col">ВОС</th>
+                    <th class="text-black" scope="col">Повна назва</th>
+                    <th class="text-black" scope="col">Стан</th>
+                    <th class="text-black" scope="col">Активна</th>
+                </TableHeader>
+
+                <RowTemplate Context="item">
+                    <td>@item.Code</td>
+                    <td>@item.ShortName</td>
+                    <td class="text-center">@item.SpecialNumber</td>
+                    <td>@item.FullName</td>
+                    <td class="text-center">@item.CurrentPersonFullName</td>
+                    <td class="text-center">
+                        <!-- Керований чекбокс через TransitionToggle -->
+                        <TransitionToggle FromId="item.Id"
+                                          ToId="item.Id"
+                                          ToName="item.ShortName"
+                                          Checked="item.IsActived"
+                                          CheckedChanged="(val => OnPositionActiveCheckedChangedAsync(item.Id, val))"
+                                          Disabled="Busy"
+                                          Title="@(item.IsActived ? "Зробити ЗАКРИТА" : "Зробити ШТАТНА")"
+                                          ConfirmAsync="ConfirmPositionActiveAsync"
+                                          SaveAsync="SavePositionActiveAsync" />
+                    </td>
+                </RowTemplate>
+            </TableBaseComponent>
+        </div>
+    }
+    else
+    {
+        <div class="h5">
+            Список посад порожній.
+        </div>
+    }
+
+</div>
+
+<!-- Підтвердження зміни активності / формові сценарії -->
+<ConfirmModal @ref="Confirm" Title="Підтвердження" ConfirmText="Підтвердити" CancelText="Скасувати" />
+
+<!-- Створення посади -->
+<PositionCreateModal @ref="_createModal"
+                     OnClose="@(async _ => await Task.CompletedTask)"
+                     OnCreated="OnCreatedAsync" />

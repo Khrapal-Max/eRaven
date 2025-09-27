@@ -22,7 +22,7 @@ public class Person
     /// <summary>
     /// Звання
     /// </summary>
-    public string? Rank { get; set; }
+    public string Rank { get; set; } = string.Empty;
 
     /// <summary>
     /// Прізвище
@@ -42,7 +42,7 @@ public class Person
     /// <summary>
     /// Наявність юазовго навчанян
     /// </summary>
-    public string? BZVP { get; set; }
+    public string BZVP { get; set; } = string.Empty;
 
     /// <summary>
     /// Тип та номер зброї
@@ -63,13 +63,34 @@ public class Person
     /// <summary>
     /// Поточний статус - наприклад "В районі" або "СЗЧ"
     /// </summary>
-    public int StatusKindId { get; set; }
-    public StatusKind StatusKind { get; set; } = null!;
+    public int? StatusKindId { get; set; }
+    public StatusKind? StatusKind { get; set; }
+
+    /// <summary>
+    /// Придані/прибули
+    /// </summary>
+    public bool IsAttached { get; set; }               // свої=false, прибули=true
+    public string? AttachedFromUnit { get; set; }      // назва/шлях підрозділу походження (для прибулих)
+
+    /// <summary>
+    /// Час створення
+    /// </summary>
+    public DateTime CreatedUtc { get; set; }           // UTC
+
+    /// <summary>
+    /// Час останньої зміни
+    /// </summary>
+    public DateTime ModifiedUtc { get; set; }
 
     /// <summary>
     /// Історія поточний статусів
     /// </summary>
     public ICollection<PersonStatus> StatusHistory { get; set; } = [];
+
+    /// <summary>
+    /// Історія поточний статусів
+    /// </summary>
+    public ICollection<PlanAction> PlanActions { get; set; } = [];
 
     /// <summary>
     /// Історія минулих посад
