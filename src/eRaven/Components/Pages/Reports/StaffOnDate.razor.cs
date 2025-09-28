@@ -15,6 +15,7 @@ using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.StaffOnDateViewModels;
+using eRaven.Components.Shared;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -156,37 +157,9 @@ public partial class StaffOnDate : ComponentBase, IDisposable
     }
 
     // ===================== Відображення (кольори) =====================
-    private static readonly Dictionary<string, string> BadgeByCode = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["100"] = "badge rounded-pill text-bg-primary",   // синій
-        ["нб"] = "badge rounded-pill text-bg-info",       // блакитний
-        ["РОЗПОР"] = "badge rounded-pill text-bg-info",   // блакитний
-        ["ВДР"] = "badge rounded-pill text-bg-secondary", // сірий
-        ["В"] = "badge rounded-pill text-bg-success",     // зелений
-        ["Л_Х"] = "badge rounded-pill text-bg-warning",   // жовтий
-        ["Л_Б"] = "badge rounded-pill text-bg-warning",   // жовтий
-        ["БВ"] = "badge rounded-pill text-bg-danger",     // червоний
-        ["П"] = "badge rounded-pill text-bg-danger",
-        ["200"] = "badge rounded-pill text-bg-danger",
-        ["А"] = "badge rounded-pill text-bg-danger",
-        ["СЗЧ"] = "badge rounded-pill text-bg-danger"
-    };
+    protected string GetBadgeClass(string code) => StatusBadgeHelper.GetBadgeClass(code);
 
-    protected string GetBadgeClass(string code)
-    {
-        if (string.IsNullOrWhiteSpace(code) || code.Equals("30", StringComparison.OrdinalIgnoreCase))
-            return "d-inline-block px-1 small"; // «30» — без підсвітки
-
-        return BadgeByCode.TryGetValue(code.Trim(), out var cls)
-            ? $"{cls} px-2 py-1"
-            : "badge rounded-pill text-bg-primary px-2 py-1";
-    }
-
-    protected string GetStatusTitle(string code)
-    {
-        var name = _kinds.FirstOrDefault(k => string.Equals(k.Code, code, StringComparison.OrdinalIgnoreCase))?.Name;
-        return string.IsNullOrWhiteSpace(name) ? code : $"{code} — {name}";
-    }
+    protected string GetStatusTitle(string code) => StatusBadgeHelper.GetStatusTitle(_kinds, code);
 
     // ========================== Утиліти ==========================
     private static DateTime ToUtcMidnight(DateTime localDate)
