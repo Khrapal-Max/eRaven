@@ -1,0 +1,97 @@
+﻿@page "/persons"
+
+@using eRaven.Components.Pages.Persons.Modals
+@using eRaven.Application.ViewModels.PersonViewModels;
+@using eRaven.Domain.Models
+
+<PageTitle>Особові картки</PageTitle>
+
+<div class="container-fluid py-2 d-flex flex-column" style="gap:.5rem; min-height:85vh;">
+    <!-- Toolbar -->
+    <div class="d-flex align-items-center gap-2 p-1 flex-wrap justify-content-between w-100">
+        <div class="flex-grow-1" style="min-width:250px; max-width:600px;">
+            <SearchBox @bind-Value="Search"
+                       Delay="350"
+                       Placeholder="Пошук: ПІБ / РНОКПП / звання / позивний"
+                       Disabled="@Busy"
+                       OnSearch="OnSearchAsync" />
+        </div>
+
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <button class="btn btn-sm btn-primary"
+                    title="Створити картку"
+                    disabled="@Busy"
+                    @onclick="CreateAsync">
+                <i class="bi bi-plus-circle"></i>
+                Створити
+            </button>
+
+            <!-- Експорт у Excel -->
+            <ExcelExportButton TItem="Person"
+                               Items="Items"
+                               FileName="Persons"
+                               Text="Експорт"
+                               ButtonClass="btn btn-sm btn-success"
+                               IconClass="bi bi-file-earmark-excel"
+                               Title="Експорт в Excel"
+                               Disabled="@Busy"
+                               OnBusyChanged="OnExportBusyChanged" />
+
+            <!-- Імпорт з Excel (використовуємо VM + FluentValidation) -->
+            <ExcelImport TItem="CreatePersonViewModel"
+                         StopOnParseErrors="false"
+                         MaxSizeMb="10"
+                         OnBusyChanged="OnImportBusyChanged"
+                         ProcessAsync="ProcessImportedAsync"
+                         OnCompleted="OnImportCompleted" />
+        </div>
+    </div>
+
+    @if (Items.Count > 0)
+    {
+        <div class="bg-dark rounded flex-grow-1 d-flex">
+            <TableBaseComponent Items="Items"
+                                TItem="Person"
+                                Class="table align-middle"
+                                SelectedItem="Selected"
+                                SelectedItemChanged="(it => Selected = it)"
+                                OnClick="OnRowClick">
+                <TableHeader>
+                    <th class="text-black">ПІБ</th>
+                    <th class="text-black">Звання</th>
+                    <th class="text-black">РНОКПП</th>
+                    <th class="text-black">Позивний</th>
+                    <th class="text-black">Посада</th>
+                    <th class="text-black">Статус</th>
+                    <th class="text-black"></th>
+                </TableHeader>
+
+                <RowTemplate Context="p">
+                    <td>@p.FullName</td>
+                    <td class="text-center">@p.Rank</td>
+                    <td class="text-center">@p.Rnokpp</td>
+                    <td class="text-center">@p.Callsign</td>
+                    <td title="@p.PositionUnit?.FullName">@(Trunc(p.PositionUnit?.FullName, 30))</td>
+                    <td class="text-center">@(p.StatusKind?.Name ?? string.Empty)</td>
+                    <td class="text-end">
+                        <a class="btn btn-sm btn-warning" href="@($"/person/{p.Id}")">
+                            <i class="bi bi-card-text"></i> Відкрити
+                        </a>
+                    </td>
+                </RowTemplate>
+            </TableBaseComponent>
+        </div>
+    }
+    else
+    {
+        <div class="h5">Список карток порожній.</div>
+    }
+</div>
+
+<PersonCreateModal @ref="_createModal"
+                   OnClose="@(async _ => await Task.CompletedTask)"
+                   OnCreated="OnCreatedAsync" />
+
+<PersonCreateModal @ref="_createModal"
+                   OnClose="@(async _ => await Task.CompletedTask)"
+                   OnCreated="OnCreatedAsync" />

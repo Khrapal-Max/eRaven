@@ -1,0 +1,32 @@
+﻿@typeparam TItem
+
+<div class="table-wrapper d-flex flex-column w-100" style="min-height:@MinHeight; max-height:@MaxHeight;">
+    <div class="table-scroll flex-grow-1 overflow-auto">
+        <table class="table table-hover fs-6 w-100 mb-0 @Class" role="grid">
+            <thead class="bg-light">
+                <tr class="fw-bold text-center align-middle">
+                    @* Очікується, що батько рендерить <th scope="col"> всередині *@
+                    @TableHeader
+                </tr>
+            </thead>
+            <tbody>
+                @if (Items is not null)
+                {
+                    foreach (var item in Items)
+                    {
+                        var isSelected = SelectedItem is not null &&
+                        EqualityComparer<TItem>.Default.Equals(SelectedItem, item);
+
+                        <tr @key="item"
+                            class="@(isSelected ? "table-active is-selected" : null)"
+                            aria-selected="@(isSelected ? "true" : "false")"
+                            style="cursor:pointer"
+                            @onclick="() => Click(item)">
+                            @RowTemplate(item)
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

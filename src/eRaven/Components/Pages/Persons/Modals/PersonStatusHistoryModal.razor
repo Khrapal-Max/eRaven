@@ -1,0 +1,74 @@
+﻿@*-----------------------------------------------------------------------------
+ All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
+-----------------------------------------------------------------------------
+ PersonStatusHistoryModal (view)
+ - Керований модал (Open керує батько)
+ - Завантажує історію для PersonId
+ - Показує лише валідні записи (IsActive = true)
+-----------------------------------------------------------------------------*@
+
+@using eRaven.Domain.Models
+
+@if (Open)
+{
+    <div class="modal fade show" style="display:block;" tabindex="-1" aria-modal="true" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+
+                <!-- Header -->
+                <div class="modal-header py-2" style="background: var(--ng-bg, #492448); color:#fff;">
+                    <h6 class="modal-title">Історія статусів: @(_personName ?? "—")</h6>
+                    <button type="button"
+                            class="btn-close btn-close-white"
+                            aria-label="Close"
+                            @onclick="CloseAsync"
+                            @onclick:preventDefault="true"
+                            @onclick:stopPropagation="true" />
+                </div>
+
+                <!-- Body -->
+                <div class="modal-body">
+                    @if (_busy)
+                    {
+                        <div>Завантаження…</div>
+                    }
+                    else if (_view.Count == 0)
+                    {
+                        <div class="text-muted">Історія порожня.</div>
+                    }
+                    else
+                    {
+                        <TableBaseComponent Items="_view"
+                                            TItem="PersonStatus"
+                                            Class="table align-middle mb-0">
+                            <TableHeader>
+                                <th class="text-black">Статус</th>
+                                <th class="text-black text-center">Дата події</th>
+                                <th class="text-black">Примітка</th>
+                            </TableHeader>
+
+                            <RowTemplate Context="s">
+                                <td>@(s.StatusKind?.Name ?? $"ID {s.StatusKindId}")</td>
+                                <td class="text-center">@s.OpenDate.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                                <td class="text-wrap">@s.Note</td>
+                            </RowTemplate>
+                        </TableBaseComponent>
+                    }
+                </div>
+
+                <!-- Footer -->
+                <div class="modal-footer py-2" style="border-top-color: var(--ng-bg, #492448);">
+                    <button type="button"
+                            class="btn btn-success btn-sm"
+                            @onclick="CloseAsync"
+                            @onclick:preventDefault="true"
+                            @onclick:stopPropagation="true">
+                        Закрити
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop fade show"></div>
+}

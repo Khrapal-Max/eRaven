@@ -1,0 +1,23 @@
+﻿<div class="input-group input-group-sm" style="max-width:@MaxWidth;">
+    <span class="input-group-text"><i class="@Icon"></i></span>
+    <input class="form-control"
+           placeholder="@Placeholder"
+           disabled="@Disabled"
+           @bind="CurrentValue"
+           @bind:event="oninput"
+           @bind:after="OnInputAfter" />
+
+    @* важливо: коли Disabled==true — не вішаємо @onclick (також виправляє тест кліку) *@
+    @if (Disabled)
+    {
+        <button class="btn btn-outline-secondary" disabled title="Оновити">
+            <i class="bi bi-arrow-repeat"></i>
+        </button>
+    }
+    else
+    {
+        <button class="btn btn-outline-secondary" @onclick="Reload" title="Оновити">
+            <i class="bi bi-arrow-repeat"></i>
+        </button>
+    }
+</div>

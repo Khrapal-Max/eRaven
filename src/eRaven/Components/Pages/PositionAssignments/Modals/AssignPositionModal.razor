@@ -1,0 +1,78 @@
+﻿@* ...інші імпорти *@
+@using Blazored.FluentValidation
+@using eRaven.Domain.Models
+
+<div class="modal fade @(IsOpen ? "show d-block" : "")" tabindex="-1" aria-modal="true" role="dialog">
+    <div class="modal-dialog modal-sm modal-dialog-centered" style="--bs-modal-width:560px; max-width:780px;">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title mb-0">Призначити на посаду</h6>
+                <button type="button" class="btn-close" @onclick="Close"></button>
+            </div>
+
+            <div class="modal-body p-3 text-white">
+                <EditForm Model="@Model" OnSubmit="OnSubmit">
+                    <FluentValidationValidator @ref="_validator" />
+
+                    <div class="mb-2">
+                        <label class="form-label small mb-1">Посада</label>
+                        <InputSelect class="form-select form-select-sm w-100"
+                                     TValue="Guid"
+                                     @bind-Value="Model.PositionUnitId">
+                            <option value="@Guid.Empty">-- Оберіть посаду --</option>
+                            @foreach (var p in Positions)
+                            {
+                                <option value="@p.Id" title="@p.FullName">@Trunc(p.FullName, 70)</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => Model.PositionUnitId" />
+
+                        @if (Model.PositionUnitId != Guid.Empty)
+                        {
+                            var full = Positions.FirstOrDefault(x => x.Id == Model.PositionUnitId)?.FullName;
+                            if (!string.IsNullOrWhiteSpace(full))
+                            {
+                                <div class="form-text small text-muted mt-1 text-wrap" style="white-space:normal;">
+                                    @full
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label small mb-1">Дата призначення (UTC)</label>
+                        <input type="date"
+                               class="form-control form-control-sm"
+                               value="@_date"
+                               min="@_minDateAttr"
+                               @onchange="OnDateChanged" />
+                        @if (_activeAssign is not null)
+                        {
+                            <div class="form-text small text-muted mt-1">
+                                Наразі на посаді: <strong>@_activeAssign.PositionUnit?.FullName</strong><br />
+                                Вона буде <u>автоматично закрита</u> датою <strong>(дата призначення − 1 день)</strong>.
+                            </div>
+                        }
+                        else if (_lastUnassignCloseUtc.HasValue)
+                        {
+                            <div class="form-text small text-muted mt-1">
+                                Останній день попередньої посади: @_lastUnassignCloseUtc.Value.ToString("dd.MM.yyyy 'UTC'").
+                                Нове призначення має бути <strong>пізніше</strong> цієї дати.
+                            </div>
+                        }
+                    </div>
+
+                    <div class="mt-2">
+                        <label class="form-label small mb-1">Нотатка</label>
+                        <InputText class="form-control form-control-sm" @bind-Value="Model.Note" />
+                    </div>
+
+                    <div class="text-end mt-3">
+                        <button class="btn btn-secondary btn-sm me-2" type="button" @onclick="Close" disabled="@_busy">Скасувати</button>
+                        <button class="btn btn-primary btn-sm" type="submit" disabled="@_busy">Призначити</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,62 @@
+﻿<nav class="navbar navbar-expand-lg fixed-top border-bottom">
+    <div class="container-fluid">
+
+        <NavLink class="navbar-brand d-flex align-items-center gap-2 p-2" href="/" Match="NavLinkMatch.All">
+            <img src="/icons/favicon-16x16.png" alt="" class="brand-logo" />
+            <span class="brand-text">eRaven</span>
+        </NavLink>
+
+        <button class="navbar-toggler" type="button"
+                data-bs-toggle="collapse" data-bs-target="#topNav"
+                aria-controls="topNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="topNav">
+            <!-- ЦЕНТР (lg+): абсолютне центрування відносно всього navbar -->
+            <ul class="navbar-nav nav-center mb-2 mb-lg-0 fw-bold">
+                
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navOblik" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Облік
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navOblik">
+                        <li><NavLink class="dropdown-item" href="status-transitions">Зміна статуса</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="position-assignments">Зміна посади</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="plan-actions">Планування</NavLink></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navRefs" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Довідники
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navRefs">
+                        <li><NavLink class="dropdown-item" href="positions">Штатні посади</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="persons">Особові картки</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="status-kinds">Правила статусів</NavLink></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><NavLink class="dropdown-item" href="/about">Про систему</NavLink></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navRegs" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Звіти та журнали
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navRegs">
+                        <li><NavLink class="dropdown-item" href="timesheet">Табель</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="reports">Звіти</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="audit-log-statuses">Журнал змін статусів</NavLink></li>
+                    </ul>
+                </li>
+                
+            </ul>
+
+            <!-- Правий блок (залишив на місці) -->
+            <div class="d-flex align-items-center gap-2 ms-lg-auto">
+                @* місце під перемикач теми/профіль *@
+            </div>
+        </div>
+    </div>
+</nav>

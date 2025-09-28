@@ -1,0 +1,161 @@
+﻿@page "/plan-actions"
+
+@using eRaven.Domain.Enums
+@using eRaven.Domain.Models
+@using eRaven.Components.Pages.PlanActions.Modals
+
+<PageTitle>Планування</PageTitle>
+
+<div class="container-fluid py-2 d-flex flex-column" style="gap:.5rem; min-height:70vh;">
+    <!-- Toolbar -->
+    <div class="d-flex align-items-center gap-2 p-1 flex-wrap justify-content-between w-100">
+        <!-- Пошук займає максимум простору -->
+        <div class="flex-grow-1" style="min-width:250px; max-width:600px;">
+            <SearchBox @bind-Value="Search"
+                       Delay="350"
+                       Placeholder="Пошук: код / ПІБ"
+                       Disabled="@Busy"
+                       OnSearch="OnSearchAsync" />
+        </div>
+
+        <!-- Кнопки згруповані праворуч -->
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <button class="btn btn-sm btn-primary"
+                    title="Створити дію"
+                    disabled="@(Busy || SelectedPerson is null)"
+                    @onclick="OpenCreateModal">
+                <i class="bi bi-plus-circle"></i>
+                Створити
+            </button>
+        </div>
+    </div>
+
+    <!-- Table -->
+    @if (_filteredPerson.Count > 0)
+    {
+        <div class="bg-dark rounded flex-grow-1 d-flex">
+            <TableBaseComponent Items="_filteredPerson"
+                                TItem="Person"
+                                Class="table align-middle mb-0"
+                                SelectedItem="SelectedPerson"
+                                SelectedItemChanged="(it => SelectedPerson = it)"
+                                OnClick="OnPersonClick">
+                <TableHeader>
+                    <th class="text-black">ПІБ</th>
+                    <th class="text-black text-center">Звання</th>
+                    <th class="text-black text-center">РНОКПП</th>
+                    <th class="text-black text-center">Позивний</th>
+                    <th class="text-black">Посада</th>
+                </TableHeader>
+
+                <RowTemplate Context="p">
+                    <td class ="text-center">@p.FullName</td>
+                    <td class="text-center">@p.Rank</td>
+                    <td class="text-center">@p.Rnokpp</td>
+                    <td class="text-center">@p.Callsign</td>
+                    <td class="text-center">@p.PositionUnit?.FullName</td>
+                </RowTemplate>
+            </TableBaseComponent>
+        </div>
+    }
+
+    @if (SelectedPerson != null && _actions.Count > 0)
+    {
+        <div class="bg-dark rounded flex-grow-1 d-flex">
+            <TableBaseComponent Items="_actions"
+                                TItem="PlanAction"
+                                Class="table align-middle mb-0"
+                                MinHeight="75vh">
+                <TableHeader>
+                    <th class="text-black">Наказ</th>
+
+                    <th class="text-black">ІПН</th>
+                    <th class="text-black">ПІБ</th>
+
+                    <th class="text-black">Стан</th>
+                    <th class="text-black">Номер рапорта</th>
+                    <th class="text-black">Дія</th>
+                    <th class="text-black">Дата</th>
+                    <th class="text-black">Локація</th>
+                    <th class="text-black">Група</th>
+                    <th class="text-black">Екіпаж</th>
+                    <th class="text-black"></th>
+                    <th class="text-black">Дії</th>
+                    <th class="text-black"></th>
+                </TableHeader>
+
+                <RowTemplate Context="action">
+                     <td class="text-center">
+                        @if (string.IsNullOrWhiteSpace(action.Order))
+                        {
+                            <span class="badge bg-warning text-dark">
+                                <i class="bi bi-bookmark-star-fill"></i>
+                            </span>
+                        }
+                        else
+                        {
+                            <span>@action.Order</span>
+                        }
+                    </td>
+                    <td class="text-center">@action.Rnokpp</td>
+                    <td class="text-center">@action.FullName</td>
+                    
+                    <td class="text-center">@(action.ActionState == ActionState.PlanAction ? "Рапорт" : "БР")</td>
+                    <td class="text-center">@action.PlanActionName</td>
+                    <td class="text-center">
+                        @if (action.MoveType == MoveType.Dispatch)
+                        {
+                            <span class="badge bg-warning text-dark">Відрядити</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success">Повернути</span>
+                        }
+                    </td>
+                    <td class="text-center">@action.EffectiveAtUtc.ToString("dd.MM.yyyy HH.mm")</td>
+                    <td class="text-center">@action.Location</td>
+                    <td class="text-center">@action.GroupName</td>
+                    <td class="text-center">@action.CrewName</td>
+                    <td>
+                        <button class="btn btn-sm btn-success"
+                                title="Провести наказом"
+                                disabled="@(action.ActionState == ActionState.ApprovedOrder)"
+                                @onclick="() => OpenApproveModal(action)">
+                            <i class="bi bi-check-circle-fill"></i>
+                        </button>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-primary"
+                                title="Деталі"
+                                @onclick="() => _viewModal?.Open(action)">
+                            <i class="bi bi bi-eye-fill"></i>
+                        </button>
+                    </td>
+                    <td>                       
+                        <button class="btn btn-sm btn-danger"
+                                title="Видалити"
+                                @onclick="() => DeletePlanAction(action.Id)">
+                            <i class="bi bi bi-trash3"></i>
+                        </button>
+                    </td>
+                </RowTemplate>
+            </TableBaseComponent>
+        </div>
+    }
+
+    @if (SelectedPerson != null && _actions.Count == 0)
+    {
+        <div>На разі відсутні будь які планові дії для визначеного військовослужбовця.</div>
+    }
+</div>
+
+<CreatePlanActionModal @ref="_createModal"
+                       Person="SelectedPerson"
+                       LastPlanAction="LastPlanAction"
+                       StatusKinds="_statusKinds"
+                       OnSaved="CreateAsync" />
+
+<ApproveModal @ref="_approveModal"
+              OnApproved="ApprovePlanActionAsync" />
+
+<ViewPlanActionModal @ref="_viewModal" />

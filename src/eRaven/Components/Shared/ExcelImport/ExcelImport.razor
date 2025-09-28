@@ -1,0 +1,19 @@
+﻿@typeparam TItem
+
+<div class="border rounded p-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <InputFile OnChange="HandleFileSelected" accept=".xlsx" />
+        <button class="btn btn-sm btn-primary" @onclick="ImportAsync" disabled="@(_busy || _file is null)">
+            <i class="bi bi-file-earmark-excel"></i> Імпорт
+        </button>
+
+       @*  @if (!string.IsNullOrWhiteSpace(TemplateUrl))
+        {
+            <a class="btn btn-sm btn-outline-secondary" href="@TemplateUrl" target="_blank" rel="noopener">
+                <i class="bi bi-download"></i> Завантажити шаблон
+            </a>
+        } *@
+
+    </div>
+</div>
+

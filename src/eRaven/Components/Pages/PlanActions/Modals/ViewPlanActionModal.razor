@@ -1,0 +1,178 @@
+﻿@using eRaven.Domain.Enums
+
+<div class="modal fade @(IsOpen ? "show d-block" : "")" tabindex="-1">
+    <div class="modal-dialog modal-xxl modal-dialog-centered" style="--bs-modal-width:1280px; max-width:1280px;">
+        <div class="modal-content">
+
+            <div class="modal-header py-2">
+                <h6 class="modal-title mb-0 text-white">Перегляд планової дії</h6>
+                <button type="button" class="btn-close" @onclick="Close" aria-label="Закрити"></button>
+            </div>
+
+            <div class="modal-body p-3">
+                @if (Model is null)
+                {
+                    <div class="text-center text-muted py-4">Немає даних для відображення.</div>
+                }
+                else
+                {
+                    <div class="row g-2">
+                        <!-- Ліва колонка: снапшот (read-only) -->
+                        <div class="col-12 col-lg-5">
+                            <div class="card shadow-sm h-100">
+                                <div class="card-body p-2">
+                                    <div class="fw-semibold mb-2 small">Стан даних військовослужбовця на дату провадження плановой дії.</div>
+
+                                    <div class="mb-1">
+                                        <label class="form-label small mb-1">РНОКПП</label>
+                                        <input class="form-control form-control-sm" value="@Model.Rnokpp" disabled />
+                                    </div>
+
+                                    <div class="mb-1">
+                                        <label class="form-label small mb-1">ПІБ</label>
+                                        <input class="form-control form-control-sm" value="@Model.FullName" disabled />
+                                    </div>
+
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Звання</label>
+                                            <input class="form-control form-control-sm" value="@Model.RankName" disabled />
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Позивний</label>
+                                            <input class="form-control form-control-sm" value="@Model.Callsign" disabled />
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-1 mt-2">
+                                        <label class="form-label small mb-1">Посада / Підрозділ</label>
+                                        <input class="form-control form-control-sm" value="@Model.PositionName" disabled />
+                                    </div>
+
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">БЗВП</label>
+                                            <input class="form-control form-control-sm" value="@Model.BZVP" disabled />
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Зброя</label>
+                                            <input class="form-control form-control-sm" value="@Model.Weapon" disabled />
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-2">
+                                        <label class="form-label small mb-1">Статус на дату (текст)</label>
+                                        <input class="form-control form-control-sm" value="@Model.StatusKindOnDate" disabled />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Права колонка: параметри дії -->
+                        <div class="col-12 col-lg-7">
+                            <div class="card shadow-sm h-100">
+                                <div class="card-body p-2">
+                                    <div class="fw-semibold mb-2 small">Параметри дії</div>
+
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Дія</label>
+                                            <div>
+                                                @if (Model.MoveType == MoveType.Dispatch)
+                                                {
+                                                    <span class="badge bg-success">Відрядити</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-warning text-dark">Повернути</span>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Стан</label>
+                                            <div>
+                                                @if (Model.ActionState == ActionState.PlanAction)
+                                                {
+                                                    <span class="badge bg-secondary">Рапорт</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-primary text-black">Бойове розпорядження</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-2 mt-1">
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Дата/час (UTC)</label>
+                                            <input class="form-control form-control-sm"
+                                                   value="@Model.EffectiveAtUtc.ToString("dd.MM.yyyy HH:mm")"
+                                                   disabled />
+                                        </div>
+
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Цільовий статус</label>
+                                            @if (Model.MoveType == MoveType.Dispatch)
+                                            {
+                                                <input class="form-control form-control-sm"
+                                                       value="В БР"
+                                                       disabled />
+                                            }
+                                            else
+                                            {
+                                                <input class="form-control form-control-sm"
+                                                       value="В районі"
+                                                       disabled />
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-2 mt-1">
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Номер рапорта</label>
+                                            <input class="form-control form-control-sm" value="@Model.PlanActionName" disabled />
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Номер наказу</label>
+                                            <input class="form-control form-control-sm" value="@(Model.Order ?? "-")" disabled />
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-2 mt-1">
+                                        <div class="col-12">
+                                            <label class="form-label small mb-1">Локація</label>
+                                            <input class="form-control form-control-sm" value="@Model.Location" disabled />
+                                        </div>
+
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Група</label>
+                                            <input class="form-control form-control-sm" value="@Model.GroupName" disabled />
+                                        </div>
+
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Екіпаж</label>
+                                            <input class="form-control form-control-sm" value="@Model.CrewName" disabled />
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-2">
+                                        <label class="form-label small mb-1">Нотатка</label>
+                                        <textarea class="form-control form-control-sm" rows="2" disabled>@Model.Note</textarea>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="modal-footer py-2">
+                <button class="btn btn-secondary btn-sm" type="button" @onclick="Close">Закрити</button>
+            </div>
+
+        </div>
+    </div>
+</div>

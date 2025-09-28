@@ -1,0 +1,254 @@
+﻿/* === Base theme & typography === */
+:root {
+    /* Базові кольори */
+    --brand: #6ea8fe; /* акцент (тон Bootstrap primary) */
+    --brand-glow: rgba(110,168,254,.55); /* м'яке світіння */
+    --brand-text: #fff;
+    /* Типографіка */
+    --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    /* Layout */
+    --navbar-h: 56px; /* стандартна висота Bootstrap navbar */
+    --ng-bg: #492448; /* основний зелений #7ef376*/
+    --mg-bg: #007A78; /* основний зелений #7ef376*/
+}
+
+html, body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-size: 16px;
+    line-height: 1.45;
+    background: #a5b0b3;    
+    color: black;
+}
+
+body {
+    padding-top: var(--navbar-h);
+}
+
+
+
+/* щоб контент не ліз під fixed-top */
+.layout-main {
+    padding-top: .75rem;
+    padding-bottom: 2rem;
+}
+
+.navbar {
+    background: var(--ng-bg);
+    color: black;
+}
+
+/* === Navbar brand with tinted crow === */
+.navbar-brand {
+    letter-spacing: .2px;
+    color: var(--brand-text);
+}
+
+/* 16x16, білий колір на темному фоні */
+.brand-logo {
+    width: 18px;
+    height: 18px;
+    display: inline-block;
+    /* робимо зображення повністю білим, зберігаючи прозорий фон */
+    filter: brightness(0) invert(1);
+}
+
+    .navbar-brand .brand-text {
+        color: var(--brand-text);
+        font-weight: 600;
+        letter-spacing: .2px;
+    }
+
+.navbar-dark .navbar-brand:hover .brand-mark,
+.navbar-dark .navbar-brand:focus .brand-mark {
+    filter: drop-shadow(0 0 8px var(--brand-glow)) brightness(1.08);
+}
+
+.navbar .dropdown-menu {
+    min-width: 14rem;
+}
+
+/* Абсолютне центрування меню відносно ВСЬОГО navbar (на lg+) */
+@media (min-width: 992px) {
+    .navbar .container-fluid {
+        position: relative;
+    }
+
+    .navbar .nav-center {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        white-space: nowrap; /* щоб не «розтягувалось» */
+        display: flex; /* потрібне для .navbar-nav */
+        align-items: center;
+        gap: .25rem;
+    }
+}
+
+/* === Validation === */
+.validation-message {
+    color: #e03131;
+}
+
+.valid.modified:not([type=checkbox]) {
+    outline: 1px solid #26b050;
+    outline-offset: 0;
+}
+
+.invalid {
+    outline: 1px solid #e03131;
+}
+
+/* Прибрати зайві outline на заголовках при фокусі з клавіатури */
+h1:focus, h2:focus, h3:focus {
+    outline: none;
+}
+
+/* === Blazor built-in error UI (fallback) === */
+#blazor-error-ui {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #b32121;
+    color: #fff;
+    padding: .75rem 1rem;
+    z-index: 2000;
+    display: none; /* показує Blazor коли треба */
+}
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        margin-left: .5rem;
+    }
+
+    #blazor-error-ui .reload {
+        color: #fff;
+        text-decoration: underline;
+    }
+
+/* Трохи охайніші чекбокси й плейсхолдери */
+.darker-border-checkbox.form-check-input {
+    border-color: #929292;
+}
+
+.form-floating > .form-control-plaintext::placeholder,
+.form-floating > .form-control::placeholder {
+    color: var(--bs-secondary-color);
+    text-align: end;
+}
+
+.form-floating > .form-control-plaintext:focus::placeholder,
+.form-floating > .form-control:focus::placeholder {
+    text-align: start;
+}
+
+/*--------------- Таблиця Shared-----------------*/
+
+/* Мінімальний CSS для липкого заголовка */
+.table-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5; /* поверх рядків */
+    background: var(--bs-light);
+}
+
+.blazored-toast {
+    z-index: 99999 !important;
+}
+
+.text-bg-purple {
+    background-color: #6f42c1;
+    color: #fff;
+}
+
+/* --------------Action modal ---------------*/
+/* фіксуємо висоту під помилки, щоб розмітка не «стрибала» */
+.val-slot {
+    min-height: 1.25rem;
+}
+
+/* липкий заголовок у списку людей */
+.sticky-th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bs-light);
+}
+
+/* --------------Modal ---------------*/
+.modal {
+    background-color: rgba(0,0,0,0.4);
+}
+
+.modal-header {
+    background: var(--mg-bg);
+    color: var(--brand-text);
+    border-bottom: none;
+}
+
+.break-word {
+    word-break: break-word; 
+}
+
+/* -------------- Planning on date ---------------- */
+
+/* Кореневий контейнер сторінки: займає висоту екрану мінус navbar, без скролу */
+.planning-root {
+    height: calc(100vh - (var(--navbar-h) * 2));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* ← вимикаємо глобальний скрол у межах сторінки */
+}
+
+/* Тулбар зверху — звичайний блок, не скролиться бо скрол нижче */
+.planning-toolbar {
+    flex: 0 0 auto;
+    color: #fff;
+    padding: .6rem .8rem;
+    margin: .5rem .5rem 0 .5rem; /* невеликий відступ всередині сторінки */
+}
+
+    /* Інпут дати — чорний текст на світлому фоні */
+    .planning-toolbar .form-control {
+        background: rgba(255,255,255,.95);
+        border-color: rgba(255,255,255,.25);
+        color: #000;
+    }
+
+    .planning-toolbar .input-group-text {
+        background: rgba(255,255,255,.15);
+        color: #fff;
+        border-color: rgba(255,255,255,.2);
+    }
+
+    .planning-toolbar .input-group-sm > .form-control,
+    .planning-toolbar .input-group-sm > .btn,
+    .planning-toolbar .form-control.form-control-sm {
+        height: 30px;
+        padding-top: .125rem;
+        padding-bottom: .125rem;
+        line-height: 1.2;
+    }
+
+/* Канвас із картками: єдиний вертикальний скрол */
+.planning-cards-scroll {
+    flex: 1 1 0; /* займає весь доступний простір */
+    min-height: 0; /* критично для flex-контейнера, щоб скрол працював */
+    overflow: auto; /* ← тут єдиний вертикальний скрол */
+    overflow-x: hidden;
+    margin: .5rem; /* вирівнюємо з тулбаром */
+    border-radius: .5rem;
+}
+
+    /* Трохи ущільнимо відступи в картках, щоб в ряд поміщалось 2 */
+    .planning-cards-scroll .card {
+        max-width: 100%;
+    }
+
+    .planning-cards-scroll .card-body .py-2 {
+        padding-top: .4rem !important;
+        padding-bottom: .4rem !important;
+    }

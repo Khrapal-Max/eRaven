@@ -1,0 +1,62 @@
+﻿@if (IsOpen)
+{
+    <div class="modal fade show text-white" style="display:block;" tabindex="-1" aria-modal="true" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal-md">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title">Створення посади</h6>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="CancelAsync"></button>
+                </div>
+
+                <EditForm Model="@Model" OnValidSubmit="CreateAsync">
+                    <AntiforgeryToken />
+                    <FluentValidationValidator @ref="_validator" />
+
+                    <div class="modal-body">
+                        <div class="mb-2">
+                            <label class="form-label">Код</label>
+                            <InputText class="form-control form-control-sm" @bind-Value="Model.Code" />
+                            <ValidationMessage For="() => Model.Code" />
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label">Коротка назва <span class="text-danger">*</span></label>
+                            <InputText class="form-control form-control-sm" @bind-Value="Model.ShortName" />
+                            <ValidationMessage For="() => Model.ShortName" />
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label">ВОС</label>
+                            <InputText class="form-control form-control-sm" @bind-Value="Model.SpecialNumber" />
+                            <ValidationMessage For="() => Model.SpecialNumber" />
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label">Шлях (OrgPath)</label>
+                            <InputText class="form-control form-control-sm" @bind-Value="Model.OrgPath" />
+                            <ValidationMessage For="() => Model.OrgPath" />
+                        </div>
+                    </div>
+
+                    <div class="modal-footer py-2">
+                        <button type="button"
+                                class="btn btn-sm btn-warning"
+                                @onclick="CancelAsync"
+                                disabled="@Busy">
+                            Скасувати
+                        </button>
+
+                        <button type="submit" class="btn btn-sm btn-primary" disabled="@Busy">
+                            @if (Busy)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Створити
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
