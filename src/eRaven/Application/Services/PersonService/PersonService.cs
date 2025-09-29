@@ -67,25 +67,68 @@ public class PersonService(IDbContextFactory<AppDbContext> dbf) : IPersonService
         var exists = await db.Persons.AnyAsync(p => p.Rnokpp == rnokpp, ct);
         if (exists) throw new InvalidOperationException("Особа з таким РНОКПП вже існує.");
 
+        var rank = person.Rank ?? throw new ArgumentException("Rank обов'язковий.", nameof(person));
+        var lastName = person.LastName ?? throw new ArgumentException("LastName обов'язкове.", nameof(person));
+        var firstName = person.FirstName ?? throw new ArgumentException("FirstName обов'язкове.", nameof(person));
+        var bzvp = person.BZVP ?? string.Empty;
+
         var id = person.Id == Guid.Empty ? Guid.NewGuid() : person.Id;
         var createdUtc = DateTime.UtcNow;
 
         var aggregate = Person.Create(
             id,
             rnokpp!,
-            person.Rank ?? string.Empty,
-            person.LastName ?? string.Empty,
-            person.FirstName ?? string.Empty,
+            rank,
+            lastName,
+            firstName,
             person.MiddleName,
-            person.BZVP ?? string.Empty,
+            bzvp,
             person.Weapon,
             person.Callsign,
             person.IsAttached,
             person.AttachedFromUnit,
             createdUtc);
 
-        aggregate.StatusKindId = person.StatusKindId;
-        aggregate.PositionUnitId = person.PositionUnitId;
+        if (person.PositionUnitId is Guid positionUnitId)
+        {
+            var position = await db.PositionUnits
+                .FirstOrDefaultAsync(p => p.Id == positionUnitId, ct)
+                ?? throw new InvalidOperationException("Посада не знайдена.");
+
+            if (!position.IsActived)
+            {
+                throw new InvalidOperationException("Неможливо призначити на неактивну посаду.");
+            }
+
+            var positionBusy = await db.Persons
+                .AsNoTracking()
+                .AnyAsync(p => p.PositionUnitId == positionUnitId, ct);
+
+            if (positionBusy)
+            {
+                throw new InvalidOperationException("Посада вже зайнята іншою особою.");
+            }
+
+            var assignment = aggregate.AssignToPosition(position, createdUtc, null, "system");
+            assignment.Person = aggregate;
+            assignment.PositionUnit = position;
+        }
+
+        if (person.StatusKindId is int statusKindId)
+        {
+            var statusKind = await db.StatusKinds
+                .FirstOrDefaultAsync(k => k.Id == statusKindId, ct)
+                ?? throw new InvalidOperationException("Вказаний статус не існує.");
+
+            var transitions = await db.StatusTransitions
+                .AsNoTracking()
+                .ToListAsync(ct);
+
+            var status = aggregate.SetStatus(statusKind, createdUtc, null, "system", transitions);
+            status.Person = aggregate;
+            status.StatusKind = statusKind;
+            aggregate.StatusKind = statusKind;
+        }
 
         await PersonAggregateProjector.ProjectAsync(db, aggregate, ct);
         await db.SaveChangesAsync(ct);
@@ -97,29 +140,50 @@ public class PersonService(IDbContextFactory<AppDbContext> dbf) : IPersonService
     {
         await using var db = await _dbf.CreateDbContextAsync(ct);
 
-        var current = await db.Persons
+        ArgumentNullException.ThrowIfNull(person);
+
+        var rnokpp = person.Rnokpp?.Trim();
+        if (string.IsNullOrWhiteSpace(rnokpp))
+            throw new ArgumentException("RNOKPP обов'язковий.", nameof(person));
+
+        var duplicate = await db.Persons
+            .AsNoTracking()
+            .AnyAsync(p => p.Id != person.Id && p.Rnokpp == rnokpp, ct);
+
+        if (duplicate)
+            throw new InvalidOperationException("Особа з таким РНОКПП вже існує.");
+
+        var aggregate = await db.Persons
+            .AsNoTracking()
+            .Include(p => p.PositionAssignments)
+            .Include(p => p.StatusHistory)
+            .Include(p => p.PlanActions)
             .FirstOrDefaultAsync(p => p.Id == person.Id, ct);
 
-        if (current is null) return false;
+        if (aggregate is null)
+        {
+            return false;
+        }
 
-        // поля, які дозволено редагувати у картці
-        current.LastName = person.LastName;
-        current.FirstName = person.FirstName;
-        current.MiddleName = person.MiddleName;
-        current.Rnokpp = person.Rnokpp;
-        current.Rank = person.Rank;
-        current.Callsign = person.Callsign;
-        current.BZVP = person.BZVP;
-        current.Weapon = person.Weapon;
+        var rank = person.Rank ?? throw new ArgumentException("Rank обов'язковий.", nameof(person));
+        var lastName = person.LastName ?? throw new ArgumentException("LastName обов'язкове.", nameof(person));
+        var firstName = person.FirstName ?? throw new ArgumentException("FirstName обов'язкове.", nameof(person));
+        var bzvp = person.BZVP ?? string.Empty;
 
-        // IsAttached / AttachedFromUnit — теж з картки:
-        current.IsAttached = person.IsAttached;
-        current.AttachedFromUnit = person.AttachedFromUnit;
+        aggregate.UpdateCard(
+            rnokpp!,
+            rank,
+            lastName,
+            firstName,
+            person.MiddleName,
+            bzvp,
+            person.Weapon,
+            person.Callsign,
+            person.IsAttached,
+            person.AttachedFromUnit,
+            DateTime.UtcNow);
 
-        // посаду/статус **тут не змінюємо** (за твоєю домовленістю)
-
-        current.ModifiedUtc = DateTime.UtcNow;
-
+        await PersonAggregateProjector.ProjectAsync(db, aggregate, ct);
         await db.SaveChangesAsync(ct);
         return true;
     }
