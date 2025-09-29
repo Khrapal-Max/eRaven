@@ -4,6 +4,7 @@
 // PlanActionService
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Services.Shared;
 using eRaven.Application.ViewModels.PlanActionViewModels;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
@@ -94,36 +95,50 @@ public sealed class PlanActionService(IDbContextFactory<AppDbContext> dbf) : IPl
 
         ArgumentNullException.ThrowIfNull(planAction, nameof(planAction));
 
-        var action = new PlanAction
+        var person = await db.Persons
+            .AsNoTracking()
+            .Include(p => p.PlanActions)
+            .FirstOrDefaultAsync(p => p.Id == planAction.PersonId, ct)
+            ?? throw new InvalidOperationException("Особа не знайдена.");
+
+        var location = planAction.Location?.Trim() ?? string.Empty;
+        var group = planAction.GroupName?.Trim() ?? string.Empty;
+        var crew = planAction.CrewName?.Trim() ?? string.Empty;
+        var note = planAction.Note?.Trim() ?? string.Empty;
+
+        var snapshot = PlanAction.Create(
+            planAction.PersonId,
+            planAction.PlanActionName,
+            planAction.EffectiveAtUtc,
+            null,
+            null,
+            planAction.ActionState,
+            planAction.MoveType,
+            location,
+            group,
+            crew,
+            note,
+            planAction.Rnokpp,
+            planAction.FullName,
+            planAction.RankName,
+            planAction.PositionName,
+            planAction.BZVP,
+            planAction.Weapon,
+            planAction.Callsign,
+            planAction.StatusKindOnDate);
+
+        if (planAction.Id != Guid.Empty)
         {
-            Id = planAction.Id,
-            PersonId = planAction.PersonId,
-            PlanActionName = planAction.PlanActionName,
-            EffectiveAtUtc = planAction.EffectiveAtUtc,
-            ToStatusKindId = null,
-            Order = null,
-            ActionState = planAction.ActionState,     // або примусово ActionState.PlanAction
-            MoveType = planAction.MoveType,
-            Location = planAction.Location?.Trim() ?? string.Empty,
-            GroupName = planAction.GroupName?.Trim() ?? string.Empty,
-            CrewName = planAction.CrewName?.Trim() ?? string.Empty,
-            Note = planAction.Note?.Trim() ?? string.Empty,
+            snapshot.Id = planAction.Id;
+        }
 
-            // snapshot:
-            Rnokpp = planAction.Rnokpp,
-            FullName = planAction.FullName,
-            RankName = planAction.RankName,
-            PositionName = planAction.PositionName,
-            BZVP = planAction.BZVP,
-            Weapon = planAction.Weapon,
-            Callsign = planAction.Callsign,
-            StatusKindOnDate = planAction.StatusKindOnDate
-        };
+        var created = person.AddPlanAction(snapshot);
+        created.Person = person;
 
-        db.PlanActions.Add(action);          // графу більше немає — лише сам PlanAction
+        await PersonAggregateProjector.ProjectAsync(db, person, ct);
         await db.SaveChangesAsync(ct);
 
-        return action;
+        return created;
     }
 
     /// <summary>

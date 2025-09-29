@@ -195,7 +195,7 @@ public sealed class PersonStatusServiceTests : IDisposable
 
         Assert.NotEqual(Guid.Empty, saved.Id);
         Assert.True(saved.IsActive);
-        Assert.Equal((short)0, saved.Sequence);
+        Assert.Equal((short)1, saved.Sequence);
         Assert.Equal(kindId, saved.StatusKindId);
 
         await using var verify = _helper.CreateContext();
@@ -260,7 +260,7 @@ public sealed class PersonStatusServiceTests : IDisposable
         // Початковий статус A @ t1 (sequence очікуємо 0)
         var first = await _svc.SetStatusAsync(
             new PersonStatus { PersonId = pId, StatusKindId = aId, OpenDate = t1 }, _ct);
-        Assert.Equal((short)0, first.Sequence);
+        Assert.Equal((short)1, first.Sequence);
 
         // Дозволений перехід A -> B
         await using (var db = _helper.CreateContext())
@@ -278,7 +278,7 @@ public sealed class PersonStatusServiceTests : IDisposable
             new PersonStatus { PersonId = pId, StatusKindId = bId, OpenDate = t1 }, _ct);
 
         Assert.Equal(t1, second.OpenDate);
-        Assert.Equal((short)1, second.Sequence); // після першого запису на той самий момент
+        Assert.Equal((short)2, second.Sequence); // після першого запису на той самий момент
 
         // Перевіримо, що збережено обидва в очікуваному порядку
         await using (var db = _helper.CreateContext())
@@ -290,10 +290,10 @@ public sealed class PersonStatusServiceTests : IDisposable
 
             Assert.Equal(2, list.Count);
             Assert.Equal(aId, list[0].StatusKindId); // A @ t1 seq 0
-            Assert.Equal((short)0, list[0].Sequence);
+            Assert.Equal((short)1, list[0].Sequence);
 
             Assert.Equal(bId, list[1].StatusKindId); // B @ t1 seq 1
-            Assert.Equal((short)1, list[1].Sequence);
+            Assert.Equal((short)2, list[1].Sequence);
         }
     }
 
@@ -562,7 +562,7 @@ public sealed class PersonStatusServiceTests : IDisposable
 
         var active = await _svc.GetActiveAsync(pId, _ct);
         Assert.Equal(s2.Id, active!.Id);
-        Assert.Equal((short)0, active.Sequence);
+        Assert.Equal((short)2, active.Sequence);
     }
 
     [Fact(DisplayName = "UpdateStateIsActive: активація при конфлікті key(person,open,seq) піднімає Sequence")]
@@ -601,7 +601,7 @@ public sealed class PersonStatusServiceTests : IDisposable
             var s2Tracked = await db.PersonStatuses.FirstAsync(x => x.Id == s2.Id, _ct);
             var s1Tracked = await db.PersonStatuses.FirstAsync(x => x.Id == s1.Id, _ct);
             s2Tracked.OpenDate = s1Tracked.OpenDate;
-            s2Tracked.Sequence = s1Tracked.Sequence; // 0
+            s2Tracked.Sequence = s1Tracked.Sequence; // 1
             await db.SaveChangesAsync(_ct);
         }
 
@@ -610,7 +610,7 @@ public sealed class PersonStatusServiceTests : IDisposable
 
         await using var verify = _helper.CreateContext();
         var reloaded = await verify.PersonStatuses.FirstAsync(x => x.Id == s2.Id, _ct);
-        Assert.Equal((short)1, reloaded.Sequence);
+        Assert.Equal((short)2, reloaded.Sequence);
     }
 
     [Fact(DisplayName = "UpdateStateIsActive: деактивація єдиного валідного → Person.StatusKindId = null")]

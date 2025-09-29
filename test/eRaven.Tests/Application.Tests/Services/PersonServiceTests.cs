@@ -5,6 +5,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Services.PersonService;
+using eRaven.Domain.Events;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;
@@ -184,7 +185,7 @@ public sealed class PersonServiceTests : IDisposable
         Assert.Contains("вже існує", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact(DisplayName = "CreateAsync: генерує Id (якщо пустий) і ставить CreatedUtc/ModifiedUtc (якщо поля є)")]
+    [Fact(DisplayName = "CreateAsync: генерує Id, піднімає подію та зберігає UTC-час")]
     public async Task Create_Sets_Id_And_Timestamps()
     {
         await SeedAsync();
@@ -195,7 +196,14 @@ public sealed class PersonServiceTests : IDisposable
         var created = await _svc.CreateAsync(p);
 
         Assert.NotEqual(Guid.Empty, created.Id);
-        // Якщо у домені є CreatedUtc/ModifiedUtc — можна перевіряти їх теж.
+        Assert.Equal(DateTimeKind.Utc, created.CreatedUtc.Kind);
+        Assert.Equal(created.CreatedUtc, created.ModifiedUtc);
+        Assert.InRange((DateTime.UtcNow - created.CreatedUtc).TotalSeconds, 0, 10);
+
+        var evt = Assert.IsType<PersonCreatedEvent>(Assert.Single(created.PendingEvents));
+        Assert.Equal(created.Id, evt.PersonId);
+        Assert.Equal(p.Rnokpp, evt.Rnokpp);
+        Assert.Equal(created.CreatedUtc, evt.OccurredAtUtc);
     }
 
     [Fact(DisplayName = "UpdateAsync: не знайдено -> false")]

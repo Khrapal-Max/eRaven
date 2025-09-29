@@ -4,6 +4,7 @@
 // PositionAssignmentService
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Services.Shared;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -48,11 +49,17 @@ public class PositionAssignmentService(IDbContextFactory<AppDbContext> dbf) : IP
     {
         await using var db = await _dbf.CreateDbContextAsync(ct);
 
-        if (openUtc.Kind != DateTimeKind.Utc)
-            openUtc = DateTime.SpecifyKind(openUtc, DateTimeKind.Utc);
+        var noteValue = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        var openUtcNorm = openUtc.Kind switch
+        {
+            DateTimeKind.Utc => openUtc,
+            DateTimeKind.Local => openUtc.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(openUtc, DateTimeKind.Utc)
+        };
 
-        // 1) Читаємо ТРЕКАНО
         var person = await db.Persons
+            .AsNoTracking()
+            .Include(p => p.PositionAssignments)
             .FirstOrDefaultAsync(p => p.Id == personId, ct)
             ?? throw new InvalidOperationException("Особа не знайдена.");
 
@@ -63,54 +70,26 @@ public class PositionAssignmentService(IDbContextFactory<AppDbContext> dbf) : IP
         if (!pos.IsActived)
             throw new InvalidOperationException("Неможливо призначити на неактивну посаду.");
 
-        using var tx = await db.Database.BeginTransactionAsync(ct);
+        var activeForPerson = person.CurrentAssignment;
+        if (activeForPerson is not null && activeForPerson.OpenUtc >= openUtcNorm)
+            throw new InvalidOperationException("Дата відкриття має бути пізніше за попереднє призначення.");
 
-        // 2) Закриваємо актив для особи (ТРЕКАНО)
-        var activeForPerson = await db.PersonPositionAssignments
-            .FirstOrDefaultAsync(a => a.PersonId == personId && a.CloseUtc == null, ct);
-
-        if (activeForPerson is not null)
-        {
-            if (activeForPerson.OpenUtc >= openUtc)
-                throw new InvalidOperationException("Дата відкриття має бути пізніше за попереднє призначення.");
-
-            activeForPerson.CloseUtc = openUtc;
-            activeForPerson.ModifiedUtc = DateTime.UtcNow;
-        }
-
-        // 3) Перевіряємо, що посада вільна (індекс теж захистить)
-        var posOccupied = await db.PersonPositionAssignments
-            .AnyAsync(a => a.PositionUnitId == positionUnitId && a.CloseUtc == null, ct);
-        if (posOccupied)
+        var positionBusy = await db.Persons
+            .AnyAsync(p => p.PositionUnitId == positionUnitId && p.Id != personId, ct);
+        if (positionBusy)
             throw new InvalidOperationException("Посада вже зайнята іншою особою.");
 
-        // 4) Створюємо новий запис (ТРЕКАНО)
-        var assign = new PersonPositionAssignment
-        {
-            Id = Guid.NewGuid(),
-            PersonId = personId,
-            PositionUnitId = positionUnitId,
-            OpenUtc = openUtc,
-            CloseUtc = null,
-            Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
-            Author = "ui",
-            ModifiedUtc = DateTime.UtcNow
-        };
-        await db.PersonPositionAssignments.AddAsync(assign, ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        // 5) Оновлюємо pointer у Person (це забезпечує правильний CurrentPerson)
-        person.PositionUnitId = positionUnitId;
-        person.ModifiedUtc = DateTime.UtcNow;
+        var assignment = person.AssignToPosition(pos, openUtcNorm, noteValue, "ui");
+        assignment.PositionUnit = pos;
+        assignment.Person = person;
 
+        await PersonAggregateProjector.ProjectAsync(db, person, ct);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
-        // 6) Повертаємо з навігацією (для UI)
-        assign.PositionUnit = await db.PositionUnits
-            .AsNoTracking()
-            .FirstAsync(x => x.Id == positionUnitId, ct);
-
-        return assign;
+        return assignment;
     }
 
     public async Task<bool> UnassignAsync(
@@ -121,33 +100,31 @@ public class PositionAssignmentService(IDbContextFactory<AppDbContext> dbf) : IP
     {
         await using var db = await _dbf.CreateDbContextAsync(ct);
 
-        if (closeUtc.Kind != DateTimeKind.Utc)
-            closeUtc = DateTime.SpecifyKind(closeUtc, DateTimeKind.Utc);
+        var noteValue = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        var closeUtcNorm = closeUtc.Kind switch
+        {
+            DateTimeKind.Utc => closeUtc,
+            DateTimeKind.Local => closeUtc.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(closeUtc, DateTimeKind.Utc)
+        };
 
-        // ТРЕКАНО
         var person = await db.Persons
+            .AsNoTracking()
+            .Include(p => p.PositionAssignments)
             .FirstOrDefaultAsync(p => p.Id == personId, ct);
+
         if (person is null) return false;
 
-        var active = await db.PersonPositionAssignments
-            .FirstOrDefaultAsync(a => a.PersonId == personId && a.CloseUtc == null, ct);
+        var active = person.CurrentAssignment;
         if (active is null) return false;
-
-        if (active.OpenUtc >= closeUtc)
+        if (active.OpenUtc >= closeUtcNorm)
             throw new InvalidOperationException("Дата закриття має бути пізніше дати відкриття.");
 
-        using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        // 1) Закриваємо запис
-        active.CloseUtc = closeUtc;
-        if (!string.IsNullOrWhiteSpace(note))
-            active.Note = note.Trim();
-        active.ModifiedUtc = DateTime.UtcNow;
+        person.RemoveFromPosition(closeUtcNorm, noteValue, "ui");
 
-        // 2) Очищаємо pointer у Person
-        person.PositionUnitId = null;
-        person.ModifiedUtc = DateTime.UtcNow;
-
+        await PersonAggregateProjector.ProjectAsync(db, person, ct);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
