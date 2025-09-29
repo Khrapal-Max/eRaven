@@ -2,9 +2,6 @@
 // Статичний хелпер для відображення бейджів статусів (кольори + тултіп)
 // -----------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using eRaven.Domain.Models;
 
 namespace eRaven.Components.Shared;

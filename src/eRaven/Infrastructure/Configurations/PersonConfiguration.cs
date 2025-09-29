@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -148,7 +148,12 @@ public class PersonConfiguration : IEntityTypeConfiguration<Person>
             .HasField("_positionAssignments")
             .UsePropertyAccessMode(PropertyAccessMode.Field);
         e.Navigation(x => x.PlanActions)
-            .HasField("_planActions")
+            .HasField("_planActions")            
+        e.Navigation(nameof(Person.StatusHistory))
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        e.Navigation(nameof(Person.PositionAssignments))
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        e.Navigation(nameof(Person.PlanActions))
             .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }
