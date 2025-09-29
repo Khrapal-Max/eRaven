@@ -1,13 +1,13 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // PersonTests (оновлено під поточну домен-модель)
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
-using eRaven.Domain.Events;
 using eRaven.Domain.Models;
+using eRaven.Domain.Events;
+using eRaven.Domain.Enums;
 
 namespace eRaven.Tests.Domain.Tests.Models;
 

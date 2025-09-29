@@ -5,6 +5,8 @@
 // PersonStatus
 //-----------------------------------------------------------------------------
 
+using System;
+
 namespace eRaven.Domain.Models;
 
 /// <summary>

@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -7,6 +7,7 @@
 
 using eRaven.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
@@ -136,7 +137,18 @@ public class PersonConfiguration : IEntityTypeConfiguration<Person>
 
         // Обчислюване поле
         e.Ignore(x => x.FullName);
+        e.Ignore(x => x.CurrentAssignment);
+        e.Ignore(x => x.CurrentStatus);
+        e.Ignore(x => x.PendingEvents);
 
+        e.Navigation(x => x.StatusHistory)
+            .HasField("_statusHistory")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        e.Navigation(x => x.PositionAssignments)
+            .HasField("_positionAssignments")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        e.Navigation(x => x.PlanActions)
+            .HasField("_planActions")            
         e.Navigation(nameof(Person.StatusHistory))
             .UsePropertyAccessMode(PropertyAccessMode.Field);
         e.Navigation(nameof(Person.PositionAssignments))

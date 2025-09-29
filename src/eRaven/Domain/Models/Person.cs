@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -161,7 +161,9 @@ public class Person
     /// </summary>
     public void RemoveFromPosition(DateTime removedAtUtc, string? note, string? author)
     {
+
         var activeAssignment = CurrentAssignment ?? throw new InvalidOperationException("Людина не має активного призначення.");
+      
         var utc = EnsureUtc(removedAtUtc);
         Record(new PersonPositionRemovedEvent(Id, activeAssignment.Id, utc, note, author));
 

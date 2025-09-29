@@ -30,7 +30,7 @@ public class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
         e.Property(x => x.Code)
          .HasColumnName("code")
          .HasMaxLength(64)
-         .IsRequired();// nullable за доменною моделлю
+         .IsRequired(false);// nullable за доменною моделлю
 
         e.Property(x => x.ShortName)
          .HasColumnName("short_name")
@@ -40,7 +40,7 @@ public class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
         e.Property(x => x.OrgPath)
          .HasColumnName("org_path")
          .HasMaxLength(512)
-         .IsRequired();
+         .IsRequired(false);
 
         e.Property(x => x.SpecialNumber)
          .HasColumnName("special_number")
