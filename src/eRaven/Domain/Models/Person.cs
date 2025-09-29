@@ -422,6 +422,56 @@ public class Person
     }
 
     /// <summary>
+    /// Оновлює картку людини базовими даними.
+    /// </summary>
+    public void UpdateCard(
+        string rnokpp,
+        string rank,
+        string lastName,
+        string firstName,
+        string? middleName,
+        string bzvp,
+        string? weapon,
+        string? callsign,
+        bool isAttached,
+        string? attachedFromUnit,
+        DateTime modifiedUtc)
+    {
+        if (Id == Guid.Empty)
+        {
+            throw new InvalidOperationException("Агрегат не ініціалізовано.");
+        }
+
+        var card = NormalizeCardInput(
+            rnokpp,
+            rank,
+            lastName,
+            firstName,
+            middleName,
+            bzvp,
+            weapon,
+            callsign,
+            isAttached,
+            attachedFromUnit);
+
+        var utc = EnsureUtc(modifiedUtc);
+
+        Record(new PersonCardUpdatedEvent(
+            Id,
+            card.Rnokpp,
+            card.Rank,
+            card.LastName,
+            card.FirstName,
+            card.MiddleName,
+            card.BZVP,
+            card.Weapon,
+            card.Callsign,
+            card.IsAttached,
+            card.AttachedFromUnit,
+            utc));
+    }
+
+    /// <summary>
     /// Очищує накопичені події.
     /// </summary>
     public void ClearPendingEvents() => _events.Clear();
@@ -444,10 +494,7 @@ public class Person
         DateTime createdUtc)
     {
         var person = new Person();
-        var utc = EnsureUtc(createdUtc);
-
-        person.Record(new PersonCreatedEvent(
-            id,
+        var card = NormalizeCardInput(
             rnokpp,
             rank,
             lastName,
@@ -457,7 +504,22 @@ public class Person
             weapon,
             callsign,
             isAttached,
-            attachedFromUnit,
+            attachedFromUnit);
+
+        var utc = EnsureUtc(createdUtc);
+
+        person.Record(new PersonCreatedEvent(
+            id,
+            card.Rnokpp,
+            card.Rank,
+            card.LastName,
+            card.FirstName,
+            card.MiddleName,
+            card.BZVP,
+            card.Weapon,
+            card.Callsign,
+            card.IsAttached,
+            card.AttachedFromUnit,
             utc));
 
         return person;
@@ -518,6 +580,9 @@ public class Person
             case PlanActionAddedEvent planActionAdded:
                 Apply(planActionAdded);
                 break;
+            case PersonCardUpdatedEvent cardUpdated:
+                Apply(cardUpdated);
+                break;
             default:
                 throw new InvalidOperationException($"Невідомий тип події {@event.GetType().Name}.");
         }
@@ -526,17 +591,34 @@ public class Person
     private void Apply(PersonCreatedEvent @event)
     {
         Id = @event.PersonId;
-        Rnokpp = @event.Rnokpp;
-        Rank = @event.Rank;
-        LastName = @event.LastName;
-        FirstName = @event.FirstName;
-        MiddleName = @event.MiddleName;
-        BZVP = @event.BZVP;
-        Weapon = @event.Weapon;
-        Callsign = @event.Callsign;
-        IsAttached = @event.IsAttached;
-        AttachedFromUnit = @event.AttachedFromUnit;
+        ApplyCardDetails(
+            @event.Rnokpp,
+            @event.Rank,
+            @event.LastName,
+            @event.FirstName,
+            @event.MiddleName,
+            @event.BZVP,
+            @event.Weapon,
+            @event.Callsign,
+            @event.IsAttached,
+            @event.AttachedFromUnit);
         CreatedUtc = @event.OccurredAtUtc;
+        ModifiedUtc = @event.OccurredAtUtc;
+    }
+
+    private void Apply(PersonCardUpdatedEvent @event)
+    {
+        ApplyCardDetails(
+            @event.Rnokpp,
+            @event.Rank,
+            @event.LastName,
+            @event.FirstName,
+            @event.MiddleName,
+            @event.BZVP,
+            @event.Weapon,
+            @event.Callsign,
+            @event.IsAttached,
+            @event.AttachedFromUnit);
         ModifiedUtc = @event.OccurredAtUtc;
     }
 
@@ -684,4 +766,88 @@ public class Person
             _ => value
         };
     }
+
+    private static PersonCardData NormalizeCardInput(
+        string rnokpp,
+        string rank,
+        string lastName,
+        string firstName,
+        string? middleName,
+        string bzvp,
+        string? weapon,
+        string? callsign,
+        bool isAttached,
+        string? attachedFromUnit)
+    {
+        return new PersonCardData(
+            NormalizeRequired(rnokpp, nameof(rnokpp)),
+            NormalizeRequired(rank, nameof(rank)),
+            NormalizeRequired(lastName, nameof(lastName)),
+            NormalizeRequired(firstName, nameof(firstName)),
+            NormalizeOptional(middleName),
+            NormalizeRequired(bzvp, nameof(bzvp), allowEmpty: true),
+            NormalizeOptional(weapon),
+            NormalizeOptional(callsign),
+            isAttached,
+            NormalizeOptional(attachedFromUnit));
+    }
+
+    private static string NormalizeRequired(string value, string argumentName, bool allowEmpty = false)
+    {
+        ArgumentNullException.ThrowIfNull(value, argumentName);
+
+        var trimmed = value.Trim();
+        if (!allowEmpty && string.IsNullOrEmpty(trimmed))
+        {
+            throw new ArgumentException($"{argumentName} є обов'язковим полем.", argumentName);
+        }
+
+        return trimmed;
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim();
+    }
+
+    private void ApplyCardDetails(
+        string rnokpp,
+        string rank,
+        string lastName,
+        string firstName,
+        string? middleName,
+        string bzvp,
+        string? weapon,
+        string? callsign,
+        bool isAttached,
+        string? attachedFromUnit)
+    {
+        Rnokpp = rnokpp;
+        Rank = rank;
+        LastName = lastName;
+        FirstName = firstName;
+        MiddleName = middleName;
+        BZVP = bzvp;
+        Weapon = weapon;
+        Callsign = callsign;
+        IsAttached = isAttached;
+        AttachedFromUnit = attachedFromUnit;
+    }
+
+    private sealed record PersonCardData(
+        string Rnokpp,
+        string Rank,
+        string LastName,
+        string FirstName,
+        string? MiddleName,
+        string BZVP,
+        string? Weapon,
+        string? Callsign,
+        bool IsAttached,
+        string? AttachedFromUnit);
 }
