@@ -12,7 +12,7 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250926163521_Initial")]
+    [Migration("20250929151805_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -403,7 +403,6 @@ namespace eRaven.Migrations
                         .HasColumnName("id");
 
                     b.Property<string>("Code")
-                        .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("code");
@@ -415,7 +414,6 @@ namespace eRaven.Migrations
                         .HasColumnName("is_active");
 
                     b.Property<string>("OrgPath")
-                        .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
                         .HasColumnName("org_path");

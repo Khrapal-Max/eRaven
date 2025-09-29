@@ -400,7 +400,6 @@ namespace eRaven.Migrations
                         .HasColumnName("id");
 
                     b.Property<string>("Code")
-                        .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("code");
@@ -412,7 +411,6 @@ namespace eRaven.Migrations
                         .HasColumnName("is_active");
 
                     b.Property<string>("OrgPath")
-                        .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
                         .HasColumnName("org_path");

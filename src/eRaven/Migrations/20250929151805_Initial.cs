@@ -1,8 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
+#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
 
 namespace eRaven.Migrations
 {
@@ -20,9 +22,9 @@ namespace eRaven.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
-                    code = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    code = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                     short_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
-                    org_path = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
+                    org_path = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
                     special_number = table.Column<string>(type: "character varying(15)", maxLength: 15, nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true)
                 },
