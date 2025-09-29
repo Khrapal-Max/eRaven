@@ -5,6 +5,7 @@
 // PersonService
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Services.Shared;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -86,7 +87,7 @@ public class PersonService(IDbContextFactory<AppDbContext> dbf) : IPersonService
         aggregate.StatusKindId = person.StatusKindId;
         aggregate.PositionUnitId = person.PositionUnitId;
 
-        db.Persons.Add(aggregate);
+        await PersonAggregateProjector.ProjectAsync(db, aggregate, ct);
         await db.SaveChangesAsync(ct);
         return aggregate;
     }

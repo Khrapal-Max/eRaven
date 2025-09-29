@@ -4,6 +4,7 @@
 // PersonStatusService
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Services.Shared;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -77,6 +78,7 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
         };
 
         var person = await db.Persons
+            .AsNoTracking()
             .Include(p => p.StatusHistory)
             .ThenInclude(s => s.StatusKind)
             .FirstOrDefaultAsync(p => p.Id == ps.PersonId, ct)
@@ -105,6 +107,7 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
         created.StatusKind = statusKind;
         created.Person = person;
 
+        await PersonAggregateProjector.ProjectAsync(db, person, ct);
         await db.SaveChangesAsync(ct);
 
         return created;
@@ -133,6 +136,7 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
         if (statusId == Guid.Empty) throw new ArgumentException("statusId is required.", nameof(statusId));
 
         var person = await db.Persons
+            .AsNoTracking()
             .Include(p => p.StatusHistory)
             .ThenInclude(s => s.StatusKind)
             .FirstOrDefaultAsync(p => p.StatusHistory.Any(s => s.Id == statusId), ct)
@@ -162,6 +166,7 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
             }
         }
 
+        await PersonAggregateProjector.ProjectAsync(db, person, ct);
         await db.SaveChangesAsync(ct);
 
         return snapshot.IsActive;
