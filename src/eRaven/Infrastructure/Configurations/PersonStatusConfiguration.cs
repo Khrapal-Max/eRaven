@@ -35,6 +35,7 @@ public class PersonStatusConfiguration : IEntityTypeConfiguration<PersonStatus>
 
         e.Property(x => x.OpenDate)
             .HasColumnName("open_date")
+            .HasColumnType("timestamp with time zone")
             .IsRequired();
 
         e.Property(x => x.Note)
@@ -53,6 +54,7 @@ public class PersonStatusConfiguration : IEntityTypeConfiguration<PersonStatus>
 
         e.Property(x => x.Modified)
             .HasColumnName("modified")
+            .HasColumnType("timestamp with time zone")
             .HasDefaultValueSql("CURRENT_TIMESTAMP")
             .IsRequired();
 

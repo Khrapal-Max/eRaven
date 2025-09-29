@@ -58,6 +58,8 @@ public class PersonPositionAssignmentConfiguration : IEntityTypeConfiguration<Pe
          .HasDefaultValueSql("CURRENT_TIMESTAMP")
          .IsRequired();
 
+        e.Ignore(x => x.IsActive);
+
         // ===============================
         // Relationships
         // ===============================

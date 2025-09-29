@@ -45,8 +45,8 @@ public class PersonConfiguration : IEntityTypeConfiguration<Person>
             .HasMaxLength(128)
             .IsRequired();
 
-        e.Property(x => x.MiddleName).
-            HasColumnName("middle_name")
+        e.Property(x => x.MiddleName)
+            .HasColumnName("middle_name")
             .HasMaxLength(128);
 
         e.Property(x => x.BZVP)
@@ -122,6 +122,12 @@ public class PersonConfiguration : IEntityTypeConfiguration<Person>
             .HasForeignKey(s => s.PersonId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Історія призначень на посади
+        e.HasMany(x => x.PositionAssignments)
+            .WithOne(a => a.Person)
+            .HasForeignKey(a => a.PersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // 🔵 НОВЕ: Планові дії ↔ Person (1↔N)
         e.HasMany(x => x.PlanActions)
             .WithOne(a => a.Person)
@@ -136,6 +142,7 @@ public class PersonConfiguration : IEntityTypeConfiguration<Person>
         e.Navigation(nameof(Person.PositionAssignments))
             .UsePropertyAccessMode(PropertyAccessMode.Field);
         e.Navigation(nameof(Person.PlanActions))
+        person_aggregate
             .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

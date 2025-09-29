@@ -30,6 +30,7 @@ public class PlanActionConfiguration : IEntityTypeConfiguration<PlanAction>
 
         e.Property(x => x.EffectiveAtUtc)
             .HasColumnName("effective_at_utc")
+            .HasColumnType("timestamp with time zone")
             .IsRequired();
 
         e.Property(x => x.ToStatusKindId)
