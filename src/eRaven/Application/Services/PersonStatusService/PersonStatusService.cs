@@ -5,6 +5,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Projector;
+using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -27,15 +28,26 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
             .ToListAsync(ct);
     }
 
-    public async Task<IReadOnlyList<PersonStatus>> GetHistoryAsync(Guid personId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<PersonStatusHistoryItem>> GetHistoryAsync(Guid personId, CancellationToken ct = default)
     {
         await using var db = await _dbf.CreateDbContextAsync(ct);
 
         var list = await db.PersonStatuses.AsNoTracking()
-            .Include(s => s.StatusKind)
-            .Where(s => s.PersonId == personId && s.IsActive == true)
+            .Where(s => s.PersonId == personId)
             .OrderByDescending(s => s.OpenDate)
             .ThenByDescending(s => s.Sequence)
+            .Select(s => new PersonStatusHistoryItem(
+                s.Id,
+                s.StatusKindId,
+                s.StatusKind != null ? s.StatusKind.Code : null,
+                s.StatusKind != null ? s.StatusKind.Name : null,
+                s.OpenDate,
+                s.IsActive,
+                s.Sequence,
+                s.Note,
+                s.Author,
+                s.SourceDocumentId,
+                s.SourceDocumentType))
             .ToListAsync(ct);
 
         return list.AsReadOnly();

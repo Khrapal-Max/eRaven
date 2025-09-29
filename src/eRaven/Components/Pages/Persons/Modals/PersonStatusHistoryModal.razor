@@ -3,11 +3,10 @@
 -----------------------------------------------------------------------------
  PersonStatusHistoryModal (view)
  - Керований модал (Open керує батько)
- - Завантажує історію для PersonId
- - Показує лише валідні записи (IsActive = true)
+ - Завантажує повну історію для PersonId (активні + закриті записи)
 -----------------------------------------------------------------------------*@
 
-@using eRaven.Domain.Models
+@using eRaven.Application.ViewModels.PersonStatusViewModels
 
 @if (Open)
 {
@@ -39,7 +38,7 @@
                     else
                     {
                         <TableBaseComponent Items="_view"
-                                            TItem="PersonStatus"
+                                            TItem="PersonStatusHistoryItem"
                                             Class="table align-middle mb-0">
                             <TableHeader>
                                 <th class="text-black">Статус</th>
@@ -48,8 +47,8 @@
                             </TableHeader>
 
                             <RowTemplate Context="s">
-                                <td>@(s.StatusKind?.Name ?? $"ID {s.StatusKindId}")</td>
-                                <td class="text-center">@s.OpenDate.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                                <td>@(s.StatusName ?? $"ID {s.StatusKindId}")</td>
+                                <td class="text-center">@s.OpenDateUtc.ToLocalTime().ToString("dd.MM.yyyy")</td>
                                 <td class="text-wrap">@s.Note</td>
                             </RowTemplate>
                         </TableBaseComponent>
