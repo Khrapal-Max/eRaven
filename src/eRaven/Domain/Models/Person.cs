@@ -131,7 +131,7 @@ public class Person
     /// <summary>
     /// Призначає людину на посаду.
     /// </summary>
-    public void AssignToPosition(PositionUnit position, DateTime assignedAtUtc, string? note, string? author)
+    public PersonPositionAssignment AssignToPosition(PositionUnit position, DateTime assignedAtUtc, string? note, string? author)
     {
         ArgumentNullException.ThrowIfNull(position);
 
@@ -144,7 +144,7 @@ public class Person
             {
                 Record(new PersonPositionAssignmentTouchedEvent(Id, activeAssignment.Id, utc, note, author));
                 PositionUnit = position;
-                return;
+                return activeAssignment;
             }
 
             Record(new PersonPositionRemovedEvent(Id, activeAssignment.Id, utc, note, author));
@@ -154,6 +154,7 @@ public class Person
         Record(new PersonPositionAssignedEvent(Id, assignmentId, position.Id, utc, note, author));
 
         PositionUnit = position;
+        return _positionAssignments.Single(a => a.Id == assignmentId);
     }
 
     /// <summary>
@@ -173,7 +174,7 @@ public class Person
     /// <summary>
     /// Встановлює статус з перевіркою дозволених переходів.
     /// </summary>
-    public void SetStatus(
+    public PersonStatus SetStatus(
         StatusKind statusKind,
         DateTime effectiveAtUtc,
         string? note,
@@ -193,7 +194,7 @@ public class Person
             {
                 Record(new PersonStatusNoteUpdatedEvent(Id, current.Id, utc, note));
                 StatusKind = statusKind;
-                return;
+                return current;
             }
 
             if (transitions is not null && current.IsActive)
@@ -221,6 +222,7 @@ public class Person
             sourceDocumentType));
 
         StatusKind = statusKind;
+        return _statusHistory.Single(s => s.Id == statusId);
     }
 
     /// <summary>

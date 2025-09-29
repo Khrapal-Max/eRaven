@@ -63,73 +63,51 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
     {
         await using var db = await _dbf.CreateDbContextAsync(ct);
 
-        // ====== 1) Валідації та нормалізація ======
         ArgumentNullException.ThrowIfNull(ps);
         if (ps.PersonId == Guid.Empty) throw new ArgumentException("PersonId обовʼязковий.", nameof(ps));
         if (ps.StatusKindId <= 0) throw new ArgumentException("StatusKindId обовʼязковий.", nameof(ps));
 
-        // Нормалізуємо OpenDate до UTC (на вхід може прийти Local/Unspecified)
-        var openUtc = ps.OpenDate.Kind switch
+        var note = string.IsNullOrWhiteSpace(ps.Note) ? null : ps.Note.Trim();
+        var author = string.IsNullOrWhiteSpace(ps.Author) ? "system" : ps.Author!.Trim();
+        var effectiveUtc = ps.OpenDate.Kind switch
         {
             DateTimeKind.Utc => ps.OpenDate,
             DateTimeKind.Local => ps.OpenDate.ToUniversalTime(),
             _ => DateTime.SpecifyKind(ps.OpenDate, DateTimeKind.Utc)
         };
 
-        // Перевіряємо існування Person/StatusKind
-        var person = await db.Persons.FirstOrDefaultAsync(p => p.Id == ps.PersonId, ct)
+        var person = await db.Persons
+            .Include(p => p.StatusHistory)
+            .ThenInclude(s => s.StatusKind)
+            .FirstOrDefaultAsync(p => p.Id == ps.PersonId, ct)
             ?? throw new InvalidOperationException("Особа не знайдена.");
 
-        var toKindExists = await db.StatusKinds.AnyAsync(k => k.Id == ps.StatusKindId, ct);
-        if (!toKindExists) throw new InvalidOperationException("Вказаний статус не існує.");
+        var statusKind = await db.StatusKinds.FirstOrDefaultAsync(k => k.Id == ps.StatusKindId, ct)
+            ?? throw new InvalidOperationException("Вказаний статус не існує.");
 
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-        // ====== 2) Правила переходів: від поточного (останнього валідного) → до нового
-        var current = await db.PersonStatuses
-            .Where(s => s.PersonId == ps.PersonId && s.IsActive)
-            .OrderByDescending(s => s.OpenDate).ThenByDescending(s => s.Sequence)
-            .FirstOrDefaultAsync(ct);
-
-        int? fromKindId = current?.StatusKindId;
-        if (!await IsTransitionAllowedAsync(fromKindId, ps.StatusKindId, ct))
-            throw new InvalidOperationException("Перехід у вказаний статус заборонено правилами.");
-
-        // Забороняємо «назад у часі» відносно поточного
-        if (current is not null && openUtc < current.OpenDate)
+        var current = person.CurrentStatus;
+        if (current is not null && effectiveUtc < current.OpenDate)
             throw new InvalidOperationException("Момент має бути пізніший за останній відкритий статус.");
 
-        // ====== 3) Присвоюємо Sequence на цей самий момент часу
-        short nextSeq = (await db.PersonStatuses
-            .Where(s => s.PersonId == ps.PersonId && s.IsActive && s.OpenDate == openUtc)
-            .MaxAsync(s => (short?)s.Sequence, ct)) ?? -1;
+        var transitions = await db.StatusTransitions
+            .AsNoTracking()
+            .ToListAsync(ct);
 
-        nextSeq++;
+        var created = person.SetStatus(
+            statusKind,
+            effectiveUtc,
+            note,
+            author,
+            transitions,
+            ps.SourceDocumentId,
+            ps.SourceDocumentType);
 
-        // ====== 4) Створюємо новий «валідний» запис
-        var toSave = new PersonStatus
-        {
-            Id = Guid.NewGuid(),
-            PersonId = ps.PersonId,
-            StatusKindId = ps.StatusKindId,
-            OpenDate = openUtc,
-            Sequence = nextSeq,
-            IsActive = true,
-            Note = string.IsNullOrWhiteSpace(ps.Note) ? null : ps.Note.Trim(),
-            Author = string.IsNullOrWhiteSpace(ps.Author) ? "system" : ps.Author!.Trim(),
-            Modified = DateTime.UtcNow
-        };
-
-        db.PersonStatuses.Add(toSave);
-
-        // Оновлюємо «поточний» статус у Person
-        person.StatusKindId = ps.StatusKindId;
-        person.ModifiedUtc = DateTime.UtcNow;
+        created.StatusKind = statusKind;
+        created.Person = person;
 
         await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
 
-        return toSave;
+        return created;
     }
 
     public async Task<bool> IsTransitionAllowedAsync(int? fromStatusKindId, int toStatusKindId, CancellationToken ct = default)
