@@ -5,8 +5,6 @@
 // Person (Aggregate Root)
 //-----------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using System.Linq;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Events;
 
@@ -163,12 +161,7 @@ public class Person
     /// </summary>
     public void RemoveFromPosition(DateTime removedAtUtc, string? note, string? author)
     {
-        var activeAssignment = CurrentAssignment;
-        if (activeAssignment is null)
-        {
-            throw new InvalidOperationException("Людина не має активного призначення.");
-        }
-
+        var activeAssignment = CurrentAssignment ?? throw new InvalidOperationException("Людина не має активного призначення.");
         var utc = EnsureUtc(removedAtUtc);
         Record(new PersonPositionRemovedEvent(Id, activeAssignment.Id, utc, note, author));
 
@@ -312,7 +305,7 @@ public class Person
     /// </summary>
     public IReadOnlyList<PersonAssignmentProjection> BuildAssignmentsProjection()
     {
-        return _positionAssignments
+        return [.. _positionAssignments
             .OrderBy(a => a.OpenUtc)
             .Select(a => new PersonAssignmentProjection(
                 a.Id,
@@ -320,8 +313,7 @@ public class Person
                 a.OpenUtc,
                 a.CloseUtc,
                 a.Note,
-                a.Author))
-            .ToList();
+                a.Author))];
     }
 
     /// <summary>
@@ -329,7 +321,7 @@ public class Person
     /// </summary>
     public IReadOnlyList<PersonStatusProjection> BuildStatusProjection()
     {
-        return _statusHistory
+        return [.. _statusHistory
             .OrderBy(s => s.Sequence)
             .Select(s => new PersonStatusProjection(
                 s.Id,
@@ -340,8 +332,7 @@ public class Person
                 s.Note,
                 s.Author,
                 s.SourceDocumentId,
-                s.SourceDocumentType))
-            .ToList();
+                s.SourceDocumentType))];
     }
 
     /// <summary>
@@ -349,7 +340,7 @@ public class Person
     /// </summary>
     public IReadOnlyList<PersonPlanActionProjection> BuildPlanActionsProjection()
     {
-        return _planActions
+        return [.. _planActions
             .OrderBy(a => a.EffectiveAtUtc)
             .Select(a => new PersonPlanActionProjection(
                 a.Id,
@@ -370,8 +361,7 @@ public class Person
                 a.BZVP,
                 a.Weapon,
                 a.Callsign,
-                a.StatusKindOnDate))
-            .ToList();
+                a.StatusKindOnDate))];
     }
 
     /// <summary>
@@ -518,11 +508,8 @@ public class Person
 
     private void Apply(PersonPositionRemovedEvent @event)
     {
-        var assignment = _positionAssignments.FirstOrDefault(a => a.Id == @event.AssignmentId);
-        if (assignment is null)
-        {
-            throw new InvalidOperationException("Не знайдено призначення для закриття.");
-        }
+        var assignment = _positionAssignments.FirstOrDefault(a => a.Id == @event.AssignmentId)
+            ?? throw new InvalidOperationException("Не знайдено призначення для закриття.");
 
         assignment.Close(@event.OccurredAtUtc, @event.Note, @event.Author);
         PositionUnitId = null;
@@ -532,11 +519,8 @@ public class Person
 
     private void Apply(PersonPositionAssignmentTouchedEvent @event)
     {
-        var assignment = _positionAssignments.FirstOrDefault(a => a.Id == @event.AssignmentId);
-        if (assignment is null)
-        {
-            throw new InvalidOperationException("Не знайдено призначення для оновлення.");
-        }
+        var assignment = _positionAssignments.FirstOrDefault(a => a.Id == @event.AssignmentId)
+            ?? throw new InvalidOperationException("Не знайдено призначення для оновлення.");
 
         assignment.Touch(@event.OccurredAtUtc, @event.Note, @event.Author);
         PositionUnitId = assignment.PositionUnitId;
@@ -578,11 +562,8 @@ public class Person
 
     private void Apply(PersonStatusNoteUpdatedEvent @event)
     {
-        var status = _statusHistory.FirstOrDefault(s => s.Id == @event.StatusId);
-        if (status is null)
-        {
-            throw new InvalidOperationException("Не знайдено статус для оновлення нотатки.");
-        }
+        var status = _statusHistory.FirstOrDefault(s => s.Id == @event.StatusId)
+            ?? throw new InvalidOperationException("Не знайдено статус для оновлення нотатки.");
 
         status.UpdateNote(@event.Note, @event.OccurredAtUtc);
         ModifiedUtc = @event.OccurredAtUtc;
