@@ -56,20 +56,39 @@ public class PersonService(IDbContextFactory<AppDbContext> dbf) : IPersonService
     {
         await using var db = await _dbf.CreateDbContextAsync(ct);
 
-        if (string.IsNullOrWhiteSpace(person.Rnokpp))
+        ArgumentNullException.ThrowIfNull(person);
+
+        var rnokpp = person.Rnokpp?.Trim();
+        if (string.IsNullOrWhiteSpace(rnokpp))
             throw new ArgumentException("RNOKPP обов'язковий.", nameof(person));
 
         // ручна перевірка унікальності (краще повідомлення ніж SQL-виняток)
-        var exists = await db.Persons.AnyAsync(p => p.Rnokpp == person.Rnokpp, ct);
+        var exists = await db.Persons.AnyAsync(p => p.Rnokpp == rnokpp, ct);
         if (exists) throw new InvalidOperationException("Особа з таким РНОКПП вже існує.");
 
-        person.Id = person.Id == Guid.Empty ? Guid.NewGuid() : person.Id;
-        person.CreatedUtc = DateTime.UtcNow;
-        person.ModifiedUtc = person.CreatedUtc;
+        var id = person.Id == Guid.Empty ? Guid.NewGuid() : person.Id;
+        var createdUtc = DateTime.UtcNow;
 
-        db.Persons.Add(person);
+        var aggregate = Person.Create(
+            id,
+            rnokpp!,
+            person.Rank ?? string.Empty,
+            person.LastName ?? string.Empty,
+            person.FirstName ?? string.Empty,
+            person.MiddleName,
+            person.BZVP ?? string.Empty,
+            person.Weapon,
+            person.Callsign,
+            person.IsAttached,
+            person.AttachedFromUnit,
+            createdUtc);
+
+        aggregate.StatusKindId = person.StatusKindId;
+        aggregate.PositionUnitId = person.PositionUnitId;
+
+        db.Persons.Add(aggregate);
         await db.SaveChangesAsync(ct);
-        return person;
+        return aggregate;
     }
 
     // ---------- Update (акуратно з трекінгом) ----------
