@@ -7,7 +7,6 @@
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
-using System.Linq;
 
 namespace eRaven.Application.Services.PersonStatusService;
 
