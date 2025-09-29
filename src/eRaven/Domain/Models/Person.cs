@@ -5,8 +5,8 @@
 // Person (Aggregate Root)
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
 using eRaven.Domain.Events;
+using eRaven.Domain.Models.Projections;
 
 namespace eRaven.Domain.Models;
 
@@ -163,7 +163,7 @@ public class Person
     {
 
         var activeAssignment = CurrentAssignment ?? throw new InvalidOperationException("Людина не має активного призначення.");
-      
+
         var utc = EnsureUtc(removedAtUtc);
         Record(new PersonPositionRemovedEvent(Id, activeAssignment.Id, utc, note, author));
 
@@ -630,70 +630,3 @@ public class Person
         };
     }
 }
-
-/// <summary>
-/// Проекція картки людини.
-/// </summary>
-public sealed record PersonCardProjection(
-    Guid PersonId,
-    string Rnokpp,
-    string Rank,
-    string LastName,
-    string FirstName,
-    string? MiddleName,
-    string FullName,
-    Guid? PositionUnitId,
-    int? StatusKindId,
-    bool IsAttached,
-    string? AttachedFromUnit,
-    DateTime CreatedUtc,
-    DateTime ModifiedUtc);
-
-/// <summary>
-/// Проекція призначення на посаду.
-/// </summary>
-public sealed record PersonAssignmentProjection(
-    Guid AssignmentId,
-    Guid PositionUnitId,
-    DateTime OpenUtc,
-    DateTime? CloseUtc,
-    string? Note,
-    string? Author);
-
-/// <summary>
-/// Проекція статусу.
-/// </summary>
-public sealed record PersonStatusProjection(
-    Guid StatusId,
-    int StatusKindId,
-    DateTime OpenDateUtc,
-    bool IsActive,
-    short Sequence,
-    string? Note,
-    string? Author,
-    Guid? SourceDocumentId,
-    string? SourceDocumentType);
-
-/// <summary>
-/// Проекція планової дії.
-/// </summary>
-public sealed record PersonPlanActionProjection(
-    Guid PlanActionId,
-    string PlanActionName,
-    DateTime EffectiveAtUtc,
-    int? ToStatusKindId,
-    string? Order,
-    ActionState ActionState,
-    MoveType MoveType,
-    string Location,
-    string GroupName,
-    string CrewName,
-    string Note,
-    string Rnokpp,
-    string FullName,
-    string RankName,
-    string PositionName,
-    string BZVP,
-    string Weapon,
-    string Callsign,
-    string StatusKindOnDate);

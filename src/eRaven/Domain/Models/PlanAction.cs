@@ -5,7 +5,6 @@
 // PlanAction
 //-----------------------------------------------------------------------------
 
-using System;
 using eRaven.Domain.Enums;
 
 namespace eRaven.Domain.Models;

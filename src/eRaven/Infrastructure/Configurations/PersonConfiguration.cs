@@ -7,7 +7,6 @@
 
 using eRaven.Domain.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
@@ -144,15 +143,21 @@ public class PersonConfiguration : IEntityTypeConfiguration<Person>
         e.Navigation(x => x.StatusHistory)
             .HasField("_statusHistory")
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         e.Navigation(x => x.PositionAssignments)
             .HasField("_positionAssignments")
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         e.Navigation(x => x.PlanActions)
-            .HasField("_planActions")            
+            .HasField("_planActions")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         e.Navigation(nameof(Person.StatusHistory))
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         e.Navigation(nameof(Person.PositionAssignments))
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         e.Navigation(nameof(Person.PlanActions))
             .UsePropertyAccessMode(PropertyAccessMode.Field);
     }

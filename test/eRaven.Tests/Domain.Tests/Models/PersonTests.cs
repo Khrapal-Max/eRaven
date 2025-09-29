@@ -5,9 +5,9 @@
 // PersonTests (оновлено під поточну домен-модель)
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Models;
-using eRaven.Domain.Events;
 using eRaven.Domain.Enums;
+using eRaven.Domain.Events;
+using eRaven.Domain.Models;
 
 namespace eRaven.Tests.Domain.Tests.Models;
 
