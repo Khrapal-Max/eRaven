@@ -4,6 +4,7 @@
 // PersonStatusHistoryModal (code-behind)
 //-----------------------------------------------------------------------------
 
+using System.Linq;
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Domain.Models;
@@ -41,10 +42,11 @@ public sealed partial class PersonStatusHistoryModal : ComponentBase
         {
             SetBusy(true);
 
-            // Беремо всю історію статусів (активні + закриті)
+            // Беремо лише дійсні записи історії (IsActive=TRUE)
             var all = await PersonStatusService.GetHistoryAsync(Person!.Id);
+
             _view.Clear();
-            _view.AddRange(all);
+            _view.AddRange(all.Where(s => s.IsActive));
         }
         finally
         {

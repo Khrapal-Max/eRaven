@@ -33,7 +33,7 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
         await using var db = await _dbf.CreateDbContextAsync(ct);
 
         var list = await db.PersonStatuses.AsNoTracking()
-            .Where(s => s.PersonId == personId)
+            .Where(s => s.PersonId == personId && s.IsActive)
             .OrderByDescending(s => s.OpenDate)
             .ThenByDescending(s => s.Sequence)
             .Select(s => new PersonStatusHistoryItem(

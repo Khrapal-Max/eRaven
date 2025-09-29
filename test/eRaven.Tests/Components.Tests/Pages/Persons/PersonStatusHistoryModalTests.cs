@@ -7,6 +7,7 @@
 using Bunit;
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Components.Pages.Persons.Modals;
+using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,22 +37,21 @@ public sealed class PersonStatusHistoryModalTests : TestContext
             Rank = "сержант"
         };
 
-    private static PersonStatus S(Guid personId, string name, string? note, DateTime utc, bool isActive = true)
-        => new()
-        {
-            Id = Guid.NewGuid(),
-            PersonId = personId,
-            StatusKindId = 1,
-            StatusKind = new StatusKind { Id = 1, Name = name, IsActive = true },
-            OpenDate = utc,
-            Note = note,
-            IsActive = isActive,
-            Sequence = 0,
-            Author = "test",
-            Modified = DateTime.UtcNow
-        };
+    private static PersonStatusHistoryItem HistoryItem(string name, string? note, DateTime utc, bool isActive = true)
+        => new(
+            Guid.NewGuid(),
+            StatusKindId: 1,
+            StatusCode: "CODE",
+            StatusName: name,
+            OpenDateUtc: utc,
+            IsActive: isActive,
+            Sequence: 0,
+            Note: note,
+            Author: "test",
+            SourceDocumentId: null,
+            SourceDocumentType: null);
 
-    private IRenderedComponent<PersonStatusHistoryModal> Render(bool open, Person? person, IReadOnlyList<PersonStatus>? history = null)
+    private IRenderedComponent<PersonStatusHistoryModal> Render(bool open, Person? person, IReadOnlyList<PersonStatusHistoryItem>? history = null)
     {
         _statuses.Reset();
 
@@ -106,12 +106,28 @@ public sealed class PersonStatusHistoryModalTests : TestContext
     {
         var p = NewPerson();
         var utc = new DateTime(2025, 9, 3, 0, 0, 0, DateTimeKind.Utc);
-        var list = new[] { S(p.Id, "Статус", null, utc, isActive: true) };
+        var list = new[] { HistoryItem("Статус", null, utc, isActive: true) };
 
         var cut = Render(open: true, person: p, history: list);
 
         // Перевіряємо шаблон дати (без годин)
         Assert.Contains(utc.ToLocalTime().ToString("dd.MM.yyyy"), cut.Markup);
+    }
+
+    [Fact(DisplayName = "Modal: приховує записи з IsActive=false")]
+    public void History_Filters_Inactive_Items()
+    {
+        var p = NewPerson();
+        var history = new[]
+        {
+            HistoryItem("Дійсний", null, DateTime.UtcNow, isActive: true),
+            HistoryItem("Видалений", null, DateTime.UtcNow.AddDays(-1), isActive: false)
+        };
+
+        var cut = Render(open: true, person: p, history: history);
+
+        Assert.Contains("Дійсний", cut.Markup);
+        Assert.DoesNotContain("Видалений", cut.Markup);
     }
 
     [Fact(DisplayName = "Modal: кнопка 'Закрити' викликає OnClose")]
