@@ -14,6 +14,7 @@ using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.StatusKindService;
+using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Application.ViewModels.TimesheetViewModels;
 using eRaven.Components.Shared;
 using eRaven.Domain.Models;
@@ -152,7 +153,7 @@ public partial class TimesheetPage : ComponentBase, IDisposable
 
     // ========== 4) Побудова денних клітинок (baseline + зміни) ==========
     private DayCell[] BuildDailyCellsWithBaseline(
-        IReadOnlyList<PersonStatus> history,
+        IReadOnlyList<PersonStatusHistoryItem> history,
         DateTime fromUtc,
         DateTime toUtc)
     {
@@ -162,27 +163,31 @@ public partial class TimesheetPage : ComponentBase, IDisposable
         if (history is null || history.Count == 0) return result;
 
         var ordered = history
-            .OrderBy(s => s.OpenDate)
+            .OrderBy(s => s.OpenDateUtc)
             .ThenBy(s => s.Sequence)
             .ToList();
 
-        var baseline = ordered.LastOrDefault(s => s.OpenDate <= fromUtc);
-        string? currentCode = baseline?.StatusKind?.Code?.Trim() ?? CodeForKind(baseline?.StatusKindId ?? 0);
-        string? currentTitle = baseline?.StatusKind?.Name ?? NameForKind(baseline?.StatusKindId ?? 0);
+        var baseline = ordered.LastOrDefault(s => s.OpenDateUtc <= fromUtc);
+        string? currentCode = string.IsNullOrWhiteSpace(baseline?.StatusCode)
+            ? CodeForKind(baseline?.StatusKindId ?? 0)
+            : baseline!.StatusCode!.Trim();
+        string? currentTitle = baseline?.StatusName ?? NameForKind(baseline?.StatusKindId ?? 0);
         string? currentNote = baseline?.Note;
 
-        var inRange = ordered.Where(s => s.OpenDate >= fromUtc && s.OpenDate < toUtc).ToList();
+        var inRange = ordered.Where(s => s.OpenDateUtc >= fromUtc && s.OpenDateUtc < toUtc).ToList();
         var idx = 0;
 
         for (int i = 0; i < daysCount; i++)
         {
             var dayUtc = fromUtc.AddDays(i);
 
-            while (idx < inRange.Count && inRange[idx].OpenDate <= dayUtc)
+            while (idx < inRange.Count && inRange[idx].OpenDateUtc <= dayUtc)
             {
                 var s = inRange[idx++];
-                currentCode = s.StatusKind?.Code?.Trim() ?? CodeForKind(s.StatusKindId);
-                currentTitle = s.StatusKind?.Name ?? NameForKind(s.StatusKindId);
+                currentCode = string.IsNullOrWhiteSpace(s.StatusCode)
+                    ? CodeForKind(s.StatusKindId)
+                    : s.StatusCode!.Trim();
+                currentTitle = s.StatusName ?? NameForKind(s.StatusKindId);
                 currentNote = s.Note;
             }
 

@@ -14,6 +14,7 @@ using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.StatusKindService;
+using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Application.ViewModels.StaffOnDateViewModels;
 using eRaven.Components.Shared;
 using eRaven.Domain.Models;
@@ -125,21 +126,21 @@ public partial class StaffOnDate : ComponentBase, IDisposable
     }
 
     // ==================== Статус на конкретну дату ====================
-    private StatusOnDateViewModel? GetStatusOnDate(IReadOnlyList<PersonStatus> history, DateTime atUtc)
+    private StatusOnDateViewModel? GetStatusOnDate(IReadOnlyList<PersonStatusHistoryItem> history, DateTime atUtc)
     {
         if (history is null || history.Count == 0) return null;
 
         // Останній валідний запис із OpenDate <= atUtc (за OpenDate DESC, Sequence DESC)
         var s = history
-            .OrderByDescending(x => x.OpenDate)
+            .OrderByDescending(x => x.OpenDateUtc)
             .ThenByDescending(x => x.Sequence)
-            .FirstOrDefault(x => x.OpenDate <= atUtc);
+            .FirstOrDefault(x => x.OpenDateUtc <= atUtc);
 
         if (s is null) return null;
 
         // Основні поля з навігації; fallback — з довідника
-        var code = s.StatusKind?.Code?.Trim();
-        var name = s.StatusKind?.Name;
+        var code = s.StatusCode?.Trim();
+        var name = s.StatusName;
 
         if (string.IsNullOrWhiteSpace(code))
         {
@@ -152,7 +153,7 @@ public partial class StaffOnDate : ComponentBase, IDisposable
         {
             Code = code,
             Name = name,
-            Note = string.IsNullOrWhiteSpace(s.Note) ? null : s.Note!.Trim()
+            Note = string.IsNullOrWhiteSpace(s.Note) ? null : s.Note.Trim()
         };
     }
 

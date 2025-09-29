@@ -5,6 +5,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Services.PersonStatusService;
+using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -19,7 +20,7 @@ public sealed partial class PersonStatusHistoryModal : ComponentBase
 
     [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!;
 
-    private readonly List<PersonStatus> _view = [];
+    private readonly List<PersonStatusHistoryItem> _view = [];
     private bool _busy;
     private string? _personName;
 
@@ -40,7 +41,7 @@ public sealed partial class PersonStatusHistoryModal : ComponentBase
         {
             SetBusy(true);
 
-            // Беремо всю історію і лишаємо валідні записи (IsActive = true)
+            // Беремо всю історію статусів (активні + закриті)
             var all = await PersonStatusService.GetHistoryAsync(Person!.Id);
             _view.Clear();
             _view.AddRange(all);

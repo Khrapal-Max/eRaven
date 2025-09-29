@@ -5,6 +5,7 @@
 // IPersonStatusService
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Domain.Models;
 
 namespace eRaven.Application.Services.PersonStatusService;
@@ -21,8 +22,8 @@ public interface IPersonStatusService
     /// <summary>
     /// Вся історія для особи (найновіші — першими).
     /// </summary>
-    /// <returns>IReadOnlyList PersonStatus(<see cref="PersonStatus"/>)</returns>
-    Task<IReadOnlyList<PersonStatus>> GetHistoryAsync(Guid personId, CancellationToken ct = default);
+    /// <returns>IReadOnlyList PersonStatusHistoryItem(<see cref="PersonStatusHistoryItem"/>)</returns>
+    Task<IReadOnlyList<PersonStatusHistoryItem>> GetHistoryAsync(Guid personId, CancellationToken ct = default);
 
     /// <summary>
     /// Поточний (незакритий) статус для особи або null.
