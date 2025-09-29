@@ -142,7 +142,6 @@ public class PersonConfiguration : IEntityTypeConfiguration<Person>
         e.Navigation(nameof(Person.PositionAssignments))
             .UsePropertyAccessMode(PropertyAccessMode.Field);
         e.Navigation(nameof(Person.PlanActions))
-        person_aggregate
             .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }
