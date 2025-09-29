@@ -7,6 +7,7 @@
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace eRaven.Application.Services.PersonStatusService;
 
@@ -132,54 +133,38 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
 
         if (statusId == Guid.Empty) throw new ArgumentException("statusId is required.", nameof(statusId));
 
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-        var status = await db.PersonStatuses.FirstOrDefaultAsync(s => s.Id == statusId, ct)
-            ?? throw new InvalidOperationException("Status not found.");
-
-        var person = await db.Persons.FirstOrDefaultAsync(p => p.Id == status.PersonId, ct)
+        var person = await db.Persons
+            .Include(p => p.StatusHistory)
+            .ThenInclude(s => s.StatusKind)
+            .FirstOrDefaultAsync(p => p.StatusHistory.Any(s => s.Id == statusId), ct)
             ?? throw new InvalidOperationException("Person not found.");
 
-        var turnOn = !status.IsActive;
+        var snapshot = person.StatusHistory.First(s => s.Id == statusId);
+        var turnOn = !snapshot.IsActive;
+        var changed = person.SetStatusActiveState(statusId, turnOn, DateTime.UtcNow);
 
-        if (turnOn)
+        if (!changed)
         {
-            // при активації — уникаємо конфлікту унікального індексу (person_id, open_date, sequence) WHERE is_active=TRUE
-            var existsActiveSameKey = await db.PersonStatuses.AnyAsync(
-                s => s.PersonId == status.PersonId
-                  && s.IsActive
-                  && s.OpenDate == status.OpenDate
-                  && s.Sequence == status.Sequence, ct);
+            return snapshot.IsActive;
+        }
 
-            if (existsActiveSameKey)
+        snapshot.Person = person;
+
+        if (person.StatusKindId is not null)
+        {
+            var activeKind = person.StatusHistory
+                .Where(s => s.IsActive && s.StatusKindId == person.StatusKindId)
+                .Select(s => s.StatusKind)
+                .FirstOrDefault();
+
+            if (activeKind is not null)
             {
-                // переносимо на наступний sequence на той самий момент
-                short nextSeq = (await db.PersonStatuses
-                    .Where(s => s.PersonId == status.PersonId && s.IsActive && s.OpenDate == status.OpenDate)
-                    .MaxAsync(s => (short?)s.Sequence, ct)) ?? -1;
-
-                status.Sequence = (short)(nextSeq + 1);
+                person.StatusKind = activeKind;
             }
         }
 
-        status.IsActive = turnOn;
-        status.Modified = DateTime.UtcNow;
-
         await db.SaveChangesAsync(ct);
 
-        // оновлюємо Person.StatusKindId до останнього валідного
-        var latestValid = await db.PersonStatuses
-            .Where(s => s.PersonId == status.PersonId && s.IsActive)
-            .OrderByDescending(s => s.OpenDate)
-            .ThenByDescending(s => s.Sequence)
-            .FirstOrDefaultAsync(ct);
-
-        person.StatusKindId = latestValid?.StatusKindId;
-        person.ModifiedUtc = DateTime.UtcNow;
-
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-
-        return status.IsActive;
+        return snapshot.IsActive;
     }
 }

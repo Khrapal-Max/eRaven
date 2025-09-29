@@ -423,6 +423,52 @@ public class PersonTests
     }
 
     [Fact]
+    public void SetStatusActiveState_TogglesAndUpdatesPerson()
+    {
+        var person = new Person { Id = Guid.NewGuid() };
+        var kindA = new StatusKind { Id = 1, Name = "В строю", Code = "ACTIVE", Order = 1 };
+        var kindB = new StatusKind { Id = 2, Name = "Відпустка", Code = "LEAVE", Order = 2 };
+
+        var openedA = new DateTime(2025, 6, 1, 8, 0, 0, DateTimeKind.Utc);
+        var openedB = openedA.AddHours(4);
+
+        person.SetStatus(kindA, openedA, null, null, null);
+        person.SetStatus(kindB, openedB, null, null, null);
+
+        var current = person.CurrentStatus!;
+        Assert.Equal(kindB.Id, current.StatusKindId);
+
+        var changed = person.SetStatusActiveState(current.Id, shouldBeActive: false, openedB.AddHours(1));
+
+        Assert.True(changed);
+        Assert.False(current.IsActive);
+        Assert.Equal(kindA.Id, person.StatusKindId);
+        Assert.Same(kindA, person.StatusKind);
+    }
+
+    [Fact]
+    public void SetStatusActiveState_ReactivatesAndAdjustsSequence()
+    {
+        var person = new Person { Id = Guid.NewGuid() };
+        var kindA = new StatusKind { Id = 1, Name = "В строю", Code = "ACTIVE", Order = 1 };
+        var kindB = new StatusKind { Id = 2, Name = "Відрядження", Code = "DISP", Order = 2 };
+
+        var opened = new DateTime(2025, 6, 10, 8, 0, 0, DateTimeKind.Utc);
+
+        var first = person.SetStatus(kindA, opened, null, null, null);
+        var second = person.SetStatus(kindB, opened.AddHours(1), null, null, null);
+
+        person.SetStatusActiveState(second.Id, shouldBeActive: false, opened.AddHours(2));
+
+        var changed = person.SetStatusActiveState(second.Id, shouldBeActive: true, opened.AddHours(3));
+
+        Assert.True(changed);
+        Assert.True(second.IsActive);
+        Assert.True(second.Sequence > first.Sequence);
+        Assert.Equal(kindB.Id, person.StatusKindId);
+    }
+
+    [Fact]
     public void BuildFromHistory_RecreatesState()
     {
         var personId = Guid.NewGuid();

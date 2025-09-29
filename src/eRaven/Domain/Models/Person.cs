@@ -243,6 +243,59 @@ public class Person
     }
 
     /// <summary>
+    /// Змінює стан активності існуючого статусу.
+    /// </summary>
+    /// <param name="statusId">Ідентифікатор статусу.</param>
+    /// <param name="shouldBeActive">Бажаний стан активності.</param>
+    /// <param name="changedAtUtc">Момент зміни.</param>
+    /// <returns><c>true</c>, якщо стан було змінено.</returns>
+    public bool SetStatusActiveState(Guid statusId, bool shouldBeActive, DateTime changedAtUtc)
+    {
+        var status = _statusHistory.FirstOrDefault(s => s.Id == statusId)
+            ?? throw new InvalidOperationException("Статус не знайдено.");
+
+        var utc = EnsureUtc(changedAtUtc);
+
+        if (status.IsActive == shouldBeActive)
+        {
+            return false;
+        }
+
+        if (shouldBeActive)
+        {
+            var conflicts = _statusHistory
+                .Where(s => s.Id != statusId && s.IsActive && s.OpenDate == status.OpenDate)
+                .ToList();
+
+            if (conflicts.Any(s => s.Sequence == status.Sequence))
+            {
+                var nextSequence = conflicts.Max(s => s.Sequence);
+                status.Sequence = (short)(nextSequence + 1);
+            }
+
+            status.IsActive = true;
+        }
+        else
+        {
+            status.IsActive = false;
+        }
+
+        status.Modified = utc;
+
+        var latest = _statusHistory
+            .Where(s => s.IsActive)
+            .OrderByDescending(s => s.OpenDate)
+            .ThenByDescending(s => s.Sequence)
+            .FirstOrDefault();
+
+        StatusKindId = latest?.StatusKindId;
+        StatusKind = latest?.StatusKind;
+        ModifiedUtc = utc;
+
+        return true;
+    }
+
+    /// <summary>
     /// Фіксує планову дію.
     /// </summary>
     public PlanAction AddPlanAction(PlanAction snapshot)
