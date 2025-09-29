@@ -4,6 +4,7 @@
 // PlanActionService
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Services.Shared;
 using eRaven.Application.ViewModels.PlanActionViewModels;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
@@ -95,6 +96,7 @@ public sealed class PlanActionService(IDbContextFactory<AppDbContext> dbf) : IPl
         ArgumentNullException.ThrowIfNull(planAction, nameof(planAction));
 
         var person = await db.Persons
+            .AsNoTracking()
             .Include(p => p.PlanActions)
             .FirstOrDefaultAsync(p => p.Id == planAction.PersonId, ct)
             ?? throw new InvalidOperationException("Особа не знайдена.");
@@ -132,7 +134,8 @@ public sealed class PlanActionService(IDbContextFactory<AppDbContext> dbf) : IPl
 
         var created = person.AddPlanAction(snapshot);
         created.Person = person;
-
+        
+        await PersonAggregateProjector.ProjectAsync(db, person, ct);
         await db.SaveChangesAsync(ct);
 
         return created;

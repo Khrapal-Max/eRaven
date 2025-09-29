@@ -4,6 +4,7 @@
 // PositionAssignmentService
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Services.Shared;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -57,6 +58,7 @@ public class PositionAssignmentService(IDbContextFactory<AppDbContext> dbf) : IP
         };
 
         var person = await db.Persons
+            .AsNoTracking()
             .Include(p => p.PositionAssignments)
             .FirstOrDefaultAsync(p => p.Id == personId, ct)
             ?? throw new InvalidOperationException("Особа не знайдена.");
@@ -83,6 +85,7 @@ public class PositionAssignmentService(IDbContextFactory<AppDbContext> dbf) : IP
         assignment.PositionUnit = pos;
         assignment.Person = person;
 
+        await PersonAggregateProjector.ProjectAsync(db, person, ct);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
@@ -106,6 +109,7 @@ public class PositionAssignmentService(IDbContextFactory<AppDbContext> dbf) : IP
         };
 
         var person = await db.Persons
+            .AsNoTracking()
             .Include(p => p.PositionAssignments)
             .FirstOrDefaultAsync(p => p.Id == personId, ct);
 
@@ -120,6 +124,7 @@ public class PositionAssignmentService(IDbContextFactory<AppDbContext> dbf) : IP
 
         person.RemoveFromPosition(closeUtcNorm, noteValue, "ui");
 
+        await PersonAggregateProjector.ProjectAsync(db, person, ct);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
