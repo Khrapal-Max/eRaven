@@ -5,15 +5,11 @@
 // PersonAggregateProjector
 //-----------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
-namespace eRaven.Application.Services.Shared;
+namespace eRaven.Application.Projector;
 
 /// <summary>
 /// Проектор, який синхронізує стан агрегата <see cref="Person"/> з реляційними таблицями.

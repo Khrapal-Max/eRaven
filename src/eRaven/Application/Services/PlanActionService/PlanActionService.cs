@@ -4,7 +4,7 @@
 // PlanActionService
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.Shared;
+using eRaven.Application.Projector;
 using eRaven.Application.ViewModels.PlanActionViewModels;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
@@ -134,7 +134,7 @@ public sealed class PlanActionService(IDbContextFactory<AppDbContext> dbf) : IPl
 
         var created = person.AddPlanAction(snapshot);
         created.Person = person;
-        
+
         await PersonAggregateProjector.ProjectAsync(db, person, ct);
         await db.SaveChangesAsync(ct);
 

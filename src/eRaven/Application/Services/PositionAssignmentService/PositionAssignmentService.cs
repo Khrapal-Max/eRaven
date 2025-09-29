@@ -4,7 +4,7 @@
 // PositionAssignmentService
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.Shared;
+using eRaven.Application.Projector;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
