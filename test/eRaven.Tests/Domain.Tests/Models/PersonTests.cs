@@ -5,6 +5,8 @@
 // PersonTests (оновлено під поточну домен-модель)
 //-----------------------------------------------------------------------------
 
+using System;
+using System.Linq;
 using eRaven.Domain.Models;
 
 namespace eRaven.Tests.Domain.Tests.Models;
@@ -212,137 +214,148 @@ public class PersonTests
         Assert.Equal("Сапер Рота 1 / Взвод 2", unit.FullName);
     }
 
-    // ---------- StatusHistory ops (basic) ----------
+    // ---------- Агрегатна поведінка ----------
 
     [Fact]
-    public void StatusHistory_Adds_Entries()
+    public void AssignToPosition_CreatesActiveSnapshot()
     {
-        var p = new Person { Id = Guid.NewGuid() };
+        var person = new Person { Id = Guid.NewGuid() };
+        var unit = new PositionUnit { Id = Guid.NewGuid(), ShortName = "Оператор", OrgPath = "Рота А" };
+        var assignedAt = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc);
 
-        var s1 = new PersonStatus
-        {
-            Id = Guid.NewGuid(),
-            PersonId = p.Id,
-            StatusKindId = 1,
-            OpenDate = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc)
-        };
-        var s2 = new PersonStatus
-        {
-            Id = Guid.NewGuid(),
-            PersonId = p.Id,
-            StatusKindId = 2,
-            OpenDate = new DateTime(2025, 1, 2, 9, 0, 0, DateTimeKind.Utc)
-        };
+        person.AssignToPosition(unit, assignedAt, "початок", "tester");
 
-        p.StatusHistory.Add(s1);
-        p.StatusHistory.Add(s2);
-
-        Assert.Equal(2, p.StatusHistory.Count);
-        Assert.Contains(p.StatusHistory, x => x.StatusKindId == 1);
-        Assert.Contains(p.StatusHistory, x => x.StatusKindId == 2);
-        Assert.All(p.StatusHistory, x => Assert.Equal(p.Id, x.PersonId));
-    }
-
-    // ---------- PositionAssignments (історія посад) ----------
-
-    [Fact]
-    public void PositionAssignments_Adds_Entries()
-    {
-        var p = new Person { Id = Guid.NewGuid() };
-        var pos1 = new PositionUnit { Id = Guid.NewGuid(), ShortName = "Оператор", OrgPath = "Рота А" };
-        var pos2 = new PositionUnit { Id = Guid.NewGuid(), ShortName = "Механік", OrgPath = "Рота Б" };
-
-        var a1 = new PersonPositionAssignment
-        {
-            Id = Guid.NewGuid(),
-            PersonId = p.Id,
-            PositionUnitId = pos1.Id,
-            PositionUnit = pos1,
-            OpenUtc = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc),
-            CloseUtc = new DateTime(2025, 1, 10, 18, 0, 0, DateTimeKind.Utc),
-            Note = "попередня",
-            Author = "tester",
-            ModifiedUtc = new DateTime(2025, 1, 10, 19, 0, 0, DateTimeKind.Utc)
-        };
-
-        var a2 = new PersonPositionAssignment
-        {
-            Id = Guid.NewGuid(),
-            PersonId = p.Id,
-            PositionUnitId = pos2.Id,
-            PositionUnit = pos2,
-            OpenUtc = new DateTime(2025, 1, 11, 8, 0, 0, DateTimeKind.Utc),
-            CloseUtc = null, // активна
-            Note = "поточна",
-            Author = "tester",
-            ModifiedUtc = new DateTime(2025, 1, 11, 8, 5, 0, DateTimeKind.Utc)
-        };
-
-        p.PositionAssignments.Add(a1);
-        p.PositionAssignments.Add(a2);
-
-        Assert.Equal(2, p.PositionAssignments.Count);
-        Assert.Contains(p.PositionAssignments, x => x.PositionUnitId == pos1.Id && x.CloseUtc != null);
-        Assert.Contains(p.PositionAssignments, x => x.PositionUnitId == pos2.Id && x.CloseUtc == null);
-        Assert.All(p.PositionAssignments, x => Assert.Equal(p.Id, x.PersonId));
+        var snapshot = Assert.Single(person.PositionAssignments);
+        Assert.Equal(unit.Id, snapshot.PositionUnitId);
+        Assert.True(snapshot.IsActive);
+        Assert.Equal(assignedAt, snapshot.OpenUtc);
+        Assert.Equal("початок", snapshot.Note);
+        Assert.Equal("tester", snapshot.Author);
+        Assert.Equal(unit.Id, person.PositionUnitId);
+        Assert.Same(unit, person.PositionUnit);
+        Assert.Equal(assignedAt, person.ModifiedUtc);
     }
 
     [Fact]
-    public void PositionAssignments_OpenAndClosed_Semantics()
+    public void AssignToPosition_Reassign_ClosesPrevious()
     {
-        var p = new Person { Id = Guid.NewGuid() };
-        var pos = new PositionUnit { Id = Guid.NewGuid(), ShortName = "Сапер", OrgPath = "Взвод 2" };
+        var person = new Person { Id = Guid.NewGuid() };
+        var unitA = new PositionUnit { Id = Guid.NewGuid(), ShortName = "Оператор", OrgPath = "Рота А" };
+        var unitB = new PositionUnit { Id = Guid.NewGuid(), ShortName = "Механік", OrgPath = "Рота Б" };
 
-        var open = new PersonPositionAssignment
-        {
-            Id = Guid.NewGuid(),
-            PersonId = p.Id,
-            PositionUnitId = pos.Id,
-            PositionUnit = pos,
-            OpenUtc = new DateTime(2025, 2, 1, 8, 0, 0, DateTimeKind.Utc),
-            CloseUtc = null
-        };
-        var closed = new PersonPositionAssignment
-        {
-            Id = Guid.NewGuid(),
-            PersonId = p.Id,
-            PositionUnitId = pos.Id,
-            PositionUnit = pos,
-            OpenUtc = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc),
-            CloseUtc = new DateTime(2025, 1, 31, 18, 0, 0, DateTimeKind.Utc)
-        };
+        var t1 = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Utc);
+        var t2 = new DateTime(2025, 1, 15, 9, 30, 0, DateTimeKind.Utc);
 
-        p.PositionAssignments.Add(closed);
-        p.PositionAssignments.Add(open);
+        person.AssignToPosition(unitA, t1, "первинне", "tester");
+        person.AssignToPosition(unitB, t2, "переведення", "hr");
 
-        Assert.Contains(p.PositionAssignments, x => x.CloseUtc == null);
-        Assert.Contains(p.PositionAssignments, x => x.CloseUtc != null);
-        Assert.True(closed.CloseUtc > closed.OpenUtc);
+        Assert.Equal(unitB.Id, person.PositionUnitId);
+        Assert.Equal(2, person.PositionAssignments.Count);
+
+        var closed = person.PositionAssignments.Single(x => x.PositionUnitId == unitA.Id);
+        Assert.False(closed.IsActive);
+        Assert.Equal(t2, closed.CloseUtc);
+
+        var active = person.CurrentAssignment;
+        Assert.NotNull(active);
+        Assert.Equal(unitB.Id, active!.PositionUnitId);
+        Assert.True(active.IsActive);
+        Assert.Equal(t2, person.ModifiedUtc);
     }
 
     [Fact]
-    public void PositionAssignments_Links_Are_Consistent()
+    public void RemoveFromPosition_DeactivatesSnapshot()
     {
-        var p = new Person { Id = Guid.NewGuid() };
-        var pos = new PositionUnit { Id = Guid.NewGuid(), ShortName = "Радист", OrgPath = "Рота 3" };
+        var person = new Person { Id = Guid.NewGuid() };
+        var unit = new PositionUnit { Id = Guid.NewGuid(), ShortName = "Радист", OrgPath = "Рота 3" };
+        var start = new DateTime(2025, 2, 1, 7, 0, 0, DateTimeKind.Utc);
+        var end = start.AddHours(12);
 
-        var a = new PersonPositionAssignment
+        person.AssignToPosition(unit, start, null, null);
+        person.RemoveFromPosition(end, "знято", "cmdr");
+
+        var snapshot = Assert.Single(person.PositionAssignments);
+        Assert.False(snapshot.IsActive);
+        Assert.Equal(end, snapshot.CloseUtc);
+        Assert.Null(person.PositionUnitId);
+        Assert.Null(person.PositionUnit);
+        Assert.Equal(end, person.ModifiedUtc);
+    }
+
+    [Fact]
+    public void RemoveFromPosition_WithoutActive_Throws()
+    {
+        var person = new Person { Id = Guid.NewGuid() };
+
+        Assert.Throws<InvalidOperationException>(() =>
+            person.RemoveFromPosition(DateTime.UtcNow, null, null));
+    }
+
+    [Fact]
+    public void SetStatus_AddsSnapshots_AndRespectsTransitions()
+    {
+        var person = new Person { Id = Guid.NewGuid() };
+        var kindA = new StatusKind { Id = 1, Name = "В строю", Code = "ACTIVE", Order = 1 };
+        var kindB = new StatusKind { Id = 2, Name = "У відпустці", Code = "LEAVE", Order = 2 };
+
+        var t1 = new DateTime(2025, 3, 1, 6, 0, 0, DateTimeKind.Utc);
+        var t2 = t1.AddHours(6);
+
+        person.SetStatus(kindA, t1, "вийшов на службу", "cmdr", null);
+        person.SetStatus(kindB, t2, "наказ", "hr", new[]
         {
-            Id = Guid.NewGuid(),
-            PersonId = p.Id,
-            Person = p,
-            PositionUnitId = pos.Id,
-            PositionUnit = pos,
-            OpenUtc = new DateTime(2025, 3, 1, 8, 0, 0, DateTimeKind.Utc)
-        };
+            new StatusTransition { FromStatusKindId = kindA.Id, ToStatusKindId = kindB.Id }
+        });
 
-        p.PositionAssignments.Add(a);
+        Assert.Equal(kindB.Id, person.StatusKindId);
+        Assert.Same(kindB, person.StatusKind);
+        Assert.Equal(t2, person.ModifiedUtc);
+        Assert.Equal(2, person.StatusHistory.Count);
 
-        var saved = p.PositionAssignments.Single();
-        Assert.Same(p, saved.Person);
-        Assert.Same(pos, saved.PositionUnit);
-        Assert.Equal(p.Id, saved.PersonId);
-        Assert.Equal(pos.Id, saved.PositionUnitId);
-        Assert.Equal("Радист Рота 3", pos.FullName);
+        var first = person.StatusHistory.First(s => s.StatusKindId == kindA.Id);
+        Assert.False(first.IsActive);
+        Assert.Equal((short)1, first.Sequence);
+        Assert.Equal(t2, first.Modified);
+
+        var second = person.StatusHistory.First(s => s.StatusKindId == kindB.Id);
+        Assert.True(second.IsActive);
+        Assert.Equal((short)2, second.Sequence);
+        Assert.Equal("наказ", second.Note);
+    }
+
+    [Fact]
+    public void SetStatus_Disallows_Transition_IfNotConfigured()
+    {
+        var person = new Person { Id = Guid.NewGuid() };
+        var kindA = new StatusKind { Id = 1, Name = "В строю", Code = "ACTIVE", Order = 1 };
+        var kindC = new StatusKind { Id = 3, Name = "У наряді", Code = "DUTY", Order = 3 };
+
+        person.SetStatus(kindA, new DateTime(2025, 4, 1, 6, 0, 0, DateTimeKind.Utc), null, null, null);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            person.SetStatus(kindC,
+                new DateTime(2025, 4, 1, 10, 0, 0, DateTimeKind.Utc),
+                null,
+                null,
+                Array.Empty<StatusTransition>()));
+    }
+
+    [Fact]
+    public void SetStatus_SameStatus_UpdatesNoteOnly()
+    {
+        var person = new Person { Id = Guid.NewGuid() };
+        var kind = new StatusKind { Id = 1, Name = "В строю", Code = "ACTIVE", Order = 1 };
+
+        var t1 = new DateTime(2025, 5, 1, 6, 0, 0, DateTimeKind.Utc);
+        var t2 = t1.AddHours(2);
+
+        person.SetStatus(kind, t1, "первинний", "cmdr", null);
+        person.SetStatus(kind, t2, "оновлений", "cmdr", null);
+
+        var status = Assert.Single(person.StatusHistory);
+        Assert.True(status.IsActive);
+        Assert.Equal("оновлений", status.Note);
+        Assert.Equal(t2, status.Modified);
+        Assert.Equal(t2, person.ModifiedUtc);
     }
 }

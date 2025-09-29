@@ -7,6 +7,7 @@
 
 using eRaven.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
@@ -130,5 +131,12 @@ public class PersonConfiguration : IEntityTypeConfiguration<Person>
 
         // Обчислюване поле
         e.Ignore(x => x.FullName);
+
+        e.Navigation(nameof(Person.StatusHistory))
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        e.Navigation(nameof(Person.PositionAssignments))
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        e.Navigation(nameof(Person.PlanActions))
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }
