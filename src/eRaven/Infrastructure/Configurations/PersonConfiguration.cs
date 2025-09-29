@@ -137,18 +137,13 @@ public class PersonConfiguration : IEntityTypeConfiguration<Person>
 
         // Обчислюване поле
         e.Ignore(x => x.FullName);
-        e.Ignore(x => x.CurrentAssignment);
-        e.Ignore(x => x.CurrentStatus);
-        e.Ignore(x => x.PendingEvents);
 
-        e.Navigation(x => x.StatusHistory)
-            .HasField("_statusHistory")
+        e.Navigation(nameof(Person.StatusHistory))
             .UsePropertyAccessMode(PropertyAccessMode.Field);
-        e.Navigation(x => x.PositionAssignments)
-            .HasField("_positionAssignments")
+        e.Navigation(nameof(Person.PositionAssignments))
             .UsePropertyAccessMode(PropertyAccessMode.Field);
-        e.Navigation(x => x.PlanActions)
-            .HasField("_planActions")
+        e.Navigation(nameof(Person.PlanActions))
+        person_aggregate
             .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }
