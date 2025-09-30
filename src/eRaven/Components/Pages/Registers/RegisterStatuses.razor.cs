@@ -12,6 +12,9 @@ using eRaven.Application.Services.PersonStatusService;
 using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.Registers;
 
@@ -20,6 +23,7 @@ public partial class RegisterStatuses : ComponentBase, IDisposable
     // UI / DI
     [Inject] protected IPersonStatusService PersonStatusService { get; set; } = default!;
     [Inject] protected IToastService Toast { get; set; } = default!;
+    [Inject] protected ILogger<RegisterStatuses> Logger { get; set; } = default!;
 
     private readonly CancellationTokenSource _cts = new();
     private ConfirmModal _confirm = default!;
@@ -42,33 +46,36 @@ public partial class RegisterStatuses : ComponentBase, IDisposable
     {
         try
         {
-            SetBusy(true);
+            await SetBusyAsync(true);
 
             var items = await PersonStatusService.GetAllAsync(_cts.Token);
             _all = [.. items];
-            ApplyFilter();
+            await ApplyFilterAsync();
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося завантажити журнал: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося завантажити журнал"))
+            {
+                throw;
+            }
             _all.Clear();
-            _view = [];
+            if (_view.Count > 0)
+            {
+                _view = [];
+                await InvokeAsync(StateHasChanged);
+            }
         }
         finally
         {
-            SetBusy(false);
+            await SetBusyAsync(false);
         }
     }
 
     // -------------------- Пошук/фільтр --------------------
 
-    protected Task OnSearchAsync()
-    {
-        ApplyFilter();
-        return Task.CompletedTask;
-    }
+    protected Task OnSearchAsync() => ApplyFilterAsync();
 
-    private void ApplyFilter()
+    private async Task ApplyFilterAsync()
     {
         var s = (Search ?? string.Empty).Trim();
 
@@ -88,13 +95,19 @@ public partial class RegisterStatuses : ComponentBase, IDisposable
         }
 
         // Сортування за замовчуванням: найсвіжіші першими
-        _view = query
+        var next = query
            .OrderByDescending(x => x.OpenDate)
            .ThenByDescending(x => x.Modified)
            .ToList()
            .AsReadOnly();
 
-        StateHasChanged();
+        if (SameOrder(_view, next))
+        {
+            return;
+        }
+
+        _view = next;
+        await InvokeAsync(StateHasChanged);
     }
 
     // -------------------- Тумблер стану --------------------
@@ -111,7 +124,7 @@ public partial class RegisterStatuses : ComponentBase, IDisposable
     {
         try
         {
-            SetBusy(true);
+            await SetBusyAsync(true);
 
             // Сервіс робить «toggle». Тут це доречно: ми викликаємо рівно один раз.
             var newState = await PersonStatusService.UpdateStateIsActive(statusId, _cts.Token);
@@ -125,28 +138,77 @@ public partial class RegisterStatuses : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося змінити стан: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося змінити стан"))
+            {
+                throw;
+            }
         }
         finally
         {
-            SetBusy(false);
+            await SetBusyAsync(false);
         }
     }
 
     private Task OnToggleChangedAsync(PersonStatus row, bool isActive)
     {
         // Керований компонент: фіксуємо нове значення у відображуваній моделі
+        if (row.IsActive == isActive)
+        {
+            return Task.CompletedTask;
+        }
+
         row.IsActive = isActive;
-        StateHasChanged();
-        return Task.CompletedTask;
+        return InvokeAsync(StateHasChanged);
     }
 
     // -------------------- Службові --------------------
 
-    private void SetBusy(bool value)
+    private async Task SetBusyAsync(bool value)
     {
+        if (Busy == value)
+        {
+            return;
+        }
+
         Busy = value;
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static bool SameOrder(IReadOnlyList<PersonStatus> current, IReadOnlyList<PersonStatus> next)
+    {
+        if (ReferenceEquals(current, next)) return true;
+        if (current.Count != next.Count) return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            var a = current[i];
+            var b = next[i];
+            if ((a?.Id ?? Guid.Empty) != (b?.Id ?? Guid.Empty))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 
     public void Dispose()

@@ -13,6 +13,7 @@ using eRaven.Components.Pages.StatusTransitions.Modals;
 using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
+using System;
 
 namespace eRaven.Components.Pages.StatusTransitions;
 
@@ -86,7 +87,7 @@ public partial class StatusTransitionsPage : ComponentBase
             _currentFromName = "—";
             _currentFromCode = "—";
             _allowedToIds.Clear();
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
             return;
         }
 
@@ -136,8 +137,13 @@ public partial class StatusTransitionsPage : ComponentBase
     {
         if (_kindsById.TryGetValue(statusId, out var item))
         {
+            if (item.IsActive == newValue)
+            {
+                return Task.CompletedTask;
+            }
+
             item.IsActive = newValue;
-            StateHasChanged();
+            return InvokeAsync(StateHasChanged);
         }
         return Task.CompletedTask;
     }
@@ -173,8 +179,7 @@ public partial class StatusTransitionsPage : ComponentBase
         if (newValue) _allowedToIds.Add(toId);
         else _allowedToIds.Remove(toId);
 
-        StateHasChanged();
-        return Task.CompletedTask;
+        return InvokeAsync(StateHasChanged);
     }
 
     //=====================================================================
@@ -195,12 +200,17 @@ public partial class StatusTransitionsPage : ComponentBase
         _orderModal?.Open(k.Id, k.Name, k.Order);
     }
 
-    private void OnOrderSaved((int Id, int NewOrder) payload)
+    private async Task OnOrderSaved((int Id, int NewOrder) payload)
     {
         var (id, newOrder) = payload;
 
         if (_kindsById.TryGetValue(id, out var item))
-            item.Order = newOrder;
+        {
+            if (item.Order != newOrder)
+            {
+                item.Order = newOrder;
+            }
+        }
 
         _kinds = _kinds
             .OrderBy(x => x.Order)
@@ -208,7 +218,7 @@ public partial class StatusTransitionsPage : ComponentBase
             .ToList();
 
         _kindsById = _kinds.ToDictionary(k => k.Id);
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
         ToastService.ShowSuccess("Порядок оновлено.");
     }
 
@@ -219,7 +229,11 @@ public partial class StatusTransitionsPage : ComponentBase
     {
         _busy = true;
         try { await action(); }
-        finally { _busy = false; StateHasChanged(); }
+        finally
+        {
+            _busy = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private static (bool changed, HashSet<int> newAllowed) BuildNewAllowedSet(HashSet<int> current, int toId, bool turnOn)
