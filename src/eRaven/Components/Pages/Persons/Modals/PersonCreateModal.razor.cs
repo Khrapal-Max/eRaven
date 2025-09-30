@@ -10,6 +10,8 @@ using eRaven.Application.Services.PersonService;
 using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.Persons.Modals;
 
@@ -18,6 +20,7 @@ public partial class PersonCreateModal : ComponentBase
     // ========== DI ==========
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
+    [Inject] private ILogger<PersonCreateModal> Logger { get; set; } = default!;
 
     // ========== Callback-и ==========
     [Parameter] public EventCallback<bool> OnClose { get; set; }
@@ -71,9 +74,34 @@ public partial class PersonCreateModal : ComponentBase
             await OnCreated.InvokeAsync(created);
             await CloseAsync(true);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (FluentValidation.ValidationException ex)
         {
             Toast.ShowError($"Помилка створення: {ex.Message}");
+        }
+        catch (System.ComponentModel.DataAnnotations.ValidationException ex)
+        {
+            Toast.ShowError($"Помилка створення: {ex.Message}");
+        }
+        catch (InvalidOperationException ex)
+        {
+            Toast.ShowError($"Помилка створення: {ex.Message}");
+        }
+        catch (ArgumentException ex)
+        {
+            Toast.ShowError($"Помилка створення: {ex.Message}");
+        }
+        catch (HttpRequestException ex)
+        {
+            Toast.ShowError($"Помилка створення: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Unexpected error while creating a person");
+            throw;
         }
         finally
         {

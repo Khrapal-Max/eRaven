@@ -9,6 +9,8 @@ using Blazored.Toast.Services;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.PlanActions.Modals;
 
@@ -40,6 +42,7 @@ public partial class CreatePlanActionModal : ComponentBase
     [Parameter] public EventCallback<PlanAction> OnSaved { get; set; }
 
     [Inject] public IToastService ToastService { get; set; } = default!;
+    [Inject] public ILogger<CreatePlanActionModal> Logger { get; set; } = default!;
 
     private bool IsReadonly => !_edit;
 
@@ -178,9 +181,34 @@ public partial class CreatePlanActionModal : ComponentBase
                 await OnSaved.InvokeAsync(CreatePlanAction);
             }
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (FluentValidation.ValidationException ex)
         {
             ToastService.ShowError(ex.Message);
+        }
+        catch (System.ComponentModel.DataAnnotations.ValidationException ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        catch (HttpRequestException ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Unexpected error while creating a plan action for person {PersonId}", Person?.Id);
+            throw;
         }
         finally
         {

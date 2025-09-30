@@ -12,6 +12,9 @@ using Blazored.Toast.Services;
 using eRaven.Application.Services.PlanActionService;
 using eRaven.Application.ViewModels.PlanningOnDateViewModels;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.Reports;
 
@@ -20,6 +23,7 @@ public partial class PlanningOnDate : ComponentBase, IDisposable
     // ============================ DI ============================
     [Inject] private IPlanActionService PlanActionService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
+    [Inject] private ILogger<PlanningOnDate> Logger { get; set; } = default!;
 
     private readonly CancellationTokenSource _cts = new();
 
@@ -47,7 +51,7 @@ public partial class PlanningOnDate : ComponentBase, IDisposable
     {
         try
         {
-            SetBusy(true);
+            await SetBusyAsync(true);
             Groups.Clear();
             ExportLines.Clear();
 
@@ -151,11 +155,14 @@ public partial class PlanningOnDate : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося побудувати звіт: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося побудувати звіт"))
+            {
+                throw;
+            }
         }
         finally
         {
-            SetBusy(false);
+            await SetBusyAsync(false);
         }
     }
 
@@ -171,12 +178,37 @@ public partial class PlanningOnDate : ComponentBase, IDisposable
     private static string? NullIfEmpty(string? s)
         => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
-    private void OnExportBusyChanged(bool exporting) => SetBusy(exporting || Busy);
+    private Task OnExportBusyChanged(bool exporting)
+        => SetBusyAsync(exporting || Busy);
 
-    private void SetBusy(bool v)
+    private async Task SetBusyAsync(bool v)
     {
+        if (Busy == v)
+        {
+            return;
+        }
+
         Busy = v;
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 
     public void Dispose()

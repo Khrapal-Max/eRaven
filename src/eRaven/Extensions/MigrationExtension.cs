@@ -12,7 +12,7 @@ namespace eRaven.Extensions;
 
 public static class MigrationExtension
 {
-    public static async Task AddMigrationDb(this WebApplication app)
+    public static async Task AddMigrationDb(this WebApplication app, CancellationToken ct = default)
     {
         using (var scope = app.Services.CreateScope())
         {
@@ -29,7 +29,7 @@ public static class MigrationExtension
             {
                 try
                 {
-                    await db.Database.MigrateAsync();
+                    await db.Database.MigrateAsync(ct);
                     logger.LogInformation("✅ Database migrated successfully.");
                     migrated = true;
                     break;
@@ -46,6 +46,10 @@ public static class MigrationExtension
                     logger.LogWarning(ex, "NpgsqlException on migrate (attempt {Attempt}/{Max}). Retrying in {Delay}s...",
                         attempt, maxRetries, delay.TotalSeconds);
                 }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     lastError = ex;
@@ -53,12 +57,16 @@ public static class MigrationExtension
                     {
                         logger.LogWarning(ex, "Unexpected exception on migrate (attempt {Attempt}/{Max}). Retrying in {Delay}s...",
                             attempt, maxRetries, delay.TotalSeconds);
+                        continue;
                     }
+
+                    logger.LogError(ex, "Unexpected exception on migrate (attempt {Attempt}/{Max}). Aborting.", attempt, maxRetries);
+                    throw;
                 }
 
                 if (attempt < maxRetries)
                 {
-                    await Task.Delay(delay);
+                    await Task.Delay(delay, ct);
                     delay += TimeSpan.FromSeconds(1);
                 }
             }

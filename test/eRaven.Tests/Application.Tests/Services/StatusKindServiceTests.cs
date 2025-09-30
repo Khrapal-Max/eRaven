@@ -5,6 +5,7 @@
 // StatusKindServiceTests
 //-----------------------------------------------------------------------------
 
+using System.Threading;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.StatusKindViewModels;
 using eRaven.Domain.Models;
@@ -43,7 +44,7 @@ public class StatusKindServiceTests
         var k3 = NewKind("Гамма", "G", order: 1, isActive: true);
 
         db.StatusKinds.AddRange(k1, k2, k3);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new StatusKindService(h.Factory);
 
@@ -73,7 +74,7 @@ public class StatusKindServiceTests
         var i = NewKind("Inactive1", "I1", isActive: false);
 
         db.StatusKinds.AddRange(a, i);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new StatusKindService(h.Factory);
 
@@ -99,7 +100,7 @@ public class StatusKindServiceTests
 
         var k = NewKind("X", "X1");
         db.StatusKinds.Add(k);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new StatusKindService(h.Factory);
 
@@ -203,7 +204,7 @@ public class StatusKindServiceTests
 
         var k = NewKind("Same", "S1", isActive: true);
         db.StatusKinds.Add(k);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new StatusKindService(h.Factory);
 
@@ -222,7 +223,7 @@ public class StatusKindServiceTests
 
         var k = NewKind("Toggle", "T1", isActive: false);
         db.StatusKinds.Add(k);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new StatusKindService(h.Factory);
 
@@ -257,7 +258,7 @@ public class StatusKindServiceTests
 
         var k = NewKind("Ordered", "OR1", order: 1);
         db.StatusKinds.Add(k);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new StatusKindService(h.Factory);
 
@@ -291,7 +292,7 @@ public class StatusKindServiceTests
         var db = h.CreateContext();
 
         db.StatusKinds.Add(NewKind("Dup", "D1"));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new StatusKindService(h.Factory);
 
@@ -307,7 +308,7 @@ public class StatusKindServiceTests
         var db = h.CreateContext();
 
         db.StatusKinds.Add(NewKind("Kind", "KX"));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new StatusKindService(h.Factory);
 

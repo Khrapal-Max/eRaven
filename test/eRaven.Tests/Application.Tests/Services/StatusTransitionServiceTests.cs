@@ -5,6 +5,7 @@
 // StatusTransitionServiceTests
 //-----------------------------------------------------------------------------
 
+using System.Threading;
 using eRaven.Application.Services.StatusTransitionService;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
@@ -31,7 +32,7 @@ public class StatusTransitionServiceTests
         var b = K("B", "B");
         var c = K("C", "C");
         db.StatusKinds.AddRange(a, b, c);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var aId = a.Id;
         var bId = b.Id;
@@ -42,7 +43,7 @@ public class StatusTransitionServiceTests
             T(aId, bId), T(aId, cId),
             T(bId, cId)
         );
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new StatusTransitionService(h.Factory);
 
@@ -74,7 +75,7 @@ public class StatusTransitionServiceTests
         var b = K("B", "B");
         var c = K("C", "C");
         db.StatusKinds.AddRange(a, b, c);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var aId = a.Id;
         var bId = b.Id;
@@ -85,7 +86,7 @@ public class StatusTransitionServiceTests
             T(aId, bId),
             T(aId, cId)
         );
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new StatusTransitionService(h.Factory);
 
@@ -108,7 +109,7 @@ public class StatusTransitionServiceTests
         var b = K("B", "B");
         var c = K("C", "C");
         db.StatusKinds.AddRange(a, b, c);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var aId = a.Id;
         var bId = b.Id;
@@ -116,7 +117,7 @@ public class StatusTransitionServiceTests
 
         // Initially a->b
         db.StatusTransitions.Add(T(aId, bId));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new StatusTransitionService(h.Factory);
 
@@ -141,7 +142,7 @@ public class StatusTransitionServiceTests
         var a = K("A", "A");
         var b = K("B", "B");
         db.StatusKinds.AddRange(a, b);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var aId = a.Id;
         var bId = b.Id;
@@ -169,14 +170,14 @@ public class StatusTransitionServiceTests
         var b = K("B", "B");
         var c = K("C", "C");
         db.StatusKinds.AddRange(a, b, c);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var aId = a.Id;
         var bId = b.Id;
         var cId = c.Id;
 
         db.StatusTransitions.AddRange(T(aId, bId), T(aId, cId));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new StatusTransitionService(h.Factory);
 
@@ -201,13 +202,13 @@ public class StatusTransitionServiceTests
         var a = K("A", "A");
         var b = K("B", "B");
         db.StatusKinds.AddRange(a, b);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var aId = a.Id;
         var bId = b.Id;
 
         db.StatusTransitions.Add(T(aId, bId));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new StatusTransitionService(h.Factory);
 

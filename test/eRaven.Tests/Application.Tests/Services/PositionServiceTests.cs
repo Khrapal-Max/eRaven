@@ -4,6 +4,7 @@
 // PositionServiceTests (updated for required Code/OrgPath/SpecialNumber)
 //-----------------------------------------------------------------------------
 
+using System.Threading;
 using eRaven.Application.Services.PositionService;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
@@ -49,7 +50,7 @@ public class PositionServiceTests
             NewWithCode("B", true, "B"),
             NewWithCode("C", false, "C")
         );
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new PositionService(h.Factory);
 
@@ -69,7 +70,7 @@ public class PositionServiceTests
             NewWithCode("A", true, "A"),
             NewWithCode("B", false, "B")
         );
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new PositionService(h.Factory);
 
@@ -89,7 +90,7 @@ public class PositionServiceTests
         var db = h.CreateContext();
         var p = NewWithCode("X", true, "X");
         db.PositionUnits.Add(p);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new PositionService(h.Factory);
 
@@ -247,7 +248,7 @@ public class PositionServiceTests
         var db = h.CreateContext();
         var pos = NewWithCode("SAME", true, "Same");
         db.PositionUnits.Add(pos);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new PositionService(h.Factory);
 
@@ -265,7 +266,7 @@ public class PositionServiceTests
         var db = h.CreateContext();
         var pos = NewWithCode("FREE1", true, "Free");
         db.PositionUnits.Add(pos);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new PositionService(h.Factory);
 
@@ -294,7 +295,7 @@ public class PositionServiceTests
         };
         db.Persons.Add(person);
 
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new PositionService(h.Factory);
 
@@ -313,7 +314,7 @@ public class PositionServiceTests
         var db = h.CreateContext();
         var pos = NewWithCode("REEN1", false, "ReEnable");
         db.PositionUnits.Add(pos);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new PositionService(h.Factory);
 
@@ -338,7 +339,7 @@ public class PositionServiceTests
         var toActivate = NewWithCode("A1", false, "InactiveSameCode");
         db.PositionUnits.Add(toActivate);
 
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new PositionService(h.Factory);
 
@@ -359,7 +360,7 @@ public class PositionServiceTests
         var toActivateUnique = NewWithCode("U1", false, "Unique");
         db.PositionUnits.Add(toActivateUnique);
 
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new PositionService(h.Factory);
 
@@ -379,7 +380,7 @@ public class PositionServiceTests
         using var h = new SqliteDbHelper();
         var db = h.CreateContext();
         db.PositionUnits.Add(NewWithCode("A1", true, "AAA"));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new PositionService(h.Factory);
 
@@ -394,7 +395,7 @@ public class PositionServiceTests
         using var h = new SqliteDbHelper();
         var db = h.CreateContext();
         db.PositionUnits.Add(NewWithCode("B2", false, "BBB"));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new PositionService(h.Factory);
 
@@ -421,7 +422,7 @@ public class PositionServiceTests
         using var h = new SqliteDbHelper();
         var db = h.CreateContext();
         db.PositionUnits.Add(NewWithCode("C3", true, "CCC"));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
 
         var sut = new PositionService(h.Factory);
 
