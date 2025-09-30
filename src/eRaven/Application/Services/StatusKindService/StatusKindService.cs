@@ -5,6 +5,7 @@
 // StatusKindService
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Services.Clock;
 using eRaven.Application.ViewModels.StatusKindViewModels;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
@@ -12,9 +13,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Application.Services.StatusKindService;
 
-public sealed class StatusKindService(IDbContextFactory<AppDbContext> dbf) : IStatusKindService
+public sealed class StatusKindService(IDbContextFactory<AppDbContext> dbf, IClock clock) : IStatusKindService
 {
     private readonly IDbContextFactory<AppDbContext> _dbf = dbf;
+    private readonly IClock _clock = clock;
 
     public async Task<IReadOnlyList<StatusKind>> GetAllAsync(bool includeInactive = true, CancellationToken ct = default)
     {
@@ -49,7 +51,7 @@ public sealed class StatusKindService(IDbContextFactory<AppDbContext> dbf) : ISt
             Order = newKindViewModel.Order,
             IsActive = newKindViewModel.IsActive,
             Author = "ui",
-            Modified = DateTime.UtcNow
+            Modified = _clock.UtcNow
         };
 
         db.StatusKinds.Add(entity);
@@ -67,7 +69,7 @@ public sealed class StatusKindService(IDbContextFactory<AppDbContext> dbf) : ISt
         if (status.IsActive == isActive) return true;
 
         status.IsActive = isActive;
-        status.Modified = DateTime.UtcNow;
+        status.Modified = _clock.UtcNow;
 
         await db.SaveChangesAsync(ct);
         return true;
@@ -82,7 +84,7 @@ public sealed class StatusKindService(IDbContextFactory<AppDbContext> dbf) : ISt
         if (status is null) return false;
 
         status.Order = newOrder;
-        status.Modified = DateTime.UtcNow;
+        status.Modified = _clock.UtcNow;
 
         await db.SaveChangesAsync(ct);
         return true;

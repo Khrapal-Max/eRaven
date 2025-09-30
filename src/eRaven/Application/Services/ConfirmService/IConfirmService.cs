@@ -5,6 +5,9 @@
 // IConfirmService
 //-----------------------------------------------------------------------------
 
+using System;
+using System.Threading;
+
 namespace eRaven.Application.Services.ConfirmService;
 
 public interface IConfirmService
@@ -14,7 +17,7 @@ public interface IConfirmService
     /// </summary>
     /// <param name="text"></param>
     /// <returns>bool</returns>
-    Task<bool> AskAsync(string text);
+    Task<bool> AskAsync(string text, CancellationToken cancellationToken = default, TimeSpan? timeout = null);
 
     /// <summary>
     /// Рєєстрація провайдера підтверджень.

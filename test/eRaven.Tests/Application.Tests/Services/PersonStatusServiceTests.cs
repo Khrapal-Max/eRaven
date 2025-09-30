@@ -4,9 +4,11 @@
 // PersonStatusServiceTests (Sequence + no CloseDate) — full coverage
 //-----------------------------------------------------------------------------
 
+using System;
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
+using eRaven.Tests.TestDoubles;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Tests.Application.Tests.Services;
@@ -14,13 +16,14 @@ namespace eRaven.Tests.Application.Tests.Services;
 public sealed class PersonStatusServiceTests : IDisposable
 {
     private readonly SqliteDbHelper _helper = new();
+    private readonly FakeClock _clock = new(new DateTime(2031, 01, 01, 0, 0, 0, DateTimeKind.Utc));
     private readonly PersonStatusService _svc;
     private readonly CancellationToken _ct = default;
 
     public PersonStatusServiceTests()
     {
         // Фабрика контекстів всередині helper
-        _svc = new PersonStatusService(_helper.Factory);
+        _svc = new PersonStatusService(_helper.Factory, _clock);
     }
 
     public void Dispose() => _helper.Dispose();
@@ -32,25 +35,25 @@ public sealed class PersonStatusServiceTests : IDisposable
     private static string NextRnokpp() =>
         Interlocked.Increment(ref _rnokppSeed).ToString();
 
-    private static Person NewPerson() => new()
+    private Person NewPerson() => new()
     {
         Id = Guid.NewGuid(),
         LastName = "Іванов",
         FirstName = "Іван",
         MiddleName = "Іванович",
         Rnokpp = NextRnokpp(),
-        CreatedUtc = DateTime.UtcNow,
-        ModifiedUtc = DateTime.UtcNow
+        CreatedUtc = _clock.UtcNow,
+        ModifiedUtc = _clock.UtcNow
     };
 
-    private static StatusKind NewKindUnique(string? namePrefix = null) => new()
+    private StatusKind NewKindUnique(string? namePrefix = null) => new()
     {
         Id = 0,
         Code = $"K_{Guid.NewGuid():N}",
         Name = $"{namePrefix ?? "Kind"}_{Guid.NewGuid():N}",
         IsActive = true,
         Author = "test",
-        Modified = DateTime.UtcNow
+        Modified = _clock.UtcNow
     };
 
     private static StatusTransition Tr(int fromId, int toId) => new()
@@ -92,7 +95,7 @@ public sealed class PersonStatusServiceTests : IDisposable
                 Sequence = 5,
                 IsActive = false,
                 Author = "test",
-                Modified = DateTime.UtcNow
+                Modified = _clock.UtcNow
             };
             db.PersonStatuses.Add(s3);
             await db.SaveChangesAsync(_ct);
@@ -163,7 +166,7 @@ public sealed class PersonStatusServiceTests : IDisposable
                 Sequence = 0,
                 IsActive = false,
                 Author = "sys",
-                Modified = DateTime.UtcNow
+                Modified = _clock.UtcNow
             });
             await db.SaveChangesAsync(_ct);
         }
@@ -186,6 +189,8 @@ public sealed class PersonStatusServiceTests : IDisposable
             personId = person.Id; kindId = kind.Id;
         }
 
+        _clock.UtcNow = new DateTime(2031, 02, 01, 7, 30, 0, DateTimeKind.Utc);
+
         var saved = await _svc.SetStatusAsync(new PersonStatus
         {
             PersonId = personId,
@@ -197,6 +202,7 @@ public sealed class PersonStatusServiceTests : IDisposable
         Assert.True(saved.IsActive);
         Assert.Equal((short)0, saved.Sequence);
         Assert.Equal(kindId, saved.StatusKindId);
+        Assert.Equal(_clock.UtcNow, saved.Modified);
 
         await using var verify = _helper.CreateContext();
         var reloadedPerson = await verify.Persons.FindAsync([personId], _ct);
@@ -315,7 +321,7 @@ public sealed class PersonStatusServiceTests : IDisposable
             {
                 PersonId = Guid.Empty,
                 StatusKindId = kId,
-                OpenDate = DateTime.UtcNow
+                OpenDate = _clock.UtcNow
             }, _ct));
     }
 
@@ -336,7 +342,7 @@ public sealed class PersonStatusServiceTests : IDisposable
             {
                 PersonId = pId,
                 StatusKindId = 0,
-                OpenDate = DateTime.UtcNow
+                OpenDate = _clock.UtcNow
             }, _ct));
     }
 
@@ -357,7 +363,7 @@ public sealed class PersonStatusServiceTests : IDisposable
             {
                 PersonId = Guid.NewGuid(),
                 StatusKindId = kId,
-                OpenDate = DateTime.UtcNow
+                OpenDate = _clock.UtcNow
             }, _ct));
     }
 
@@ -378,7 +384,7 @@ public sealed class PersonStatusServiceTests : IDisposable
             {
                 PersonId = pId,
                 StatusKindId = 999_999,
-                OpenDate = DateTime.UtcNow
+                OpenDate = _clock.UtcNow
             }, _ct));
     }
 

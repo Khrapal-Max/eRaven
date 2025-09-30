@@ -4,10 +4,12 @@
 // PersonServiceTests
 //-----------------------------------------------------------------------------
 
+using System;
 using System.Threading;
 using eRaven.Application.Services.PersonService;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
+using eRaven.Tests.TestDoubles;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 
@@ -16,12 +18,14 @@ namespace eRaven.Tests.Application.Tests.Services;
 public sealed class PersonServiceTests : IDisposable
 {
     private readonly SqliteDbHelper _helper;
+    private readonly FakeClock _clock;
     private readonly PersonService _svc;
 
     public PersonServiceTests()
     {
         _helper = new SqliteDbHelper();
-        _svc = new PersonService(_helper.Factory);
+        _clock = new FakeClock(new DateTime(2030, 01, 01, 0, 0, 0, DateTimeKind.Utc));
+        _svc = new PersonService(_helper.Factory, _clock);
     }
 
     public void Dispose()
@@ -193,10 +197,12 @@ public sealed class PersonServiceTests : IDisposable
         var p = P("Сидоренко", "Олексій", rnokpp: "1010101010");
         p.Id = Guid.Empty;
 
+        _clock.UtcNow = new DateTime(2030, 02, 01, 12, 0, 0, DateTimeKind.Utc);
         var created = await _svc.CreateAsync(p);
 
         Assert.NotEqual(Guid.Empty, created.Id);
-        // Якщо у домені є CreatedUtc/ModifiedUtc — можна перевіряти їх теж.
+        Assert.Equal(_clock.UtcNow, created.CreatedUtc);
+        Assert.Equal(_clock.UtcNow, created.ModifiedUtc);
     }
 
     [Fact(DisplayName = "UpdateAsync: не знайдено -> false")]
@@ -258,6 +264,9 @@ public sealed class PersonServiceTests : IDisposable
             AttachedFromUnit = "Інший підрозділ"
         };
 
+        _clock.UtcNow = new DateTime(2030, 03, 01, 9, 0, 0, DateTimeKind.Utc);
+        var expectedModified = _clock.UtcNow;
+
         var ok = await _svc.UpdateAsync(patch);
         Assert.True(ok);
 
@@ -279,5 +288,6 @@ public sealed class PersonServiceTests : IDisposable
         // НЕ змінені через Update
         Assert.Equal(unitId, got.PositionUnitId);
         Assert.Equal(1, got.StatusKindId);
+        Assert.Equal(expectedModified, got.ModifiedUtc);
     }
 }

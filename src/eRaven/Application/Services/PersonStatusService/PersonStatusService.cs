@@ -4,15 +4,17 @@
 // PersonStatusService
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Services.Clock;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Application.Services.PersonStatusService;
 
-public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : IPersonStatusService
+public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf, IClock clock) : IPersonStatusService
 {
     private readonly IDbContextFactory<AppDbContext> _dbf = dbf;
+    private readonly IClock _clock = clock;
 
     public async Task<IEnumerable<PersonStatus>> GetAllAsync(CancellationToken ct = default)
     {
@@ -117,14 +119,14 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
             IsActive = true,
             Note = string.IsNullOrWhiteSpace(ps.Note) ? null : ps.Note.Trim(),
             Author = string.IsNullOrWhiteSpace(ps.Author) ? "system" : ps.Author!.Trim(),
-            Modified = DateTime.UtcNow
+            Modified = _clock.UtcNow
         };
 
         db.PersonStatuses.Add(toSave);
 
         // Оновлюємо «поточний» статус у Person
         person.StatusKindId = ps.StatusKindId;
-        person.ModifiedUtc = DateTime.UtcNow;
+        person.ModifiedUtc = _clock.UtcNow;
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -185,7 +187,7 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
         }
 
         status.IsActive = turnOn;
-        status.Modified = DateTime.UtcNow;
+        status.Modified = _clock.UtcNow;
 
         await db.SaveChangesAsync(ct);
 
@@ -197,7 +199,7 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
             .FirstOrDefaultAsync(ct);
 
         person.StatusKindId = latestValid?.StatusKindId;
-        person.ModifiedUtc = DateTime.UtcNow;
+        person.ModifiedUtc = _clock.UtcNow;
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);

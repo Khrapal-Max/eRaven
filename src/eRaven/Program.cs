@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast;
+using eRaven.Application.Services.Clock;
 using eRaven.Application.Services.ConfirmService;
 using eRaven.Application.Services.ExcelService;
 using eRaven.Application.Services.PersonService;
@@ -36,7 +37,9 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
 {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")); // або ваш провайдер
+builder.Services.AddSingleton<IClock, SystemClock>();
+
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")); // Г ГЎГ® ГўГ Гё ГЇГ°Г®ГўГ Г©Г¤ГҐГ°
 });
 
 builder.Services.AddBlazoredToast();

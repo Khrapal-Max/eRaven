@@ -5,11 +5,13 @@
 // StatusKindServiceTests
 //-----------------------------------------------------------------------------
 
+using System;
 using System.Threading;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.StatusKindViewModels;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
+using eRaven.Tests.TestDoubles;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Tests.Application.Tests.Services;
@@ -27,8 +29,10 @@ public class StatusKindServiceTests
             Order = order,
             IsActive = isActive,
             Author = "test",
-            Modified = DateTime.UtcNow
+            Modified = new DateTime(2030, 01, 01, 0, 0, 0, DateTimeKind.Utc)
         };
+
+    private static FakeClock NewClock() => new(new DateTime(2033, 01, 01, 0, 0, 0, DateTimeKind.Utc));
 
     // ---------- GetAllAsync ----------
 
@@ -46,7 +50,8 @@ public class StatusKindServiceTests
         db.StatusKinds.AddRange(k1, k2, k3);
         await db.SaveChangesAsync(CancellationToken.None);
 
-        var sut = new StatusKindService(h.Factory);
+        var clock = NewClock();
+        var sut = new StatusKindService(h.Factory, clock);
 
         // Беремо весь список (разом із сидингом), як робить сервіс
         var all = await sut.GetAllAsync(includeInactive: true);
@@ -76,7 +81,8 @@ public class StatusKindServiceTests
         db.StatusKinds.AddRange(a, i);
         await db.SaveChangesAsync(CancellationToken.None);
 
-        var sut = new StatusKindService(h.Factory);
+        var clock = NewClock();
+        var sut = new StatusKindService(h.Factory, clock);
 
         var all = await sut.GetAllAsync(includeInactive: false);
 
@@ -102,7 +108,8 @@ public class StatusKindServiceTests
         db.StatusKinds.Add(k);
         await db.SaveChangesAsync(CancellationToken.None);
 
-        var sut = new StatusKindService(h.Factory);
+        var clock = NewClock();
+        var sut = new StatusKindService(h.Factory, clock);
 
         var got = await sut.GetByIdAsync(k.Id);
 
@@ -117,7 +124,8 @@ public class StatusKindServiceTests
         using var h = new SqliteDbHelper();
         var db = h.CreateContext();
 
-        var sut = new StatusKindService(h.Factory);
+        var clock = NewClock();
+        var sut = new StatusKindService(h.Factory, clock);
 
         var got = await sut.GetByIdAsync(123456);
 
@@ -132,7 +140,8 @@ public class StatusKindServiceTests
         using var h = new SqliteDbHelper();
         var db = h.CreateContext();
 
-        var sut = new StatusKindService(h.Factory);
+        var clock = NewClock();
+        var sut = new StatusKindService(h.Factory, clock);
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
             sut.CreateAsync(new CreateKindViewModel
@@ -151,7 +160,8 @@ public class StatusKindServiceTests
         using var h = new SqliteDbHelper();
         var db = h.CreateContext();
 
-        var sut = new StatusKindService(h.Factory);
+        var clock = NewClock();
+        var sut = new StatusKindService(h.Factory, clock);
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
             sut.CreateAsync(new CreateKindViewModel
@@ -170,7 +180,11 @@ public class StatusKindServiceTests
         using var h = new SqliteDbHelper();
         var db = h.CreateContext();
 
-        var sut = new StatusKindService(h.Factory);
+        var clock = NewClock();
+        var sut = new StatusKindService(h.Factory, clock);
+
+        clock.UtcNow = new DateTime(2033, 02, 02, 8, 0, 0, DateTimeKind.Utc);
+        var expectedModified = clock.UtcNow;
 
         var created = await sut.CreateAsync(new CreateKindViewModel
         {
@@ -185,6 +199,7 @@ public class StatusKindServiceTests
         Assert.Equal("NK", created.Code);
         Assert.Equal(7, created.Order);
         Assert.True(created.IsActive);
+        Assert.Equal(expectedModified, created.Modified);
 
         var fromDb = await db.StatusKinds.AsNoTracking().FirstAsync(x => x.Id == created.Id);
 
@@ -192,6 +207,7 @@ public class StatusKindServiceTests
         Assert.Equal("NK", fromDb.Code);
         Assert.Equal(7, fromDb.Order);
         Assert.True(fromDb.IsActive);
+        Assert.Equal(expectedModified, fromDb.Modified);
     }
 
     // ---------- SetActiveAsync ----------
@@ -206,13 +222,18 @@ public class StatusKindServiceTests
         db.StatusKinds.Add(k);
         await db.SaveChangesAsync(CancellationToken.None);
 
-        var sut = new StatusKindService(h.Factory);
+        var clock = NewClock();
+        var sut = new StatusKindService(h.Factory, clock);
+
+        var originalModified = k.Modified;
+        clock.UtcNow = new DateTime(2033, 03, 01, 9, 0, 0, DateTimeKind.Utc);
 
         var ok = await sut.SetActiveAsync(k.Id, isActive: true);
 
         Assert.True(ok);
         var reloaded = await db.StatusKinds.AsNoTracking().FirstAsync(x => x.Id == k.Id);
         Assert.True(reloaded.IsActive);
+        Assert.Equal(originalModified, reloaded.Modified);
     }
 
     [Fact]
@@ -225,7 +246,11 @@ public class StatusKindServiceTests
         db.StatusKinds.Add(k);
         await db.SaveChangesAsync(CancellationToken.None);
 
-        var sut = new StatusKindService(h.Factory);
+        var clock = NewClock();
+        var sut = new StatusKindService(h.Factory, clock);
+
+        clock.UtcNow = new DateTime(2033, 03, 03, 9, 0, 0, DateTimeKind.Utc);
+        var expected = clock.UtcNow;
 
         var ok = await sut.SetActiveAsync(k.Id, isActive: true);
 
@@ -233,6 +258,7 @@ public class StatusKindServiceTests
 
         var reloaded = await db.StatusKinds.AsNoTracking().FirstAsync(x => x.Id == k.Id);
         Assert.True(reloaded.IsActive);
+        Assert.Equal(expected, reloaded.Modified);
     }
 
     [Fact]
@@ -241,7 +267,8 @@ public class StatusKindServiceTests
         using var h = new SqliteDbHelper();
         var db = h.CreateContext();
 
-        var sut = new StatusKindService(h.Factory);
+        var clock = NewClock();
+        var sut = new StatusKindService(h.Factory, clock);
 
         var ok = await sut.SetActiveAsync(id: 999999, isActive: false);
 
@@ -260,7 +287,11 @@ public class StatusKindServiceTests
         db.StatusKinds.Add(k);
         await db.SaveChangesAsync(CancellationToken.None);
 
-        var sut = new StatusKindService(h.Factory);
+        var clock = NewClock();
+        var sut = new StatusKindService(h.Factory, clock);
+
+        clock.UtcNow = new DateTime(2033, 04, 04, 10, 0, 0, DateTimeKind.Utc);
+        var expected = clock.UtcNow;
 
         var ok = await sut.UpdateOrderAsync(k.Id, newOrder: 42);
 
@@ -268,6 +299,7 @@ public class StatusKindServiceTests
 
         var reloaded = await db.StatusKinds.AsNoTracking().FirstAsync(x => x.Id == k.Id);
         Assert.Equal(42, reloaded.Order);
+        Assert.Equal(expected, reloaded.Modified);
     }
 
     [Fact]
@@ -276,7 +308,8 @@ public class StatusKindServiceTests
         using var h = new SqliteDbHelper();
         var db = h.CreateContext();
 
-        var sut = new StatusKindService(h.Factory);
+        var clock = NewClock();
+        var sut = new StatusKindService(h.Factory, clock);
 
         var ok = await sut.UpdateOrderAsync(id: 123456, newOrder: 5);
 
@@ -294,7 +327,8 @@ public class StatusKindServiceTests
         db.StatusKinds.Add(NewKind("Dup", "D1"));
         await db.SaveChangesAsync(CancellationToken.None);
 
-        var sut = new StatusKindService(h.Factory);
+        var clock = NewClock();
+        var sut = new StatusKindService(h.Factory, clock);
 
         Assert.True(await sut.NameExistsAsync("Dup"));
         Assert.False(await sut.NameExistsAsync("dup")); // чутливість до регістру — як у сервісі
@@ -310,7 +344,8 @@ public class StatusKindServiceTests
         db.StatusKinds.Add(NewKind("Kind", "KX"));
         await db.SaveChangesAsync(CancellationToken.None);
 
-        var sut = new StatusKindService(h.Factory);
+        var clock = NewClock();
+        var sut = new StatusKindService(h.Factory, clock);
 
         Assert.True(await sut.CodeExistsAsync("KX"));
         Assert.False(await sut.CodeExistsAsync("kx")); // чутливість до регістру

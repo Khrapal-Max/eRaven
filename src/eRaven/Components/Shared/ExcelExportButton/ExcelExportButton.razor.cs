@@ -6,14 +6,17 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Services.ExcelService;
+using eRaven.Application.Services.JsInterop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using System;
 
 namespace eRaven.Components.Shared.ExcelExportButton;
 
 public partial class ExcelExportButton<TItem> : ComponentBase where TItem : class
 {
     private const string ExcelContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    private static readonly TimeSpan DownloadTimeout = TimeSpan.FromSeconds(15);
 
     /// <summary>Дані для експорту.</summary>
     [Parameter, EditorRequired] public IEnumerable<TItem>? Items { get; set; }
@@ -64,7 +67,12 @@ public partial class ExcelExportButton<TItem> : ComponentBase where TItem : clas
             var base64 = Convert.ToBase64String(ms.ToArray());
 
             var name = string.IsNullOrWhiteSpace(FileName) ? typeof(TItem).Name : FileName!;
-            await JS.InvokeVoidAsync("downloadFile", $"{name}.xlsx", ExcelContentType, base64);
+            await JS.InvokeVoidWithCancellationAsync(
+                "downloadFile",
+                timeout: DownloadTimeout,
+                $"{name}.xlsx",
+                ExcelContentType,
+                base64);
         }
         finally
         {

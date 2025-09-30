@@ -4,15 +4,17 @@
 // PositionAssignmentService
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Services.Clock;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Application.Services.PositionAssignmentService;
 
-public class PositionAssignmentService(IDbContextFactory<AppDbContext> dbf) : IPositionAssignmentService
+public class PositionAssignmentService(IDbContextFactory<AppDbContext> dbf, IClock clock) : IPositionAssignmentService
 {
     private readonly IDbContextFactory<AppDbContext> _dbf = dbf;
+    private readonly IClock _clock = clock;
 
     public async Task<IReadOnlyList<PersonPositionAssignment>> GetHistoryAsync(Guid personId, int limit = 50, CancellationToken ct = default)
     {
@@ -75,7 +77,7 @@ public class PositionAssignmentService(IDbContextFactory<AppDbContext> dbf) : IP
                 throw new InvalidOperationException("Дата відкриття має бути пізніше за попереднє призначення.");
 
             activeForPerson.CloseUtc = openUtc;
-            activeForPerson.ModifiedUtc = DateTime.UtcNow;
+            activeForPerson.ModifiedUtc = _clock.UtcNow;
         }
 
         // 3) Перевіряємо, що посада вільна (індекс теж захистить)
@@ -94,13 +96,13 @@ public class PositionAssignmentService(IDbContextFactory<AppDbContext> dbf) : IP
             CloseUtc = null,
             Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
             Author = "ui",
-            ModifiedUtc = DateTime.UtcNow
+            ModifiedUtc = _clock.UtcNow
         };
         await db.PersonPositionAssignments.AddAsync(assign, ct);
 
         // 5) Оновлюємо pointer у Person (це забезпечує правильний CurrentPerson)
         person.PositionUnitId = positionUnitId;
-        person.ModifiedUtc = DateTime.UtcNow;
+        person.ModifiedUtc = _clock.UtcNow;
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -142,11 +144,11 @@ public class PositionAssignmentService(IDbContextFactory<AppDbContext> dbf) : IP
         active.CloseUtc = closeUtc;
         if (!string.IsNullOrWhiteSpace(note))
             active.Note = note.Trim();
-        active.ModifiedUtc = DateTime.UtcNow;
+        active.ModifiedUtc = _clock.UtcNow;
 
         // 2) Очищаємо pointer у Person
         person.PositionUnitId = null;
-        person.ModifiedUtc = DateTime.UtcNow;
+        person.ModifiedUtc = _clock.UtcNow;
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);

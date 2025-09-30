@@ -5,6 +5,7 @@
 // PersonService
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Services.Clock;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -12,9 +13,10 @@ using System.Linq.Expressions;
 
 namespace eRaven.Application.Services.PersonService;
 
-public class PersonService(IDbContextFactory<AppDbContext> dbf) : IPersonService
+public class PersonService(IDbContextFactory<AppDbContext> dbf, IClock clock) : IPersonService
 {
     private readonly IDbContextFactory<AppDbContext> _dbf = dbf;
+    private readonly IClock _clock = clock;
 
     // ---------- Search (легкий, без історій) ----------
 
@@ -64,8 +66,9 @@ public class PersonService(IDbContextFactory<AppDbContext> dbf) : IPersonService
         if (exists) throw new InvalidOperationException("Особа з таким РНОКПП вже існує.");
 
         person.Id = person.Id == Guid.Empty ? Guid.NewGuid() : person.Id;
-        person.CreatedUtc = DateTime.UtcNow;
-        person.ModifiedUtc = person.CreatedUtc;
+        var now = _clock.UtcNow;
+        person.CreatedUtc = now;
+        person.ModifiedUtc = now;
 
         db.Persons.Add(person);
         await db.SaveChangesAsync(ct);
@@ -98,7 +101,7 @@ public class PersonService(IDbContextFactory<AppDbContext> dbf) : IPersonService
 
         // посаду/статус **тут не змінюємо** (за твоєю домовленістю)
 
-        current.ModifiedUtc = DateTime.UtcNow;
+        current.ModifiedUtc = _clock.UtcNow;
 
         await db.SaveChangesAsync(ct);
         return true;

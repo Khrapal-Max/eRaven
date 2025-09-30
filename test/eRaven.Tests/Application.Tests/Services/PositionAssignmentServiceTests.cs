@@ -4,10 +4,12 @@
 // PositionAssignmentServiceTests
 //-----------------------------------------------------------------------------
 
+using System;
 using System.Threading;
 using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
+using eRaven.Tests.TestDoubles;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Tests.Application.Tests.Services;
@@ -15,12 +17,14 @@ namespace eRaven.Tests.Application.Tests.Services;
 public sealed class PositionAssignmentServiceTests : IDisposable
 {
     private readonly SqliteDbHelper _dbh;
+    private readonly FakeClock _clock;
     private readonly PositionAssignmentService _svc;
 
     public PositionAssignmentServiceTests()
     {
         _dbh = new SqliteDbHelper();
-        _svc = new PositionAssignmentService(_dbh.Factory);
+        _clock = new FakeClock(new DateTime(2032, 01, 01, 0, 0, 0, DateTimeKind.Utc));
+        _svc = new PositionAssignmentService(_dbh.Factory, _clock);
     }
 
     public void Dispose() => _dbh.Dispose();
@@ -42,8 +46,8 @@ public sealed class PositionAssignmentServiceTests : IDisposable
             LastName = last,
             FirstName = first,
             MiddleName = middle,
-            CreatedUtc = DateTime.UtcNow,
-            ModifiedUtc = DateTime.UtcNow
+            CreatedUtc = _clock.UtcNow,
+            ModifiedUtc = _clock.UtcNow
         };
         _dbh.Db.Persons.Add(p);
         await _dbh.Db.SaveChangesAsync(CancellationToken.None);
@@ -93,7 +97,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
                 PositionUnitId = pos.Id,
                 OpenUtc = baseUtc.AddHours(i),
                 CloseUtc = baseUtc.AddHours(i + 1),
-                ModifiedUtc = DateTime.UtcNow
+                ModifiedUtc = _clock.UtcNow
             });
         }
         await _dbh.Db.SaveChangesAsync(CancellationToken.None);
@@ -121,7 +125,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
             PositionUnitId = pos1.Id,
             OpenUtc = Utc(2025, 9, 1, 8, 0),
             CloseUtc = Utc(2025, 9, 2, 8, 0),
-            ModifiedUtc = DateTime.UtcNow
+            ModifiedUtc = _clock.UtcNow
         });
 
         // активний
@@ -132,7 +136,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
             PositionUnitId = pos2.Id,
             OpenUtc = Utc(2025, 9, 3, 9, 0),
             CloseUtc = null,
-            ModifiedUtc = DateTime.UtcNow
+            ModifiedUtc = _clock.UtcNow
         };
         _dbh.Db.PersonPositionAssignments.Add(active);
         await _dbh.Db.SaveChangesAsync(CancellationToken.None);
@@ -163,7 +167,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
             PositionUnitId = posOld.Id,
             OpenUtc = openOld,
             CloseUtc = null,
-            ModifiedUtc = DateTime.UtcNow
+            ModifiedUtc = _clock.UtcNow
         };
         _dbh.Db.PersonPositionAssignments.Add(active);
 
@@ -239,7 +243,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
             PositionUnitId = pos.Id,
             OpenUtc = Utc(2025, 9, 1, 8, 0),
             CloseUtc = null,
-            ModifiedUtc = DateTime.UtcNow
+            ModifiedUtc = _clock.UtcNow
         });
         await _dbh.Db.SaveChangesAsync(CancellationToken.None);
 
@@ -264,7 +268,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
             PositionUnitId = posOld.Id,
             OpenUtc = Utc(2025, 9, 10, 10, 0),
             CloseUtc = null,
-            ModifiedUtc = DateTime.UtcNow
+            ModifiedUtc = _clock.UtcNow
         });
         await _dbh.Db.SaveChangesAsync(CancellationToken.None);
 
@@ -290,7 +294,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
             PositionUnitId = pos.Id,
             OpenUtc = open,
             CloseUtc = null,
-            ModifiedUtc = DateTime.UtcNow
+            ModifiedUtc = _clock.UtcNow
         };
         _dbh.Db.PersonPositionAssignments.Add(active);
 
@@ -336,7 +340,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
             PositionUnitId = pos.Id,
             OpenUtc = open,
             CloseUtc = null,
-            ModifiedUtc = DateTime.UtcNow
+            ModifiedUtc = _clock.UtcNow
         });
         await _dbh.Db.SaveChangesAsync(CancellationToken.None);
 
