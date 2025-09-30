@@ -4,6 +4,7 @@
 // PositionAssignmentServiceTests
 //-----------------------------------------------------------------------------
 
+using System.Threading;
 using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
@@ -45,7 +46,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
             ModifiedUtc = DateTime.UtcNow
         };
         _dbh.Db.Persons.Add(p);
-        await _dbh.Db.SaveChangesAsync();
+        await _dbh.Db.SaveChangesAsync(CancellationToken.None);
         return p;
     }
 
@@ -66,7 +67,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
             IsActived = isActive
         };
         _dbh.Db.PositionUnits.Add(u);
-        await _dbh.Db.SaveChangesAsync();
+        await _dbh.Db.SaveChangesAsync(CancellationToken.None);
         return u;
     }
 
@@ -95,7 +96,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
                 ModifiedUtc = DateTime.UtcNow
             });
         }
-        await _dbh.Db.SaveChangesAsync();
+        await _dbh.Db.SaveChangesAsync(CancellationToken.None);
 
         var list = await _svc.GetHistoryAsync(person.Id, limit: 5);
 
@@ -134,7 +135,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
             ModifiedUtc = DateTime.UtcNow
         };
         _dbh.Db.PersonPositionAssignments.Add(active);
-        await _dbh.Db.SaveChangesAsync();
+        await _dbh.Db.SaveChangesAsync(CancellationToken.None);
 
         var got = await _svc.GetActiveAsync(person.Id);
         Assert.NotNull(got);
@@ -170,7 +171,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
         person.PositionUnitId = posOld.Id;
         _dbh.Db.Persons.Update(person);
 
-        await _dbh.Db.SaveChangesAsync();
+        await _dbh.Db.SaveChangesAsync(CancellationToken.None);
 
         // нове призначення
         var openNew = Utc(2025, 9, 5, 12, 0);
@@ -240,7 +241,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
             CloseUtc = null,
             ModifiedUtc = DateTime.UtcNow
         });
-        await _dbh.Db.SaveChangesAsync();
+        await _dbh.Db.SaveChangesAsync(CancellationToken.None);
 
         // намагаємось призначити p2 на ту ж посаду
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -265,7 +266,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
             CloseUtc = null,
             ModifiedUtc = DateTime.UtcNow
         });
-        await _dbh.Db.SaveChangesAsync();
+        await _dbh.Db.SaveChangesAsync(CancellationToken.None);
 
         // пробуємо відкрити нове раніше (09:00)
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -297,7 +298,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
         person.PositionUnitId = pos.Id;
         _dbh.Db.Persons.Update(person);
 
-        await _dbh.Db.SaveChangesAsync();
+        await _dbh.Db.SaveChangesAsync(CancellationToken.None);
 
         var closedAt = Utc(2025, 9, 2, 12, 0);
         var ok = await _svc.UnassignAsync(person.Id, closedAt, "  Причина  ");
@@ -337,7 +338,7 @@ public sealed class PositionAssignmentServiceTests : IDisposable
             CloseUtc = null,
             ModifiedUtc = DateTime.UtcNow
         });
-        await _dbh.Db.SaveChangesAsync();
+        await _dbh.Db.SaveChangesAsync(CancellationToken.None);
 
         // закрити раніше 11:00 → помилка
         await Assert.ThrowsAsync<InvalidOperationException>(() =>

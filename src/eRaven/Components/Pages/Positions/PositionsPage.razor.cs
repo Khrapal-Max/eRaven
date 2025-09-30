@@ -295,6 +295,36 @@ public partial class PositionsPage : ComponentBase, IDisposable
 
         for (var i = 0; i < current.Count; i++)
         {
+            if (current[i].Id != next[i].Id)
+            
+            var a = current[i];
+            var b = next[i];
+
+            if (a.Id != b.Id)
+            {
+                return false;
+            }
+
+            if (!string.Equals(a.Code, b.Code, StringComparison.Ordinal) ||
+                !string.Equals(a.ShortName, b.ShortName, StringComparison.Ordinal) ||
+                !string.Equals(a.SpecialNumber, b.SpecialNumber, StringComparison.Ordinal) ||
+                !string.Equals(a.FullName, b.FullName, StringComparison.Ordinal) ||
+                !string.Equals(a.CurrentPersonFullName, b.CurrentPersonFullName, StringComparison.Ordinal) ||
+                a.IsActived != b.IsActived)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool SameViewModels(IReadOnlyList<PositionUnitViewModel> current, IReadOnlyList<PositionUnitViewModel> next)
+    {
+        if (current.Count != next.Count) return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
             var a = current[i];
             var b = next[i];
 

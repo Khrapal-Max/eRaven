@@ -4,6 +4,7 @@
 // PlanActionServiceTests
 // -----------------------------------------------------------------------------
 
+using System.Threading;
 using eRaven.Application.Services.PlanActionService;
 using eRaven.Application.ViewModels.PlanActionViewModels;
 using eRaven.Domain.Enums;
@@ -37,7 +38,7 @@ namespace eRaven.Tests.Application.Tests.Services
                 Id = id,
                 Rnokpp = rnokpp
             });
-            await _dbh.Db.SaveChangesAsync();
+            await _dbh.Db.SaveChangesAsync(CancellationToken.None);
         }
 
         private static PlanAction NewPlanAction(
@@ -81,7 +82,7 @@ namespace eRaven.Tests.Application.Tests.Services
         private async Task SeedAsync(params PlanAction[] actions)
         {
             _dbh.Db.PlanActions.AddRange(actions);
-            await _dbh.Db.SaveChangesAsync();
+            await _dbh.Db.SaveChangesAsync(CancellationToken.None);
         }
 
         // ---------- tests ----------

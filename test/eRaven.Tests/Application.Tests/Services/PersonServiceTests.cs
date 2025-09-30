@@ -4,6 +4,7 @@
 // PersonServiceTests
 //-----------------------------------------------------------------------------
 
+using System.Threading;
 using eRaven.Application.Services.PersonService;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
@@ -71,7 +72,7 @@ public sealed class PersonServiceTests : IDisposable
         if (people is { Length: > 0 })
             db.Persons.AddRange(people);
 
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
     }
 
     // ------------------------ tests ------------------------
@@ -144,7 +145,7 @@ public sealed class PersonServiceTests : IDisposable
                 SpecialNumber = "123",
                 IsActived = true
             });
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(CancellationToken.None);
         }
 
         // 2) Персона з FK
@@ -227,7 +228,7 @@ public sealed class PersonServiceTests : IDisposable
                 SpecialNumber = "456",
                 IsActived = true
             });
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(CancellationToken.None);
         }
 
         var original = P("Старий", "Ім'я", "ПоБатькові", rnokpp: "1313131313");

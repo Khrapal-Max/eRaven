@@ -293,6 +293,11 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
         var nextList = next as IList<PositionUnit> ?? next.ToList();
         if (current.Count != nextList.Count) return false;
 
+    private static bool SamePositions(IReadOnlyList<PositionUnit> current, IEnumerable<PositionUnit> next)
+    {
+        var nextList = next as IList<PositionUnit> ?? next.ToList();
+        if (current.Count != nextList.Count) return false;
+
         for (var i = 0; i < current.Count; i++)
         {
             if (current[i].Id != nextList[i].Id)
