@@ -1,11 +1,14 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // ConfirmService
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Services.JsInterop;
 using Microsoft.JSInterop;
+using System;
+using System.Threading;
 
 namespace eRaven.Application.Services.ConfirmService;
 
@@ -16,8 +19,13 @@ public sealed class ConfirmService(IJSRuntime js) : IConfirmService
 
     public void Use(Func<string, Task<bool>> provider) => _provider = provider;
 
-    public Task<bool> AskAsync(string text)
+    public Task<bool> AskAsync(string text, CancellationToken cancellationToken = default, TimeSpan? timeout = null)
         => _provider is not null
            ? _provider.Invoke(text)
-           : _js.InvokeAsync<bool>("confirm", text).AsTask();
+           : _js.InvokeWithCancellationAsync(
+               "confirm",
+               cancellationToken,
+               timeout,
+               text).AsTask();
 }
+
