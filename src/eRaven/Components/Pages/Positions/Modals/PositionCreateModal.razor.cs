@@ -11,6 +11,8 @@ using eRaven.Application.Services.PositionService;
 using eRaven.Application.ViewModels.PositionPagesViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.Positions.Modals;
 public partial class PositionCreateModal : ComponentBase
@@ -18,6 +20,7 @@ public partial class PositionCreateModal : ComponentBase
     // ========== DI ==========
     [Inject] private IPositionService PositionService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
+    [Inject] private ILogger<PositionCreateModal> Logger { get; set; } = default!;
 
     // ========== Колбеки ==========
     [Parameter] public EventCallback<bool> OnClose { get; set; }
@@ -74,9 +77,34 @@ public partial class PositionCreateModal : ComponentBase
             await OnCreated.InvokeAsync(vm);
             await CloseAsync(true);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (FluentValidation.ValidationException ex)
         {
             Toast.ShowError($"Помилка створення: {ex.Message}");
+        }
+        catch (System.ComponentModel.DataAnnotations.ValidationException ex)
+        {
+            Toast.ShowError($"Помилка створення: {ex.Message}");
+        }
+        catch (InvalidOperationException ex)
+        {
+            Toast.ShowError($"Помилка створення: {ex.Message}");
+        }
+        catch (ArgumentException ex)
+        {
+            Toast.ShowError($"Помилка створення: {ex.Message}");
+        }
+        catch (HttpRequestException ex)
+        {
+            Toast.ShowError($"Помилка створення: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Unexpected error while creating a position");
+            throw;
         }
         finally
         {

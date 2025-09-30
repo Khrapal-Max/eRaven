@@ -119,7 +119,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         if (ids.Length == 0) return new Dictionary<Guid, PersonStatus?[]>();
 
         var daysInMonth = DateTime.DaysInMonth(yearLocal, monthLocal);
-        var monthStartLocal = new DateTime(yearLocal, monthLocal, 1);
+        var monthStartLocal = DateTime.SpecifyKind(new DateTime(yearLocal, monthLocal, 1), DateTimeKind.Utc);
         var monthEndLocal = monthStartLocal.AddMonths(1);
 
         // Готуємо межі у UTC на кожен день місяця
@@ -227,9 +227,9 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
             _ => DateTime.SpecifyKind(anyUtcOrLocal, DateTimeKind.Utc)
         };
 
-        var local = asUtc.ToLocalTime().Date; // 00:00 локального дня
-        var startUtc = DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime();
-        var endUtc = DateTime.SpecifyKind(local.AddDays(1), DateTimeKind.Local).ToUniversalTime();
+        var local = TimeZoneInfo.ConvertTimeFromUtc(asUtc, TimeZoneInfo.Local).Date; // 00:00 локального дня
+        var startUtc = TimeZoneInfo.ConvertTimeToUtc(local, TimeZoneInfo.Local);
+        var endUtc = TimeZoneInfo.ConvertTimeToUtc(local.AddDays(1), TimeZoneInfo.Local);
         return (startUtc, endUtc);
     }
 

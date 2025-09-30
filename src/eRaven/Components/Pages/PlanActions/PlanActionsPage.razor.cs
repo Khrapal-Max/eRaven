@@ -15,6 +15,8 @@ using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.PlanActions;
 
@@ -55,6 +57,7 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
     [Inject] protected IPersonStatusService PersonStatusService { get; set; } = default!;
     [Inject] protected IStatusKindService StatusKindService { get; set; } = default!;
     [Inject] protected IToastService ToastService { get; set; } = default!;
+    [Inject] protected ILogger<PlanActionsPage> Logger { get; set; } = default!;
 
     // =========================
     // [Lifecycle]
@@ -76,7 +79,10 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            ToastService.ShowError($"Не вдалося завантажити особові картки: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося завантажити особові картки"))
+            {
+                throw;
+            }
         }
     }
 
@@ -92,7 +98,10 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            ToastService.ShowError($"Не вдалося завантажити особові картки: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося завантажити особові картки"))
+            {
+                throw;
+            }
         }
     }
 
@@ -123,7 +132,10 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            ToastService.ShowError(ex.Message);
+            if (!TryHandleKnownException(ex, "Не вдалося завантажити планові завдання"))
+            {
+                throw;
+            }
         }
 
         await InvokeAsync(StateHasChanged);
@@ -139,7 +151,10 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            ToastService.ShowError(ex.Message);
+            if (!TryHandleKnownException(ex, "Не вдалося створити планове завдання"))
+            {
+                throw;
+            }
         }
 
         await ApplyFilterAndSort();
@@ -204,7 +219,10 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            ToastService.ShowError(ex.Message);
+            if (!TryHandleKnownException(ex, "Не вдалося затвердити планове завдання"))
+            {
+                throw;
+            }
         }
     }
 
@@ -216,7 +234,10 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            ToastService.ShowError(ex.Message);
+            if (!TryHandleKnownException(ex, "Не вдалося видалити планове завдання"))
+            {
+                throw;
+            }
         }
 
         await ApplyFilterAndSort();
@@ -229,6 +250,25 @@ public partial class PlanActionsPage : ComponentBase, IDisposable
             var actions = await PlanActionService.GetByIdAsync(SelectedPerson.Id, default, _cts.Token);
             _actions = [.. actions.OrderByDescending(x => x?.EffectiveAtUtc)];
             LastPlanAction = _actions.FirstOrDefault();
+        }
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                ToastService.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
         }
     }
 

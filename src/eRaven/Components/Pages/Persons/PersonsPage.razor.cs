@@ -13,8 +13,11 @@ using eRaven.Components.Pages.Persons.Modals;
 using eRaven.Domain.Models;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.ObjectModel;
 using System.Linq.Expressions;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.Persons;
 
@@ -24,6 +27,7 @@ public partial class PersonsPage : ComponentBase, IDisposable
     [Inject] protected IPersonService PersonService { get; set; } = default!;
     [Inject] protected IToastService Toast { get; set; } = default!;
     [Inject] protected IValidator<CreatePersonViewModel> CreateValidator { get; set; } = default!;
+    [Inject] protected ILogger<PersonsPage> Logger { get; set; } = default!;
 
     // ================= UI state =================
     protected bool Busy { get; private set; }
@@ -47,22 +51,21 @@ public partial class PersonsPage : ComponentBase, IDisposable
     {
         try
         {
-            SetBusy(true);
+            await SetBusyAsync(true);
             _all = [.. await PersonService.SearchAsync(null, _cts.Token)];
-            ApplyFilter();
+            await ApplyFilterAsync();
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося завантажити картки: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося завантажити картки"))
+            {
+                throw;
+            }
         }
-        finally { SetBusy(false); }
+        finally { await SetBusyAsync(false); }
     }
 
-    protected Task OnSearchAsync()
-    {
-        ApplyFilter();
-        return Task.CompletedTask;
-    }
+    protected Task OnSearchAsync() => ApplyFilterAsync();
 
     protected void OnRowClick(Person p) => Selected = p;
 
@@ -79,18 +82,10 @@ public partial class PersonsPage : ComponentBase, IDisposable
     }
 
     // -------- ЕКСПОРТ --------
-    protected Task OnExportBusyChanged(bool busy)
-    {
-        SetBusy(busy);
-        return Task.CompletedTask;
-    }
+    protected Task OnExportBusyChanged(bool busy) => SetBusyAsync(busy);
 
     // -------- ІМПОРТ --------
-    protected Task OnImportBusyChanged(bool busy)
-    {
-        SetBusy(busy);
-        return Task.CompletedTask;
-    }
+    protected Task OnImportBusyChanged(bool busy) => SetBusyAsync(busy);
 
     /// <summary>
     /// Обробка імпортованих рядків.
@@ -151,9 +146,34 @@ public partial class PersonsPage : ComponentBase, IDisposable
                     if (ok) updated++;
                 }
             }
-            catch (Exception ex)
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (FluentValidation.ValidationException ex)
             {
                 errors.Add($"Row {idx}: {ex.Message}");
+            }
+            catch (System.ComponentModel.DataAnnotations.ValidationException ex)
+            {
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
+            catch (InvalidOperationException ex)
+            {
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
+            catch (ArgumentException ex)
+            {
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
+            catch (HttpRequestException ex)
+            {
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Unexpected error while importing person row {RowIndex}", idx);
+                throw;
             }
         }
 
@@ -177,36 +197,73 @@ public partial class PersonsPage : ComponentBase, IDisposable
     }
 
     // ================= Helpers =================
-    private void ApplyFilter()
+    private async Task ApplyFilterAsync()
     {
-        IEnumerable<Person> q = _all;
+        IEnumerable<Person> query = _all;
+        var term = Search?.Trim();
 
-        if (!string.IsNullOrWhiteSpace(Search))
+        if (!string.IsNullOrWhiteSpace(term))
         {
-            var s = Search.Trim();
-            q = q.Where(p =>
-                (p.FullName?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.Rnokpp?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.Rank?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.Callsign?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.PositionUnit?.ShortName?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false));
+            query = query.Where(p =>
+                (p.FullName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.Rnokpp?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.Rank?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.Callsign?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.PositionUnit?.ShortName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false));
         }
 
-        ResetItems(q);
+        var next = query.ToList();
+        var listChanged = !SamePersons(Items, next);
+        var hadSelection = Selected is not null;
+
+        if (!listChanged && !hadSelection)
+        {
+            return;
+        }
+
+        if (listChanged)
+        {
+            Items.Clear();
+            foreach (var i in next) Items.Add(i);
+        }
+
+        if (hadSelection)
+        {
+            Selected = null;
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void ResetItems(IEnumerable<Person> items)
+    private async Task SetBusyAsync(bool value)
     {
-        Items.Clear();
-        foreach (var i in items) Items.Add(i);
-        Selected = null;
-        StateHasChanged();
-    }
+        if (Busy == value)
+        {
+            return;
+        }
 
-    private void SetBusy(bool value)
-    {
         Busy = value;
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static bool SamePersons(IReadOnlyList<Person> current, IReadOnlyList<Person> next)
+    {
+        if (current.Count != next.Count) return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            if (current[i].Id != next[i].Id)
+            {
+                return false;
+            }
+
+            if (!ReferenceEquals(current[i], next[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static string Trunc(string? s, int max)
@@ -218,5 +275,24 @@ public partial class PersonsPage : ComponentBase, IDisposable
         _cts.Cancel();
         _cts.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 }
