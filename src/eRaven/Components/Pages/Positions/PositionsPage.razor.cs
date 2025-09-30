@@ -185,7 +185,7 @@ public partial class PositionsPage : ComponentBase, IDisposable
         }
     }
 
-    protected async void OnImportCompleted(ImportReportViewModel report)
+    protected async Task OnImportCompleted(ImportReportViewModel report)
     {
         if ((report.Errors?.Count ?? 0) > 0)
             ToastService.ShowWarning($"Імпорт завершено з помилками: {report.Errors!.Count}");
