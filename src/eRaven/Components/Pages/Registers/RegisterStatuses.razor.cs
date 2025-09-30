@@ -12,6 +12,8 @@ using eRaven.Application.Services.PersonStatusService;
 using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.Registers;
 
@@ -20,6 +22,7 @@ public partial class RegisterStatuses : ComponentBase, IDisposable
     // UI / DI
     [Inject] protected IPersonStatusService PersonStatusService { get; set; } = default!;
     [Inject] protected IToastService Toast { get; set; } = default!;
+    [Inject] protected ILogger<RegisterStatuses> Logger { get; set; } = default!;
 
     private readonly CancellationTokenSource _cts = new();
     private ConfirmModal _confirm = default!;
@@ -50,7 +53,10 @@ public partial class RegisterStatuses : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося завантажити журнал: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося завантажити журнал"))
+            {
+                throw;
+            }
             _all.Clear();
             _view = [];
         }
@@ -125,7 +131,10 @@ public partial class RegisterStatuses : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося змінити стан: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося змінити стан"))
+            {
+                throw;
+            }
         }
         finally
         {
@@ -147,6 +156,25 @@ public partial class RegisterStatuses : ComponentBase, IDisposable
     {
         Busy = value;
         StateHasChanged();
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 
     public void Dispose()

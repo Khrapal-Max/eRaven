@@ -14,7 +14,9 @@ using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Models;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.Positions;
 
@@ -51,6 +53,7 @@ public partial class PositionsPage : ComponentBase, IDisposable
     [Inject] protected IPositionService PositionService { get; set; } = default!;
     [Inject] protected IToastService ToastService { get; set; } = default!;
     [Inject] protected IValidator<CreatePositionUnitViewModel> CreateValidator { get; set; } = default!;
+    [Inject] protected ILogger<PositionsPage> Logger { get; set; } = default!;
 
     // =========================
     // [Lifecycle]
@@ -78,7 +81,10 @@ public partial class PositionsPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            ToastService.ShowError($"Не вдалося завантажити позиції: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося завантажити позиції"))
+            {
+                throw;
+            }
         }
         finally
         {
@@ -141,7 +147,10 @@ public partial class PositionsPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            ToastService.ShowError($"Не вдалося зберегти: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося зберегти"))
+            {
+                throw;
+            }
         }
         finally
         {
@@ -175,9 +184,34 @@ public partial class PositionsPage : ComponentBase, IDisposable
             // лише рахуємо/створюємо, без тостів
             return await PositionsUi.ImportAsync(rows, CreateValidator, PositionService, _cts.Token);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (FluentValidation.ValidationException ex)
         {
             return new ImportReportViewModel(0, 0, [ex.Message]);
+        }
+        catch (System.ComponentModel.DataAnnotations.ValidationException ex)
+        {
+            return new ImportReportViewModel(0, 0, [ex.Message]);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return new ImportReportViewModel(0, 0, [ex.Message]);
+        }
+        catch (ArgumentException ex)
+        {
+            return new ImportReportViewModel(0, 0, [ex.Message]);
+        }
+        catch (HttpRequestException ex)
+        {
+            return new ImportReportViewModel(0, 0, [ex.Message]);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Unexpected error during positions import");
+            throw;
         }
         finally
         {
@@ -218,6 +252,25 @@ public partial class PositionsPage : ComponentBase, IDisposable
     {
         Busy = value;
         StateHasChanged();
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                ToastService.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 
     protected Task ResetSearch()

@@ -17,6 +17,8 @@ using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.TimesheetViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.Timesheet;
 
@@ -27,6 +29,7 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
     [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
+    [Inject] private ILogger<TimesheetPage> Logger { get; set; } = default!;
 
     private readonly CancellationTokenSource _cts = new();
 
@@ -124,7 +127,10 @@ public partial class TimesheetPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося побудувати табель: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося побудувати табель"))
+            {
+                throw;
+            }
         }
         finally
         {
@@ -283,6 +289,25 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     {
         Busy = v;
         InvokeAsync(StateHasChanged);
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 
     public void Dispose()

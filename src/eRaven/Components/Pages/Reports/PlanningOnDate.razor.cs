@@ -12,6 +12,8 @@ using Blazored.Toast.Services;
 using eRaven.Application.Services.PlanActionService;
 using eRaven.Application.ViewModels.PlanningOnDateViewModels;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.Reports;
 
@@ -20,6 +22,7 @@ public partial class PlanningOnDate : ComponentBase, IDisposable
     // ============================ DI ============================
     [Inject] private IPlanActionService PlanActionService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
+    [Inject] private ILogger<PlanningOnDate> Logger { get; set; } = default!;
 
     private readonly CancellationTokenSource _cts = new();
 
@@ -151,7 +154,10 @@ public partial class PlanningOnDate : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося побудувати звіт: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося побудувати звіт"))
+            {
+                throw;
+            }
         }
         finally
         {
@@ -177,6 +183,25 @@ public partial class PlanningOnDate : ComponentBase, IDisposable
     {
         Busy = v;
         StateHasChanged();
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 
     public void Dispose()

@@ -9,6 +9,8 @@ using Blazored.Toast.Services;
 using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.PositionAssignments.Modals;
 
@@ -19,6 +21,7 @@ public partial class AssignPositionModal : ComponentBase
 
     [Inject] public IPositionAssignmentService PositionAssignmentService { get; set; } = default!;
     [Inject] public IToastService ToastService { get; set; } = default!;
+    [Inject] public ILogger<AssignPositionModal> Logger { get; set; } = default!;
 
     private bool IsOpen { get; set; }
     private bool _busy;
@@ -138,9 +141,34 @@ public partial class AssignPositionModal : ComponentBase
             await OnAssigned.InvokeAsync(created);
             Close();
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (FluentValidation.ValidationException ex)
         {
             ToastService.ShowError(ex.Message);
+        }
+        catch (System.ComponentModel.DataAnnotations.ValidationException ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        catch (HttpRequestException ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Unexpected error while assigning position for person {PersonId}", _person?.Id);
+            throw;
         }
         finally { _busy = false; }
     }

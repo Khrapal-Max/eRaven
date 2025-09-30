@@ -9,6 +9,7 @@ using eRaven.Application.ViewModels;
 using eRaven.Application.ViewModels.PositionPagesViewModels;
 using eRaven.Domain.Models;
 using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Components.Pages.Positions;
 
@@ -123,9 +124,26 @@ public static class PositionsUi
                 await service.CreatePositionAsync(entity, ct);
                 added++;
             }
-            catch (Exception exItem)
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (ValidationException exItem)
             {
                 errors.Add($"{r.ShortName ?? "(без назви)"}: {exItem.Message}");
+            }
+            catch (ArgumentException exItem)
+            {
+                errors.Add($"{r.ShortName ?? "(без назви)"}: {exItem.Message}");
+            }
+            catch (InvalidOperationException exItem)
+            {
+                errors.Add($"{r.ShortName ?? "(без назви)"}: {exItem.Message}");
+            }
+            catch (DbUpdateException exItem)
+            {
+                var message = exItem.GetBaseException().Message;
+                errors.Add($"{r.ShortName ?? "(без назви)"}: {message}");
             }
         }
 

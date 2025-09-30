@@ -46,6 +46,10 @@ public static class MigrationExtension
                     logger.LogWarning(ex, "NpgsqlException on migrate (attempt {Attempt}/{Max}). Retrying in {Delay}s...",
                         attempt, maxRetries, delay.TotalSeconds);
                 }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     lastError = ex;
@@ -53,7 +57,11 @@ public static class MigrationExtension
                     {
                         logger.LogWarning(ex, "Unexpected exception on migrate (attempt {Attempt}/{Max}). Retrying in {Delay}s...",
                             attempt, maxRetries, delay.TotalSeconds);
+                        continue;
                     }
+
+                    logger.LogError(ex, "Unexpected exception on migrate (attempt {Attempt}/{Max}). Aborting.", attempt, maxRetries);
+                    throw;
                 }
 
                 if (attempt < maxRetries)

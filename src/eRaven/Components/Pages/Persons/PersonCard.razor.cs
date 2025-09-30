@@ -12,6 +12,8 @@ using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.Persons;
 
@@ -25,6 +27,7 @@ public partial class PersonCard : ComponentBase, IDisposable
     [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!; // ⬅️ ДОДАЛИ
     [Inject] private IPositionAssignmentService PositionAssignmentService { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
+    [Inject] private ILogger<PersonCard> Logger { get; set; } = default!;
 
     // ===================== UI state =====================
     protected bool _initialLoading = true;
@@ -85,7 +88,10 @@ public partial class PersonCard : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError("Не вдалося зберегти. " + ex.Message);
+            if (!TryHandleKnownException(ex, "Не вдалося зберегти"))
+            {
+                throw;
+            }
         }
         finally
         {
@@ -114,7 +120,10 @@ public partial class PersonCard : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError("Помилка завантаження картки. " + ex.Message);
+            if (!TryHandleKnownException(ex, "Помилка завантаження картки"))
+            {
+                throw;
+            }
         }
     }
 
@@ -158,6 +167,25 @@ public partial class PersonCard : ComponentBase, IDisposable
         _assignHistoryOpen = false;
         StateHasChanged();
         return Task.CompletedTask;
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 
     public void Dispose() => GC.SuppressFinalize(this);
