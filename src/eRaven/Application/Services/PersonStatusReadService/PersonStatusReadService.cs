@@ -227,9 +227,9 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
             _ => DateTime.SpecifyKind(anyUtcOrLocal, DateTimeKind.Utc)
         };
 
-        var local = asUtc.ToLocalTime().Date; // 00:00 локального дня
-        var startUtc = DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime();
-        var endUtc = DateTime.SpecifyKind(local.AddDays(1), DateTimeKind.Local).ToUniversalTime();
+        var local = TimeZoneInfo.ConvertTimeFromUtc(asUtc, TimeZoneInfo.Local).Date; // 00:00 локального дня
+        var startUtc = TimeZoneInfo.ConvertTimeToUtc(local, TimeZoneInfo.Local);
+        var endUtc = TimeZoneInfo.ConvertTimeToUtc(local.AddDays(1), TimeZoneInfo.Local);
         return (startUtc, endUtc);
     }
 
