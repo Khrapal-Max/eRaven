@@ -13,6 +13,7 @@ using eRaven.Components.Pages.PositionAssignments.Modals;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Net.Http;
 
 namespace eRaven.Components.Pages.PositionAssignments;
@@ -49,8 +50,8 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
     {
         await LoadPersonsAsync();
         await LoadPositionsAsync();
-        RecomputeFreePositions();
-        RebuildExportItems();
+        await RecomputeFreePositionsAsync();
+        await RebuildExportItemsAsync();
     }
 
     // --------------------- Data loading ---------------------
@@ -60,9 +61,8 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
         try
         {
             _persons = [.. await PersonService.SearchAsync(null, _cts.Token)];
-            await ApplyFilter();            // оновить _filtered
-            RecomputeFreePositions();       // важливо після _persons
-            RebuildExportItems();           // синхронізуємо експорт
+            await ApplyFilterAsync();            // оновить _filtered
+            await RecomputeFreePositionsAsync();       // важливо після _persons
         }
         catch (Exception ex)
         {
@@ -78,7 +78,7 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
         try
         {
             _positions = [.. await PositionService.GetPositionsAsync(onlyActive: true, _cts.Token)];
-            RecomputeFreePositions();
+            await RecomputeFreePositionsAsync();
         }
         catch (Exception ex)
         {
@@ -92,25 +92,31 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
     /// <summary>
     /// Вільні посади: активні та не зайняті жодною особою (по локальній моделі _persons).
     /// </summary>
-    private void RecomputeFreePositions()
+    private async Task RecomputeFreePositionsAsync()
     {
         var occupied = _persons
             .Where(p => p.PositionUnitId.HasValue)
             .Select(p => p.PositionUnitId!.Value)
             .ToHashSet();
 
-        _freePositions = [.. _positions
+        var next = _positions
             .Where(p => p.IsActived && !occupied.Contains(p.Id))
             .OrderBy(p => p.FullName, StringComparer.Ordinal)];
-        StateHasChanged();
+        if (SamePositions(_freePositions, next))
+        {
+            return;
+        }
+
+        _freePositions = [.. next];
+        await InvokeAsync(StateHasChanged);
     }
 
     /// <summary>
     /// Дані для експорту (по поточному фільтру).
     /// </summary>
-    private void RebuildExportItems()
+    private async Task<bool> RebuildExportItemsAsync()
     {
-        _exportItems = [.. _filtered
+        var next = _filtered
             .Select(p => new PersonAssignmentExportRow
             {
                 Code = p.PositionUnit?.Code,
@@ -119,34 +125,56 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
                 Rank = p.Rank,
                 FullName = p.FullName,
                 Rnokpp = p.Rnokpp
-            })];
+            })]
+            .ToList();
+
+        if (SameExportRows(_exportItems, next))
+        {
+            return false;
+        }
+
+        _exportItems = next;
+        await InvokeAsync(StateHasChanged);
+        return true;
     }
 
     // --------------------- UI filtering ---------------------
 
-    private async Task ApplyFilter()
+    private async Task ApplyFilterAsync()
     {
+        var term = Search?.Trim();
+        List<Person> next;
+
+        if (string.IsNullOrWhiteSpace(term))
+        {
+            next = [.. _persons];
+        }
+        else
+        {
+            next = [.. _persons.Where(p =>
+                   (p.FullName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (p.Rnokpp?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (p.Callsign?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false))];
+        }
+
+        if (SamePersons(_filtered, next))
+        {
+            return;
+        }
+
+        _filtered = next;
         SelectedPerson = null;
         ActiveAssign = null;
         History.Clear();
 
-        if (string.IsNullOrWhiteSpace(Search))
+        var exportChanged = await RebuildExportItemsAsync();
+        if (!exportChanged)
         {
-            _filtered = [.. _persons];
+            await InvokeAsync(StateHasChanged);
         }
-        else
-        {
-            _filtered = [.. _persons.Where(p =>
-                   (p.FullName?.Contains(Search, StringComparison.OrdinalIgnoreCase) ?? false)
-                || (p.Rnokpp?.Contains(Search, StringComparison.OrdinalIgnoreCase) ?? false)
-                || (p.Callsign?.Contains(Search, StringComparison.OrdinalIgnoreCase) ?? false))];
-        }
-
-        RebuildExportItems();
-        await InvokeAsync(StateHasChanged);
     }
 
-    protected Task OnSearchAsync() => ApplyFilter();
+    protected Task OnSearchAsync() => ApplyFilterAsync();
 
     // --------------------- Events ---------------------
 
@@ -158,7 +186,7 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
         {
             ActiveAssign = await PositionAssignmentService.GetActiveAsync(p.Id, _cts.Token);
             History = [.. (await PositionAssignmentService.GetHistoryAsync(p.Id, limit: 25, _cts.Token))];
-            RecomputeFreePositions(); // оновимо доступні
+            await RecomputeFreePositionsAsync(); // оновимо доступні
         }
         catch (Exception ex)
         {
@@ -219,21 +247,105 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
         // Історія — новий зверху
         History.Insert(0, created);
 
-        RecomputeFreePositions();
-        RebuildExportItems();
-        await InvokeAsync(StateHasChanged);
+        await RecomputeFreePositionsAsync();
+        var exportChanged = await RebuildExportItemsAsync();
+        if (!exportChanged)
+        {
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     // --------------------- Busy sync (Excel export) ---------------------
 
-    protected Task OnBusyChanged(bool busy)
-    {
-        Busy = busy;
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
+    protected Task OnBusyChanged(bool busy) => SetBusyAsync(busy);
 
     // --------------------- Helpers ---------------------
+
+    private async Task SetBusyAsync(bool value)
+    {
+        if (Busy == value)
+        {
+            return;
+        }
+
+        Busy = value;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static bool SamePersons(IReadOnlyList<Person> current, IReadOnlyList<Person> next)
+    {
+        if (ReferenceEquals(current, next)) return true;
+        if (current.Count != next.Count) return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            if (current[i].Id != next[i].Id)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool SamePositions(IReadOnlyList<PositionUnit> current, IEnumerable<PositionUnit> next)
+    {
+        var nextList = next as IList<PositionUnit> ?? next.ToList();
+        if (current.Count != nextList.Count) return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            if (current[i].Id != nextList[i].Id)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool SameExportRows(IReadOnlyList<PersonAssignmentExportRow> current, IReadOnlyList<PersonAssignmentExportRow> next)
+    {
+        if (ReferenceEquals(current, next)) return true;
+        if (current.Count != next.Count) return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            var a = current[i];
+            var b = next[i];
+
+            if (!string.Equals(a.Code, b.Code, StringComparison.Ordinal) ||
+                !string.Equals(a.SpecialNumber, b.SpecialNumber, StringComparison.Ordinal) ||
+                !string.Equals(a.Position, b.Position, StringComparison.Ordinal) ||
+                !string.Equals(a.Rank, b.Rank, StringComparison.Ordinal) ||
+                !string.Equals(a.FullName, b.FullName, StringComparison.Ordinal) ||
+                !string.Equals(a.Rnokpp, b.Rnokpp, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
+    }
 
     private bool TryHandleKnownException(Exception ex, string message)
     {

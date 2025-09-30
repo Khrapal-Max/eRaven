@@ -18,6 +18,7 @@ using eRaven.Application.ViewModels.TimesheetViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Net.Http;
 
 namespace eRaven.Components.Pages.Timesheet;
@@ -73,7 +74,7 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     {
         try
         {
-            SetBusy(true);
+            await SetBusyAsync(true);
 
             BuiltYear = WorkingYear;
             BuiltMonth = WorkingMonth;
@@ -134,7 +135,7 @@ public partial class TimesheetPage : ComponentBase, IDisposable
         }
         finally
         {
-            SetBusy(false);
+            await SetBusyAsync(false);
         }
     }
 
@@ -282,13 +283,37 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     private static bool IsEntireMonthExcluded(DayCell[] days)
         => days.Length > 0 && days.All(c => c?.Code is not null && ExcludeCodes.Contains(c!.Code!));
 
-    private void OnExportBusyChanged(bool exporting)
-        => SetBusy(exporting); // 👈 фікс: не тримаємо Busy після експорту
+    private Task OnExportBusyChanged(bool exporting)
+        => SetBusyAsync(exporting); // 👈 фікс: не тримаємо Busy після експорту
 
-    private void SetBusy(bool v)
+    private async Task SetBusyAsync(bool v)
     {
+        if (Busy == v)
+        {
+            return;
+        }
+
         Busy = v;
-        InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 
     private bool TryHandleKnownException(Exception ex, string message)

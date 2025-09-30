@@ -143,30 +143,65 @@ public partial class PersonCard : ComponentBase, IDisposable
 
     protected Task OpenHistory()
     {
+        if (_historyOpen)
+        {
+            return Task.CompletedTask;
+        }
+
         _historyOpen = true;
-        StateHasChanged();
-        return Task.CompletedTask;
+        return InvokeAsync(StateHasChanged);
     }
 
     private Task HandleHistoryClose()
     {
+        if (!_historyOpen)
+        {
+            return Task.CompletedTask;
+        }
+
         _historyOpen = false;
-        StateHasChanged();
-        return Task.CompletedTask;
+        return InvokeAsync(StateHasChanged);
     }
 
     protected Task OpenAssignHistory()
     {
+        if (_assignHistoryOpen)
+        {
+            return Task.CompletedTask;
+        }
+
         _assignHistoryOpen = true;
-        StateHasChanged();
-        return Task.CompletedTask;
+        return InvokeAsync(StateHasChanged);
     }
 
     private Task HandleAssignHistoryClose()
     {
+        if (!_assignHistoryOpen)
+        {
+            return Task.CompletedTask;
+        }
+
         _assignHistoryOpen = false;
-        StateHasChanged();
-        return Task.CompletedTask;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 
     private bool TryHandleKnownException(Exception ex, string message)

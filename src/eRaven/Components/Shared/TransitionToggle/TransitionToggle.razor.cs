@@ -48,7 +48,7 @@ public partial class TransitionToggle<TiD>
             {
                 // Нічого не міняємо. Батько залишає Checked як є.
                 // Ми керовані, тож просто перемалюємось у поточному стані.
-                StateHasChanged();
+                await InvokeAsync(StateHasChanged);
                 return;
             }
         }

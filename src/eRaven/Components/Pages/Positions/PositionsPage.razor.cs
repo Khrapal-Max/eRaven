@@ -15,6 +15,7 @@ using eRaven.Domain.Models;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.ObjectModel;
 using System.Net.Http;
 
@@ -71,13 +72,13 @@ public partial class PositionsPage : ComponentBase, IDisposable
     {
         try
         {
-            SetBusy(true);
+            await SetBusyAsync(true);
 
             // 1) Забираємо усі позиції
             _all = [.. (await PositionService.GetPositionsAsync(onlyActive: false, _cts.Token))];
 
             // 2) Локальний фільтр/сорт/маппінг
-            ApplyFilterAndSort();
+            await ApplyFilterAndSortAsync();
         }
         catch (Exception ex)
         {
@@ -88,22 +89,14 @@ public partial class PositionsPage : ComponentBase, IDisposable
         }
         finally
         {
-            SetBusy(false);
+            await SetBusyAsync(false);
         }
     }
 
     /// <summary>Викликається SearchBox після debounce. Тільки локальна рефільтрація.</summary>
-    protected Task OnSearchAsync()
-    {
-        ApplyFilterAndSort();
-        return Task.CompletedTask;
-    }
+    protected Task OnSearchAsync() => ApplyFilterAndSortAsync();
 
-    protected Task OnBusyChanged(bool busy)
-    {
-        SetBusy(busy);
-        return Task.CompletedTask;
-    }
+    protected Task OnBusyChanged(bool busy) => SetBusyAsync(busy);
 
     protected void OnRowClick(PositionUnitViewModel item) => Selected = item;
 
@@ -139,7 +132,7 @@ public partial class PositionsPage : ComponentBase, IDisposable
     private async Task SavePositionActiveAsync(Guid positionId, bool turnOn)
     {
         if (Busy) return;
-        SetBusy(true);
+        await SetBusyAsync(true);
         try
         {
             await PositionService.SetActiveStateAsync(positionId, turnOn, _cts.Token);
@@ -154,7 +147,7 @@ public partial class PositionsPage : ComponentBase, IDisposable
         }
         finally
         {
-            SetBusy(false);
+            await SetBusyAsync(false);
         }
     }
 
@@ -164,8 +157,13 @@ public partial class PositionsPage : ComponentBase, IDisposable
         var vm = Items.FirstOrDefault(x => x.Id == positionId);
         if (vm is not null)
         {
+            if (vm.IsActived == newValue)
+            {
+                return Task.CompletedTask;
+            }
+
             vm.IsActived = newValue;
-            StateHasChanged();
+            return InvokeAsync(StateHasChanged);
         }
         return Task.CompletedTask;
     }
@@ -180,7 +178,7 @@ public partial class PositionsPage : ComponentBase, IDisposable
 
         try
         {
-            SetBusy(true);
+            await SetBusyAsync(true);
             // лише рахуємо/створюємо, без тостів
             return await PositionsUi.ImportAsync(rows, CreateValidator, PositionService, _cts.Token);
         }
@@ -215,7 +213,7 @@ public partial class PositionsPage : ComponentBase, IDisposable
         }
         finally
         {
-            SetBusy(false);
+            await SetBusyAsync(false);
         }
     }
 
@@ -233,25 +231,109 @@ public partial class PositionsPage : ComponentBase, IDisposable
     // [Helpers]
     // =========================
     /// <summary>Локальна фільтрація/сорт і маппінг у VM (через UIHelper), оновлює Items.</summary>
-    private void ApplyFilterAndSort()
+    private async Task ApplyFilterAndSortAsync()
     {
-        _filtered = [.. PositionsUi.Filter(_all, Search)];
-        var mapped = PositionsUi.Transform(_filtered, null /* вже відфільтровано */);
-        ResetItems(mapped);
+        var nextFiltered = [.. PositionsUi.Filter(_all, Search)];
+        var filteredChanged = !SameUnits(_filtered, nextFiltered);
+        _filtered = nextFiltered;
+
+        var nextItems = PositionsUi.Transform(_filtered, null /* вже відфільтровано */).ToList();
+        var itemsChanged = !SameViewModels(Items, nextItems);
+        var hadSelection = Selected is not null;
+
+        if (!filteredChanged && !itemsChanged && !hadSelection)
+        {
+            return;
+        }
+
+        if (itemsChanged)
+        {
+            Items.Clear();
+            foreach (var vm in nextItems)
+            {
+                Items.Add(vm);
+            }
+        }
+
+        if (hadSelection)
+        {
+            Selected = null;
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void ResetItems(IEnumerable<PositionUnitViewModel> items)
+    private async Task SetBusyAsync(bool value)
     {
-        Items.Clear();
-        foreach (var i in items) Items.Add(i);
-        Selected = null;
-        StateHasChanged();
-    }
+        if (Busy == value)
+        {
+            return;
+        }
 
-    private void SetBusy(bool value)
-    {
         Busy = value;
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static bool SameUnits(IReadOnlyList<PositionUnit> current, IReadOnlyList<PositionUnit> next)
+    {
+        if (current.Count != next.Count) return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            if (current[i].Id != next[i].Id)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool SameViewModels(IReadOnlyList<PositionUnitViewModel> current, IReadOnlyList<PositionUnitViewModel> next)
+    {
+        if (current.Count != next.Count) return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            var a = current[i];
+            var b = next[i];
+
+            if (a.Id != b.Id)
+            {
+                return false;
+            }
+
+            if (!string.Equals(a.Code, b.Code, StringComparison.Ordinal) ||
+                !string.Equals(a.ShortName, b.ShortName, StringComparison.Ordinal) ||
+                !string.Equals(a.SpecialNumber, b.SpecialNumber, StringComparison.Ordinal) ||
+                !string.Equals(a.FullName, b.FullName, StringComparison.Ordinal) ||
+                !string.Equals(a.CurrentPersonFullName, b.CurrentPersonFullName, StringComparison.Ordinal) ||
+                a.IsActived != b.IsActived)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                ToastService.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 
     private bool TryHandleKnownException(Exception ex, string message)
@@ -276,8 +358,7 @@ public partial class PositionsPage : ComponentBase, IDisposable
     protected Task ResetSearch()
     {
         Search = null;
-        ApplyFilterAndSort();
-        return Task.CompletedTask;
+        return ApplyFilterAndSortAsync();
     }
 
     public void Dispose()

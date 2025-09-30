@@ -14,6 +14,7 @@ using eRaven.Domain.Models;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 using System.Net.Http;
@@ -50,9 +51,9 @@ public partial class PersonsPage : ComponentBase, IDisposable
     {
         try
         {
-            SetBusy(true);
+            await SetBusyAsync(true);
             _all = [.. await PersonService.SearchAsync(null, _cts.Token)];
-            ApplyFilter();
+            await ApplyFilterAsync();
         }
         catch (Exception ex)
         {
@@ -61,14 +62,10 @@ public partial class PersonsPage : ComponentBase, IDisposable
                 throw;
             }
         }
-        finally { SetBusy(false); }
+        finally { await SetBusyAsync(false); }
     }
 
-    protected Task OnSearchAsync()
-    {
-        ApplyFilter();
-        return Task.CompletedTask;
-    }
+    protected Task OnSearchAsync() => ApplyFilterAsync();
 
     protected void OnRowClick(Person p) => Selected = p;
 
@@ -85,18 +82,10 @@ public partial class PersonsPage : ComponentBase, IDisposable
     }
 
     // -------- ЕКСПОРТ --------
-    protected Task OnExportBusyChanged(bool busy)
-    {
-        SetBusy(busy);
-        return Task.CompletedTask;
-    }
+    protected Task OnExportBusyChanged(bool busy) => SetBusyAsync(busy);
 
     // -------- ІМПОРТ --------
-    protected Task OnImportBusyChanged(bool busy)
-    {
-        SetBusy(busy);
-        return Task.CompletedTask;
-    }
+    protected Task OnImportBusyChanged(bool busy) => SetBusyAsync(busy);
 
     /// <summary>
     /// Обробка імпортованих рядків.
@@ -208,36 +197,73 @@ public partial class PersonsPage : ComponentBase, IDisposable
     }
 
     // ================= Helpers =================
-    private void ApplyFilter()
+    private async Task ApplyFilterAsync()
     {
-        IEnumerable<Person> q = _all;
+        IEnumerable<Person> query = _all;
+        var term = Search?.Trim();
 
-        if (!string.IsNullOrWhiteSpace(Search))
+        if (!string.IsNullOrWhiteSpace(term))
         {
-            var s = Search.Trim();
-            q = q.Where(p =>
-                (p.FullName?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.Rnokpp?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.Rank?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.Callsign?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.PositionUnit?.ShortName?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false));
+            query = query.Where(p =>
+                (p.FullName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.Rnokpp?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.Rank?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.Callsign?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.PositionUnit?.ShortName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false));
         }
 
-        ResetItems(q);
+        var next = query.ToList();
+        var listChanged = !SamePersons(Items, next);
+        var hadSelection = Selected is not null;
+
+        if (!listChanged && !hadSelection)
+        {
+            return;
+        }
+
+        if (listChanged)
+        {
+            Items.Clear();
+            foreach (var i in next) Items.Add(i);
+        }
+
+        if (hadSelection)
+        {
+            Selected = null;
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void ResetItems(IEnumerable<Person> items)
+    private async Task SetBusyAsync(bool value)
     {
-        Items.Clear();
-        foreach (var i in items) Items.Add(i);
-        Selected = null;
-        StateHasChanged();
-    }
+        if (Busy == value)
+        {
+            return;
+        }
 
-    private void SetBusy(bool value)
-    {
         Busy = value;
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static bool SamePersons(IReadOnlyList<Person> current, IReadOnlyList<Person> next)
+    {
+        if (current.Count != next.Count) return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            if (current[i].Id != next[i].Id)
+            {
+                return false;
+            }
+
+            if (!ReferenceEquals(current[i], next[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static string Trunc(string? s, int max)

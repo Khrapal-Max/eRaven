@@ -15,6 +15,7 @@ using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.ObjectModel;
 using System.Net.Http;
 
@@ -54,7 +55,7 @@ public partial class StatusesPage : ComponentBase, IDisposable
     {
         _statuses = await StatusKindService.GetAllAsync();
         await ReloadAllAsync();
-        ApplyLocalFilter(); // zero-state (порожньо, доки немає Search)
+        await ApplyLocalFilterAsync(); // zero-state (порожньо, доки немає Search)
     }
 
     // =============================  Модалка  =============================
@@ -63,7 +64,7 @@ public partial class StatusesPage : ComponentBase, IDisposable
         if (Busy) return;
         try
         {
-            SetBusy(true);
+            await SetBusyAsync(true);
 
             _modalPerson = p;
             _modalCurrentStatus = await PersonStatusService.GetActiveAsync(p.Id, _cts.Token);
@@ -83,7 +84,7 @@ public partial class StatusesPage : ComponentBase, IDisposable
         }
         finally
         {
-            SetBusy(false);
+            await SetBusyAsync(false);
         }
     }
 
@@ -91,7 +92,7 @@ public partial class StatusesPage : ComponentBase, IDisposable
     {
         try
         {
-            SetBusy(true);
+            await SetBusyAsync(true);
 
             // 00:00 локального дня → UTC
             var openUtc = StatusesUi.ToUtcFromLocalMidnight(vm.Moment);
@@ -161,18 +162,22 @@ public partial class StatusesPage : ComponentBase, IDisposable
         }
         finally
         {
-            SetBusy(false);
+            await SetBusyAsync(false);
         }
     }
 
     private Task HandleStatusCloseAsync()
     {
+        if (!_isStatusModalOpen && _modalPerson is null && _modalCurrentStatus is null && _mapStatuses.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
+
         _isStatusModalOpen = false;
         _modalPerson = null;
         _modalCurrentStatus = null;
         _mapStatuses.Clear();
-        StateHasChanged();
-        return Task.CompletedTask;
+        return InvokeAsync(StateHasChanged);
     }
 
     // =============================  Імпорт  =============================
@@ -283,18 +288,14 @@ public partial class StatusesPage : ComponentBase, IDisposable
         return Task.CompletedTask;
     }
 
-    protected Task OnImportBusyChanged(bool busy)
-    {
-        SetBusy(busy);
-        return Task.CompletedTask;
-    }
+    protected Task OnImportBusyChanged(bool busy) => SetBusyAsync(busy);
 
     // =============================  Дані  =============================
     private async Task ReloadAllAsync()
     {
         try
         {
-            SetBusy(true);
+            await SetBusyAsync(true);
             _all = [.. await PersonService.SearchAsync(null, _cts.Token)];
         }
         catch (Exception ex)
@@ -307,7 +308,7 @@ public partial class StatusesPage : ComponentBase, IDisposable
         }
         finally
         {
-            SetBusy(false);
+            await SetBusyAsync(false);
         }
     }
 
@@ -375,38 +376,89 @@ public partial class StatusesPage : ComponentBase, IDisposable
     // =============================  Пошук/фільтр  =============================
     protected async Task OnSearchAsync()
     {
-        ApplyLocalFilter();
+        await ApplyLocalFilterAsync();
 
         // QoL: один збіг — одразу відкриваємо модалку
         if (Filtered.Count == 1)
             await OpenSetStatus(Filtered[0]);
     }
 
-    private void ApplyLocalFilter()
+    private async Task ApplyLocalFilterAsync()
     {
-        Filtered.Clear();
-
         var s = (Search ?? string.Empty).Trim();
+
         if (s.Length == 0)
         {
-            // zero-state: порожній список
-            StateHasChanged();
+            var hadItems = Filtered.Count > 0;
+            Filtered.Clear();
+            if (hadItems)
+            {
+                await InvokeAsync(StateHasChanged);
+            }
             return;
         }
 
-        foreach (var p in StatusesUi.FilterPersons(_all, s))
-            Filtered.Add(p);
+        var next = StatusesUi.FilterPersons(_all, s).ToList();
+        if (SequenceEqual(Filtered, next))
+        {
+            return;
+        }
 
-        StateHasChanged();
+        Filtered.Clear();
+        foreach (var p in next)
+        {
+            Filtered.Add(p);
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     // =============================  Утиліти  =============================
     private void ToggleOneShotMode() => OneShotMode = !OneShotMode;
 
-    private void SetBusy(bool value)
+    private async Task SetBusyAsync(bool value)
     {
+        if (Busy == value)
+        {
+            return;
+        }
+
         Busy = value;
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static bool SequenceEqual(IReadOnlyList<Person> current, IReadOnlyList<Person> next)
+    {
+        if (current.Count != next.Count) return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            if (current[i].Id != next[i].Id)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 
     private bool TryHandleKnownException(Exception ex, string message)
