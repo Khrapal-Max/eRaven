@@ -14,7 +14,9 @@ using eRaven.Application.ViewModels;
 using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.Statuses;
 
@@ -45,6 +47,7 @@ public partial class StatusesPage : ComponentBase, IDisposable
     [Inject] private IStatusTransitionService StatusTransitionService { get; set; } = default!;
     [Inject] private IPositionAssignmentService PositionAssignmentService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
+    [Inject] private ILogger<StatusesPage> Logger { get; set; } = default!;
 
     // =============================  Життєвий цикл  =============================
     protected override async Task OnInitializedAsync()
@@ -73,7 +76,10 @@ public partial class StatusesPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося підготувати форму зміни статусу: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося підготувати форму зміни статусу"))
+            {
+                throw;
+            }
         }
         finally
         {
@@ -148,7 +154,10 @@ public partial class StatusesPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося зберегти статус: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося зберегти статус"))
+            {
+                throw;
+            }
         }
         finally
         {
@@ -228,10 +237,34 @@ public partial class StatusesPage : ComponentBase, IDisposable
                 await PersonStatusService.SetStatusAsync(ps, _cts.Token);
                 added++;
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (FluentValidation.ValidationException ex)
+            {
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
+            catch (System.ComponentModel.DataAnnotations.ValidationException ex)
+            {
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
+            catch (InvalidOperationException ex)
+            {
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
+            catch (ArgumentException ex)
+            {
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
+            catch (HttpRequestException ex)
+            {
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
             catch (Exception ex)
             {
-                // Будь-яка бізнес-валідація (перетини/заборонений перехід тощо)
-                errors.Add($"Row {idx}: {ex.Message}");
+                Logger.LogError(ex, "Unexpected error during status import for row {RowIndex}", idx);
+                throw;
             }
         }
 
@@ -266,7 +299,10 @@ public partial class StatusesPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося завантажити картки: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося завантажити картки"))
+            {
+                throw;
+            }
             _all = [];
         }
         finally
@@ -371,6 +407,25 @@ public partial class StatusesPage : ComponentBase, IDisposable
     {
         Busy = value;
         StateHasChanged();
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 
     public void Dispose()

@@ -10,6 +10,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
 
 namespace eRaven.Application.Services.ExcelService;
 
@@ -18,6 +19,13 @@ namespace eRaven.Application.Services.ExcelService;
 /// </summary>
 public sealed class ExcelService : IExcelService
 {
+    private readonly ILogger<ExcelService> _logger;
+
+    public ExcelService(ILogger<ExcelService> logger)
+    {
+        _logger = logger;
+    }
+
     public Task<Stream> ExportAsync<T>(IEnumerable<T> items, CancellationToken ct = default)
     {
         items ??= [];
@@ -295,9 +303,31 @@ public sealed class ExcelService : IExcelService
                     else if (!prop.PropertyType.IsValueType)
                         prop.SetValue(inst, null);
                 }
-                catch (Exception ex)
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (FormatException ex)
                 {
                     errors.Add($"Row {rr.RowNumber()}, Col {col} → {prop.Name}: {ex.Message}");
+                }
+                catch (InvalidCastException ex)
+                {
+                    errors.Add($"Row {rr.RowNumber()}, Col {col} → {prop.Name}: {ex.Message}");
+                }
+                catch (OverflowException ex)
+                {
+                    errors.Add($"Row {rr.RowNumber()}, Col {col} → {prop.Name}: {ex.Message}");
+                }
+                catch (ArgumentException ex)
+                {
+                    errors.Add($"Row {rr.RowNumber()}, Col {col} → {prop.Name}: {ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unexpected error while importing Excel cell row {Row}, column {Column} for property {PropertyName}.",
+                        rr.RowNumber(), col, prop.Name);
+                    throw;
                 }
             }
 

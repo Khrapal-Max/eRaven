@@ -13,8 +13,10 @@ using eRaven.Components.Pages.Persons.Modals;
 using eRaven.Domain.Models;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.Linq.Expressions;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.Persons;
 
@@ -24,6 +26,7 @@ public partial class PersonsPage : ComponentBase, IDisposable
     [Inject] protected IPersonService PersonService { get; set; } = default!;
     [Inject] protected IToastService Toast { get; set; } = default!;
     [Inject] protected IValidator<CreatePersonViewModel> CreateValidator { get; set; } = default!;
+    [Inject] protected ILogger<PersonsPage> Logger { get; set; } = default!;
 
     // ================= UI state =================
     protected bool Busy { get; private set; }
@@ -53,7 +56,10 @@ public partial class PersonsPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError($"Не вдалося завантажити картки: {ex.Message}");
+            if (!TryHandleKnownException(ex, "Не вдалося завантажити картки"))
+            {
+                throw;
+            }
         }
         finally { SetBusy(false); }
     }
@@ -151,9 +157,34 @@ public partial class PersonsPage : ComponentBase, IDisposable
                     if (ok) updated++;
                 }
             }
-            catch (Exception ex)
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (FluentValidation.ValidationException ex)
             {
                 errors.Add($"Row {idx}: {ex.Message}");
+            }
+            catch (System.ComponentModel.DataAnnotations.ValidationException ex)
+            {
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
+            catch (InvalidOperationException ex)
+            {
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
+            catch (ArgumentException ex)
+            {
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
+            catch (HttpRequestException ex)
+            {
+                errors.Add($"Row {idx}: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Unexpected error while importing person row {RowIndex}", idx);
+                throw;
             }
         }
 
@@ -218,5 +249,24 @@ public partial class PersonsPage : ComponentBase, IDisposable
         _cts.Cancel();
         _cts.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 }

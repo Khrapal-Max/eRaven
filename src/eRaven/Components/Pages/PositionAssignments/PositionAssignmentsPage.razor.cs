@@ -12,6 +12,8 @@ using eRaven.Application.ViewModels.PositionAssignmentViewModels;
 using eRaven.Components.Pages.PositionAssignments.Modals;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using System.Net.Http;
 
 namespace eRaven.Components.Pages.PositionAssignments;
 
@@ -41,6 +43,7 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
     [Inject] public IPositionService PositionService { get; set; } = default!;
     [Inject] public IPositionAssignmentService PositionAssignmentService { get; set; } = default!;
     [Inject] public IToastService Toast { get; set; } = default!;
+    [Inject] public ILogger<PositionAssignmentsPage> Logger { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -63,7 +66,10 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError(ex.Message);
+            if (!TryHandleKnownException(ex, "Не вдалося завантажити список людей"))
+            {
+                throw;
+            }
         }
     }
 
@@ -76,7 +82,10 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError(ex.Message);
+            if (!TryHandleKnownException(ex, "Не вдалося завантажити посади"))
+            {
+                throw;
+            }
         }
     }
 
@@ -153,7 +162,10 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            Toast.ShowError(ex.Message);
+            if (!TryHandleKnownException(ex, "Не вдалося завантажити призначення"))
+            {
+                throw;
+            }
         }
 
         await InvokeAsync(StateHasChanged);
@@ -222,6 +234,25 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
     }
 
     // --------------------- Helpers ---------------------
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
+    }
 
     public void Dispose()
     {
