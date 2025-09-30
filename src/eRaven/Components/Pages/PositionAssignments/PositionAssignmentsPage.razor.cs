@@ -287,7 +287,7 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
 
         return true;
     }
-
+    
     private static bool SamePositions(IReadOnlyList<PositionUnit> current, IEnumerable<PositionUnit> next)
     {
         var nextList = next as IList<PositionUnit> ?? next.ToList();

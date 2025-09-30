@@ -319,6 +319,92 @@ public partial class PositionsPage : ComponentBase, IDisposable
 
     private bool TryHandleKnownException(Exception ex, string message)
     {
+        var nextFiltered = [.. PositionsUi.Filter(_all, Search)];
+        var filteredChanged = !SameUnits(_filtered, nextFiltered);
+        _filtered = nextFiltered;
+
+        var nextItems = PositionsUi.Transform(_filtered, null /* вже відфільтровано */).ToList();
+        var itemsChanged = !SameViewModels(Items, nextItems);
+        var hadSelection = Selected is not null;
+
+        if (!filteredChanged && !itemsChanged && !hadSelection)
+        {
+            return;
+        }
+
+        if (itemsChanged)
+        {
+            Items.Clear();
+            foreach (var vm in nextItems)
+            {
+                Items.Add(vm);
+            }
+        }
+
+        if (hadSelection)
+        {
+            Selected = null;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SetBusyAsync(bool value)
+    {
+        if (Busy == value)
+        {
+            return;
+        }
+
+        Busy = value;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static bool SameUnits(IReadOnlyList<PositionUnit> current, IReadOnlyList<PositionUnit> next)
+    {
+        if (current.Count != next.Count) return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            if (current[i].Id != next[i].Id)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool SameViewModels(IReadOnlyList<PositionUnitViewModel> current, IReadOnlyList<PositionUnitViewModel> next)
+    {
+        if (current.Count != next.Count) return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            var a = current[i];
+            var b = next[i];
+
+            if (a.Id != b.Id)
+            {
+                return false;
+            }
+
+            if (!string.Equals(a.Code, b.Code, StringComparison.Ordinal) ||
+                !string.Equals(a.ShortName, b.ShortName, StringComparison.Ordinal) ||
+                !string.Equals(a.SpecialNumber, b.SpecialNumber, StringComparison.Ordinal) ||
+                !string.Equals(a.FullName, b.FullName, StringComparison.Ordinal) ||
+                !string.Equals(a.CurrentPersonFullName, b.CurrentPersonFullName, StringComparison.Ordinal) ||
+                a.IsActived != b.IsActived)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
         switch (ex)
         {
             case OperationCanceledException:

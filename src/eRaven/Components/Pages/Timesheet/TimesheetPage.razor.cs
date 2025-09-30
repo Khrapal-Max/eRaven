@@ -44,7 +44,7 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     protected int BuiltYear { get; private set; }
     protected int BuiltMonth { get; private set; }
 
-    protected DateTime BuiltStartLocal => new(BuiltYear, BuiltMonth, 1);
+    protected DateTime BuiltStartLocal => DateTime.SpecifyKind(new DateTime(BuiltYear, BuiltMonth, 1), DateTimeKind.Utc);
     protected DateTime BuiltEndLocal => BuiltStartLocal.AddMonths(1); // exclusive
     protected int BuiltDaysInMonth => DateTime.DaysInMonth(BuiltYear, BuiltMonth);
 
@@ -142,7 +142,7 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     // ====================== 3) Навігація (тільки Working) ======================
     protected void PrevMonth()
     {
-        var d = new DateTime(WorkingYear, WorkingMonth, 1).AddMonths(-1);
+        var d = DateTime.SpecifyKind(new DateTime(WorkingYear, WorkingMonth, 1), DateTimeKind.Utc).AddMonths(-1);
         WorkingYear = d.Year;
         WorkingMonth = d.Month;
         // НЕ перераховуємо — лише за кнопкою «Побудувати»
@@ -150,7 +150,7 @@ public partial class TimesheetPage : ComponentBase, IDisposable
 
     protected void NextMonth()
     {
-        var d = new DateTime(WorkingYear, WorkingMonth, 1).AddMonths(1);
+        var d = DateTime.SpecifyKind(new DateTime(WorkingYear, WorkingMonth, 1), DateTimeKind.Utc).AddMonths(1);
         WorkingYear = d.Year;
         WorkingMonth = d.Month;
         // НЕ перераховуємо — лише за кнопкою «Побудувати»

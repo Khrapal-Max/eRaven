@@ -119,7 +119,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         if (ids.Length == 0) return new Dictionary<Guid, PersonStatus?[]>();
 
         var daysInMonth = DateTime.DaysInMonth(yearLocal, monthLocal);
-        var monthStartLocal = new DateTime(yearLocal, monthLocal, 1);
+        var monthStartLocal = DateTime.SpecifyKind(new DateTime(yearLocal, monthLocal, 1), DateTimeKind.Utc);
         var monthEndLocal = monthStartLocal.AddMonths(1);
 
         // Готуємо межі у UTC на кожен день місяця
