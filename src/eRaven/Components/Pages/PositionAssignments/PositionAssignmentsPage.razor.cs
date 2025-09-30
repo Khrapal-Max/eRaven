@@ -287,6 +287,11 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
 
         return true;
     }
+    
+    private static bool SamePositions(IReadOnlyList<PositionUnit> current, IEnumerable<PositionUnit> next)
+    {
+        var nextList = next as IList<PositionUnit> ?? next.ToList();
+        if (current.Count != nextList.Count) return false;
 
     private static bool SamePositions(IReadOnlyList<PositionUnit> current, IEnumerable<PositionUnit> next)
     {
@@ -326,6 +331,25 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
         }
 
         return true;
+    }
+
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                Toast.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
     }
 
     private bool TryHandleKnownException(Exception ex, string message)
