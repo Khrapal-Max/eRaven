@@ -336,6 +336,25 @@ public partial class PositionsPage : ComponentBase, IDisposable
         }
     }
 
+    private bool TryHandleKnownException(Exception ex, string message)
+    {
+        switch (ex)
+        {
+            case OperationCanceledException:
+                return false;
+            case System.ComponentModel.DataAnnotations.ValidationException:
+            case FluentValidation.ValidationException:
+            case InvalidOperationException:
+            case ArgumentException:
+            case HttpRequestException:
+                ToastService.ShowError($"{message}: {ex.Message}");
+                return true;
+            default:
+                Logger.LogError(ex, "Unexpected error: {Context}", message);
+                return false;
+        }
+    }
+
     protected Task ResetSearch()
     {
         Search = null;
