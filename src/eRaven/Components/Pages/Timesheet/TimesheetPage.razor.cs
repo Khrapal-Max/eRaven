@@ -97,8 +97,6 @@ public partial class TimesheetPage : ComponentBase, IDisposable
                 BuiltMonth,
                 _cts.Token);
 
-            var notPresentKind = await PersonStatusReadService.ResolveNotPresentAsync(_cts.Token);
-
             foreach (var p in persons)
             {
                 if (!monthMap.TryGetValue(p.Id, out var monthStatus))
@@ -169,6 +167,7 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     {
         if (monthStatuses is null || monthStatuses.Length == 0)
             return Array.Empty<DayCell>();
+            
         var result = new DayCell[monthStatuses.Length];
 
         var notPresentCode = notPresentKind?.Code?.Trim();

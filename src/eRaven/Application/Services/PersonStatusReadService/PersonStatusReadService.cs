@@ -93,6 +93,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
                 result[pid] = null;
                 continue;
             }
+            
             var chosen = list.LastOrDefault(s => s.OpenDate <= endOfDayUtc);
             result[pid] = chosen;
         }
@@ -119,9 +120,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         }
 
         await using var db = await _dbf.CreateDbContextAsync(ct);
-        // Довідник
-        var kinds = await db.StatusKinds.AsNoTracking().ToListAsync(ct);
-        var kind30 = kinds.FirstOrDefault(k => string.Equals(k.Code, "30", StringComparison.OrdinalIgnoreCase));
         
         // Беремо усі статуси за місяць + “хвіст” до першого дня для baseline
         var monthEndUtc = bounds[^1].endUtc;
@@ -154,58 +152,24 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
             {
                 var (_, dayEndExclusiveUtc) = bounds[di];
                 var endOfDayUtc = dayEndExclusiveUtc.AddTicks(-1);
+
                 while (cursor < timeline.Count && timeline[cursor].OpenDate <= endOfDayUtc)
                 {
                     current = timeline[cursor];
                     cursor++;
                 }
-
+                row[di] = current;
+            }
                 if (firstPresenceUtc is null || endOfDayUtc < firstPresenceUtc.Value)
                 {
                     row[di] = null;
                     continue;
                 }
+
                 row[di] = current;
             }
 
             map[pid] = new PersonMonthStatus(row, firstPresenceUtc);
-        }
-
-        return map;
-    }
-    public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
-    {
-        if (personId == Guid.Empty) return Array.Empty<PersonStatus>();
-
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-
-        var ordered = await StatusPriorityComparer
-            .OrderForHistory(db.PersonStatuses.AsNoTracking()
-                .Include(s => s.StatusKind)
-                .Where(s => s.PersonId == personId && s.IsActive))
-            .ToListAsync(ct);
-
-        return ordered.AsReadOnly();
-    }
-
-    public async Task<DateTime?> GetFirstPresenceUtcAsync(Guid personId, CancellationToken ct = default)
-    {
-        if (personId == Guid.Empty) return null;
-
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-
-        var kinds = await db.StatusKinds.AsNoTracking().ToListAsync(ct);
-        var inDistrict = kinds.FirstOrDefault(k => string.Equals(k.Name?.Trim(), "В районі", StringComparison.OrdinalIgnoreCase));
-
-        DateTime? firstStatusUtc = null;
-
-        if (inDistrict is not null)
-        {
-            firstStatusUtc = await db.PersonStatuses.AsNoTracking()
-                .Where(s => s.PersonId == personId && s.IsActive && s.StatusKindId == inDistrict.Id)
-                .Select(s => (DateTime?)s.OpenDate)
-                .OrderBy(x => x)
-                .FirstOrDefaultAsync(ct);
         }
 
         // Призначення на посаду
@@ -237,6 +201,21 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
     public Task<StatusKind?> ResolveNotPresentAsync(CancellationToken ct = default)
         => GetByCodeAsync("нб", ct);
+
+    public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
+    {
+        if (personId == Guid.Empty) return Array.Empty<PersonStatus>();
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var ordered = await StatusPriorityComparer
+            .OrderForHistory(db.PersonStatuses.AsNoTracking()
+                .Include(s => s.StatusKind)
+                .Where(s => s.PersonId == personId && s.IsActive))
+            .ToListAsync(ct);
+
+        return ordered.AsReadOnly();
+    }
 
     public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
     {

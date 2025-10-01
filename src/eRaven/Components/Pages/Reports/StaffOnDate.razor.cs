@@ -12,10 +12,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PersonStatusReadService;
-using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.StaffOnDateViewModels;
 using eRaven.Domain.Models;
@@ -29,7 +30,6 @@ public partial class StaffOnDate : ComponentBase, IDisposable
     // ============================ DI ============================
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
-    [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!;
     [Inject] private IPersonStatusReadService PersonStatusReadService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
 
@@ -42,6 +42,7 @@ public partial class StaffOnDate : ComponentBase, IDisposable
     protected DateTime DateLocal { get; set; } = DateTime.Today;
 
     private IReadOnlyList<StatusKind> _kinds = [];
+    private Dictionary<int, StatusKind> _kindsById = new();
     protected List<ReportRow> Rows { get; } = [];
 
     /// <summary>Коди, які повністю приховуємо зі звіту.</summary>
@@ -65,6 +66,11 @@ public partial class StaffOnDate : ComponentBase, IDisposable
 
             // 1) Довідник статусів
             _kinds = await StatusKindService.GetAllAsync(ct: _cts.Token) ?? [];
+            _kindsById = _kinds
+                .Where(k => k.Id != default)
+                .GroupBy(k => k.Id)
+                .Select(g => g.First())
+                .ToDictionary(k => k.Id, k => k);
 
             // 2) Перелік осіб
             var persons = await PersonService.SearchAsync(null, _cts.Token) ?? [];
@@ -73,47 +79,20 @@ public partial class StaffOnDate : ComponentBase, IDisposable
             // ✅ лишаємо тільки тих, хто на посаді (поточна посада існує і активна)
             persons = [.. persons.Where(p => p.PositionUnit is not null && p.PositionUnit.IsActived)];
 
-            var atUtc = ToUtcMidnight(DateLocal);
-            var dayEndUtc = ToUtcMidnight(DateLocal.AddDays(1));
+            var dayEndUtc = ToUtcEndOfDay(DateLocal);
             var notPresentKind = await PersonStatusReadService.ResolveNotPresentAsync(_cts.Token);
 
             // 4) Формування рядків
-            foreach (var p in persons)
+            var buildTasks = persons
+                .Select(p => BuildRowAsync(p, dayEndUtc, notPresentKind, _cts.Token))
+                .ToArray();
+
+            var results = await Task.WhenAll(buildTasks);
+
+            foreach (var row in results)
             {
-                var hist = await PersonStatusService.GetHistoryAsync(p.Id, _cts.Token) ?? [];
-                var firstPresenceUtc = notPresentKind is null
-                    ? null
-                    : await PersonStatusReadService.GetFirstPresenceUtcAsync(p.Id, _cts.Token);
-                var status = GetStatusOnDate(hist, atUtc, dayEndUtc, firstPresenceUtc, notPresentKind);
-
-                // Пропускаємо виключені коди
-                var code = status?.Code?.Trim();
-                if (!string.IsNullOrWhiteSpace(code) && ExcludeCodes.Contains(code!))
-                    continue;
-
-                var row = new ReportRow
-                {
-                    // Посада
-                    PositionCode = p.PositionUnit?.Code,
-                    PositionShort = p.PositionUnit?.ShortName,
-                    PositionFull = p.PositionUnit?.FullName,
-                    SpecialNumber = p.PositionUnit?.SpecialNumber,
-
-                    // Людина
-                    FullName = p.FullName,
-                    Rank = p.Rank,
-                    Rnokpp = p.Rnokpp,
-                    Callsign = p.Callsign,
-                    BZVP = p.BZVP,
-                    Weapon = p.Weapon,
-
-                    // Статус на дату
-                    StatusCode = status?.Code,
-                    StatusName = status?.Name,
-                    StatusNote = status?.Note
-                };
-
-                Rows.Add(row);
+                if (row is not null)
+                    Rows.Add(row);
             }
 
             // 5) Сортування (індекс посади → повна назва)
@@ -134,76 +113,74 @@ public partial class StaffOnDate : ComponentBase, IDisposable
     }
 
     // ==================== Статус на конкретну дату ====================
-    private StatusOnDateViewModel? GetStatusOnDate(
-        IReadOnlyList<PersonStatus> history,
-        DateTime dayStartUtc,
-        DateTime dayEndUtc,
-        DateTime? firstPresenceUtc,
-        StatusKind? notPresentKind)
+    private async Task<ReportRow?> BuildRowAsync(Person person, DateTime dayEndUtc, StatusKind? notPresentKind, CancellationToken ct)
     {
-        if (history is null || history.Count == 0)
+        var firstPresenceTask = notPresentKind is null
+            ? Task.FromResult<DateTime?>(null)
+            : PersonStatusReadService.GetFirstPresenceUtcAsync(person.Id, ct);
+        var statusTask = PersonStatusReadService.GetActiveOnDateAsync(person.Id, dayEndUtc, ct);
+
+        await Task.WhenAll(firstPresenceTask, statusTask);
+
+        var firstPresenceUtc = await firstPresenceTask;
+        var status = await statusTask;
+        
+        StatusKind? statusKind = null;
+        string? note = null;
+
+        if (notPresentKind is not null && firstPresenceUtc is not null && dayEndUtc < firstPresenceUtc.Value)
         {
-            return NotPresentOrNull(firstPresenceUtc, notPresentKind, dayEndUtc);
+            statusKind = notPresentKind;
+        }
+        else if (status is not null)
+        {
+            statusKind = ResolveStatusKind(status);
+            note = string.IsNullOrWhiteSpace(status.Note) ? null : status.Note!.Trim();
         }
 
-        var notPresent = NotPresentOrNull(firstPresenceUtc, notPresentKind, dayEndUtc);
-        if (notPresent is not null)
-            return notPresent;
+        if (statusKind is null)
+            return null;
 
-        // Останній валідний запис із OpenDate <= atUtc (за OpenDate DESC, Sequence DESC)
-        var s = history
-            .Where(x => x.OpenDate <= dayStartUtc)
-            .OrderByDescending(x => x.OpenDate)
-            .ThenBy(x => x.StatusKind!, StatusKindPriorityComparer)
-            .ThenByDescending(x => x.Id)
-            .FirstOrDefault();
+        var code = statusKind.Code?.Trim();
+        if (!string.IsNullOrWhiteSpace(code) && ExcludeCodes.Contains(code))
+            return null;
 
-        if (s is null) return notPresent;
+        var name = statusKind.Name;
+        if (string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(code))
+            name = NameForCode(code!);
 
-        // Основні поля з навігації; fallback — з довідника
-        var code = s.StatusKind?.Code?.Trim();
-        var name = s.StatusKind?.Name;
-
-        if (string.IsNullOrWhiteSpace(code))
+        return new ReportRow
         {
-            var sk = _kinds.FirstOrDefault(k => k.Id == s.StatusKindId);
-            code = sk?.Code?.Trim();
-            name ??= sk?.Name;
-        }
+            // Посада
+            PositionCode = person.PositionUnit?.Code,
+            PositionShort = person.PositionUnit?.ShortName,
+            PositionFull = person.PositionUnit?.FullName,
+            SpecialNumber = person.PositionUnit?.SpecialNumber,
 
-        return new StatusOnDateViewModel
-        {
-            Code = code,
-            Name = name,
-            Note = string.IsNullOrWhiteSpace(s.Note) ? null : s.Note!.Trim()
+            // Людина
+            FullName = person.FullName,
+            Rank = person.Rank,
+            Rnokpp = person.Rnokpp,
+            Callsign = person.Callsign,
+            BZVP = person.BZVP,
+            Weapon = person.Weapon,
+
+            // Статус на дату
+            StatusCode = code,
+            StatusName = name,
+            StatusNote = note
         };
     }
 
-    private StatusOnDateViewModel? NotPresentOrNull(
-        DateTime? firstPresenceUtc,
-        StatusKind? notPresentKind,
-        DateTime dayEndUtc)
+    private StatusKind? ResolveStatusKind(PersonStatus status)
     {
-        if (notPresentKind is null)
-            return null;
+        if (status.StatusKind is not null)
+            return status.StatusKind;
 
-        if (firstPresenceUtc is not null && dayEndUtc > firstPresenceUtc.Value)
-            return null;
+        if (_kindsById.TryGetValue(status.StatusKindId, out var kind))
+            return kind;
 
-        var code = notPresentKind.Code?.Trim();
-        if (string.IsNullOrWhiteSpace(code))
-            return null;
-
-        var name = notPresentKind.Name;
-        if (string.IsNullOrWhiteSpace(name))
-            name = NameForCode(code);
-
-        return new StatusOnDateViewModel
-        {
-            Code = code,
-            Name = name,
-            Note = null
-        };
+        return null;
     }
 
     // ===================== Відображення (кольори) =====================
@@ -247,6 +224,12 @@ public partial class StaffOnDate : ComponentBase, IDisposable
     {
         var d = localDate.Date;
         return new DateTime(d.Year, d.Month, d.Day, 0, 0, 0, DateTimeKind.Utc);
+    }
+
+    private static DateTime ToUtcEndOfDay(DateTime localDate)
+    {
+        var startUtc = ToUtcMidnight(localDate);
+        return startUtc.AddHours(23).AddMinutes(59).AddSeconds(59);
     }
 
     private void OnExportBusyChanged(bool exporting) => SetBusy(exporting || Busy);
