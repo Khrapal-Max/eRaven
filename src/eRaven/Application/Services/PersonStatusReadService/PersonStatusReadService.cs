@@ -155,8 +155,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         var firstPresenceMap = await BuildFirstPresenceMapAsync(db, ids, monthEndUtc, ct);
 
         var byPerson = slice.GroupBy(s => s.PersonId)
-            .ToDictionary(g => g.Key, g => SelectTimeline(g.ToList()));
-
+            .ToDictionary(g => g.Key, g => SelectTimeline([.. g]));
         var map = new Dictionary<Guid, PersonMonthStatus>(ids.Length);
 
         foreach (var pid in ids)
@@ -191,24 +190,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
             map[pid] = new PersonMonthStatus(row, firstPresenceUtc);
         }
 
-        return ordered.AsReadOnly();
-    }
-
-    public async Task<DateTime?> GetFirstPresenceUtcAsync(Guid personId, CancellationToken ct = default)
-    {
-        if (personId == Guid.Empty) return null;
-
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-        var map = await BuildFirstPresenceMapAsync(db, [personId], DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc), ct);
-        return map.TryGetValue(personId, out var value) ? value : null;
-    }
-
-    public async Task<StatusKind?> GetByCodeAsync(string code, CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(code)) return null;
-
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-        return await FindStatusKindByCodeAsync(db, code, ct);
+        return new ReadOnlyDictionary<Guid, PersonMonthStatus>(map);
     }
 
     public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
@@ -242,7 +224,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         await using var db = await _dbf.CreateDbContextAsync(ct);
         return await FindStatusKindByCodeAsync(db, code, ct);
     }
-    
+
     public Task<StatusKind?> ResolveNotPresentAsync(CancellationToken ct = default)
         => GetByCodeAsync(NotPresentCode, ct);
 
@@ -285,7 +267,8 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
     private static List<PersonStatus> SelectTimeline(IReadOnlyCollection<PersonStatus> statuses)
     {
-        if (statuses.Count == 0) return [];
+        if (statuses.Count == 0)
+            return [];
 
         return [.. statuses
             .GroupBy(s => s.OpenDate)

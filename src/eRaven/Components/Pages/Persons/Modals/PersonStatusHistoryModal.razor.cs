@@ -73,10 +73,6 @@ public sealed partial class PersonStatusHistoryModal : ComponentBase
                 {
                     var kindName = status.StatusKind?.Name ?? $"ID {status.StatusKindId}";
                     var openUtc = EnsureUtc(status.OpenDate);
-                    if (normalizedFirstPresenceUtc is { } firstPresence && openUtc < firstPresence)
-                    {
-                        continue;
-                    }
 
                     var openLocal = openUtc.ToLocalTime();
                     var dateLabel = openLocal.ToString("dd.MM.yyyy", CultureInfo.CurrentCulture);

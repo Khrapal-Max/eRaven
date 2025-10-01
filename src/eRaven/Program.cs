@@ -9,6 +9,7 @@ using Blazored.Toast;
 using eRaven.Application.Services.ConfirmService;
 using eRaven.Application.Services.ExcelService;
 using eRaven.Application.Services.PersonService;
+using eRaven.Application.Services.PersonStatusReadService;
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.PlanActionService;
 using eRaven.Application.Services.PositionAssignmentService;
@@ -56,6 +57,7 @@ builder.Services.AddScoped<IPositionService, PositionService>();
 builder.Services.AddScoped<IPositionAssignmentService, PositionAssignmentService>();
 builder.Services.AddScoped<IStatusKindService, StatusKindService>();
 builder.Services.AddScoped<IStatusTransitionService, StatusTransitionService>();
+builder.Services.AddScoped<IPersonStatusReadService, PersonStatusReadService>();
 
 var app = builder.Build();
 
