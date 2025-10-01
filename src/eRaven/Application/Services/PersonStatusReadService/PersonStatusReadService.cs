@@ -7,6 +7,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
@@ -155,7 +156,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
         var byPerson = slice.GroupBy(s => s.PersonId)
             .ToDictionary(g => g.Key, g => SelectTimeline(g.ToList()));
-
         var map = new Dictionary<Guid, PersonMonthStatus>(ids.Length);
 
         foreach (var pid in ids)
@@ -190,24 +190,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
             map[pid] = new PersonMonthStatus(row, firstPresenceUtc);
         }
 
-        return ordered.AsReadOnly();
-    }
-
-    public async Task<DateTime?> GetFirstPresenceUtcAsync(Guid personId, CancellationToken ct = default)
-    {
-        if (personId == Guid.Empty) return null;
-
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-        var map = await BuildFirstPresenceMapAsync(db, [personId], DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc), ct);
-        return map.TryGetValue(personId, out var value) ? value : null;
-    }
-
-    public async Task<StatusKind?> GetByCodeAsync(string code, CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(code)) return null;
-
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-        return await FindStatusKindByCodeAsync(db, code, ct);
+        return new ReadOnlyDictionary<Guid, PersonMonthStatus>(map);
     }
 
     public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
@@ -233,7 +216,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         var map = await BuildFirstPresenceMapAsync(db, [personId], DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc), ct);
         return map.TryGetValue(personId, out var value) ? value : null;
     }
-
+    
     public async Task<StatusKind?> GetByCodeAsync(string code, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(code)) return null;
