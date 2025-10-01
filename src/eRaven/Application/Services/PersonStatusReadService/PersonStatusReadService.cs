@@ -96,7 +96,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
         var firstPresenceMap = await BuildFirstPresenceMapAsync(db, ids, endOfDayUtc, ct);
         var byPerson = slice.GroupBy(s => s.PersonId)
-            .ToDictionary(g => g.Key, g => SelectTimeline(g.ToList()));
+            .ToDictionary(g => g.Key, g => SelectTimeline([.. g]));
 
         var result = new Dictionary<Guid, PersonStatus?>(ids.Length);
 
@@ -154,14 +154,14 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         var firstPresenceMap = await BuildFirstPresenceMapAsync(db, ids, monthEndUtc, ct);
 
         var byPerson = slice.GroupBy(s => s.PersonId)
-            .ToDictionary(g => g.Key, g => SelectTimeline(g.ToList()));
+            .ToDictionary(g => g.Key, g => SelectTimeline([.. g]));
 
         var map = new Dictionary<Guid, PersonMonthStatus>(ids.Length);
 
         foreach (var pid in ids)
         {
             var row = new PersonStatus?[daysInMonth];
-            var timeline = byPerson.TryGetValue(pid, out var list) ? list : new List<PersonStatus>();
+            var timeline = byPerson.TryGetValue(pid, out var list) ? list : [];
             var firstPresenceUtc = firstPresenceMap.TryGetValue(pid, out var fp) ? fp : null;
 
             var cursor = 0;
@@ -193,15 +193,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         return ordered.AsReadOnly();
     }
 
-    public async Task<DateTime?> GetFirstPresenceUtcAsync(Guid personId, CancellationToken ct = default)
-    {
-        if (personId == Guid.Empty) return null;
-
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-        var map = await BuildFirstPresenceMapAsync(db, [personId], DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc), ct);
-        return map.TryGetValue(personId, out var value) ? value : null;
-    }
-
     public async Task<StatusKind?> GetByCodeAsync(string code, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(code)) return null;
@@ -212,7 +203,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
     public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
     {
-        if (personId == Guid.Empty) return Array.Empty<PersonStatus>();
+        if (personId == Guid.Empty) return [];
 
         await using var db = await _dbf.CreateDbContextAsync(ct);
 
@@ -232,14 +223,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         await using var db = await _dbf.CreateDbContextAsync(ct);
         var map = await BuildFirstPresenceMapAsync(db, [personId], DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc), ct);
         return map.TryGetValue(personId, out var value) ? value : null;
-    }
-
-    public async Task<StatusKind?> GetByCodeAsync(string code, CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(code)) return null;
-
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-        return await FindStatusKindByCodeAsync(db, code, ct);
     }
     
     public Task<StatusKind?> ResolveNotPresentAsync(CancellationToken ct = default)
@@ -284,18 +267,16 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
     private static List<PersonStatus> SelectTimeline(IReadOnlyCollection<PersonStatus> statuses)
     {
-        if (statuses.Count == 0)
-            return new List<PersonStatus>();
+        if (statuses.Count == 0) return [];
 
-        return statuses
+        return [.. statuses
             .GroupBy(s => s.OpenDate)
             .OrderBy(g => g.Key)
             .Select(g => g
                 .OrderBy(s => s.StatusKind!, StatusKindPriorityComparer)
                 .ThenBy(s => s.Sequence)
                 .ThenBy(s => s.Id)
-                .First())
-            .ToList();
+                .First())];
     }
 
     private async Task<Dictionary<Guid, DateTime?>> BuildFirstPresenceMapAsync(
@@ -350,6 +331,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         var normalizedUpper = code.Trim().ToUpperInvariant();
 
         return await db.StatusKinds.AsNoTracking()
-            .FirstOrDefaultAsync(k => k.Code != null && k.Code.ToUpperInvariant() == normalizedUpper, ct);
+            .FirstOrDefaultAsync(k => k.Code != null && k.Code.Equals(normalizedUpper, StringComparison.InvariantCultureIgnoreCase), ct);
     }
 }
