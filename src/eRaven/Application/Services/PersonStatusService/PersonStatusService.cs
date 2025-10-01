@@ -80,15 +80,18 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
         var person = await db.Persons.FirstOrDefaultAsync(p => p.Id == ps.PersonId, ct)
             ?? throw new InvalidOperationException("Особа не знайдена.");
 
-        var toKindExists = await db.StatusKinds.AnyAsync(k => k.Id == ps.StatusKindId, ct);
-        if (!toKindExists) throw new InvalidOperationException("Вказаний статус не існує.");
+        var toKind = await db.StatusKinds.FirstOrDefaultAsync(k => k.Id == ps.StatusKindId, ct)
+            ?? throw new InvalidOperationException("Вказаний статус не існує.");
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         // ====== 2) Правила переходів: від поточного (останнього валідного) → до нового
         var current = await db.PersonStatuses
+            .Include(s => s.StatusKind)
             .Where(s => s.PersonId == ps.PersonId && s.IsActive)
-            .OrderByDescending(s => s.OpenDate).ThenByDescending(s => s.Sequence)
+            .OrderByDescending(s => s.OpenDate)
+            .ThenBy(s => s.StatusKind.Order)
+            .ThenByDescending(s => s.Sequence)
             .FirstOrDefaultAsync(ct);
 
         int? fromKindId = current?.StatusKindId;
@@ -100,13 +103,43 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
             throw new InvalidOperationException("Момент має бути пізніший за останній відкритий статус.");
 
         // ====== 3) Присвоюємо Sequence на цей самий момент часу
-        short nextSeq = (await db.PersonStatuses
-            .Where(s => s.PersonId == ps.PersonId && s.IsActive && s.OpenDate == openUtc)
-            .MaxAsync(s => (short?)s.Sequence, ct)) ?? -1;
+        var sameMoment = await db.PersonStatuses
+            .Include(s => s.StatusKind)
+            .Where(s => s.PersonId == ps.PersonId && s.OpenDate == openUtc)
+            .ToListAsync(ct);
 
-        nextSeq++;
+        var nowUtc = DateTime.UtcNow;
 
-        // ====== 4) Створюємо новий «валідний» запис
+        bool shouldActivate = true;
+        var activeAtMoment = sameMoment
+            .Where(s => s.IsActive)
+            .OrderBy(s => s.StatusKind.Order)
+            .ThenBy(s => s.Sequence)
+            .ThenBy(s => s.Id)
+            .FirstOrDefault();
+
+        if (activeAtMoment is not null)
+        {
+            var priorityComparison = StatusPriorityComparer.Compare(toKind, activeAtMoment.StatusKind);
+
+            if (priorityComparison >= 0)
+            {
+                // Новий статус має нижчий або рівний пріоритет — зберігаємо історію як неактивну.
+                shouldActivate = false;
+            }
+            else
+            {
+                foreach (var lowerPriority in sameMoment.Where(s => s.IsActive))
+                {
+                    lowerPriority.IsActive = false;
+                    lowerPriority.Modified = nowUtc;
+                }
+            }
+        }
+
+        short nextSeq = (short)(((sameMoment.Max(s => (short?)s.Sequence)) ?? -1) + 1);
+
+        // ====== 4) Створюємо новий запис
         var toSave = new PersonStatus
         {
             Id = Guid.NewGuid(),
@@ -114,17 +147,26 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
             StatusKindId = ps.StatusKindId,
             OpenDate = openUtc,
             Sequence = nextSeq,
-            IsActive = true,
+            IsActive = shouldActivate,
             Note = string.IsNullOrWhiteSpace(ps.Note) ? null : ps.Note.Trim(),
             Author = string.IsNullOrWhiteSpace(ps.Author) ? "system" : ps.Author!.Trim(),
-            Modified = DateTime.UtcNow
+            Modified = nowUtc
         };
 
         db.PersonStatuses.Add(toSave);
 
-        // Оновлюємо «поточний» статус у Person
-        person.StatusKindId = ps.StatusKindId;
-        person.ModifiedUtc = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        var actualActive = await db.PersonStatuses
+            .Include(s => s.StatusKind)
+            .Where(s => s.PersonId == ps.PersonId && s.IsActive)
+            .OrderByDescending(s => s.OpenDate)
+            .ThenBy(s => s.StatusKind.Order)
+            .ThenByDescending(s => s.Sequence)
+            .FirstOrDefaultAsync(ct);
+
+        person.StatusKindId = actualActive?.StatusKindId;
+        person.ModifiedUtc = nowUtc;
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
