@@ -4,17 +4,23 @@
 // Reports → StaffOnDatePage (code-behind)
 // Логіка:
 //  • обираємо дату → “Побудувати” → збираємо усіх та їхній статус на дату
-//  • виключаємо з таблиці коди "нб" і "РОЗПОР"
+//  • виключаємо з таблиці службові коди, що не мають відображатись
 //  • сортування: спочатку за індексом посади (PositionUnit.Code), потім за повною назвою
 //  • експорт: плоска модель без стилів/кольорів (ті самі колонки)
 // -----------------------------------------------------------------------------
 
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
-using eRaven.Application.Services.PersonStatusService;
+using eRaven.Application.Services.PersonStatusReadService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.StaffOnDateViewModels;
+using eRaven.Components.Shared.StatusFormatting;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -25,7 +31,7 @@ public partial class StaffOnDate : ComponentBase, IDisposable
     // ============================ DI ============================
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
-    [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!;
+    [Inject] private IPersonStatusReadService PersonStatusReadService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
 
     private readonly CancellationTokenSource _cts = new();
@@ -37,11 +43,14 @@ public partial class StaffOnDate : ComponentBase, IDisposable
     protected DateTime DateLocal { get; set; } = DateTime.Today;
 
     private IReadOnlyList<StatusKind> _kinds = [];
+    private Dictionary<int, StatusKind> _kindsById = new();
     protected List<ReportRow> Rows { get; } = [];
 
-    /// <summary>Коди, які повністю приховуємо зі звіту.</summary>
-    private static readonly HashSet<string> ExcludeCodes =
-        new(StringComparer.OrdinalIgnoreCase) { "нб", "РОЗПОР" };
+    private static readonly HashSet<string> AlwaysExcludedCodes =
+        new(StringComparer.OrdinalIgnoreCase) { "РОЗПОР" };
+
+    private string? _notPresentCode;
+    private string? _notPresentTitle;
 
     // ========================= Lifecycle ========================
     protected override Task OnInitializedAsync()
@@ -60,6 +69,11 @@ public partial class StaffOnDate : ComponentBase, IDisposable
 
             // 1) Довідник статусів
             _kinds = await StatusKindService.GetAllAsync(ct: _cts.Token) ?? [];
+            _kindsById = _kinds
+                .Where(k => k.Id != default)
+                .GroupBy(k => k.Id)
+                .Select(g => g.First())
+                .ToDictionary(k => k.Id, k => k);
 
             // 2) Перелік осіб
             var persons = await PersonService.SearchAsync(null, _cts.Token) ?? [];
@@ -68,42 +82,24 @@ public partial class StaffOnDate : ComponentBase, IDisposable
             // ✅ лишаємо тільки тих, хто на посаді (поточна посада існує і активна)
             persons = [.. persons.Where(p => p.PositionUnit is not null && p.PositionUnit.IsActived)];
 
-            var atUtc = ToUtcMidnight(DateLocal);
+            var dayEndUtc = ToUtcEndOfDay(DateLocal);
+            var notPresentKind = await PersonStatusReadService.ResolveNotPresentAsync(_cts.Token);
+            _notPresentCode = notPresentKind?.Code?.Trim();
+            _notPresentTitle = string.IsNullOrWhiteSpace(notPresentKind?.Name)
+                ? (_notPresentCode is null ? null : NameForCode(_notPresentCode) ?? _notPresentCode)
+                : notPresentKind!.Name;
 
             // 4) Формування рядків
-            foreach (var p in persons)
+            var buildTasks = persons
+                .Select(p => BuildRowAsync(p, dayEndUtc, notPresentKind, _cts.Token))
+                .ToArray();
+
+            var results = await Task.WhenAll(buildTasks);
+
+            foreach (var row in results)
             {
-                var hist = await PersonStatusService.GetHistoryAsync(p.Id, _cts.Token) ?? [];
-                var status = GetStatusOnDate(hist, atUtc);
-
-                // Пропускаємо виключені коди
-                var code = status?.Code?.Trim();
-                if (!string.IsNullOrWhiteSpace(code) && ExcludeCodes.Contains(code!))
-                    continue;
-
-                var row = new ReportRow
-                {
-                    // Посада
-                    PositionCode = p.PositionUnit?.Code,
-                    PositionShort = p.PositionUnit?.ShortName,
-                    PositionFull = p.PositionUnit?.FullName,
-                    SpecialNumber = p.PositionUnit?.SpecialNumber,
-
-                    // Людина
-                    FullName = p.FullName,
-                    Rank = p.Rank,
-                    Rnokpp = p.Rnokpp,
-                    Callsign = p.Callsign,
-                    BZVP = p.BZVP,
-                    Weapon = p.Weapon,
-
-                    // Статус на дату
-                    StatusCode = status?.Code,
-                    StatusName = status?.Name,
-                    StatusNote = status?.Note
-                };
-
-                Rows.Add(row);
+                if (row is not null)
+                    Rows.Add(row);
             }
 
             // 5) Сортування (індекс посади → повна назва)
@@ -124,75 +120,115 @@ public partial class StaffOnDate : ComponentBase, IDisposable
     }
 
     // ==================== Статус на конкретну дату ====================
-    private StatusOnDateViewModel? GetStatusOnDate(IReadOnlyList<PersonStatus> history, DateTime atUtc)
+    private async Task<ReportRow?> BuildRowAsync(Person person, DateTime dayEndUtc, StatusKind? notPresentKind, CancellationToken ct)
     {
-        if (history is null || history.Count == 0) return null;
+        var firstPresenceTask = notPresentKind is null
+            ? Task.FromResult<DateTime?>(null)
+            : PersonStatusReadService.GetFirstPresenceUtcAsync(person.Id, ct);
+        var statusTask = PersonStatusReadService.GetActiveOnDateAsync(person.Id, dayEndUtc, ct);
 
-        // Останній валідний запис із OpenDate <= atUtc (за OpenDate DESC, Sequence DESC)
-        var s = history
-            .OrderByDescending(x => x.OpenDate)
-            .ThenByDescending(x => x.Sequence)
-            .FirstOrDefault(x => x.OpenDate <= atUtc);
+        await Task.WhenAll(firstPresenceTask, statusTask);
 
-        if (s is null) return null;
+        var firstPresenceUtc = await firstPresenceTask;
+        var status = await statusTask;
 
-        // Основні поля з навігації; fallback — з довідника
-        var code = s.StatusKind?.Code?.Trim();
-        var name = s.StatusKind?.Name;
+        StatusKind? statusKind = null;
+        string? note = null;
 
-        if (string.IsNullOrWhiteSpace(code))
+        if (notPresentKind is not null && firstPresenceUtc is not null && dayEndUtc < firstPresenceUtc.Value)
         {
-            var sk = _kinds.FirstOrDefault(k => k.Id == s.StatusKindId);
-            code = sk?.Code?.Trim();
-            name ??= sk?.Name;
+            statusKind = notPresentKind;
+        }
+        else if (status is not null)
+        {
+            statusKind = ResolveStatusKind(status);
+            note = string.IsNullOrWhiteSpace(status.Note) ? null : status.Note!.Trim();
         }
 
-        return new StatusOnDateViewModel
+        if (statusKind is null)
+            return null;
+
+        var code = statusKind.Code?.Trim();
+        if (statusKind == notPresentKind && string.IsNullOrWhiteSpace(code))
+            code = _notPresentCode;
+        if (IsExcludedCode(code))
+            return null;
+
+        var name = statusKind.Name;
+        if (string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(code))
+            name = NameForCode(code!);
+
+        if (statusKind == notPresentKind && string.IsNullOrWhiteSpace(name))
+            name = _notPresentTitle;
+
+        return new ReportRow
         {
-            Code = code,
-            Name = name,
-            Note = string.IsNullOrWhiteSpace(s.Note) ? null : s.Note!.Trim()
+            // Посада
+            PositionCode = person.PositionUnit?.Code,
+            PositionShort = person.PositionUnit?.ShortName,
+            PositionFull = person.PositionUnit?.FullName,
+            SpecialNumber = person.PositionUnit?.SpecialNumber,
+
+            // Людина
+            FullName = person.FullName,
+            Rank = person.Rank,
+            Rnokpp = person.Rnokpp,
+            Callsign = person.Callsign,
+            BZVP = person.BZVP,
+            Weapon = person.Weapon,
+
+            // Статус на дату
+            StatusCode = code,
+            StatusName = name,
+            StatusNote = note
         };
     }
 
+    private StatusKind? ResolveStatusKind(PersonStatus status)
+    {
+        if (status.StatusKind is not null)
+            return status.StatusKind;
+
+        if (_kindsById.TryGetValue(status.StatusKindId, out var kind))
+            return kind;
+
+        return null;
+    }
+
     // ===================== Відображення (кольори) =====================
-    private static readonly Dictionary<string, string> BadgeByCode = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["100"] = "badge rounded-pill text-bg-primary",   // синій
-        ["нб"] = "badge rounded-pill text-bg-info",       // блакитний
-        ["РОЗПОР"] = "badge rounded-pill text-bg-info",   // блакитний
-        ["ВДР"] = "badge rounded-pill text-bg-secondary", // сірий
-        ["В"] = "badge rounded-pill text-bg-success",     // зелений
-        ["Л_Х"] = "badge rounded-pill text-bg-warning",   // жовтий
-        ["Л_Б"] = "badge rounded-pill text-bg-warning",   // жовтий
-        ["БВ"] = "badge rounded-pill text-bg-danger",     // червоний
-        ["П"] = "badge rounded-pill text-bg-danger",
-        ["200"] = "badge rounded-pill text-bg-danger",
-        ["А"] = "badge rounded-pill text-bg-danger",
-        ["СЗЧ"] = "badge rounded-pill text-bg-danger"
-    };
+    protected string GetBadgeClass(string? code)
+        => StatusFormattingHelper.GetBadgeClass(code, _notPresentCode);
 
-    protected string GetBadgeClass(string code)
-    {
-        if (string.IsNullOrWhiteSpace(code) || code.Equals("30", StringComparison.OrdinalIgnoreCase))
-            return "d-inline-block px-1 small"; // «30» — без підсвітки
+    protected string GetStatusTitle(string? code)
+        => StatusFormattingHelper.GetStatusTitle(code, _kinds, _notPresentCode, _notPresentTitle);
 
-        return BadgeByCode.TryGetValue(code.Trim(), out var cls)
-            ? $"{cls} px-2 py-1"
-            : "badge rounded-pill text-bg-primary px-2 py-1";
+    private bool IsExcludedCode(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return false;
+
+        var trimmed = code.Trim();
+
+        if (AlwaysExcludedCodes.Contains(trimmed))
+            return true;
+
+        return _notPresentCode is not null && trimmed.Equals(_notPresentCode, StringComparison.OrdinalIgnoreCase);
     }
 
-    protected string GetStatusTitle(string code)
-    {
-        var name = _kinds.FirstOrDefault(k => string.Equals(k.Code, code, StringComparison.OrdinalIgnoreCase))?.Name;
-        return string.IsNullOrWhiteSpace(name) ? code : $"{code} — {name}";
-    }
+    private string? NameForCode(string code)
+        => _kinds.FirstOrDefault(k => string.Equals(k.Code, code, StringComparison.OrdinalIgnoreCase))?.Name;
 
     // ========================== Утиліти ==========================
     private static DateTime ToUtcMidnight(DateTime localDate)
     {
         var d = localDate.Date;
         return new DateTime(d.Year, d.Month, d.Day, 0, 0, 0, DateTimeKind.Utc);
+    }
+
+    private static DateTime ToUtcEndOfDay(DateTime localDate)
+    {
+        var startUtc = ToUtcMidnight(localDate);
+        return startUtc.AddHours(23).AddMinutes(59).AddSeconds(59);
     }
 
     private void OnExportBusyChanged(bool exporting) => SetBusy(exporting || Busy);
