@@ -220,6 +220,20 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
         return map;
     }
+    public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
+    {
+        if (personId == Guid.Empty) return Array.Empty<PersonStatus>();
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var ordered = await StatusPriorityComparer
+            .OrderForHistory(db.PersonStatuses.AsNoTracking()
+                .Include(s => s.StatusKind)
+                .Where(s => s.PersonId == personId && s.IsActive))
+            .ToListAsync(ct);
+
+        return ordered.AsReadOnly();
+    }
 
     public async Task<DateTime?> GetFirstPresenceUtcAsync(Guid personId, CancellationToken ct = default)
     {

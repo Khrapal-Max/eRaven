@@ -4,7 +4,9 @@
 // PersonStatusHistoryModal (code-behind)
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.PersonStatusService;
+using System;
+using System.Globalization;
+using eRaven.Application.Services.PersonStatusReadService;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -17,9 +19,9 @@ public sealed partial class PersonStatusHistoryModal : ComponentBase
     [Parameter] public Person? Person { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
 
-    [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!;
+    [Inject] private IPersonStatusReadService PersonStatusReadService { get; set; } = default!;
 
-    private readonly List<PersonStatus> _view = [];
+    private readonly List<HistoryRow> _view = [];
     private bool _busy;
     private string? _personName;
 
@@ -40,10 +42,48 @@ public sealed partial class PersonStatusHistoryModal : ComponentBase
         {
             SetBusy(true);
 
-            // Беремо всю історію і лишаємо валідні записи (IsActive = true)
-            var all = await PersonStatusService.GetHistoryAsync(Person!.Id);
+            var personId = Person!.Id;
+
+            var historyTask = PersonStatusReadService.OrderForHistoryAsync(personId);
+            var firstPresenceTask = PersonStatusReadService.GetFirstPresenceUtcAsync(personId);
+            var notPresentTask = PersonStatusReadService.ResolveNotPresentAsync();
+
+            await Task.WhenAll(historyTask, firstPresenceTask, notPresentTask);
+
+            var history = await historyTask;
+            var firstPresenceUtc = await firstPresenceTask;
+            var notPresentKind = await notPresentTask;
+            var normalizedFirstPresenceUtc = firstPresenceUtc is { } fp ? EnsureUtc(fp) : (DateTime?)null;
+
             _view.Clear();
-            _view.AddRange(all);
+
+            if (notPresentKind is not null && normalizedFirstPresenceUtc is { } firstPresence)
+            {
+                var firstLocal = firstPresence.ToLocalTime();
+                var statusLabel = ResolveStatusLabel(notPresentKind);
+                var dateLabel = $"до {firstLocal:dd.MM.yyyy}";
+                var note = string.Format(CultureInfo.CurrentCulture, "Відсутній до {0:dd.MM.yyyy}", firstLocal);
+
+                _view.Add(new HistoryRow(Guid.Empty, statusLabel, dateLabel, note));
+            }
+
+            if (history is not null)
+            {
+                foreach (var status in history)
+                {
+                    var kindName = status.StatusKind?.Name ?? $"ID {status.StatusKindId}";
+                    var openUtc = EnsureUtc(status.OpenDate);
+                    if (normalizedFirstPresenceUtc is { } firstPresence && openUtc < firstPresence)
+                    {
+                        continue;
+                    }
+
+                    var openLocal = openUtc.ToLocalTime();
+                    var dateLabel = openLocal.ToString("dd.MM.yyyy", CultureInfo.CurrentCulture);
+
+                    _view.Add(new HistoryRow(status.Id, kindName, dateLabel, status.Note));
+                }
+            }
         }
         finally
         {
@@ -59,4 +99,22 @@ public sealed partial class PersonStatusHistoryModal : ComponentBase
 
     private async Task CloseAsync()
         => await OnClose.InvokeAsync();
+
+    private static DateTime EnsureUtc(DateTime value)
+        => value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+
+    private static string ResolveStatusLabel(StatusKind kind)
+    {
+        var code = string.IsNullOrWhiteSpace(kind.Code) ? null : kind.Code.Trim();
+        if (!string.IsNullOrEmpty(code)) return code;
+
+        return string.IsNullOrWhiteSpace(kind.Name) ? "нб" : kind.Name;
+    }
+
+    private sealed record HistoryRow(Guid Id, string StatusLabel, string DateLabel, string? Note);
 }
