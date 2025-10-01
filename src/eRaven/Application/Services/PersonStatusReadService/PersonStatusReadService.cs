@@ -5,6 +5,8 @@
 // PersonStatusReadService
 //-----------------------------------------------------------------------------
 
+using System.Collections.Generic;
+using System.Linq;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +16,7 @@ namespace eRaven.Application.Services.PersonStatusReadService;
 public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf) : IPersonStatusReadService
 {
     private readonly IDbContextFactory<AppDbContext> _dbf = dbf;
+    private static readonly IComparer<StatusKind> StatusKindPriorityComparer = Comparer<StatusKind>.Create(StatusPriorityComparer.Compare);
 
     // ====================== ПУБЛІЧНІ АПІ ======================
 
@@ -40,9 +43,10 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         var kindNb = kinds.FirstOrDefault(k => string.Equals(k.Code, "нб", StringComparison.OrdinalIgnoreCase));
 
         // Усі статуси до кінця дня
-        var slice = await db.PersonStatuses.AsNoTracking()
-            .Include(s => s.StatusKind)
-            .Where(s => s.IsActive && ids.Contains(s.PersonId) && s.OpenDate < dayEndUtc)
+        var slice = await StatusPriorityComparer
+            .OrderForPointInTime(db.PersonStatuses.AsNoTracking()
+                .Include(s => s.StatusKind)
+                .Where(s => s.IsActive && ids.Contains(s.PersonId) && s.OpenDate < dayEndUtc))
             .ToListAsync(ct);
 
         // Перше призначення на посаду (якщо таблиця є)
@@ -57,7 +61,12 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
         foreach (var pid in ids)
         {
-            var items = slice.Where(s => s.PersonId == pid).ToList();
+            var items = slice
+                .Where(s => s.PersonId == pid)
+                .OrderBy(s => s.OpenDate)
+                .ThenBy(s => s.StatusKind!, StatusKindPriorityComparer)
+                .ThenBy(s => s.Id)
+                .ToList();
 
             // Перша поява (або через призначення, або перший статус)
             DateTime? firstPresenceUtc = items.Count == 0 ? null : items.Min(s => s.OpenDate);
@@ -96,13 +105,9 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
                 continue;
             }
 
-            // 1) найбільший Order
-            var maxOrder = contenders.Max(c => c.StatusKind?.Order ?? int.MinValue);
-
-            // 2) серед них — пізніший момент, потім Sequence
             var chosen = contenders
-                .Where(c => (c.StatusKind?.Order ?? int.MinValue) == maxOrder)
-                .OrderByDescending(c => c.OpenDate)
+                .OrderBy(c => c.StatusKind!, StatusKindPriorityComparer)
+                .ThenByDescending(c => c.OpenDate)
                 .ThenByDescending(c => c.Sequence)
                 .First();
 
@@ -141,9 +146,10 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         var monthStartUtc = bounds[0].startUtc;
         var monthEndUtc = bounds[^1].endUtc;
 
-        var slice = await db.PersonStatuses.AsNoTracking()
-            .Include(s => s.StatusKind)
-            .Where(s => s.IsActive && ids.Contains(s.PersonId) && s.OpenDate < monthEndUtc)
+        var slice = await StatusPriorityComparer
+            .OrderForHistory(db.PersonStatuses.AsNoTracking()
+                .Include(s => s.StatusKind)
+                .Where(s => s.IsActive && ids.Contains(s.PersonId) && s.OpenDate < monthEndUtc))
             .ToListAsync(ct);
 
         // Перші призначення
@@ -158,7 +164,12 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
         foreach (var pid in ids)
         {
-            var items = slice.Where(s => s.PersonId == pid).OrderBy(s => s.OpenDate).ThenBy(s => s.Sequence).ToList();
+            var items = slice
+                .Where(s => s.PersonId == pid)
+                .OrderBy(s => s.OpenDate)
+                .ThenBy(s => s.StatusKind!, StatusKindPriorityComparer)
+                .ThenBy(s => s.Id)
+                .ToList();
             var row = new PersonStatus?[daysInMonth];
 
             DateTime? firstPresenceUtc = items.Count == 0 ? null : items.Min(s => s.OpenDate);
@@ -197,10 +208,9 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
                     continue;
                 }
 
-                var maxOrder = contenders.Max(c => c.StatusKind?.Order ?? int.MinValue);
                 var chosen = contenders
-                    .Where(c => (c.StatusKind?.Order ?? int.MinValue) == maxOrder)
-                    .OrderByDescending(c => c.OpenDate)
+                    .OrderBy(c => c.StatusKind!, StatusKindPriorityComparer)
+                    .ThenByDescending(c => c.OpenDate)
                     .ThenByDescending(c => c.Sequence)
                     .First();
 
