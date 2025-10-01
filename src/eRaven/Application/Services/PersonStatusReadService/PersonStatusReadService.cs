@@ -220,7 +220,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
         return map;
     }
-
     public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
     {
         if (personId == Guid.Empty) return Array.Empty<PersonStatus>();
