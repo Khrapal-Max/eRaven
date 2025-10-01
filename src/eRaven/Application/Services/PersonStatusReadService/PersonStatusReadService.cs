@@ -33,7 +33,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
         var firstPresenceMap = await BuildFirstPresenceMapAsync(db, [personId], momentUtc, ct);
         var firstPresenceUtc = firstPresenceMap.TryGetValue(personId, out var fp) ? fp : null;
-
         var slice = await StatusPriorityComparer
             .OrderForPointInTime(db.PersonStatuses.AsNoTracking()
                 .Include(s => s.StatusKind)
@@ -116,7 +115,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
                 result[pid] = null;
                 continue;
             }
-
             var chosen = list.LastOrDefault(s => s.OpenDate <= endOfDayUtc);
             result[pid] = chosen;
         }
@@ -143,7 +141,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         }
 
         await using var db = await _dbf.CreateDbContextAsync(ct);
-
         // Беремо усі статуси за місяць + “хвіст” до першого дня для baseline
         var monthEndUtc = bounds[^1].endUtc;
 
@@ -159,7 +156,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
         var byPerson = slice.GroupBy(s => s.PersonId)
             .ToDictionary(g => g.Key, g => SelectTimeline(g.ToList()));
-
         var map = new Dictionary<Guid, PersonMonthStatus>(ids.Length);
 
         foreach (var pid in ids)
@@ -220,7 +216,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         var map = await BuildFirstPresenceMapAsync(db, [personId], DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc), ct);
         return map.TryGetValue(personId, out var value) ? value : null;
     }
-
+    
     public async Task<StatusKind?> GetByCodeAsync(string code, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(code)) return null;
@@ -228,7 +224,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         await using var db = await _dbf.CreateDbContextAsync(ct);
         return await FindStatusKindByCodeAsync(db, code, ct);
     }
-
+    
     public Task<StatusKind?> ResolveNotPresentAsync(CancellationToken ct = default)
         => GetByCodeAsync(NotPresentCode, ct);
 

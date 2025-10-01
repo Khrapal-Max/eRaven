@@ -26,6 +26,7 @@ namespace eRaven.Components.Pages.Timesheet;
 
 public partial class TimesheetPage : ComponentBase, IDisposable
 {
+    private static readonly IComparer<StatusKind> StatusKindPriorityComparer = Comparer<StatusKind>.Create(StatusPriorityComparer.Compare);
     // ============================= 1) DI, стан =============================
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
