@@ -4,7 +4,7 @@
 // Reports → StaffOnDatePage (code-behind)
 // Логіка:
 //  • обираємо дату → “Побудувати” → збираємо усіх та їхній статус на дату
-//  • виключаємо з таблиці коди "нб" і "РОЗПОР"
+//  • виключаємо з таблиці службові коди, що не мають відображатись
 //  • сортування: спочатку за індексом посади (PositionUnit.Code), потім за повною назвою
 //  • експорт: плоска модель без стилів/кольорів (ті самі колонки)
 // ----------------------------------------------------------------------------
@@ -45,9 +45,11 @@ public partial class StaffOnDate : ComponentBase, IDisposable
     private Dictionary<int, StatusKind> _kindsById = new();
     protected List<ReportRow> Rows { get; } = [];
 
-    /// <summary>Коди, які повністю приховуємо зі звіту.</summary>
-    private static readonly HashSet<string> ExcludeCodes =
-        new(StringComparer.OrdinalIgnoreCase) { "нб", "РОЗПОР" };
+    private static readonly HashSet<string> AlwaysExcludedCodes =
+        new(StringComparer.OrdinalIgnoreCase) { "РОЗПОР" };
+
+    private string? _notPresentCode;
+    private string? _notPresentTitle;
 
     // ========================= Lifecycle ========================
     protected override Task OnInitializedAsync()
@@ -81,6 +83,11 @@ public partial class StaffOnDate : ComponentBase, IDisposable
 
             var dayEndUtc = ToUtcEndOfDay(DateLocal);
             var notPresentKind = await PersonStatusReadService.ResolveNotPresentAsync(_cts.Token);
+            
+            _notPresentCode = notPresentKind?.Code?.Trim();
+            _notPresentTitle = string.IsNullOrWhiteSpace(notPresentKind?.Name)
+                ? (_notPresentCode is null ? null : NameForCode(_notPresentCode) ?? _notPresentCode)
+                : notPresentKind!.Name;
 
             // 4) Формування рядків
             var buildTasks = persons
@@ -124,7 +131,7 @@ public partial class StaffOnDate : ComponentBase, IDisposable
 
         var firstPresenceUtc = await firstPresenceTask;
         var status = await statusTask;
-        
+
         StatusKind? statusKind = null;
         string? note = null;
 
@@ -142,12 +149,17 @@ public partial class StaffOnDate : ComponentBase, IDisposable
             return null;
 
         var code = statusKind.Code?.Trim();
-        if (!string.IsNullOrWhiteSpace(code) && ExcludeCodes.Contains(code))
+        if (statusKind == notPresentKind && string.IsNullOrWhiteSpace(code))
+            code = _notPresentCode;
+        if (IsExcludedCode(code))
             return null;
 
         var name = statusKind.Name;
         if (string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(code))
             name = NameForCode(code!);
+
+        if (statusKind == notPresentKind && string.IsNullOrWhiteSpace(name))
+            name = _notPresentTitle;
 
         return new ReportRow
         {
@@ -187,7 +199,6 @@ public partial class StaffOnDate : ComponentBase, IDisposable
     private static readonly Dictionary<string, string> BadgeByCode = new(StringComparer.OrdinalIgnoreCase)
     {
         ["100"] = "badge rounded-pill text-bg-primary",   // синій
-        ["нб"] = "badge rounded-pill text-bg-info",       // блакитний
         ["РОЗПОР"] = "badge rounded-pill text-bg-info",   // блакитний
         ["ВДР"] = "badge rounded-pill text-bg-secondary", // сірий
         ["В"] = "badge rounded-pill text-bg-success",     // зелений
@@ -205,6 +216,9 @@ public partial class StaffOnDate : ComponentBase, IDisposable
         if (string.IsNullOrWhiteSpace(code) || code.Equals("30", StringComparison.OrdinalIgnoreCase))
             return "d-inline-block px-1 small"; // «30» — без підсвітки
 
+        if (_notPresentCode is not null && code.Equals(_notPresentCode, StringComparison.OrdinalIgnoreCase))
+            return "badge rounded-pill text-bg-info px-2 py-1";
+
         return BadgeByCode.TryGetValue(code.Trim(), out var cls)
             ? $"{cls} px-2 py-1"
             : "badge rounded-pill text-bg-primary px-2 py-1";
@@ -214,6 +228,19 @@ public partial class StaffOnDate : ComponentBase, IDisposable
     {
         var name = _kinds.FirstOrDefault(k => string.Equals(k.Code, code, StringComparison.OrdinalIgnoreCase))?.Name;
         return string.IsNullOrWhiteSpace(name) ? code : $"{code} — {name}";
+    }
+
+    private bool IsExcludedCode(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return false;
+
+        var trimmed = code.Trim();
+
+        if (AlwaysExcludedCodes.Contains(trimmed))
+            return true;
+
+        return _notPresentCode is not null && trimmed.Equals(_notPresentCode, StringComparison.OrdinalIgnoreCase);
     }
 
     private string? NameForCode(string code)

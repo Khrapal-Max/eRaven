@@ -53,9 +53,11 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     private IReadOnlyList<StatusKind> _kinds = [];
     protected List<TimesheetRow> Rows { get; } = [];
 
-    // Якщо ВЕСЬ місяць тільки ці коди — людину не показуємо
-    private static readonly HashSet<string> ExcludeCodes =
-        new(StringComparer.OrdinalIgnoreCase) { "нб", "РОЗПОР" };
+    private static readonly HashSet<string> AlwaysExcludedCodes =
+        new(StringComparer.OrdinalIgnoreCase) { "РОЗПОР" };
+
+    private string? _notPresentCode;
+    private string? _notPresentTitle;
 
     // Коди, що зустрілись (для легенди)
     protected HashSet<string> LegendCodes { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -91,6 +93,12 @@ public partial class TimesheetPage : ComponentBase, IDisposable
             var fromUtc = ToUtcMidnight(BuiltStartLocal);
 
             var notPresentKind = await PersonStatusReadService.ResolveNotPresentAsync(_cts.Token);
+            
+            _notPresentCode = notPresentKind?.Code?.Trim();
+            _notPresentTitle = string.IsNullOrWhiteSpace(notPresentKind?.Name)
+                ? (_notPresentCode is null ? null : NameForCode(_notPresentCode) ?? _notPresentCode)
+                : notPresentKind!.Name;
+                
             var monthMap = await PersonStatusReadService.ResolveMonthAsync(
                 persons.Select(p => p.Id),
                 BuiltYear,
@@ -102,10 +110,15 @@ public partial class TimesheetPage : ComponentBase, IDisposable
                 if (!monthMap.TryGetValue(p.Id, out var monthStatus))
                     continue;
 
-                var days = BuildDailyCells(monthStatus.Days, fromUtc, notPresentKind, monthStatus.FirstPresenceUtc);
+                var days = BuildDailyCells(
+                    monthStatus.Days,
+                    fromUtc,
+                    _notPresentCode,
+                    _notPresentTitle,
+                    monthStatus.FirstPresenceUtc);
                 if (days.Length == 0 || days.All(d => d is null || d.Code is null))
                     continue;
-                    
+
                 if (IsEntireMonthExcluded(days))
                     continue;
 
@@ -162,18 +175,15 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     private DayCell[] BuildDailyCells(
         PersonStatus?[] monthStatuses,
         DateTime fromUtc,
-        StatusKind? notPresentKind,
+        string? notPresentCode,
+        string? notPresentTitle,
+        
         DateTime? firstPresenceUtc)
     {
         if (monthStatuses is null || monthStatuses.Length == 0)
             return Array.Empty<DayCell>();
-            
-        var result = new DayCell[monthStatuses.Length];
 
-        var notPresentCode = notPresentKind?.Code?.Trim();
-        var notPresentTitle = string.IsNullOrWhiteSpace(notPresentKind?.Name)
-            ? (string.IsNullOrWhiteSpace(notPresentCode) ? null : NameForCode(notPresentCode) ?? notPresentCode)
-            : notPresentKind!.Name;
+        var result = new DayCell[monthStatuses.Length];
 
         for (int i = 0; i < monthStatuses.Length; i++)
         {
@@ -215,14 +225,21 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     // ================== 5) Відображення (кольори/легенда/тултіп) ==================
     private void TouchLegend(string? code)
     {
-        if (!string.IsNullOrWhiteSpace(code) && !code.Equals("30", StringComparison.OrdinalIgnoreCase))
-            LegendCodes.Add(code.Trim());
+        if (string.IsNullOrWhiteSpace(code))
+            return;
+
+        if (code.Equals("30", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (IsExcludedCode(code))
+            return;
+
+        LegendCodes.Add(code.Trim());
     }
 
     private static readonly Dictionary<string, string> BadgeByCode = new(StringComparer.OrdinalIgnoreCase)
     {
         ["100"] = "badge rounded-pill text-bg-primary",   // синій
-        ["нб"] = "badge rounded-pill text-bg-info",      // блакитний
         ["РОЗПОР"] = "badge rounded-pill text-bg-info",     // блакитний
         ["ВДР"] = "badge rounded-pill text-bg-secondary", // сірий
         ["В"] = "badge rounded-pill text-bg-success",   // зелений
@@ -239,6 +256,9 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     {
         if (string.IsNullOrWhiteSpace(code) || code.Equals("30", StringComparison.OrdinalIgnoreCase))
             return "d-inline-block px-1 small"; // «30» — без підсвітки
+
+        if (_notPresentCode is not null && code.Equals(_notPresentCode, StringComparison.OrdinalIgnoreCase))
+            return "badge rounded-pill text-bg-info px-2 py-1";
 
         if (BadgeByCode.TryGetValue(code.Trim(), out var cls))
             return $"{cls} px-2 py-1";
@@ -275,8 +295,21 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     private string? NameForCode(string code)
         => _kinds.FirstOrDefault(k => string.Equals(k.Code, code, StringComparison.OrdinalIgnoreCase))?.Name;
 
-    private static bool IsEntireMonthExcluded(DayCell[] days)
-        => days.Length > 0 && days.All(c => c?.Code is not null && ExcludeCodes.Contains(c!.Code!));
+    private bool IsExcludedCode(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return false;
+
+        var trimmed = code.Trim();
+
+        if (AlwaysExcludedCodes.Contains(trimmed))
+            return true;
+
+        return _notPresentCode is not null && trimmed.Equals(_notPresentCode, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsEntireMonthExcluded(DayCell[] days)
+        => days.Length > 0 && days.All(c => c?.Code is not null && IsExcludedCode(c!.Code!));
 
     private void OnExportBusyChanged(bool exporting)
         => SetBusy(exporting); // 👈 фікс: не тримаємо Busy після експорту

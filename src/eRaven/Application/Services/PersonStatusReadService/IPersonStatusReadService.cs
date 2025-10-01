@@ -30,7 +30,7 @@ public interface IPersonStatusReadService
 
     /// <summary>Повертає службовий статус «не присутній» (код «нб», без урахування регістру).</summary>
     Task<StatusKind?> ResolveNotPresentAsync(CancellationToken ct = default);
-  
+
     /// <summary>Повертає впорядковану історію статусів для модальних переглядів.</summary>
     Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default);
     /// <summary>

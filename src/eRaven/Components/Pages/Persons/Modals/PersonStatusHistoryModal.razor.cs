@@ -113,7 +113,10 @@ public sealed partial class PersonStatusHistoryModal : ComponentBase
         var code = string.IsNullOrWhiteSpace(kind.Code) ? null : kind.Code.Trim();
         if (!string.IsNullOrEmpty(code)) return code;
 
-        return string.IsNullOrWhiteSpace(kind.Name) ? "нб" : kind.Name;
+        if (!string.IsNullOrWhiteSpace(kind.Name))
+            return kind.Name;
+
+        return $"ID {kind.Id}";
     }
 
     private sealed record HistoryRow(Guid Id, string StatusLabel, string DateLabel, string? Note);
