@@ -93,7 +93,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
                 result[pid] = null;
                 continue;
             }
-
+            
             var chosen = list.LastOrDefault(s => s.OpenDate <= endOfDayUtc);
             result[pid] = chosen;
         }
@@ -120,7 +120,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         }
 
         await using var db = await _dbf.CreateDbContextAsync(ct);
-
+        
         // Беремо усі статуси за місяць + “хвіст” до першого дня для baseline
         var monthEndUtc = bounds[^1].endUtc;
 
@@ -158,7 +158,8 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
                     current = timeline[cursor];
                     cursor++;
                 }
-
+                row[di] = current;
+            }
                 if (firstPresenceUtc is null || endOfDayUtc < firstPresenceUtc.Value)
                 {
                     row[di] = null;
@@ -171,7 +172,49 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
             map[pid] = new PersonMonthStatus(row, firstPresenceUtc);
         }
 
-        return map;
+        // Призначення на посаду
+        DateTime? firstAssignmentUtc = null;
+        if (db.Model.FindEntityType(typeof(PersonPositionAssignment)) is not null)
+        {
+            firstAssignmentUtc = await db.PersonPositionAssignments.AsNoTracking()
+                .Where(a => a.PersonId == personId)
+                .Select(a => (DateTime?)a.OpenUtc)
+                .OrderBy(x => x)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        return MinDate(firstStatusUtc, firstAssignmentUtc);
+    }
+
+    public async Task<StatusKind?> GetByCodeAsync(string code, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return null;
+
+        var normalized = code.Trim();
+        var normalizedUpper = normalized.ToUpperInvariant();
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        return await db.StatusKinds.AsNoTracking()
+            .FirstOrDefaultAsync(k => k.Code != null && k.Code.ToUpperInvariant() == normalizedUpper, ct);
+    }
+
+    public Task<StatusKind?> ResolveNotPresentAsync(CancellationToken ct = default)
+        => GetByCodeAsync("нб", ct);
+
+    public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
+    {
+        if (personId == Guid.Empty) return Array.Empty<PersonStatus>();
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var ordered = await StatusPriorityComparer
+            .OrderForHistory(db.PersonStatuses.AsNoTracking()
+                .Include(s => s.StatusKind)
+                .Where(s => s.PersonId == personId && s.IsActive))
+            .ToListAsync(ct);
+
+        return ordered.AsReadOnly();
     }
 
     public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
