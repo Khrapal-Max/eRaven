@@ -93,7 +93,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
                 result[pid] = null;
                 continue;
             }
-
+            
             var chosen = list.LastOrDefault(s => s.OpenDate <= endOfDayUtc);
             result[pid] = chosen;
         }
@@ -120,7 +120,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         }
 
         await using var db = await _dbf.CreateDbContextAsync(ct);
-
+        
         // Беремо усі статуси за місяць + “хвіст” до першого дня для baseline
         var monthEndUtc = bounds[^1].endUtc;
 
@@ -171,7 +171,46 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
             map[pid] = new PersonMonthStatus(row, firstPresenceUtc);
         }
 
-        return map;
+    public Task<StatusKind?> ResolveNotPresentAsync(CancellationToken ct = default)
+        => GetByCodeAsync("нб", ct);
+
+    public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
+    {
+        if (personId == Guid.Empty) return Array.Empty<PersonStatus>();
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var ordered = await StatusPriorityComparer
+            .OrderForHistory(db.PersonStatuses.AsNoTracking()
+                .Include(s => s.StatusKind)
+                .Where(s => s.PersonId == personId && s.IsActive))
+            .ToListAsync(ct);
+
+        return ordered.AsReadOnly();
+    }
+
+    public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
+    {
+        if (personId == Guid.Empty) return Array.Empty<PersonStatus>();
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var ordered = await StatusPriorityComparer
+            .OrderForHistory(db.PersonStatuses.AsNoTracking()
+                .Include(s => s.StatusKind)
+                .Where(s => s.PersonId == personId && s.IsActive))
+            .ToListAsync(ct);
+
+        return ordered.AsReadOnly();
+    }
+
+    public async Task<DateTime?> GetFirstPresenceUtcAsync(Guid personId, CancellationToken ct = default)
+    {
+        if (personId == Guid.Empty) return null;
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+        var map = await BuildFirstPresenceMapAsync(db, [personId], DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc), ct);
+        return map.TryGetValue(personId, out var value) ? value : null;
     }
 
     public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
