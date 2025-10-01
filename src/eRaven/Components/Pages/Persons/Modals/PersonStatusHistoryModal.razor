@@ -39,7 +39,7 @@
                     else
                     {
                         <TableBaseComponent Items="_view"
-                                            TItem="PersonStatus"
+                                            TItem="HistoryRow"
                                             Class="table align-middle mb-0">
                             <TableHeader>
                                 <th class="text-black">Статус</th>
@@ -47,10 +47,10 @@
                                 <th class="text-black">Примітка</th>
                             </TableHeader>
 
-                            <RowTemplate Context="s">
-                                <td>@(s.StatusKind?.Name ?? $"ID {s.StatusKindId}")</td>
-                                <td class="text-center">@s.OpenDate.ToLocalTime().ToString("dd.MM.yyyy")</td>
-                                <td class="text-wrap">@s.Note</td>
+                            <RowTemplate Context="row">
+                                <td>@row.StatusLabel</td>
+                                <td class="text-center">@row.DateLabel</td>
+                                <td class="text-wrap">@row.Note</td>
                             </RowTemplate>
                         </TableBaseComponent>
                     }
