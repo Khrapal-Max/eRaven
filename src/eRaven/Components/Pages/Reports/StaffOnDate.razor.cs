@@ -7,9 +7,9 @@
 //  • виключаємо з таблиці коди "нб" і "РОЗПОР"
 //  • сортування: спочатку за індексом посади (PositionUnit.Code), потім за повною назвою
 //  • експорт: плоска модель без стилів/кольорів (ті самі колонки)
-// -----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 
-
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Blazored.Toast.Services;
@@ -30,6 +30,7 @@ public partial class StaffOnDate : ComponentBase, IDisposable
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
     [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!;
+    [Inject] private IPersonStatusReadService PersonStatusReadService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
 
     private readonly CancellationTokenSource _cts = new();
@@ -73,12 +74,17 @@ public partial class StaffOnDate : ComponentBase, IDisposable
             persons = [.. persons.Where(p => p.PositionUnit is not null && p.PositionUnit.IsActived)];
 
             var atUtc = ToUtcMidnight(DateLocal);
+            var dayEndUtc = ToUtcMidnight(DateLocal.AddDays(1));
+            var notPresentKind = await PersonStatusReadService.ResolveNotPresentAsync(_cts.Token);
 
             // 4) Формування рядків
             foreach (var p in persons)
             {
                 var hist = await PersonStatusService.GetHistoryAsync(p.Id, _cts.Token) ?? [];
-                var status = GetStatusOnDate(hist, atUtc);
+                var firstPresenceUtc = notPresentKind is null
+                    ? null
+                    : await PersonStatusReadService.GetFirstPresenceUtcAsync(p.Id, _cts.Token);
+                var status = GetStatusOnDate(hist, atUtc, dayEndUtc, firstPresenceUtc, notPresentKind);
 
                 // Пропускаємо виключені коди
                 var code = status?.Code?.Trim();
@@ -128,19 +134,31 @@ public partial class StaffOnDate : ComponentBase, IDisposable
     }
 
     // ==================== Статус на конкретну дату ====================
-    private StatusOnDateViewModel? GetStatusOnDate(IReadOnlyList<PersonStatus> history, DateTime atUtc)
+    private StatusOnDateViewModel? GetStatusOnDate(
+        IReadOnlyList<PersonStatus> history,
+        DateTime dayStartUtc,
+        DateTime dayEndUtc,
+        DateTime? firstPresenceUtc,
+        StatusKind? notPresentKind)
     {
-        if (history is null || history.Count == 0) return null;
+        if (history is null || history.Count == 0)
+        {
+            return NotPresentOrNull(firstPresenceUtc, notPresentKind, dayEndUtc);
+        }
+
+        var notPresent = NotPresentOrNull(firstPresenceUtc, notPresentKind, dayEndUtc);
+        if (notPresent is not null)
+            return notPresent;
 
         // Останній валідний запис із OpenDate <= atUtc (за OpenDate DESC, Sequence DESC)
         var s = history
-            .Where(x => x.OpenDate <= atUtc)
+            .Where(x => x.OpenDate <= dayStartUtc)
             .OrderByDescending(x => x.OpenDate)
             .ThenBy(x => x.StatusKind!, StatusKindPriorityComparer)
             .ThenByDescending(x => x.Id)
             .FirstOrDefault();
 
-        if (s is null) return null;
+        if (s is null) return notPresent;
 
         // Основні поля з навігації; fallback — з довідника
         var code = s.StatusKind?.Code?.Trim();
@@ -158,6 +176,33 @@ public partial class StaffOnDate : ComponentBase, IDisposable
             Code = code,
             Name = name,
             Note = string.IsNullOrWhiteSpace(s.Note) ? null : s.Note!.Trim()
+        };
+    }
+
+    private StatusOnDateViewModel? NotPresentOrNull(
+        DateTime? firstPresenceUtc,
+        StatusKind? notPresentKind,
+        DateTime dayEndUtc)
+    {
+        if (notPresentKind is null)
+            return null;
+
+        if (firstPresenceUtc is not null && dayEndUtc > firstPresenceUtc.Value)
+            return null;
+
+        var code = notPresentKind.Code?.Trim();
+        if (string.IsNullOrWhiteSpace(code))
+            return null;
+
+        var name = notPresentKind.Name;
+        if (string.IsNullOrWhiteSpace(name))
+            name = NameForCode(code);
+
+        return new StatusOnDateViewModel
+        {
+            Code = code,
+            Name = name,
+            Note = null
         };
     }
 
@@ -193,6 +238,9 @@ public partial class StaffOnDate : ComponentBase, IDisposable
         var name = _kinds.FirstOrDefault(k => string.Equals(k.Code, code, StringComparison.OrdinalIgnoreCase))?.Name;
         return string.IsNullOrWhiteSpace(name) ? code : $"{code} — {name}";
     }
+
+    private string? NameForCode(string code)
+        => _kinds.FirstOrDefault(k => string.Equals(k.Code, code, StringComparison.OrdinalIgnoreCase))?.Name;
 
     // ========================== Утиліти ==========================
     private static DateTime ToUtcMidnight(DateTime localDate)

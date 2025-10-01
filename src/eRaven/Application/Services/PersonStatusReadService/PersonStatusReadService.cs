@@ -5,6 +5,7 @@
 // PersonStatusReadService
 //-----------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using eRaven.Domain.Models;
@@ -37,10 +38,9 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         // Межі локального дня для переданого UTC-моменту
         var (dayStartUtc, dayEndUtc) = GetLocalDayBoundsUtc(dayUtc);
 
-        // Довідник статусів (для пошуку "30" і "нб")
+        // Довідник статусів (для пошуку "30")
         var kinds = await db.StatusKinds.AsNoTracking().ToListAsync(ct);
         var kind30 = kinds.FirstOrDefault(k => string.Equals(k.Code, "30", StringComparison.OrdinalIgnoreCase));
-        var kindNb = kinds.FirstOrDefault(k => string.Equals(k.Code, "нб", StringComparison.OrdinalIgnoreCase));
 
         // Усі статуси до кінця дня
         var slice = await StatusPriorityComparer
@@ -68,15 +68,14 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
                 .ThenBy(s => s.Id)
                 .ToList();
 
-            // Перша поява (або через призначення, або перший статус)
             DateTime? firstPresenceUtc = items.Count == 0 ? null : items.Min(s => s.OpenDate);
-            if (firstAssignMap.TryGetValue(pid, out var fa))
-                firstPresenceUtc = firstPresenceUtc is null ? fa : (fa < firstPresenceUtc ? fa : firstPresenceUtc);
+            if (firstAssignMap.TryGetValue(pid, out var assignUtc))
+                firstPresenceUtc = MinDate(firstPresenceUtc, assignUtc);
 
-            // Якщо людини ще "не існує" на цей день → нб
+            // Якщо людини ще "не існує" на цей день — повертаємо null (UI підставить службовий код)
             if (firstPresenceUtc is null || dayEndUtc <= firstPresenceUtc.Value)
             {
-                result[pid] = kindNb is null ? null : Synthetic(kindNb, pid);
+                result[pid] = null;
                 continue;
             }
 
@@ -140,7 +139,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         // Довідник
         var kinds = await db.StatusKinds.AsNoTracking().ToListAsync(ct);
         var kind30 = kinds.FirstOrDefault(k => string.Equals(k.Code, "30", StringComparison.OrdinalIgnoreCase));
-        var kindNb = kinds.FirstOrDefault(k => string.Equals(k.Code, "нб", StringComparison.OrdinalIgnoreCase));
 
         // Беремо усі статуси за місяць + “хвіст” до першого дня для baseline
         var monthStartUtc = bounds[0].startUtc;
@@ -174,16 +172,16 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
             DateTime? firstPresenceUtc = items.Count == 0 ? null : items.Min(s => s.OpenDate);
             if (firstAssignMap.TryGetValue(pid, out var fa))
-                firstPresenceUtc = firstPresenceUtc is null ? fa : (fa < firstPresenceUtc ? fa : firstPresenceUtc);
+                firstPresenceUtc = MinDate(firstPresenceUtc, fa);
 
             for (int di = 0; di < daysInMonth; di++)
             {
                 var (dayStartUtc, dayEndUtc) = bounds[di];
 
-                // “Не існує ще” → нб
+                // “Не існує ще” → повертаємо null (UI підставить службовий код)
                 if (firstPresenceUtc is null || dayEndUtc <= firstPresenceUtc.Value)
                 {
-                    row[di] = kindNb is null ? null : Synthetic(kindNb, pid);
+                    row[di] = null;
                     continue;
                 }
 
@@ -223,6 +221,56 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         return map;
     }
 
+    public async Task<DateTime?> GetFirstPresenceUtcAsync(Guid personId, CancellationToken ct = default)
+    {
+        if (personId == Guid.Empty) return null;
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var kinds = await db.StatusKinds.AsNoTracking().ToListAsync(ct);
+        var inDistrict = kinds.FirstOrDefault(k => string.Equals(k.Name?.Trim(), "В районі", StringComparison.OrdinalIgnoreCase));
+
+        DateTime? firstStatusUtc = null;
+
+        if (inDistrict is not null)
+        {
+            firstStatusUtc = await db.PersonStatuses.AsNoTracking()
+                .Where(s => s.PersonId == personId && s.IsActive && s.StatusKindId == inDistrict.Id)
+                .Select(s => (DateTime?)s.OpenDate)
+                .OrderBy(x => x)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        // Призначення на посаду
+        DateTime? firstAssignmentUtc = null;
+        if (db.Model.FindEntityType(typeof(PersonPositionAssignment)) is not null)
+        {
+            firstAssignmentUtc = await db.PersonPositionAssignments.AsNoTracking()
+                .Where(a => a.PersonId == personId)
+                .Select(a => (DateTime?)a.OpenUtc)
+                .OrderBy(x => x)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        return MinDate(firstStatusUtc, firstAssignmentUtc);
+    }
+
+    public async Task<StatusKind?> GetByCodeAsync(string code, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return null;
+
+        var normalized = code.Trim();
+        var normalizedUpper = normalized.ToUpperInvariant();
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        return await db.StatusKinds.AsNoTracking()
+            .FirstOrDefaultAsync(k => k.Code != null && k.Code.ToUpperInvariant() == normalizedUpper, ct);
+    }
+
+    public Task<StatusKind?> ResolveNotPresentAsync(CancellationToken ct = default)
+        => GetByCodeAsync("нб", ct);
+
     // ====================== ДОПОМОЖНІ ======================
 
     // Єдиний спосіб обчислити межі «локального дня» для поданого UTC/Local моменту.
@@ -241,6 +289,13 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         var startUtc = DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime();
         var endUtc = DateTime.SpecifyKind(local.AddDays(1), DateTimeKind.Local).ToUniversalTime();
         return (startUtc, endUtc);
+    }
+
+    private static DateTime? MinDate(DateTime? a, DateTime? b)
+    {
+        if (a is null) return b;
+        if (b is null) return a;
+        return a <= b ? a : b;
     }
 
     private static PersonStatus Synthetic(StatusKind kind, Guid personId) => new()
