@@ -332,6 +332,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         var normalizedUpper = code.Trim().ToUpperInvariant();
 
         return await db.StatusKinds.AsNoTracking()
-            .FirstOrDefaultAsync(k => k.Code != null && k.Code.Equals(normalizedUpper, StringComparison.InvariantCultureIgnoreCase), ct);
+            .FirstOrDefaultAsync(k => k.Code != null && k.Code.ToUpper() == normalizedUpper, ct);
     }
 }
