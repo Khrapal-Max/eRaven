@@ -7,8 +7,7 @@
 //  • виключаємо з таблиці службові коди, що не мають відображатись
 //  • сортування: спочатку за індексом посади (PositionUnit.Code), потім за повною назвою
 //  • експорт: плоска модель без стилів/кольорів (ті самі колонки)
-// -----------------------------------------------------------------------------
-
+// ----------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -27,6 +26,7 @@ namespace eRaven.Components.Pages.Reports;
 
 public partial class StaffOnDate : ComponentBase, IDisposable
 {
+    private static readonly IComparer<StatusKind> StatusKindPriorityComparer = Comparer<StatusKind>.Create(StatusPriorityComparer.Compare);
     // ============================ DI ============================
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
@@ -83,6 +83,7 @@ public partial class StaffOnDate : ComponentBase, IDisposable
 
             var dayEndUtc = ToUtcEndOfDay(DateLocal);
             var notPresentKind = await PersonStatusReadService.ResolveNotPresentAsync(_cts.Token);
+            
             _notPresentCode = notPresentKind?.Code?.Trim();
             _notPresentTitle = string.IsNullOrWhiteSpace(notPresentKind?.Name)
                 ? (_notPresentCode is null ? null : NameForCode(_notPresentCode) ?? _notPresentCode)
