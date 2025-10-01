@@ -4,11 +4,14 @@
 // StaffOnDatePageSmokeTests
 // -----------------------------------------------------------------------------
 
+using System;
+using System.IO;
+using System.Linq;
 using Blazored.Toast.Services;
 using Bunit;
 using eRaven.Application.Services.ExcelService;
 using eRaven.Application.Services.PersonService;
-using eRaven.Application.Services.PersonStatusService;
+using eRaven.Application.Services.PersonStatusReadService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.StaffOnDateViewModels;
 using eRaven.Components.Pages.Reports;
@@ -22,7 +25,7 @@ public class StaffOnDatePageSmokeTests : TestContext
 {
     private readonly Mock<IPersonService> _personSvc = new();
     private readonly Mock<IStatusKindService> _statusKindSvc = new();
-    private readonly Mock<IPersonStatusService> _personStatusSvc = new();
+    private readonly Mock<IPersonStatusReadService> _personStatusReadSvc = new();
     private readonly Mock<IToastService> _toast = new();
     private readonly Mock<IExcelService> _excel = new();
 
@@ -33,7 +36,7 @@ public class StaffOnDatePageSmokeTests : TestContext
 
         Services.AddSingleton(_personSvc.Object);
         Services.AddSingleton(_statusKindSvc.Object);
-        Services.AddSingleton(_personStatusSvc.Object);
+        Services.AddSingleton(_personStatusReadSvc.Object);
         Services.AddSingleton(_toast.Object);
         Services.AddSingleton(_excel.Object);
     }
@@ -73,11 +76,12 @@ public class StaffOnDatePageSmokeTests : TestContext
         };
     }
 
-    private static PersonStatus Status(Guid personId, int kindId, DateTime openUtc) => new()
+    private static PersonStatus Status(Guid personId, int kindId, DateTime openUtc, StatusKind? kind = null) => new()
     {
         Id = Guid.NewGuid(),
         PersonId = personId,
         StatusKindId = kindId,
+        StatusKind = kind ?? new StatusKind { Id = kindId },
         OpenDate = openUtc,
         Sequence = 0,
         IsActive = true
@@ -109,15 +113,20 @@ public class StaffOnDatePageSmokeTests : TestContext
     {
         var p = MakePerson(code: "010", shortName: "Оператор", full: "Оператор Рота/Батальйон");
 
+        var kinds = Kinds();
+        var notPresent = kinds.First(k => string.Equals(k.Code, "нб", StringComparison.OrdinalIgnoreCase));
+
         _statusKindSvc.Setup(s => s.GetAllAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Kinds());
+            .ReturnsAsync(kinds);
         _personSvc.Setup(s => s.SearchAsync(null, It.IsAny<CancellationToken>()))
             .ReturnsAsync([p]);
-        _personStatusSvc.Setup(s => s.GetHistoryAsync(p.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(
-            [
-                Status(p.Id, 30, new DateTime(2025, 09, 01, 0, 0, 0, DateTimeKind.Utc))
-            ]);
+        _personStatusReadSvc.Setup(s => s.ResolveNotPresentAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(notPresent);
+        _personStatusReadSvc.Setup(s => s.GetFirstPresenceUtcAsync(p.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DateTime(2025, 09, 01, 0, 0, 0, DateTimeKind.Utc));
+        _personStatusReadSvc.Setup(s => s.GetActiveOnDateAsync(p.Id, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Status(p.Id, 30, new DateTime(2025, 09, 01, 0, 0, 0, DateTimeKind.Utc),
+                kinds.First(k => k.Id == 30)));
 
         var cut = RenderComponent<StaffOnDate>();
 
@@ -143,15 +152,23 @@ public class StaffOnDatePageSmokeTests : TestContext
         var p1 = MakePerson(code: "001");
         var p2 = MakePerson(code: "002");
 
+        var kinds = Kinds();
+        var notPresent = kinds.First(k => string.Equals(k.Code, "нб", StringComparison.OrdinalIgnoreCase));
+
         _statusKindSvc.Setup(s => s.GetAllAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Kinds());
+            .ReturnsAsync(kinds);
         _personSvc.Setup(s => s.SearchAsync(null, It.IsAny<CancellationToken>()))
             .ReturnsAsync([p1, p2]);
-
-        _personStatusSvc.Setup(s => s.GetHistoryAsync(p1.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([Status(p1.Id, 3, new DateTime(2025, 9, 1, 0, 0, 0, DateTimeKind.Utc))]); // нб
-        _personStatusSvc.Setup(s => s.GetHistoryAsync(p2.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([Status(p2.Id, 5, new DateTime(2025, 9, 1, 0, 0, 0, DateTimeKind.Utc))]); // РОЗПОР
+        _personStatusReadSvc.Setup(s => s.ResolveNotPresentAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(notPresent);
+        _personStatusReadSvc.Setup(s => s.GetFirstPresenceUtcAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DateTime(2025, 9, 1, 0, 0, 0, DateTimeKind.Utc));
+        _personStatusReadSvc.Setup(s => s.GetActiveOnDateAsync(p1.Id, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Status(p1.Id, 3, new DateTime(2025, 9, 1, 0, 0, 0, DateTimeKind.Utc),
+                kinds.First(k => string.Equals(k.Code, "нб", StringComparison.OrdinalIgnoreCase))));
+        _personStatusReadSvc.Setup(s => s.GetActiveOnDateAsync(p2.Id, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Status(p2.Id, 5, new DateTime(2025, 9, 1, 0, 0, 0, DateTimeKind.Utc),
+                kinds.First(k => string.Equals(k.Code, "РОЗПОР", StringComparison.OrdinalIgnoreCase))));
 
         var cut = RenderComponent<StaffOnDate>();
 
@@ -170,16 +187,25 @@ public class StaffOnDatePageSmokeTests : TestContext
         var pA = MakePerson(code: "002", shortName: "A", full: "A path");
         var pB = MakePerson(code: "001", shortName: "B", full: "B path");
 
+        var kinds = Kinds();
+        var notPresent = kinds.First(k => string.Equals(k.Code, "нб", StringComparison.OrdinalIgnoreCase));
+
         _statusKindSvc.Setup(s => s.GetAllAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Kinds());
+            .ReturnsAsync(kinds);
         _personSvc.Setup(s => s.SearchAsync(null, It.IsAny<CancellationToken>()))
             .ReturnsAsync([pA, pB]);
 
+        _personStatusReadSvc.Setup(s => s.ResolveNotPresentAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(notPresent);
+        _personStatusReadSvc.Setup(s => s.GetFirstPresenceUtcAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DateTime(2025, 9, 1, 0, 0, 0, DateTimeKind.Utc));
+
         // Обом ставимо код 30, щоб пройшли фільтр
-        _personStatusSvc.Setup(s => s.GetHistoryAsync(pA.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([Status(pA.Id, 30, new DateTime(2025, 9, 1, 0, 0, 0, DateTimeKind.Utc))]);
-        _personStatusSvc.Setup(s => s.GetHistoryAsync(pB.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([Status(pB.Id, 30, new DateTime(2025, 9, 1, 0, 0, 0, DateTimeKind.Utc))]);
+        var activeKind = kinds.First(k => k.Id == 30);
+        _personStatusReadSvc.Setup(s => s.GetActiveOnDateAsync(pA.Id, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Status(pA.Id, 30, new DateTime(2025, 9, 1, 0, 0, 0, DateTimeKind.Utc), activeKind));
+        _personStatusReadSvc.Setup(s => s.GetActiveOnDateAsync(pB.Id, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Status(pB.Id, 30, new DateTime(2025, 9, 1, 0, 0, 0, DateTimeKind.Utc), activeKind));
 
         var cut = RenderComponent<StaffOnDate>();
 
@@ -201,15 +227,20 @@ public class StaffOnDatePageSmokeTests : TestContext
     {
         var p = MakePerson(code: "010");
 
+        var kinds = Kinds();
+        var notPresent = kinds.First(k => string.Equals(k.Code, "нб", StringComparison.OrdinalIgnoreCase));
+
         _statusKindSvc.Setup(s => s.GetAllAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Kinds());
+            .ReturnsAsync(kinds);
         _personSvc.Setup(s => s.SearchAsync(null, It.IsAny<CancellationToken>()))
             .ReturnsAsync([p]);
-        _personStatusSvc.Setup(s => s.GetHistoryAsync(p.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(
-            [
-                Status(p.Id, 30, new DateTime(2025, 09, 01, 0, 0, 0, DateTimeKind.Utc))
-            ]);
+        _personStatusReadSvc.Setup(s => s.ResolveNotPresentAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(notPresent);
+        _personStatusReadSvc.Setup(s => s.GetFirstPresenceUtcAsync(p.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DateTime(2025, 09, 01, 0, 0, 0, DateTimeKind.Utc));
+        _personStatusReadSvc.Setup(s => s.GetActiveOnDateAsync(p.Id, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Status(p.Id, 30, new DateTime(2025, 09, 01, 0, 0, 0, DateTimeKind.Utc),
+                kinds.First(k => k.Id == 30)));
 
         // ExcelService: будь-які ReportRow → повертаємо байти
         _excel.Setup(s => s.ExportAsync(It.IsAny<IEnumerable<ReportRow>>(), It.IsAny<CancellationToken>()))
