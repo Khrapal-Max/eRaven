@@ -7,6 +7,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
@@ -154,7 +155,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         var firstPresenceMap = await BuildFirstPresenceMapAsync(db, ids, monthEndUtc, ct);
 
         var byPerson = slice.GroupBy(s => s.PersonId)
-            .ToDictionary(g => g.Key, g => SelectTimeline([.. g]));
+            .ToDictionary(g => g.Key, g => SelectTimeline(g.ToList()));
 
         var map = new Dictionary<Guid, PersonMonthStatus>(ids.Length);
 
@@ -193,6 +194,15 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         return ordered.AsReadOnly();
     }
 
+    public async Task<DateTime?> GetFirstPresenceUtcAsync(Guid personId, CancellationToken ct = default)
+    {
+        if (personId == Guid.Empty) return null;
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+        var map = await BuildFirstPresenceMapAsync(db, [personId], DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc), ct);
+        return map.TryGetValue(personId, out var value) ? value : null;
+    }
+
     public async Task<StatusKind?> GetByCodeAsync(string code, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(code)) return null;
@@ -223,6 +233,14 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         await using var db = await _dbf.CreateDbContextAsync(ct);
         var map = await BuildFirstPresenceMapAsync(db, [personId], DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc), ct);
         return map.TryGetValue(personId, out var value) ? value : null;
+    }
+
+    public async Task<StatusKind?> GetByCodeAsync(string code, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return null;
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+        return await FindStatusKindByCodeAsync(db, code, ct);
     }
     
     public Task<StatusKind?> ResolveNotPresentAsync(CancellationToken ct = default)
