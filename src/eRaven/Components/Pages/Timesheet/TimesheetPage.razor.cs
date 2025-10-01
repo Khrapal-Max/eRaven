@@ -25,6 +25,7 @@ namespace eRaven.Components.Pages.Timesheet;
 
 public partial class TimesheetPage : ComponentBase, IDisposable
 {
+    private static readonly IComparer<StatusKind> StatusKindPriorityComparer = Comparer<StatusKind>.Create(StatusPriorityComparer.Compare);
     // ============================= 1) DI, стан =============================
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
@@ -96,6 +97,8 @@ public partial class TimesheetPage : ComponentBase, IDisposable
                 BuiltMonth,
                 _cts.Token);
 
+            var notPresentKind = await PersonStatusReadService.ResolveNotPresentAsync(_cts.Token);
+
             foreach (var p in persons)
             {
                 if (!monthMap.TryGetValue(p.Id, out var monthStatus))
@@ -104,7 +107,7 @@ public partial class TimesheetPage : ComponentBase, IDisposable
                 var days = BuildDailyCells(monthStatus.Days, fromUtc, notPresentKind, monthStatus.FirstPresenceUtc);
                 if (days.Length == 0 || days.All(d => d is null || d.Code is null))
                     continue;
-
+                    
                 if (IsEntireMonthExcluded(days))
                     continue;
 
@@ -166,7 +169,6 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     {
         if (monthStatuses is null || monthStatuses.Length == 0)
             return Array.Empty<DayCell>();
-
         var result = new DayCell[monthStatuses.Length];
 
         var notPresentCode = notPresentKind?.Code?.Trim();
