@@ -4,6 +4,7 @@
 // PersonStatusService
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Services.PersonStatusReadService;
 using eRaven.Domain.Models;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -30,11 +31,10 @@ public sealed class PersonStatusService(IDbContextFactory<AppDbContext> dbf) : I
     {
         await using var db = await _dbf.CreateDbContextAsync(ct);
 
-        var list = await db.PersonStatuses.AsNoTracking()
-            .Include(s => s.StatusKind)
-            .Where(s => s.PersonId == personId && s.IsActive == true)
-            .OrderByDescending(s => s.OpenDate)
-            .ThenByDescending(s => s.Sequence)
+        var list = await StatusPriorityComparer
+            .OrderForHistory(db.PersonStatuses.AsNoTracking()
+                .Include(s => s.StatusKind)
+                .Where(s => s.PersonId == personId && s.IsActive))
             .ToListAsync(ct);
 
         return list.AsReadOnly();

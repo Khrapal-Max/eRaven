@@ -10,7 +10,11 @@
 //   7) Утиліти/прибирання
 //-----------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Blazored.Toast.Services;
+using eRaven.Application.Services.PersonStatusReadService;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.StatusKindService;
@@ -22,10 +26,12 @@ namespace eRaven.Components.Pages.Timesheet;
 
 public partial class TimesheetPage : ComponentBase, IDisposable
 {
+    private static readonly IComparer<StatusKind> StatusKindPriorityComparer = Comparer<StatusKind>.Create(StatusPriorityComparer.Compare);
     // ============================= 1) DI, стан =============================
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
     [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!;
+    [Inject] private IPersonStatusReadService PersonStatusReadService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
 
     private readonly CancellationTokenSource _cts = new();
@@ -87,6 +93,8 @@ public partial class TimesheetPage : ComponentBase, IDisposable
             var fromUtc = ToUtcMidnight(BuiltStartLocal);
             var toUtc = ToUtcMidnight(BuiltEndLocal); // exclusive
 
+            var notPresentKind = await PersonStatusReadService.ResolveNotPresentAsync(_cts.Token);
+
             foreach (var p in persons)
             {
                 var hist = await PersonStatusService.GetHistoryAsync(p.Id, _cts.Token) ?? [];
@@ -95,7 +103,10 @@ public partial class TimesheetPage : ComponentBase, IDisposable
                 if (days.Length == 0 || days.All(d => d is null || d.Code is null))
                     continue;
 
-                FillLeadingGapsWithNb(days);
+                var firstPresenceUtc = notPresentKind is null
+                    ? null
+                    : await PersonStatusReadService.GetFirstPresenceUtcAsync(p.Id, _cts.Token);
+                ApplyNotPresentBeforeFirstPresence(days, fromUtc, notPresentKind, firstPresenceUtc);
                 if (IsEntireMonthExcluded(days))
                     continue;
 
@@ -162,7 +173,8 @@ public partial class TimesheetPage : ComponentBase, IDisposable
 
         var ordered = history
             .OrderBy(s => s.OpenDate)
-            .ThenBy(s => s.Sequence)
+            .ThenBy(s => s.StatusKind!, StatusKindPriorityComparer)
+            .ThenBy(s => s.Id)
             .ToList();
 
         var baseline = ordered.LastOrDefault(s => s.OpenDate <= fromUtc);
@@ -196,17 +208,49 @@ public partial class TimesheetPage : ComponentBase, IDisposable
         return result;
     }
 
-    private void FillLeadingGapsWithNb(DayCell[] days)
+    private void ApplyNotPresentBeforeFirstPresence(
+        DayCell[] days,
+        DateTime fromUtc,
+        StatusKind? notPresentKind,
+        DateTime? firstPresenceUtc)
     {
-        var first = Array.FindIndex(days, d => d is { Code: not null });
-        if (first <= 0) return;
+        if (days.Length == 0)
+            return;
 
-        var title = NameForCode("нб") ?? "нб";
-        for (int i = 0; i < first; i++)
+        var code = notPresentKind?.Code?.Trim();
+        if (string.IsNullOrWhiteSpace(code))
+            return;
+
+        var title = notPresentKind?.Name ?? NameForCode(code) ?? code;
+
+        if (firstPresenceUtc is null)
         {
-            days[i] ??= new DayCell();
-            days[i]!.Code = "нб";
-            days[i]!.Title = title;
+            for (int i = 0; i < days.Length; i++)
+            {
+                days[i] ??= new DayCell();
+                days[i]!.Code = code;
+                days[i]!.Title = title;
+                days[i]!.Note = null;
+            }
+            return;
+        }
+
+        for (int i = 0; i < days.Length; i++)
+        {
+            var dayStartUtc = fromUtc.AddDays(i);
+            var dayEndUtc = dayStartUtc.AddDays(1);
+
+            if (dayEndUtc <= firstPresenceUtc.Value)
+            {
+                days[i] ??= new DayCell();
+                days[i]!.Code = code;
+                days[i]!.Title = title;
+                days[i]!.Note = null;
+                continue;
+            }
+
+            // як тільки день виходить за межі firstPresence — далі не підставляємо "нб"
+            break;
         }
     }
 
