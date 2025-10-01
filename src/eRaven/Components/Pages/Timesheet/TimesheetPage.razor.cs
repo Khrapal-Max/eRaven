@@ -10,9 +10,12 @@
 //   7) Утиліти/прибирання
 //-----------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Blazored.Toast.Services;
+using eRaven.Application.Services.PersonStatusReadService;
 using eRaven.Application.Services.PersonService;
-using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.TimesheetViewModels;
 using eRaven.Domain.Models;
@@ -25,7 +28,7 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     // ============================= 1) DI, стан =============================
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
-    [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!;
+    [Inject] private IPersonStatusReadService PersonStatusReadService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
 
     private readonly CancellationTokenSource _cts = new();
@@ -49,9 +52,11 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     private IReadOnlyList<StatusKind> _kinds = [];
     protected List<TimesheetRow> Rows { get; } = [];
 
-    // Якщо ВЕСЬ місяць тільки ці коди — людину не показуємо
-    private static readonly HashSet<string> ExcludeCodes =
-        new(StringComparer.OrdinalIgnoreCase) { "нб", "РОЗПОР" };
+    private static readonly HashSet<string> AlwaysExcludedCodes =
+        new(StringComparer.OrdinalIgnoreCase) { "РОЗПОР" };
+
+    private string? _notPresentCode;
+    private string? _notPresentTitle;
 
     // Коди, що зустрілись (для легенди)
     protected HashSet<string> LegendCodes { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -85,17 +90,32 @@ public partial class TimesheetPage : ComponentBase, IDisposable
             if (persons.Count == 0) return;
 
             var fromUtc = ToUtcMidnight(BuiltStartLocal);
-            var toUtc = ToUtcMidnight(BuiltEndLocal); // exclusive
+
+            var notPresentKind = await PersonStatusReadService.ResolveNotPresentAsync(_cts.Token);
+            _notPresentCode = notPresentKind?.Code?.Trim();
+            _notPresentTitle = string.IsNullOrWhiteSpace(notPresentKind?.Name)
+                ? (_notPresentCode is null ? null : NameForCode(_notPresentCode) ?? _notPresentCode)
+                : notPresentKind!.Name;
+            var monthMap = await PersonStatusReadService.ResolveMonthAsync(
+                persons.Select(p => p.Id),
+                BuiltYear,
+                BuiltMonth,
+                _cts.Token);
 
             foreach (var p in persons)
             {
-                var hist = await PersonStatusService.GetHistoryAsync(p.Id, _cts.Token) ?? [];
-                var days = BuildDailyCellsWithBaseline(hist, fromUtc, toUtc);
+                if (!monthMap.TryGetValue(p.Id, out var monthStatus))
+                    continue;
 
+                var days = BuildDailyCells(
+                    monthStatus.Days,
+                    fromUtc,
+                    _notPresentCode,
+                    _notPresentTitle,
+                    monthStatus.FirstPresenceUtc);
                 if (days.Length == 0 || days.All(d => d is null || d.Code is null))
                     continue;
 
-                FillLeadingGapsWithNb(days);
                 if (IsEntireMonthExcluded(days))
                     continue;
 
@@ -108,7 +128,6 @@ public partial class TimesheetPage : ComponentBase, IDisposable
                     Days = days
                 });
 
-                // ЕКСПОРТ: лише коди, рівно BuiltDaysInMonth
                 var codes = new string[BuiltDaysInMonth];
                 for (int i = 0; i < BuiltDaysInMonth; i++)
                     codes[i] = days[i]?.Code ?? string.Empty;
@@ -150,77 +169,73 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     }
 
     // ========== 4) Побудова денних клітинок (baseline + зміни) ==========
-    private DayCell[] BuildDailyCellsWithBaseline(
-        IReadOnlyList<PersonStatus> history,
+    private DayCell[] BuildDailyCells(
+        PersonStatus?[] monthStatuses,
         DateTime fromUtc,
-        DateTime toUtc)
+        string? notPresentCode,
+        string? notPresentTitle,
+        DateTime? firstPresenceUtc)
     {
-        var daysCount = (toUtc - fromUtc).Days;
-        var result = new DayCell[daysCount];
-        if (daysCount <= 0) return result;
-        if (history is null || history.Count == 0) return result;
+        if (monthStatuses is null || monthStatuses.Length == 0)
+            return Array.Empty<DayCell>();
 
-        var ordered = history
-            .OrderBy(s => s.OpenDate)
-            .ThenBy(s => s.Sequence)
-            .ToList();
+        var result = new DayCell[monthStatuses.Length];
 
-        var baseline = ordered.LastOrDefault(s => s.OpenDate <= fromUtc);
-        string? currentCode = baseline?.StatusKind?.Code?.Trim() ?? CodeForKind(baseline?.StatusKindId ?? 0);
-        string? currentTitle = baseline?.StatusKind?.Name ?? NameForKind(baseline?.StatusKindId ?? 0);
-        string? currentNote = baseline?.Note;
-
-        var inRange = ordered.Where(s => s.OpenDate >= fromUtc && s.OpenDate < toUtc).ToList();
-        var idx = 0;
-
-        for (int i = 0; i < daysCount; i++)
+        for (int i = 0; i < monthStatuses.Length; i++)
         {
-            var dayUtc = fromUtc.AddDays(i);
+            var endOfDayUtc = fromUtc.AddDays(i + 1).AddTicks(-1);
+            var status = monthStatuses[i];
 
-            while (idx < inRange.Count && inRange[idx].OpenDate <= dayUtc)
+            if (firstPresenceUtc is null || endOfDayUtc < firstPresenceUtc.Value || status is null)
             {
-                var s = inRange[idx++];
-                currentCode = s.StatusKind?.Code?.Trim() ?? CodeForKind(s.StatusKindId);
-                currentTitle = s.StatusKind?.Name ?? NameForKind(s.StatusKindId);
-                currentNote = s.Note;
+                if (string.IsNullOrWhiteSpace(notPresentCode))
+                {
+                    result[i] = new DayCell();
+                    continue;
+                }
+
+                result[i] = new DayCell
+                {
+                    Code = notPresentCode,
+                    Title = notPresentTitle ?? notPresentCode,
+                    Note = null
+                };
+                continue;
             }
+
+            var code = status.StatusKind?.Code?.Trim() ?? CodeForKind(status.StatusKindId);
+            var title = status.StatusKind?.Name ?? NameForKind(status.StatusKindId);
+            var note = string.IsNullOrWhiteSpace(status.Note) ? null : status.Note!.Trim();
 
             result[i] = new DayCell
             {
-                Code = string.IsNullOrWhiteSpace(currentCode) ? null : currentCode,
-                Title = currentTitle,
-                Note = string.IsNullOrWhiteSpace(currentNote) ? null : currentNote?.Trim()
+                Code = string.IsNullOrWhiteSpace(code) ? null : code,
+                Title = title,
+                Note = note
             };
         }
 
         return result;
     }
 
-    private void FillLeadingGapsWithNb(DayCell[] days)
-    {
-        var first = Array.FindIndex(days, d => d is { Code: not null });
-        if (first <= 0) return;
-
-        var title = NameForCode("нб") ?? "нб";
-        for (int i = 0; i < first; i++)
-        {
-            days[i] ??= new DayCell();
-            days[i]!.Code = "нб";
-            days[i]!.Title = title;
-        }
-    }
-
     // ================== 5) Відображення (кольори/легенда/тултіп) ==================
     private void TouchLegend(string? code)
     {
-        if (!string.IsNullOrWhiteSpace(code) && !code.Equals("30", StringComparison.OrdinalIgnoreCase))
-            LegendCodes.Add(code.Trim());
+        if (string.IsNullOrWhiteSpace(code))
+            return;
+
+        if (code.Equals("30", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (IsExcludedCode(code))
+            return;
+
+        LegendCodes.Add(code.Trim());
     }
 
     private static readonly Dictionary<string, string> BadgeByCode = new(StringComparer.OrdinalIgnoreCase)
     {
         ["100"] = "badge rounded-pill text-bg-primary",   // синій
-        ["нб"] = "badge rounded-pill text-bg-info",      // блакитний
         ["РОЗПОР"] = "badge rounded-pill text-bg-info",     // блакитний
         ["ВДР"] = "badge rounded-pill text-bg-secondary", // сірий
         ["В"] = "badge rounded-pill text-bg-success",   // зелений
@@ -237,6 +252,9 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     {
         if (string.IsNullOrWhiteSpace(code) || code.Equals("30", StringComparison.OrdinalIgnoreCase))
             return "d-inline-block px-1 small"; // «30» — без підсвітки
+
+        if (_notPresentCode is not null && code.Equals(_notPresentCode, StringComparison.OrdinalIgnoreCase))
+            return "badge rounded-pill text-bg-info px-2 py-1";
 
         if (BadgeByCode.TryGetValue(code.Trim(), out var cls))
             return $"{cls} px-2 py-1";
@@ -273,8 +291,21 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     private string? NameForCode(string code)
         => _kinds.FirstOrDefault(k => string.Equals(k.Code, code, StringComparison.OrdinalIgnoreCase))?.Name;
 
-    private static bool IsEntireMonthExcluded(DayCell[] days)
-        => days.Length > 0 && days.All(c => c?.Code is not null && ExcludeCodes.Contains(c!.Code!));
+    private bool IsExcludedCode(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return false;
+
+        var trimmed = code.Trim();
+
+        if (AlwaysExcludedCodes.Contains(trimmed))
+            return true;
+
+        return _notPresentCode is not null && trimmed.Equals(_notPresentCode, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsEntireMonthExcluded(DayCell[] days)
+        => days.Length > 0 && days.All(c => c?.Code is not null && IsExcludedCode(c!.Code!));
 
     private void OnExportBusyChanged(bool exporting)
         => SetBusy(exporting); // 👈 фікс: не тримаємо Busy після експорту
