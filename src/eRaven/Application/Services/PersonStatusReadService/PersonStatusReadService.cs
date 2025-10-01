@@ -18,6 +18,7 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 {
     private readonly IDbContextFactory<AppDbContext> _dbf = dbf;
     private static readonly IComparer<StatusKind> StatusKindPriorityComparer = Comparer<StatusKind>.Create(StatusPriorityComparer.Compare);
+    private const string NotPresentCode = "нб";
 
     // ====================== ПУБЛІЧНІ АПІ ======================
 
@@ -29,6 +30,9 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
         await using var db = await _dbf.CreateDbContextAsync(ct);
 
+        var firstPresenceMap = await BuildFirstPresenceMapAsync(db, [personId], momentUtc, ct);
+        var firstPresenceUtc = firstPresenceMap.TryGetValue(personId, out var fp) ? fp : null;
+        
         var slice = await StatusPriorityComparer
             .OrderForPointInTime(db.PersonStatuses.AsNoTracking()
                 .Include(s => s.StatusKind)
@@ -37,14 +41,32 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
             .ThenBy(s => s.Id)
             .ToListAsync(ct);
 
-        if (slice.Count == 0)
-            return null;
-
         var timeline = SelectTimeline(slice);
-        if (timeline.Count == 0)
-            return null;
+        var chosen = timeline.LastOrDefault(s => s.OpenDate <= momentUtc);
+        if (chosen is not null)
+            return chosen;
 
-        return timeline.LastOrDefault(s => s.OpenDate <= momentUtc);
+        if (firstPresenceUtc is not null && momentUtc < firstPresenceUtc.Value)
+        {
+            var notPresent = await FindStatusKindByCodeAsync(db, NotPresentCode, ct);
+            if (notPresent is null)
+                return null;
+
+            return new PersonStatus
+            {
+                Id = Guid.Empty,
+                PersonId = personId,
+                StatusKindId = notPresent.Id,
+                StatusKind = notPresent,
+                OpenDate = momentUtc,
+                IsActive = true,
+                Sequence = 0,
+                Author = null,
+                Modified = momentUtc
+            };
+        }
+
+        return null;
     }
 
     public async Task<PersonStatus?> ResolveOnDateAsync(Guid personId, DateTime dayUtc, CancellationToken ct = default)
@@ -136,7 +158,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
         var byPerson = slice.GroupBy(s => s.PersonId)
             .ToDictionary(g => g.Key, g => SelectTimeline(g.ToList()));
-
         var map = new Dictionary<Guid, PersonMonthStatus>(ids.Length);
 
         foreach (var pid in ids)
@@ -171,13 +192,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
             map[pid] = new PersonMonthStatus(row, firstPresenceUtc);
         }
 
-    public Task<StatusKind?> ResolveNotPresentAsync(CancellationToken ct = default)
-        => GetByCodeAsync("нб", ct);
-
-    public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
-    {
-        if (personId == Guid.Empty) return Array.Empty<PersonStatus>();
-
         await using var db = await _dbf.CreateDbContextAsync(ct);
 
         var ordered = await StatusPriorityComparer
@@ -187,30 +201,6 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
             .ToListAsync(ct);
 
         return ordered.AsReadOnly();
-    }
-
-    public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
-    {
-        if (personId == Guid.Empty) return Array.Empty<PersonStatus>();
-
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-
-        var ordered = await StatusPriorityComparer
-            .OrderForHistory(db.PersonStatuses.AsNoTracking()
-                .Include(s => s.StatusKind)
-                .Where(s => s.PersonId == personId && s.IsActive))
-            .ToListAsync(ct);
-
-        return ordered.AsReadOnly();
-    }
-
-    public async Task<DateTime?> GetFirstPresenceUtcAsync(Guid personId, CancellationToken ct = default)
-    {
-        if (personId == Guid.Empty) return null;
-
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-        var map = await BuildFirstPresenceMapAsync(db, [personId], DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc), ct);
-        return map.TryGetValue(personId, out var value) ? value : null;
     }
 
     public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
@@ -241,17 +231,12 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
     {
         if (string.IsNullOrWhiteSpace(code)) return null;
 
-        var normalized = code.Trim();
-        var normalizedUpper = normalized.ToUpperInvariant();
-
         await using var db = await _dbf.CreateDbContextAsync(ct);
-
-        return await db.StatusKinds.AsNoTracking()
-            .FirstOrDefaultAsync(k => k.Code != null && k.Code.ToUpperInvariant() == normalizedUpper, ct);
+        return await FindStatusKindByCodeAsync(db, code, ct);
     }
 
     public Task<StatusKind?> ResolveNotPresentAsync(CancellationToken ct = default)
-        => GetByCodeAsync("нб", ct);
+        => GetByCodeAsync(NotPresentCode, ct);
 
     // ====================== ДОПОМОЖНІ ======================
 
@@ -348,5 +333,16 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         }
 
         return map;
+    }
+
+    private static async Task<StatusKind?> FindStatusKindByCodeAsync(AppDbContext db, string code, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return null;
+
+        var normalizedUpper = code.Trim().ToUpperInvariant();
+
+        return await db.StatusKinds.AsNoTracking()
+            .FirstOrDefaultAsync(k => k.Code != null && k.Code.ToUpperInvariant() == normalizedUpper, ct);
     }
 }

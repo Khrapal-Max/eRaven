@@ -176,8 +176,7 @@ public partial class TimesheetPage : ComponentBase, IDisposable
         PersonStatus?[] monthStatuses,
         DateTime fromUtc,
         string? notPresentCode,
-        string? notPresentTitle,
-        
+        string? notPresentTitle,        
         DateTime? firstPresenceUtc)
     {
         if (monthStatuses is null || monthStatuses.Length == 0)
