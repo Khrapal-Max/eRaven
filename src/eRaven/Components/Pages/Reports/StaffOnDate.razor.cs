@@ -10,8 +10,11 @@
 // -----------------------------------------------------------------------------
 
 
+using System.Collections.Generic;
+using System.Linq;
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PersonService;
+using eRaven.Application.Services.PersonStatusReadService;
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.StaffOnDateViewModels;
@@ -22,6 +25,7 @@ namespace eRaven.Components.Pages.Reports;
 
 public partial class StaffOnDate : ComponentBase, IDisposable
 {
+    private static readonly IComparer<StatusKind> StatusKindPriorityComparer = Comparer<StatusKind>.Create(StatusPriorityComparer.Compare);
     // ============================ DI ============================
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
@@ -130,9 +134,11 @@ public partial class StaffOnDate : ComponentBase, IDisposable
 
         // Останній валідний запис із OpenDate <= atUtc (за OpenDate DESC, Sequence DESC)
         var s = history
+            .Where(x => x.OpenDate <= atUtc)
             .OrderByDescending(x => x.OpenDate)
-            .ThenByDescending(x => x.Sequence)
-            .FirstOrDefault(x => x.OpenDate <= atUtc);
+            .ThenBy(x => x.StatusKind!, StatusKindPriorityComparer)
+            .ThenByDescending(x => x.Id)
+            .FirstOrDefault();
 
         if (s is null) return null;
 

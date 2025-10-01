@@ -10,7 +10,10 @@
 //   7) Утиліти/прибирання
 //-----------------------------------------------------------------------------
 
+using System.Collections.Generic;
+using System.Linq;
 using Blazored.Toast.Services;
+using eRaven.Application.Services.PersonStatusReadService;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.StatusKindService;
@@ -22,6 +25,7 @@ namespace eRaven.Components.Pages.Timesheet;
 
 public partial class TimesheetPage : ComponentBase, IDisposable
 {
+    private static readonly IComparer<StatusKind> StatusKindPriorityComparer = Comparer<StatusKind>.Create(StatusPriorityComparer.Compare);
     // ============================= 1) DI, стан =============================
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
@@ -162,7 +166,8 @@ public partial class TimesheetPage : ComponentBase, IDisposable
 
         var ordered = history
             .OrderBy(s => s.OpenDate)
-            .ThenBy(s => s.Sequence)
+            .ThenBy(s => s.StatusKind!, StatusKindPriorityComparer)
+            .ThenBy(s => s.Id)
             .ToList();
 
         var baseline = ordered.LastOrDefault(s => s.OpenDate <= fromUtc);
