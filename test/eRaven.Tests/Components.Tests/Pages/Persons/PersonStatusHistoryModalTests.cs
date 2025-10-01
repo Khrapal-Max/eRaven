@@ -4,8 +4,10 @@
 // PersonStatusHistoryModalTests
 //-----------------------------------------------------------------------------
 
+using System;
+using System.Threading;
 using Bunit;
-using eRaven.Application.Services.PersonStatusService;
+using eRaven.Application.Services.PersonStatusReadService;
 using eRaven.Components.Pages.Persons.Modals;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
@@ -16,11 +18,14 @@ namespace eRaven.Tests.Components.Tests.Pages.Persons;
 
 public sealed class PersonStatusHistoryModalTests : TestContext
 {
-    private readonly Mock<IPersonStatusService> _statuses = new();
+    private readonly Mock<IPersonStatusReadService> _readService = new();
 
     public PersonStatusHistoryModalTests()
     {
-        Services.AddSingleton(_statuses.Object);
+        Services.AddSingleton(_readService.Object);
+        _readService
+            .Setup(s => s.ResolveNotPresentAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((StatusKind?)null);
     }
 
     // ----------------- Helpers -----------------
@@ -51,15 +56,27 @@ public sealed class PersonStatusHistoryModalTests : TestContext
             Modified = DateTime.UtcNow
         };
 
-    private IRenderedComponent<PersonStatusHistoryModal> Render(bool open, Person? person, IReadOnlyList<PersonStatus>? history = null)
+    private IRenderedComponent<PersonStatusHistoryModal> Render(
+        bool open,
+        Person? person,
+        IReadOnlyList<PersonStatus>? history = null,
+        DateTime? firstPresenceUtc = null,
+        StatusKind? notPresentKind = null)
     {
-        _statuses.Reset();
+        _readService.Reset();
+
+        _readService
+            .Setup(s => s.ResolveNotPresentAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(notPresentKind);
 
         if (person is not null)
         {
-            _statuses
-                .Setup(s => s.GetHistoryAsync(person.Id, It.IsAny<CancellationToken>()))
+            _readService
+                .Setup(s => s.OrderForHistoryAsync(person.Id, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(history ?? []);
+            _readService
+                .Setup(s => s.GetFirstPresenceUtcAsync(person.Id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(firstPresenceUtc);
         }
 
         return RenderComponent<PersonStatusHistoryModal>(ps =>
@@ -114,15 +131,32 @@ public sealed class PersonStatusHistoryModalTests : TestContext
         Assert.Contains(utc.ToLocalTime().ToString("dd.MM.yyyy"), cut.Markup);
     }
 
+    [Fact(DisplayName = "Modal: до першої появи показує рядок 'нб'")]
+    public void BeforeFirstPresence_ShowsNotPresentRow()
+    {
+        var p = NewPerson();
+        var firstPresence = new DateTime(2024, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var notPresentKind = new StatusKind { Id = 2, Code = "нб", Name = "Не був" };
+        var history = new[] { S(p.Id, "В районі", null, firstPresence.AddDays(1)) };
+
+        var cut = Render(open: true, person: p, history: history, firstPresenceUtc: firstPresence, notPresentKind: notPresentKind);
+
+        Assert.Contains("нб", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains($"до {firstPresence.ToLocalTime():dd.MM.yyyy}", cut.Markup);
+    }
+
     [Fact(DisplayName = "Modal: кнопка 'Закрити' викликає OnClose")]
     public void Close_Button_Fires_OnClose()
     {
         var p = NewPerson();
         var closed = false;
 
-        _statuses
-            .Setup(s => s.GetHistoryAsync(p.Id, It.IsAny<CancellationToken>()))
+        _readService
+            .Setup(s => s.OrderForHistoryAsync(p.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
+        _readService
+            .Setup(s => s.GetFirstPresenceUtcAsync(p.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DateTime?)null);
 
         var cut = RenderComponent<PersonStatusHistoryModal>(ps =>
         {
@@ -140,9 +174,12 @@ public sealed class PersonStatusHistoryModalTests : TestContext
     {
         var p = NewPerson();
 
-        _statuses
-            .Setup(s => s.GetHistoryAsync(p.Id, It.IsAny<CancellationToken>()))
+        _readService
+            .Setup(s => s.OrderForHistoryAsync(p.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
+        _readService
+            .Setup(s => s.GetFirstPresenceUtcAsync(p.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DateTime?)null);
 
         var cut = RenderComponent<PersonStatusHistoryModal>(ps =>
         {
@@ -153,6 +190,6 @@ public sealed class PersonStatusHistoryModalTests : TestContext
         // open=true -> має повторно сходити по історію
         cut.SetParametersAndRender(ps => ps.Add(pz => pz.Open, true));
 
-        _statuses.Verify(s => s.GetHistoryAsync(p.Id, It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        _readService.Verify(s => s.OrderForHistoryAsync(p.Id, It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 }
