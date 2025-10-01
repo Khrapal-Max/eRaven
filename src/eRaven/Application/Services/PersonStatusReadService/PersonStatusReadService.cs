@@ -21,6 +21,32 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
 
     // ====================== ПУБЛІЧНІ АПІ ======================
 
+    public async Task<PersonStatus?> GetActiveOnDateAsync(Guid personId, DateTime endOfDayUtc, CancellationToken ct = default)
+    {
+        if (personId == Guid.Empty) return null;
+
+        var momentUtc = NormalizeUtc(endOfDayUtc);
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var slice = await StatusPriorityComparer
+            .OrderForPointInTime(db.PersonStatuses.AsNoTracking()
+                .Include(s => s.StatusKind)
+                .Where(s => s.IsActive && s.PersonId == personId && s.OpenDate <= momentUtc))
+            .ThenBy(s => s.Sequence)
+            .ThenBy(s => s.Id)
+            .ToListAsync(ct);
+
+        if (slice.Count == 0)
+            return null;
+
+        var timeline = SelectTimeline(slice);
+        if (timeline.Count == 0)
+            return null;
+
+        return timeline.LastOrDefault(s => s.OpenDate <= momentUtc);
+    }
+
     public async Task<PersonStatus?> ResolveOnDateAsync(Guid personId, DateTime dayUtc, CancellationToken ct = default)
     {
         var dict = await ResolveOnDateAsync([personId], dayUtc, ct);
@@ -36,91 +62,49 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         await using var db = await _dbf.CreateDbContextAsync(ct);
 
         // Межі локального дня для переданого UTC-моменту
-        var (dayStartUtc, dayEndUtc) = GetLocalDayBoundsUtc(dayUtc);
+        var (_, dayEndExclusiveUtc) = GetLocalDayBoundsUtc(dayUtc);
+        var endOfDayUtc = dayEndExclusiveUtc.AddTicks(-1);
 
-        // Довідник статусів (для пошуку "30")
-        var kinds = await db.StatusKinds.AsNoTracking().ToListAsync(ct);
-        var kind30 = kinds.FirstOrDefault(k => string.Equals(k.Code, "30", StringComparison.OrdinalIgnoreCase));
-
-        // Усі статуси до кінця дня
         var slice = await StatusPriorityComparer
             .OrderForPointInTime(db.PersonStatuses.AsNoTracking()
                 .Include(s => s.StatusKind)
-                .Where(s => s.IsActive && ids.Contains(s.PersonId) && s.OpenDate < dayEndUtc))
+                .Where(s => s.IsActive && ids.Contains(s.PersonId) && s.OpenDate <= endOfDayUtc))
+            .ThenBy(s => s.Sequence)
+            .ThenBy(s => s.Id)
             .ToListAsync(ct);
 
-        // Перше призначення на посаду (якщо таблиця є)
-        var firstAssign = await db.PersonPositionAssignments.AsNoTracking()
-            .Where(a => ids.Contains(a.PersonId))
-            .GroupBy(a => a.PersonId)
-            .Select(g => new { PersonId = g.Key, FirstOpenUtc = g.Min(x => x.OpenUtc) })
-            .ToListAsync(ct);
-        var firstAssignMap = firstAssign.ToDictionary(x => x.PersonId, x => x.FirstOpenUtc);
+        var firstPresenceMap = await BuildFirstPresenceMapAsync(db, ids, endOfDayUtc, ct);
+        var byPerson = slice.GroupBy(s => s.PersonId)
+            .ToDictionary(g => g.Key, g => SelectTimeline(g.ToList()));
 
         var result = new Dictionary<Guid, PersonStatus?>(ids.Length);
 
         foreach (var pid in ids)
         {
-            var items = slice
-                .Where(s => s.PersonId == pid)
-                .OrderBy(s => s.OpenDate)
-                .ThenBy(s => s.StatusKind!, StatusKindPriorityComparer)
-                .ThenBy(s => s.Id)
-                .ToList();
-
-            DateTime? firstPresenceUtc = items.Count == 0 ? null : items.Min(s => s.OpenDate);
-            if (firstAssignMap.TryGetValue(pid, out var assignUtc))
-                firstPresenceUtc = MinDate(firstPresenceUtc, assignUtc);
-
-            // Якщо людини ще "не існує" на цей день — повертаємо null (UI підставить службовий код)
-            if (firstPresenceUtc is null || dayEndUtc <= firstPresenceUtc.Value)
+            var firstPresenceUtc = firstPresenceMap.TryGetValue(pid, out var fp) ? fp : null;
+            if (firstPresenceUtc is null || endOfDayUtc < firstPresenceUtc.Value)
             {
                 result[pid] = null;
                 continue;
             }
 
-            // baseline < dayStart
-            var baseline = items
-                .Where(x => x.OpenDate < dayStartUtc)
-                .OrderByDescending(x => x.OpenDate)
-                .ThenByDescending(x => x.Sequence)
-                .FirstOrDefault();
-
-            // Якщо baseline нема (але поява вже була) — фон 30
-            PersonStatus? synthetic = baseline is null && kind30 is not null ? Synthetic(kind30, pid) : null;
-
-            // події в межах дня
-            var inDay = items.Where(x => x.OpenDate >= dayStartUtc && x.OpenDate < dayEndUtc);
-
-            var contenders = new List<PersonStatus>(8);
-            if (baseline is not null) contenders.Add(baseline);
-            if (synthetic is not null) contenders.Add(synthetic);
-            contenders.AddRange(inDay);
-
-            if (contenders.Count == 0)
+            if (!byPerson.TryGetValue(pid, out var list) || list.Count == 0)
             {
-                // на випадок, якщо немає жодного запису (не повинно статись після гейтів вище)
-                result[pid] = kind30 is null ? null : Synthetic(kind30, pid);
+                result[pid] = null;
                 continue;
             }
-
-            var chosen = contenders
-                .OrderBy(c => c.StatusKind!, StatusKindPriorityComparer)
-                .ThenByDescending(c => c.OpenDate)
-                .ThenByDescending(c => c.Sequence)
-                .First();
-
+            var chosen = list.LastOrDefault(s => s.OpenDate <= endOfDayUtc);
             result[pid] = chosen;
         }
 
         return result;
     }
 
-    public async Task<IReadOnlyDictionary<Guid, PersonStatus?[]>> ResolveMonthAsync(
+    public async Task<IReadOnlyDictionary<Guid, PersonMonthStatus>> ResolveMonthAsync(
         IEnumerable<Guid> personIds, int yearLocal, int monthLocal, CancellationToken ct = default)
     {
         var ids = personIds?.Distinct().ToArray() ?? [];
-        if (ids.Length == 0) return new Dictionary<Guid, PersonStatus?[]>();
+        if (ids.Length == 0) return new Dictionary<Guid, PersonMonthStatus>();
 
         var daysInMonth = DateTime.DaysInMonth(yearLocal, monthLocal);
         var monthStartLocal = new DateTime(yearLocal, monthLocal, 1);
@@ -135,87 +119,56 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         }
 
         await using var db = await _dbf.CreateDbContextAsync(ct);
-
         // Довідник
         var kinds = await db.StatusKinds.AsNoTracking().ToListAsync(ct);
         var kind30 = kinds.FirstOrDefault(k => string.Equals(k.Code, "30", StringComparison.OrdinalIgnoreCase));
-
+        
         // Беремо усі статуси за місяць + “хвіст” до першого дня для baseline
-        var monthStartUtc = bounds[0].startUtc;
         var monthEndUtc = bounds[^1].endUtc;
 
         var slice = await StatusPriorityComparer
             .OrderForHistory(db.PersonStatuses.AsNoTracking()
                 .Include(s => s.StatusKind)
-                .Where(s => s.IsActive && ids.Contains(s.PersonId) && s.OpenDate < monthEndUtc))
+                .Where(s => s.IsActive && ids.Contains(s.PersonId) && s.OpenDate <= monthEndUtc))
+            .ThenBy(s => s.Sequence)
             .ToListAsync(ct);
 
         // Перші призначення
-        var firstAssign = await db.PersonPositionAssignments.AsNoTracking()
-            .Where(a => ids.Contains(a.PersonId))
-            .GroupBy(a => a.PersonId)
-            .Select(g => new { PersonId = g.Key, FirstOpenUtc = g.Min(x => x.OpenUtc) })
-            .ToListAsync(ct);
-        var firstAssignMap = firstAssign.ToDictionary(x => x.PersonId, x => x.FirstOpenUtc);
+        var firstPresenceMap = await BuildFirstPresenceMapAsync(db, ids, monthEndUtc, ct);
 
-        var map = new Dictionary<Guid, PersonStatus?[]>(ids.Length);
+        var byPerson = slice.GroupBy(s => s.PersonId)
+            .ToDictionary(g => g.Key, g => SelectTimeline(g.ToList()));
+
+        var map = new Dictionary<Guid, PersonMonthStatus>(ids.Length);
 
         foreach (var pid in ids)
         {
-            var items = slice
-                .Where(s => s.PersonId == pid)
-                .OrderBy(s => s.OpenDate)
-                .ThenBy(s => s.StatusKind!, StatusKindPriorityComparer)
-                .ThenBy(s => s.Id)
-                .ToList();
             var row = new PersonStatus?[daysInMonth];
+            var timeline = byPerson.TryGetValue(pid, out var list) ? list : new List<PersonStatus>();
+            var firstPresenceUtc = firstPresenceMap.TryGetValue(pid, out var fp) ? fp : null;
 
-            DateTime? firstPresenceUtc = items.Count == 0 ? null : items.Min(s => s.OpenDate);
-            if (firstAssignMap.TryGetValue(pid, out var fa))
-                firstPresenceUtc = MinDate(firstPresenceUtc, fa);
+            var cursor = 0;
+            PersonStatus? current = null;
 
             for (int di = 0; di < daysInMonth; di++)
             {
-                var (dayStartUtc, dayEndUtc) = bounds[di];
+                var (_, dayEndExclusiveUtc) = bounds[di];
+                var endOfDayUtc = dayEndExclusiveUtc.AddTicks(-1);
+                while (cursor < timeline.Count && timeline[cursor].OpenDate <= endOfDayUtc)
+                {
+                    current = timeline[cursor];
+                    cursor++;
+                }
 
-                // “Не існує ще” → повертаємо null (UI підставить службовий код)
-                if (firstPresenceUtc is null || dayEndUtc <= firstPresenceUtc.Value)
+                if (firstPresenceUtc is null || endOfDayUtc < firstPresenceUtc.Value)
                 {
                     row[di] = null;
                     continue;
                 }
-
-                var baseline = items
-                    .Where(x => x.OpenDate < dayStartUtc)
-                    .OrderByDescending(x => x.OpenDate)
-                    .ThenByDescending(x => x.Sequence)
-                    .FirstOrDefault();
-
-                PersonStatus? synthetic = baseline is null && kind30 is not null ? Synthetic(kind30, pid) : null;
-
-                var inDay = items.Where(x => x.OpenDate >= dayStartUtc && x.OpenDate < dayEndUtc);
-
-                var contenders = new List<PersonStatus>(8);
-                if (baseline is not null) contenders.Add(baseline);
-                if (synthetic is not null) contenders.Add(synthetic);
-                contenders.AddRange(inDay);
-
-                if (contenders.Count == 0)
-                {
-                    row[di] = kind30 is null ? null : Synthetic(kind30, pid);
-                    continue;
-                }
-
-                var chosen = contenders
-                    .OrderBy(c => c.StatusKind!, StatusKindPriorityComparer)
-                    .ThenByDescending(c => c.OpenDate)
-                    .ThenByDescending(c => c.Sequence)
-                    .First();
-
-                row[di] = chosen;
+                row[di] = current;
             }
 
-            map[pid] = row;
+            map[pid] = new PersonMonthStatus(row, firstPresenceUtc);
         }
 
         return map;
@@ -285,6 +238,46 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
     public Task<StatusKind?> ResolveNotPresentAsync(CancellationToken ct = default)
         => GetByCodeAsync("нб", ct);
 
+    public async Task<IReadOnlyList<PersonStatus>> OrderForHistoryAsync(Guid personId, CancellationToken ct = default)
+    {
+        if (personId == Guid.Empty) return Array.Empty<PersonStatus>();
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        var ordered = await StatusPriorityComparer
+            .OrderForHistory(db.PersonStatuses.AsNoTracking()
+                .Include(s => s.StatusKind)
+                .Where(s => s.PersonId == personId && s.IsActive))
+            .ToListAsync(ct);
+
+        return ordered.AsReadOnly();
+    }
+
+    public async Task<DateTime?> GetFirstPresenceUtcAsync(Guid personId, CancellationToken ct = default)
+    {
+        if (personId == Guid.Empty) return null;
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+        var map = await BuildFirstPresenceMapAsync(db, [personId], DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc), ct);
+        return map.TryGetValue(personId, out var value) ? value : null;
+    }
+
+    public async Task<StatusKind?> GetByCodeAsync(string code, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return null;
+
+        var normalized = code.Trim();
+        var normalizedUpper = normalized.ToUpperInvariant();
+
+        await using var db = await _dbf.CreateDbContextAsync(ct);
+
+        return await db.StatusKinds.AsNoTracking()
+            .FirstOrDefaultAsync(k => k.Code != null && k.Code.ToUpperInvariant() == normalizedUpper, ct);
+    }
+
+    public Task<StatusKind?> ResolveNotPresentAsync(CancellationToken ct = default)
+        => GetByCodeAsync("нб", ct);
+
     // ====================== ДОПОМОЖНІ ======================
 
     // Єдиний спосіб обчислити межі «локального дня» для поданого UTC/Local моменту.
@@ -312,14 +305,73 @@ public sealed class PersonStatusReadService(IDbContextFactory<AppDbContext> dbf)
         return a <= b ? a : b;
     }
 
-    private static PersonStatus Synthetic(StatusKind kind, Guid personId) => new()
+    private static DateTime NormalizeUtc(DateTime value)
     {
-        Id = Guid.Empty,
-        PersonId = personId,
-        StatusKindId = kind.Id,
-        StatusKind = kind,
-        OpenDate = DateTime.MinValue,
-        Sequence = short.MinValue,
-        IsActive = true
-    };
+        return value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+    }
+
+    private static List<PersonStatus> SelectTimeline(IReadOnlyCollection<PersonStatus> statuses)
+    {
+        if (statuses.Count == 0)
+            return new List<PersonStatus>();
+
+        return statuses
+            .GroupBy(s => s.OpenDate)
+            .OrderBy(g => g.Key)
+            .Select(g => g
+                .OrderBy(s => s.StatusKind!, StatusKindPriorityComparer)
+                .ThenBy(s => s.Sequence)
+                .ThenBy(s => s.Id)
+                .First())
+            .ToList();
+    }
+
+    private async Task<Dictionary<Guid, DateTime?>> BuildFirstPresenceMapAsync(
+        AppDbContext db,
+        IReadOnlyCollection<Guid> personIds,
+        DateTime untilUtc,
+        CancellationToken ct)
+    {
+        var map = personIds.ToDictionary(id => id, _ => (DateTime?)null);
+
+        var kinds = await db.StatusKinds.AsNoTracking().ToListAsync(ct);
+        var inDistrict = kinds.FirstOrDefault(k => string.Equals(k.Name?.Trim(), "В районі", StringComparison.OrdinalIgnoreCase));
+
+        if (inDistrict is not null)
+        {
+            var statuses = await db.PersonStatuses.AsNoTracking()
+                .Where(s => s.IsActive && personIds.Contains(s.PersonId) && s.StatusKindId == inDistrict.Id && s.OpenDate <= untilUtc)
+                .GroupBy(s => s.PersonId)
+                .Select(g => new { g.Key, FirstUtc = g.Min(x => x.OpenDate) })
+                .ToListAsync(ct);
+
+            foreach (var item in statuses)
+            {
+                if (map.TryGetValue(item.Key, out var current))
+                    map[item.Key] = MinDate(current, item.FirstUtc);
+            }
+        }
+
+        if (db.Model.FindEntityType(typeof(PersonPositionAssignment)) is not null)
+        {
+            var assignments = await db.PersonPositionAssignments.AsNoTracking()
+                .Where(a => personIds.Contains(a.PersonId) && a.OpenUtc <= untilUtc)
+                .GroupBy(a => a.PersonId)
+                .Select(g => new { g.Key, FirstUtc = g.Min(x => x.OpenUtc) })
+                .ToListAsync(ct);
+
+            foreach (var item in assignments)
+            {
+                if (map.TryGetValue(item.Key, out var current))
+                    map[item.Key] = MinDate(current, item.FirstUtc);
+            }
+        }
+
+        return map;
+    }
 }
