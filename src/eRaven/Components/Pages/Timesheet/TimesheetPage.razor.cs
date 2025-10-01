@@ -10,9 +10,12 @@
 //   7) Утиліти/прибирання
 //-----------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Blazored.Toast.Services;
+using eRaven.Application.Services.PersonStatusReadService;
 using eRaven.Application.Services.PersonService;
-using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.TimesheetViewModels;
 using eRaven.Domain.Models;
@@ -25,7 +28,7 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     // ============================= 1) DI, стан =============================
     [Inject] private IPersonService PersonService { get; set; } = default!;
     [Inject] private IStatusKindService StatusKindService { get; set; } = default!;
-    [Inject] private IPersonStatusService PersonStatusService { get; set; } = default!;
+    [Inject] private IPersonStatusReadService PersonStatusReadService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
 
     private readonly CancellationTokenSource _cts = new();
@@ -85,17 +88,23 @@ public partial class TimesheetPage : ComponentBase, IDisposable
             if (persons.Count == 0) return;
 
             var fromUtc = ToUtcMidnight(BuiltStartLocal);
-            var toUtc = ToUtcMidnight(BuiltEndLocal); // exclusive
+
+            var notPresentKind = await PersonStatusReadService.ResolveNotPresentAsync(_cts.Token);
+            var monthMap = await PersonStatusReadService.ResolveMonthAsync(
+                persons.Select(p => p.Id),
+                BuiltYear,
+                BuiltMonth,
+                _cts.Token);
 
             foreach (var p in persons)
             {
-                var hist = await PersonStatusService.GetHistoryAsync(p.Id, _cts.Token) ?? [];
-                var days = BuildDailyCellsWithBaseline(hist, fromUtc, toUtc);
+                if (!monthMap.TryGetValue(p.Id, out var monthStatus))
+                    continue;
 
+                var days = BuildDailyCells(monthStatus.Days, fromUtc, notPresentKind, monthStatus.FirstPresenceUtc);
                 if (days.Length == 0 || days.All(d => d is null || d.Code is null))
                     continue;
 
-                FillLeadingGapsWithNb(days);
                 if (IsEntireMonthExcluded(days))
                     continue;
 
@@ -108,7 +117,6 @@ public partial class TimesheetPage : ComponentBase, IDisposable
                     Days = days
                 });
 
-                // ЕКСПОРТ: лише коди, рівно BuiltDaysInMonth
                 var codes = new string[BuiltDaysInMonth];
                 for (int i = 0; i < BuiltDaysInMonth; i++)
                     codes[i] = days[i]?.Code ?? string.Empty;
@@ -150,64 +158,57 @@ public partial class TimesheetPage : ComponentBase, IDisposable
     }
 
     // ========== 4) Побудова денних клітинок (baseline + зміни) ==========
-    private DayCell[] BuildDailyCellsWithBaseline(
-        IReadOnlyList<PersonStatus> history,
+    private DayCell[] BuildDailyCells(
+        PersonStatus?[] monthStatuses,
         DateTime fromUtc,
-        DateTime toUtc)
+        StatusKind? notPresentKind,
+        DateTime? firstPresenceUtc)
     {
-        var daysCount = (toUtc - fromUtc).Days;
-        var result = new DayCell[daysCount];
-        if (daysCount <= 0) return result;
-        if (history is null || history.Count == 0) return result;
+        if (monthStatuses is null || monthStatuses.Length == 0)
+            return Array.Empty<DayCell>();
 
-        var ordered = history
-            .OrderBy(s => s.OpenDate)
-            .ThenBy(s => s.Sequence)
-            .ToList();
+        var result = new DayCell[monthStatuses.Length];
 
-        var baseline = ordered.LastOrDefault(s => s.OpenDate <= fromUtc);
-        string? currentCode = baseline?.StatusKind?.Code?.Trim() ?? CodeForKind(baseline?.StatusKindId ?? 0);
-        string? currentTitle = baseline?.StatusKind?.Name ?? NameForKind(baseline?.StatusKindId ?? 0);
-        string? currentNote = baseline?.Note;
+        var notPresentCode = notPresentKind?.Code?.Trim();
+        var notPresentTitle = string.IsNullOrWhiteSpace(notPresentKind?.Name)
+            ? (string.IsNullOrWhiteSpace(notPresentCode) ? null : NameForCode(notPresentCode) ?? notPresentCode)
+            : notPresentKind!.Name;
 
-        var inRange = ordered.Where(s => s.OpenDate >= fromUtc && s.OpenDate < toUtc).ToList();
-        var idx = 0;
-
-        for (int i = 0; i < daysCount; i++)
+        for (int i = 0; i < monthStatuses.Length; i++)
         {
-            var dayUtc = fromUtc.AddDays(i);
+            var endOfDayUtc = fromUtc.AddDays(i + 1).AddTicks(-1);
+            var status = monthStatuses[i];
 
-            while (idx < inRange.Count && inRange[idx].OpenDate <= dayUtc)
+            if (firstPresenceUtc is null || endOfDayUtc < firstPresenceUtc.Value || status is null)
             {
-                var s = inRange[idx++];
-                currentCode = s.StatusKind?.Code?.Trim() ?? CodeForKind(s.StatusKindId);
-                currentTitle = s.StatusKind?.Name ?? NameForKind(s.StatusKindId);
-                currentNote = s.Note;
+                if (string.IsNullOrWhiteSpace(notPresentCode))
+                {
+                    result[i] = new DayCell();
+                    continue;
+                }
+
+                result[i] = new DayCell
+                {
+                    Code = notPresentCode,
+                    Title = notPresentTitle ?? notPresentCode,
+                    Note = null
+                };
+                continue;
             }
+
+            var code = status.StatusKind?.Code?.Trim() ?? CodeForKind(status.StatusKindId);
+            var title = status.StatusKind?.Name ?? NameForKind(status.StatusKindId);
+            var note = string.IsNullOrWhiteSpace(status.Note) ? null : status.Note!.Trim();
 
             result[i] = new DayCell
             {
-                Code = string.IsNullOrWhiteSpace(currentCode) ? null : currentCode,
-                Title = currentTitle,
-                Note = string.IsNullOrWhiteSpace(currentNote) ? null : currentNote?.Trim()
+                Code = string.IsNullOrWhiteSpace(code) ? null : code,
+                Title = title,
+                Note = note
             };
         }
 
         return result;
-    }
-
-    private void FillLeadingGapsWithNb(DayCell[] days)
-    {
-        var first = Array.FindIndex(days, d => d is { Code: not null });
-        if (first <= 0) return;
-
-        var title = NameForCode("нб") ?? "нб";
-        for (int i = 0; i < first; i++)
-        {
-            days[i] ??= new DayCell();
-            days[i]!.Code = "нб";
-            days[i]!.Title = title;
-        }
     }
 
     // ================== 5) Відображення (кольори/легенда/тултіп) ==================
