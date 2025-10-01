@@ -18,6 +18,7 @@ using eRaven.Application.Services.PersonStatusReadService;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.TimesheetViewModels;
+using eRaven.Components.Shared.StatusFormatting;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -93,12 +94,10 @@ public partial class TimesheetPage : ComponentBase, IDisposable
             var fromUtc = ToUtcMidnight(BuiltStartLocal);
 
             var notPresentKind = await PersonStatusReadService.ResolveNotPresentAsync(_cts.Token);
-            
             _notPresentCode = notPresentKind?.Code?.Trim();
             _notPresentTitle = string.IsNullOrWhiteSpace(notPresentKind?.Name)
                 ? (_notPresentCode is null ? null : NameForCode(_notPresentCode) ?? _notPresentCode)
                 : notPresentKind!.Name;
-                
             var monthMap = await PersonStatusReadService.ResolveMonthAsync(
                 persons.Select(p => p.Id),
                 BuiltYear,
@@ -176,7 +175,7 @@ public partial class TimesheetPage : ComponentBase, IDisposable
         PersonStatus?[] monthStatuses,
         DateTime fromUtc,
         string? notPresentCode,
-        string? notPresentTitle,        
+        string? notPresentTitle,
         DateTime? firstPresenceUtc)
     {
         if (monthStatuses is null || monthStatuses.Length == 0)
@@ -236,40 +235,11 @@ public partial class TimesheetPage : ComponentBase, IDisposable
         LegendCodes.Add(code.Trim());
     }
 
-    private static readonly Dictionary<string, string> BadgeByCode = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["100"] = "badge rounded-pill text-bg-primary",   // синій
-        ["РОЗПОР"] = "badge rounded-pill text-bg-info",     // блакитний
-        ["ВДР"] = "badge rounded-pill text-bg-secondary", // сірий
-        ["В"] = "badge rounded-pill text-bg-success",   // зелений
-        ["Л_Х"] = "badge rounded-pill text-bg-warning",   // жовтий
-        ["Л_Б"] = "badge rounded-pill text-bg-warning",   // жовтий
-        ["БВ"] = "badge rounded-pill text-bg-danger",    // червоний
-        ["П"] = "badge rounded-pill text-bg-danger",
-        ["200"] = "badge rounded-pill text-bg-danger",
-        ["А"] = "badge rounded-pill text-bg-danger",
-        ["СЗЧ"] = "badge rounded-pill text-bg-danger"
-    };
+    protected string GetBadgeClass(string? code)
+        => StatusFormattingHelper.GetBadgeClass(code, _notPresentCode);
 
-    protected string GetBadgeClass(string code)
-    {
-        if (string.IsNullOrWhiteSpace(code) || code.Equals("30", StringComparison.OrdinalIgnoreCase))
-            return "d-inline-block px-1 small"; // «30» — без підсвітки
-
-        if (_notPresentCode is not null && code.Equals(_notPresentCode, StringComparison.OrdinalIgnoreCase))
-            return "badge rounded-pill text-bg-info px-2 py-1";
-
-        if (BadgeByCode.TryGetValue(code.Trim(), out var cls))
-            return $"{cls} px-2 py-1";
-
-        return "badge rounded-pill text-bg-primary px-2 py-1";
-    }
-
-    protected string GetStatusTitle(string code)
-    {
-        var name = _kinds.FirstOrDefault(k => string.Equals(k.Code, code, StringComparison.OrdinalIgnoreCase))?.Name;
-        return string.IsNullOrWhiteSpace(name) ? code : $"{code} — {name}";
-    }
+    protected string GetStatusTitle(string? code)
+        => StatusFormattingHelper.GetStatusTitle(code, _kinds, _notPresentCode, _notPresentTitle);
 
     protected static string BuildTitle(DayCell? cell)
     {
