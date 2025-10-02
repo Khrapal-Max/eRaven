@@ -16,7 +16,6 @@ using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Components.Pages.Statuses;
 using eRaven.Components.Pages.Statuses.Modals;
 using eRaven.Domain.Models;
-using eRaven.Domain.Person;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;

@@ -11,7 +11,6 @@ using eRaven.Application.Services.PositionService;
 using eRaven.Application.ViewModels.PositionAssignmentViewModels;
 using eRaven.Components.Pages.PositionAssignments.Modals;
 using eRaven.Domain.Models;
-using eRaven.Domain.Person;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.PositionAssignments;

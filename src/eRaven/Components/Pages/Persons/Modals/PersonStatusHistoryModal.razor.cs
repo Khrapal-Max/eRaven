@@ -6,7 +6,6 @@
 
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Domain.Models;
-using eRaven.Domain.Person;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Persons.Modals;

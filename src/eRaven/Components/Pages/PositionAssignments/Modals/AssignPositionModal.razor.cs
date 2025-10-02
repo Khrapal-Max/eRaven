@@ -8,7 +8,6 @@ using Blazored.FluentValidation;
 using Blazored.Toast.Services;
 using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Domain.Models;
-using eRaven.Domain.Person;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.PositionAssignments.Modals;

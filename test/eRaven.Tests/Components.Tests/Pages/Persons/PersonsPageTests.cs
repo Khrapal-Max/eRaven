@@ -12,7 +12,6 @@ using eRaven.Application.Services.PersonService;
 using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Components.Pages.Persons;
 using eRaven.Components.Pages.Persons.Modals;
-using eRaven.Domain.Person;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;

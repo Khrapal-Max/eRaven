@@ -8,7 +8,6 @@ using Bunit;
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Components.Pages.Registers;
 using eRaven.Domain.Models;
-using eRaven.Domain.Person;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 

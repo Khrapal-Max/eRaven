@@ -12,7 +12,6 @@ using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Components.Pages.Persons;
 using eRaven.Domain.Models;
-using eRaven.Domain.Person;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;

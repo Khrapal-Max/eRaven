@@ -6,7 +6,6 @@
 
 using ClosedXML.Excel;
 using eRaven.Domain.Models;
-using eRaven.Domain.Person;
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Reflection;

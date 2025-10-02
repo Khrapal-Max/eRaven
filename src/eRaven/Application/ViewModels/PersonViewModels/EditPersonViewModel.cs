@@ -5,7 +5,6 @@
 // EditPersonViewModel
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Person;
 using System.ComponentModel.DataAnnotations;
 
 namespace eRaven.Application.ViewModels.PersonViewModels;

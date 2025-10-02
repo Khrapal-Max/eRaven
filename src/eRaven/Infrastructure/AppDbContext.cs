@@ -7,20 +7,19 @@
 
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Models;
-using eRaven.Domain.Person;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public DbSet<PersonAggregate> Persons => Set<PersonAggregate>();
-    public DbSet<PersonPositionAssignment> PersonPositionAssignments => Set<PersonPositionAssignment>();
-    public DbSet<PersonStatus> PersonStatuses => Set<PersonStatus>();
-    public DbSet<PlanAction> PlanActions => Set<PlanAction>();
-    public DbSet<PositionUnit> PositionUnits => Set<PositionUnit>();
-    public DbSet<StatusKind> StatusKinds => Set<StatusKind>();
-    public DbSet<StatusTransition> StatusTransitions => Set<StatusTransition>();
+    public DbSet<PersonAggregate> Persons {get; set; }
+    public DbSet<PlanAction> PlanActions { get; set; }
+    public DbSet<PersonStatus> PersonStatuses { get; set; }
+    public DbSet<PersonPositionAssignment> PersonPositionAssignments { get; set; }
+    public DbSet<PositionUnit> PositionUnits { get; set; }
+    public DbSet<StatusKind> StatusKinds { get; set; }
+    public DbSet<StatusTransition> StatusTransitions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

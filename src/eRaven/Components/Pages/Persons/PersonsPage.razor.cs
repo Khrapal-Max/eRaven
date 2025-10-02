@@ -10,7 +10,6 @@ using eRaven.Application.Services.PersonService;
 using eRaven.Application.ViewModels;
 using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Components.Pages.Persons.Modals;
-using eRaven.Domain.Person;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;
 using System.Collections.ObjectModel;

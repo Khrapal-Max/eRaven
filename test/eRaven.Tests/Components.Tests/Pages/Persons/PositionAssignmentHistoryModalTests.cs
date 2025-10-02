@@ -8,7 +8,6 @@ using Bunit;
 using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Components.Pages.Persons.Modals;
 using eRaven.Domain.Models;
-using eRaven.Domain.Person;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;

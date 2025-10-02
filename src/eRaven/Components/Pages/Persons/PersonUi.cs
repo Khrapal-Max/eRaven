@@ -6,7 +6,6 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.ViewModels.PersonViewModels;
-using eRaven.Domain.Person;
 
 namespace eRaven.Components.Pages.Persons;
 

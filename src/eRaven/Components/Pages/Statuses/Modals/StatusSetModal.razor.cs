@@ -14,7 +14,6 @@
 
 using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Domain.Models;
-using eRaven.Domain.Person;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 

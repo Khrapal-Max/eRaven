@@ -9,7 +9,6 @@ using Bunit;
 using eRaven.Components.Pages.PlanActions.Modals;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
-using eRaven.Domain.Person;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;

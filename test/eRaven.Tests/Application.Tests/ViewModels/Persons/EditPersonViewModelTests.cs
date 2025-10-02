@@ -6,7 +6,6 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.ViewModels.PersonViewModels;
-using eRaven.Domain.Models;
 using System.ComponentModel.DataAnnotations;
 
 namespace eRaven.Tests.Application.Tests.ViewModels.Persons;

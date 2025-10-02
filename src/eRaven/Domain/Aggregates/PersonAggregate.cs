@@ -184,7 +184,7 @@ public class PersonAggregate
 
     public void UnassignFromPosition(DateTime closeUtc, string? note = null)
     {
-        var activeAssignment = GetActiveAssignment() 
+        var activeAssignment = GetActiveAssignment()
             ?? throw new DomainException("Немає активного призначення");
 
         if (activeAssignment.OpenUtc >= closeUtc)

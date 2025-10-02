@@ -13,7 +13,6 @@ using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.ViewModels.StaffOnDateViewModels;
 using eRaven.Components.Pages.Reports;
 using eRaven.Domain.Models;
-using eRaven.Domain.Person;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 

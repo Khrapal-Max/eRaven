@@ -5,7 +5,6 @@
 // IPersonService
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Person;
 using System.Linq.Expressions;
 
 namespace eRaven.Application.Services.PersonService;

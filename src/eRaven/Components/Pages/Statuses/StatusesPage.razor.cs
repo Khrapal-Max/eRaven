@@ -15,7 +15,6 @@ using eRaven.Application.ViewModels;
 using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Domain.Exceptions;
 using eRaven.Domain.Models;
-using eRaven.Domain.Person;
 using Microsoft.AspNetCore.Components;
 using System.Collections.ObjectModel;
 

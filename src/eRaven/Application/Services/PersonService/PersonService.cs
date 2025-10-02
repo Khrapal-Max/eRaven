@@ -5,7 +5,6 @@
 // PersonService
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Person;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
