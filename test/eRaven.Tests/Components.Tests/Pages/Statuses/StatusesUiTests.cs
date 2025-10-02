@@ -5,7 +5,7 @@
 //------------------------------------------------------------------------------
 
 using eRaven.Components.Pages.Statuses;
-using eRaven.Domain.Models;
+using eRaven.Domain.Person;
 
 namespace eRaven.Tests.Components.Tests.Pages.Statuses;
 

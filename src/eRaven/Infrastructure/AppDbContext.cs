@@ -5,14 +5,16 @@
 // AppDbContext
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Aggregates;
 using eRaven.Domain.Models;
+using eRaven.Domain.Person;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public DbSet<Person> Persons => Set<Person>();
+    public DbSet<PersonAggregate> Persons => Set<PersonAggregate>();
     public DbSet<PersonPositionAssignment> PersonPositionAssignments => Set<PersonPositionAssignment>();
     public DbSet<PersonStatus> PersonStatuses => Set<PersonStatus>();
     public DbSet<PlanAction> PlanActions => Set<PlanAction>();

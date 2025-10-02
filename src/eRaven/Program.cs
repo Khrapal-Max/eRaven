@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------------
+Ôªø//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -6,6 +6,9 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast;
+using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
+using eRaven.Application.Repositories;
+using eRaven.Application.Services;
 using eRaven.Application.Services.ConfirmService;
 using eRaven.Application.Services.ExcelService;
 using eRaven.Application.Services.PersonService;
@@ -23,8 +26,10 @@ using eRaven.Components.Pages.Persons;
 using eRaven.Components.Pages.Persons.Modals;
 using eRaven.Components.Pages.Positions.Modals;
 using eRaven.Components.Pages.StatusTransitions.Modals;
+using eRaven.Domain.Services;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
+using eRaven.Infrastructure.Repositories;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,7 +41,7 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
 {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")); // ‡·Ó ‚‡¯ ÔÓ‚‡È‰Â
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")); // –∞–±–æ –≤–∞—à –ø—Ä–æ–≤–∞–π–¥–µ—Ä
 });
 
 builder.Services.AddBlazoredToast();
@@ -56,6 +61,12 @@ builder.Services.AddScoped<IPositionService, PositionService>();
 builder.Services.AddScoped<IPositionAssignmentService, PositionAssignmentService>();
 builder.Services.AddScoped<IStatusKindService, StatusKindService>();
 builder.Services.AddScoped<IStatusTransitionService, StatusTransitionService>();
+
+// ‚úÖ –ù–æ–≤–∏–π DDD-–ø—ñ–¥—Ö—ñ–¥
+builder.Services.AddScoped<PersonApplicationService>();
+builder.Services.AddScoped<IPersonRepository, PersonRepository>();
+builder.Services.AddScoped<IStatusTransitionValidator, StatusTransitionValidator>();
+builder.Services.AddScoped<IPositionAssignmentPolicy, PositionAssignmentPolicy>();
 
 var app = builder.Build();
 

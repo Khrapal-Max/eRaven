@@ -12,6 +12,7 @@ using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Application.Services.PositionService;
 using eRaven.Components.Pages.PositionAssignments;
 using eRaven.Domain.Models;
+using eRaven.Domain.Person;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 

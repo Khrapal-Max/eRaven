@@ -5,6 +5,7 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
+using eRaven.Application.Services;
 using eRaven.Application.Services.PersonService;
 using eRaven.Application.Services.PersonStatusService;
 using eRaven.Application.Services.PositionAssignmentService;
@@ -12,7 +13,9 @@ using eRaven.Application.Services.StatusKindService;
 using eRaven.Application.Services.StatusTransitionService;
 using eRaven.Application.ViewModels;
 using eRaven.Application.ViewModels.PersonStatusViewModels;
+using eRaven.Domain.Exceptions;
 using eRaven.Domain.Models;
+using eRaven.Domain.Person;
 using Microsoft.AspNetCore.Components;
 using System.Collections.ObjectModel;
 
@@ -45,6 +48,7 @@ public partial class StatusesPage : ComponentBase, IDisposable
     [Inject] private IStatusTransitionService StatusTransitionService { get; set; } = default!;
     [Inject] private IPositionAssignmentService PositionAssignmentService { get; set; } = default!;
     [Inject] private IToastService Toast { get; set; } = default!;
+    [Inject] private PersonApplicationService PersonAppService { get; set; } = default!;
 
     // =============================  Життєвий цикл  =============================
     protected override async Task OnInitializedAsync()
@@ -87,64 +91,24 @@ public partial class StatusesPage : ComponentBase, IDisposable
         {
             SetBusy(true);
 
-            // 00:00 локального дня → UTC
             var openUtc = StatusesUi.ToUtcFromLocalMidnight(vm.Moment);
 
-            // 1) Якщо код статусу вимагає зняття — знімаємо з посади ДО зміни статусу
-            if (await RequiresUnassignByCodeAsync(vm.StatusId, _cts.Token))
-            {
-                var active = await PositionAssignmentService.GetActiveAsync(vm.PersonId, _cts.Token);
-                if (active is not null)
-                {
-                    var closeUtc = openUtc.AddDays(-1); // 00:00:00 попереднього дня
-                    var minAllowed = active.OpenUtc.Date;
-                    if (closeUtc < minAllowed) closeUtc = minAllowed;
-
-                    var ok = await PositionAssignmentService.UnassignAsync(
-                        vm.PersonId,
-                        closeUtc,
-                        note: null,
-                        ct: _cts.Token);
-
-                    if (!ok)
-                        Toast.ShowWarning("Не вдалося зняти з посади (активне призначення не знайдено). Статус все одно буде змінено.");
-                }
-            }
-
-            // 2) Встановлюємо статус
-            var ps = new PersonStatus
-            {
-                Id = Guid.Empty,
-                PersonId = vm.PersonId,
-                StatusKindId = vm.StatusId,
-                OpenDate = openUtc,
-                Note = string.IsNullOrWhiteSpace(vm.Note) ? null : vm.Note!.Trim(),
-                IsActive = true,
-                Author = string.IsNullOrWhiteSpace(vm.Author) ? null : vm.Author!.Trim(),
-                Modified = DateTime.UtcNow
-            };
-
-            await PersonStatusService.SetStatusAsync(ps, _cts.Token);
-
-            // Закриваємо модаль і оновлюємо список/фільтр
-            _isStatusModalOpen = false;
-            _modalPerson = null;
-            _modalCurrentStatus = null;
-            _mapStatuses.Clear();
-
-            await ReloadAllAsync();
-
-            if (OneShotMode)
-            {
-                Search = string.Empty;
-                Filtered.Clear();
-            }
-            else
-            {
-                ApplyLocalFilter();
-            }
+            // ✅ НОВИЙ спосіб - вся логіка в агрегаті
+            await PersonAppService.ChangePersonStatusAsync(
+                personId: vm.PersonId,
+                newStatusKindId: vm.StatusId,
+                effectiveAtUtc: openUtc,
+                note: vm.Note?.Trim(),
+                author: vm.Author?.Trim()
+            );
 
             Toast.ShowSuccess("Статус збережено.");
+            await ReloadAllAsync();
+        }
+        catch (DomainException ex)
+        {
+            // Доменні помилки - показуємо користувачу
+            Toast.ShowError(ex.Message);
         }
         catch (Exception ex)
         {

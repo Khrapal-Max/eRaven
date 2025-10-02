@@ -6,6 +6,7 @@
 
 using eRaven.Application.Services.PersonService;
 using eRaven.Domain.Models;
+using eRaven.Domain.Person;
 using eRaven.Tests.Application.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;

@@ -8,6 +8,7 @@
 using ClosedXML.Excel;
 using eRaven.Application.Services.ExcelService;
 using eRaven.Domain.Models;
+using eRaven.Domain.Person;
 
 namespace eRaven.Tests.Application.Tests.Services;
 
