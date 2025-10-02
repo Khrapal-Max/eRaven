@@ -18,11 +18,9 @@ public class StatusTransition
     /// Поточний статус
     /// </summary>
     public int FromStatusKindId { get; set; }
-    public StatusKind FromStatusKind { get; set; } = null!;
 
     /// <summary>
     /// Дозволений статус
     /// </summary>
     public int ToStatusKindId { get; set; }
-    public StatusKind ToStatusKind { get; set; } = null!;
 }
