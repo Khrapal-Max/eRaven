@@ -6,7 +6,6 @@
 
 using Blazored.Toast.Services;
 using Bunit;
-using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Components.Pages.PositionAssignments.Modals;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;

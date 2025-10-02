@@ -13,7 +13,7 @@ namespace eRaven.Infrastructure;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public DbSet<PersonAggregate> Persons {get; set; }
+    public DbSet<PersonAggregate> Persons { get; set; }
     public DbSet<PlanAction> PlanActions { get; set; }
     public DbSet<PersonStatus> PersonStatuses { get; set; }
     public DbSet<PersonPositionAssignment> PersonPositionAssignments { get; set; }

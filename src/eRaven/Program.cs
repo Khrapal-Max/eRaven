@@ -6,25 +6,27 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast;
+using eRaven.Application.CommandHandlers;
+using eRaven.Application.CommandHandlers.Persons;
+using eRaven.Application.CommandHandlers.PlanActions;
+using eRaven.Application.CommandHandlers.PositionAssignments;
+using eRaven.Application.CommandHandlers.Positions;
+using eRaven.Application.CommandHandlers.StatusKinds;
+using eRaven.Application.Commands.Persons;
+using eRaven.Application.Commands.PlanActions;
+using eRaven.Application.Commands.PositionAssignments;
+using eRaven.Application.Commands.Positions;
+using eRaven.Application.Commands.StatusKinds;
+using eRaven.Application.DTOs;
+using eRaven.Application.Queries.Persons;
+using eRaven.Application.Queries.Positions;
+using eRaven.Application.Queries.StatusKinds;
+using eRaven.Application.QueryHandlers;
+using eRaven.Application.QueryHandlers.Persons;
+using eRaven.Application.QueryHandlers.Positions;
+using eRaven.Application.QueryHandlers.StatusKinds;
 using eRaven.Application.Repositories;
-using eRaven.Application.Services;
-using eRaven.Application.Services.ConfirmService;
-using eRaven.Application.Services.ExcelService;
-using eRaven.Application.Services.PersonService;
-using eRaven.Application.Services.PersonStatusService;
-using eRaven.Application.Services.PlanActionService;
-using eRaven.Application.Services.PositionAssignmentService;
-using eRaven.Application.Services.PositionService;
-using eRaven.Application.Services.StatusKindService;
-using eRaven.Application.Services.StatusTransitionService;
-using eRaven.Application.ViewModels.PersonViewModels;
-using eRaven.Application.ViewModels.PositionPagesViewModels;
-using eRaven.Application.ViewModels.StatusKindViewModels;
 using eRaven.Components;
-using eRaven.Components.Pages.Persons;
-using eRaven.Components.Pages.Persons.Modals;
-using eRaven.Components.Pages.Positions.Modals;
-using eRaven.Components.Pages.StatusTransitions.Modals;
 using eRaven.Domain.Services;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
@@ -45,27 +47,79 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 
 builder.Services.AddBlazoredToast();
 
+// ========== REPOSITORIES ==========
+builder.Services.AddScoped<IPersonRepository, PersonRepository>();
+builder.Services.AddScoped<IPositionUnitRepository, PositionUnitRepository>();
+builder.Services.AddScoped<IStatusKindRepository, StatusKindRepository>();
+builder.Services.AddScoped<IStatusTransitionRepository, StatusTransitionRepository>();
+
+// ========== DOMAIN SERVICES ==========
+builder.Services.AddScoped<IStatusTransitionValidator, StatusTransitionValidator>();
+builder.Services.AddScoped<IPositionAssignmentPolicy, PositionAssignmentPolicy>();
+
+// ========== COMMAND HANDLERS - PERSONS ==========
+builder.Services.AddScoped<ICommandHandler<CreatePersonCommand, Guid>,
+    CreatePersonCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<UpdatePersonInfoCommand>,
+    UpdatePersonInfoCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<ChangePersonStatusCommand>,
+    ChangePersonStatusCommandHandler>();
+
+// ========== QUERY HANDLERS - PERSONS ==========
+builder.Services.AddScoped<IQueryHandler<GetPersonByIdQuery, PersonDto?>,
+    GetPersonByIdQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<SearchPersonsQuery, IReadOnlyList<PersonDto>>,
+    SearchPersonsQueryHandler>();
+
+// ========== COMMAND HANDLERS - POSITIONS ==========
+builder.Services.AddScoped<ICommandHandler<CreatePositionCommand, Guid>,
+    CreatePositionCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<SetPositionActiveStateCommand>,
+    SetPositionActiveStateCommandHandler>();
+
+// ========== QUERY HANDLERS - POSITIONS ==========
+builder.Services.AddScoped<IQueryHandler<GetAllPositionsQuery, IReadOnlyList<PositionDto>>,
+    GetAllPositionsQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetPositionByIdQuery, PositionDto?>,
+    GetPositionByIdQueryHandler>();
+
+// ========== COMMAND HANDLERS - POSITION ASSIGNMENTS ==========
+builder.Services.AddScoped<ICommandHandler<AssignToPositionCommand>,
+    AssignToPositionCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<UnassignFromPositionCommand>,
+    UnassignFromPositionCommandHandler>();
+
+// ========== COMMAND HANDLERS - PLAN ACTIONS ==========
+builder.Services.AddScoped<ICommandHandler<CreatePlanActionCommand, Guid>,
+    CreatePlanActionCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<ApprovePlanActionCommand>,
+    ApprovePlanActionCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<DeletePlanActionCommand>,
+    DeletePlanActionCommandHandler>();
+
+// ========== COMMAND HANDLERS - STATUS KINDS ==========
+builder.Services.AddScoped<ICommandHandler<CreateStatusKindCommand, int>,
+    CreateStatusKindCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<UpdateStatusKindOrderCommand>,
+    UpdateStatusKindOrderCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<SetStatusKindActiveCommand>,
+    SetStatusKindActiveCommandHandler>();
+
+// ========== QUERY HANDLERS - STATUS KINDS ==========
+builder.Services.AddScoped<IQueryHandler<GetAllStatusKindsQuery, IReadOnlyList<StatusKindDto>>,
+    GetAllStatusKindsQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetStatusKindByIdQuery, StatusKindDto?>,
+    GetStatusKindByIdQueryHandler>();
+
+// ========== INFRASTRUCTURE SERVICES (залишаємо) ==========
+builder.Services.AddScoped<IExcelService, ExcelService>();
+builder.Services.AddScoped<IConfirmService, ConfirmService>();
+
+// ========== VALIDATORS (FluentValidation) ==========
 builder.Services.AddTransient<IValidator<EditPersonViewModel>, EditPersonViewModelValidator>();
 builder.Services.AddTransient<IValidator<CreateKindViewModel>, CreateKindViewModelValidator>();
 builder.Services.AddTransient<IValidator<CreatePersonViewModel>, CreatePersonViewModelValidator>();
 builder.Services.AddTransient<IValidator<CreatePositionUnitViewModel>, CreatePositionUnitViewModelValidator>();
-
-//Services
-builder.Services.AddScoped<IConfirmService, ConfirmService>();
-builder.Services.AddScoped<IExcelService, ExcelService>();
-builder.Services.AddScoped<IPlanActionService, PlanActionService>();
-builder.Services.AddScoped<IPersonService, PersonService>();
-builder.Services.AddScoped<IPersonStatusService, PersonStatusService>();
-builder.Services.AddScoped<IPositionService, PositionService>();
-builder.Services.AddScoped<IPositionAssignmentService, PositionAssignmentService>();
-builder.Services.AddScoped<IStatusKindService, StatusKindService>();
-builder.Services.AddScoped<IStatusTransitionService, StatusTransitionService>();
-
-// ✅ Новий DDD-підхід
-builder.Services.AddScoped<PersonApplicationService>();
-builder.Services.AddScoped<IPersonRepository, PersonRepository>();
-builder.Services.AddScoped<IStatusTransitionValidator, StatusTransitionValidator>();
-builder.Services.AddScoped<IPositionAssignmentPolicy, PositionAssignmentPolicy>();
 
 var app = builder.Build();
 

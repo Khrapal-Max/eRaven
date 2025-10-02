@@ -5,9 +5,6 @@
 // CreatePositionUnitViewModelValidatorTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.PositionService;
-using eRaven.Application.ViewModels.PositionPagesViewModels;
-using eRaven.Components.Pages.Positions.Modals;
 using FluentValidation.TestHelper;
 using Moq;
 

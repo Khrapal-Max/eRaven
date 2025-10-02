@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -6,9 +6,6 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
-using eRaven.Application.Services.ConfirmService;
-using eRaven.Application.Services.StatusKindService;
-using eRaven.Application.Services.StatusTransitionService;
 using eRaven.Components.Pages.StatusTransitions.Modals;
 using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Models;
@@ -230,3 +227,4 @@ public partial class StatusTransitionsPage : ComponentBase
         return (!newAllowed.SetEquals(current), newAllowed);
     }
 }
+*/

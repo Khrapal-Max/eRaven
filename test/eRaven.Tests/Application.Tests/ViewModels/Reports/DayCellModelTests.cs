@@ -11,8 +11,6 @@
 // DayCellModelTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.TimesheetViewModels;
-
 namespace eRaven.Tests.Application.Tests.ViewModels.Reports;
 
 public class DayCellModelTests

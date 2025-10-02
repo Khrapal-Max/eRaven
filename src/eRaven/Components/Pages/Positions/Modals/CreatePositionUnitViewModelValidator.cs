@@ -1,12 +1,10 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // CreatePositionUnitViewModelValidator
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.PositionService;
-using eRaven.Application.ViewModels.PositionPagesViewModels;
 using FluentValidation;
 
 namespace eRaven.Components.Pages.Positions.Modals;
@@ -51,4 +49,4 @@ public sealed class CreatePositionUnitViewModelValidator : AbstractValidator<Cre
             .NotEmpty().WithMessage("Шлях обов'язковий.")
             .MaximumLength(512).WithMessage("Шлях занадто довгий (до 512).");
     }
-}
+}*/

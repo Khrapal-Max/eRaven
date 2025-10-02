@@ -11,8 +11,6 @@
 // TimesheetRowTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.TimesheetViewModels;
-
 namespace eRaven.Tests.Application.Tests.ViewModels.Reports;
 
 public sealed class TimesheetRowTests

@@ -4,7 +4,6 @@
 // ApprovePlanActionViewModelTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PlanActionViewModels;
 using eRaven.Domain.Enums;
 
 namespace eRaven.Tests.Application.Tests.ViewModels.PlanAction;

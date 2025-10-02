@@ -1,12 +1,10 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // NewKindViewModelValidator
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.StatusKindService;
-using eRaven.Application.ViewModels.StatusKindViewModels;
 using FluentValidation;
 
 namespace eRaven.Components.Pages.StatusTransitions.Modals;
@@ -64,3 +62,4 @@ public sealed class CreateKindViewModelValidator : AbstractValidator<CreateKindV
             .GreaterThanOrEqualTo(0).WithMessage("Порядок не може бути відʼємним.");
     }
 }
+*/

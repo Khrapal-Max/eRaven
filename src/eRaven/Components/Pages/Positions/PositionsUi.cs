@@ -1,12 +1,10 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // PositionsUi
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels;
-using eRaven.Application.ViewModels.PositionPagesViewModels;
 using eRaven.Domain.Models;
 using FluentValidation;
 
@@ -131,4 +129,4 @@ public static class PositionsUi
 
         return new ImportReportViewModel(added, updated, errors);
     }
-}
+}*/

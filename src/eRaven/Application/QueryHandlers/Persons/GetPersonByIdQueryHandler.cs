@@ -1,0 +1,51 @@
+﻿//-----------------------------------------------------------------------------
+// All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+// GetPersonByIdQueryHandler
+//-----------------------------------------------------------------------------
+
+using eRaven.Application.DTOs;
+using eRaven.Application.Queries.Persons;
+using eRaven.Infrastructure;
+using Microsoft.EntityFrameworkCore;
+
+namespace eRaven.Application.QueryHandlers.Persons;
+
+public sealed class GetPersonByIdQueryHandler(IDbContextFactory<AppDbContext> dbFactory)
+        : IQueryHandler<GetPersonByIdQuery, PersonDto?>
+{
+    private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
+
+    public async Task<PersonDto?> HandleAsync(
+        GetPersonByIdQuery query,
+        CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var person = await db.Persons
+            .AsNoTracking()
+            .Where(p => p.Id == query.PersonId)
+            .Select(p => new PersonDto
+            {
+                Id = p.Id,
+                Rnokpp = p.PersonalInfo.Rnokpp,
+                LastName = p.PersonalInfo.LastName,
+                FirstName = p.PersonalInfo.FirstName,
+                MiddleName = p.PersonalInfo.MiddleName,
+                FullName = p.PersonalInfo.LastName + " " + p.PersonalInfo.FirstName +
+                          (p.PersonalInfo.MiddleName != null ? " " + p.PersonalInfo.MiddleName : ""),
+                Rank = p.MilitaryDetails.Rank,
+                BZVP = p.MilitaryDetails.BZVP,
+                Weapon = p.MilitaryDetails.Weapon,
+                Callsign = p.MilitaryDetails.Callsign,
+                StatusKindId = p.StatusKindId,
+                PositionUnitId = p.PositionUnitId,
+                CreatedUtc = p.CreatedUtc,
+                ModifiedUtc = p.ModifiedUtc
+            })
+            .FirstOrDefaultAsync(ct);
+
+        return person;
+    }
+}

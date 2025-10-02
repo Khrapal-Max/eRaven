@@ -4,8 +4,6 @@
 // LocationGroupViewModelTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PlanningOnDateViewModels;
-
 namespace eRaven.Tests.Application.Tests.ViewModels.Reports;
 
 public class LocationGroupViewModelTests

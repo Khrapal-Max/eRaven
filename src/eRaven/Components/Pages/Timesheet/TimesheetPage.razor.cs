@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // Табель (місяць/рік) + експорт кодів (без нотаток у xlsx)
 // Групи:
 //   1) DI, стан (Working vs Built)
@@ -11,10 +11,6 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
-using eRaven.Application.Services.PersonService;
-using eRaven.Application.Services.PersonStatusService;
-using eRaven.Application.Services.StatusKindService;
-using eRaven.Application.ViewModels.TimesheetViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -292,3 +288,4 @@ public partial class TimesheetPage : ComponentBase, IDisposable
         GC.SuppressFinalize(this);
     }
 }
+*/

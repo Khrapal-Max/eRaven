@@ -1,10 +1,9 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 // PersonStatusHistoryModal (code-behind)
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.PersonStatusService;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -60,3 +59,4 @@ public sealed partial class PersonStatusHistoryModal : ComponentBase
     private async Task CloseAsync()
         => await OnClose.InvokeAsync();
 }
+*/

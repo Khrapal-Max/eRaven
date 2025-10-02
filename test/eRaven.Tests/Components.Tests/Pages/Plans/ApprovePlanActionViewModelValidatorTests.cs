@@ -5,9 +5,6 @@
 // ApprovePlanActionViewModelValidatorTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PlanActionViewModels;
-using eRaven.Components.Pages.PlanActions.Modals;
-
 namespace eRaven.Tests.Components.Tests.Pages.Plans;
 
 public class ApprovePlanActionViewModelValidatorTests

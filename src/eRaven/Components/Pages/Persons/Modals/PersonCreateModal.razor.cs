@@ -6,8 +6,6 @@
 
 using Blazored.FluentValidation;
 using Blazored.Toast.Services;
-using eRaven.Application.Services.PersonService;
-using eRaven.Application.ViewModels.PersonViewModels;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Persons.Modals;

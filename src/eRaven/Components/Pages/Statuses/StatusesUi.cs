@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -43,3 +43,4 @@ public static class StatusesUi
     public static string StatusLabel(StatusKind s) =>
         string.IsNullOrWhiteSpace(s.Name) ? $"ID {s.Id}" : s.Name.Trim();
 }
+*/

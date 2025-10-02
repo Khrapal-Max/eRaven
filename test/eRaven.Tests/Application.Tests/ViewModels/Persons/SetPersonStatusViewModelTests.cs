@@ -4,7 +4,6 @@
 // SetPersonStatusViewModelTests
 // -----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PersonStatusViewModels;
 using System.ComponentModel.DataAnnotations;
 
 namespace eRaven.Tests.Application.Tests.ViewModels.Persons;

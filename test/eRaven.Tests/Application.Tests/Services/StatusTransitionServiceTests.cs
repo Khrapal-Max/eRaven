@@ -5,7 +5,6 @@
 // StatusTransitionServiceTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.StatusTransitionService;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;

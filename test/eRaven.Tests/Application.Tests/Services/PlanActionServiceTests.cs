@@ -4,8 +4,6 @@
 // PlanActionServiceTests
 // -----------------------------------------------------------------------------
 
-using eRaven.Application.Services.PlanActionService;
-using eRaven.Application.ViewModels.PlanActionViewModels;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;

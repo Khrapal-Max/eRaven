@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 // RegisterStatuses (code-behind)
@@ -8,7 +8,6 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
-using eRaven.Application.Services.PersonStatusService;
 using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
@@ -156,3 +155,4 @@ public partial class RegisterStatuses : ComponentBase, IDisposable
         GC.SuppressFinalize(this);
     }
 }
+*/

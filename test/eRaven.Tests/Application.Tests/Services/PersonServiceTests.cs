@@ -4,7 +4,6 @@
 // PersonServiceTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.PersonService;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;

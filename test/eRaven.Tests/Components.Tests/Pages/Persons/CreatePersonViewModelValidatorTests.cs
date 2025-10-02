@@ -4,8 +4,6 @@
 // CreatePersonViewModelValidatorTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PersonViewModels;
-using eRaven.Components.Pages.Persons.Modals;
 using FluentValidation.TestHelper;
 
 namespace eRaven.Tests.Components.Tests.Pages.Persons;

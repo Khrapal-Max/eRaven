@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -6,9 +6,6 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
-using eRaven.Application.Services.PersonService;
-using eRaven.Application.ViewModels;
-using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Components.Pages.Persons.Modals;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;
@@ -219,3 +216,4 @@ public partial class PersonsPage : ComponentBase, IDisposable
         GC.SuppressFinalize(this);
     }
 }
+*/

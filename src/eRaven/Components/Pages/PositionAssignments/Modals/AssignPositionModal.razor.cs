@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 // AssignPositionModal
@@ -6,7 +6,6 @@
 
 using Blazored.FluentValidation;
 using Blazored.Toast.Services;
-using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -160,3 +159,4 @@ public partial class AssignPositionModal : ComponentBase
 
     private void Close() => IsOpen = false;
 }
+*/

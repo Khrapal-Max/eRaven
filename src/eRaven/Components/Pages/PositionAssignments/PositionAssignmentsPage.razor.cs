@@ -1,14 +1,10 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 // PositionAssignmentsPage (code-behind)
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
-using eRaven.Application.Services.PersonService;
-using eRaven.Application.Services.PositionAssignmentService;
-using eRaven.Application.Services.PositionService;
-using eRaven.Application.ViewModels.PositionAssignmentViewModels;
 using eRaven.Components.Pages.PositionAssignments.Modals;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
@@ -230,3 +226,4 @@ public partial class PositionAssignmentsPage : ComponentBase, IDisposable
         GC.SuppressFinalize(this);
     }
 }
+*/

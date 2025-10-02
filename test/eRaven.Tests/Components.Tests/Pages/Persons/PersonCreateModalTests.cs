@@ -7,8 +7,6 @@
 using Blazored.FluentValidation;
 using Blazored.Toast.Services;
 using Bunit;
-using eRaven.Application.Services.PersonService;
-using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Components.Pages.Persons.Modals;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;

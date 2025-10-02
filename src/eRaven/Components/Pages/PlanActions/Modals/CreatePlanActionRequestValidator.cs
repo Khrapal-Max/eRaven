@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -88,3 +88,4 @@ public sealed class CreatePlanActionRequestValidator : AbstractValidator<PlanAct
             .MaximumLength(64).WithMessage("StatusKindOnDate занадто довге (до 64).");
     }
 }
+*/

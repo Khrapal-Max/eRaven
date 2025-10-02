@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+﻿/*// -----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 // -----------------------------------------------------------------------------
 // Reports → PlanningOnDatePage (code-behind)
@@ -9,8 +9,6 @@
 // -----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
-using eRaven.Application.Services.PlanActionService;
-using eRaven.Application.ViewModels.PlanningOnDateViewModels;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Reports;
@@ -185,4 +183,4 @@ public partial class PlanningOnDate : ComponentBase, IDisposable
         _cts.Dispose();
         GC.SuppressFinalize(this);
     }
-}
+}*/

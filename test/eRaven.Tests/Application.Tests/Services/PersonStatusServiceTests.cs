@@ -4,7 +4,6 @@
 // PersonStatusServiceTests (Sequence + no CloseDate) — full coverage
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.PersonStatusService;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;

@@ -7,8 +7,6 @@
 using AngleSharp.Dom;
 using Blazored.Toast.Services;
 using Bunit;
-using eRaven.Application.Services.PositionService;
-using eRaven.Application.ViewModels.PositionPagesViewModels;
 using eRaven.Components.Pages.Positions.Modals;
 using eRaven.Domain.Models;
 using FluentValidation;

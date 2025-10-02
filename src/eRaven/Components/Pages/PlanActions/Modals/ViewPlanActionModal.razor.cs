@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 // ViewPlanActionModal
@@ -29,3 +29,4 @@ public partial class ViewPlanActionModal : ComponentBase
         StateHasChanged();
     }
 }
+*/

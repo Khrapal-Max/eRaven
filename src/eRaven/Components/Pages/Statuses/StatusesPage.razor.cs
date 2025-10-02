@@ -1,18 +1,10 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 // StatusTransitionsPage (code-behind)
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
-using eRaven.Application.Services;
-using eRaven.Application.Services.PersonService;
-using eRaven.Application.Services.PersonStatusService;
-using eRaven.Application.Services.PositionAssignmentService;
-using eRaven.Application.Services.StatusKindService;
-using eRaven.Application.Services.StatusTransitionService;
-using eRaven.Application.ViewModels;
-using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Domain.Exceptions;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
@@ -343,3 +335,4 @@ public partial class StatusesPage : ComponentBase, IDisposable
         GC.SuppressFinalize(this);
     }
 }
+*/

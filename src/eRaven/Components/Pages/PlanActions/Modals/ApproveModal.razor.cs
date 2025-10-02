@@ -1,11 +1,10 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 // ApproveModal
 //-----------------------------------------------------------------------------
 
 using Blazored.FluentValidation;
-using eRaven.Application.ViewModels.PlanActionViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -67,3 +66,4 @@ public partial class ApproveModal : ComponentBase
 
     private void Close() => IsOpen = false;
 }
+*/

@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -6,10 +6,6 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
-using eRaven.Application.Services.PersonService;
-using eRaven.Application.Services.PersonStatusService;
-using eRaven.Application.Services.PositionAssignmentService;
-using eRaven.Application.ViewModels.PersonViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -162,3 +158,4 @@ public partial class PersonCard : ComponentBase, IDisposable
 
     public void Dispose() => GC.SuppressFinalize(this);
 }
+*/

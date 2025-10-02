@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -6,9 +6,6 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
-using eRaven.Application.Services.PositionService;
-using eRaven.Application.ViewModels;
-using eRaven.Application.ViewModels.PositionPagesViewModels;
 using eRaven.Components.Pages.Positions.Modals;
 using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Models;
@@ -202,7 +199,7 @@ public partial class PositionsPage : ComponentBase, IDisposable
     private void ApplyFilterAndSort()
     {
         _filtered = [.. PositionsUi.Filter(_all, Search)];
-        var mapped = PositionsUi.Transform(_filtered, null /* вже відфільтровано */);
+        var mapped = PositionsUi.Transform(_filtered, null *//* вже відфільтровано *//*);
         ResetItems(mapped);
     }
 
@@ -234,3 +231,4 @@ public partial class PositionsPage : ComponentBase, IDisposable
         GC.SuppressFinalize(this);
     }
 }
+*/

@@ -11,8 +11,6 @@
 // StatusOnDateViewModelTests
 // -----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.StaffOnDateViewModels;
-
 namespace eRaven.Tests.Application.Tests.ViewModels.Reports;
 
 public class StatusOnDateViewModelTests

@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -7,8 +7,6 @@
 
 using Blazored.FluentValidation;
 using Blazored.Toast.Services;
-using eRaven.Application.Services.PositionService;
-using eRaven.Application.ViewModels.PositionPagesViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -99,4 +97,4 @@ public partial class PositionCreateModal : ComponentBase
         Busy = value;
         StateHasChanged();
     }
-}
+}*/

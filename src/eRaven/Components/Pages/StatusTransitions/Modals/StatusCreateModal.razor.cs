@@ -1,12 +1,10 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // StatusTransitions
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.StatusKindService;
-using eRaven.Application.ViewModels.StatusKindViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -64,3 +62,4 @@ public partial class StatusCreateModal : ComponentBase
 
     private void Close() { IsOpen = false; StateHasChanged(); }
 }
+*/

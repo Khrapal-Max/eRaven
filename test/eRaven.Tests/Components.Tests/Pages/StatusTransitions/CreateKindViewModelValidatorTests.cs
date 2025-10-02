@@ -5,9 +5,6 @@
 // CreateKindViewModelValidatorTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.StatusKindService;
-using eRaven.Application.ViewModels.StatusKindViewModels;
-using eRaven.Components.Pages.StatusTransitions.Modals;
 using FluentValidation.TestHelper;
 using Moq;
 

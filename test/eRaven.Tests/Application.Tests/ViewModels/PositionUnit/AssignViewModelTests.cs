@@ -11,8 +11,6 @@
 // AssignViewModelTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Components.Pages.PositionAssignments.Modals;
-
 namespace eRaven.Tests.Application.Tests.ViewModels.PositionUnit;
 
 public class AssignViewModelTests

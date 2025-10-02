@@ -1,11 +1,10 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // SetPersonStatusViewModelValidator
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PersonStatusViewModels;
 using FluentValidation;
 
 namespace eRaven.Components.Pages.Statuses.Modals
@@ -38,4 +37,4 @@ namespace eRaven.Components.Pages.Statuses.Modals
                 .WithMessage("Автор не може складатися лише з пробілів.");
         }
     }
-}
+}*/

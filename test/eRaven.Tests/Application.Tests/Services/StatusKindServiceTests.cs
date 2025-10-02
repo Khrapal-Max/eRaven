@@ -5,8 +5,6 @@
 // StatusKindServiceTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.StatusKindService;
-using eRaven.Application.ViewModels.StatusKindViewModels;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;

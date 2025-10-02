@@ -5,11 +5,6 @@
 //-----------------------------------------------------------------------------
 
 using Blazored.Toast.Services;
-using eRaven.Application.Services.PersonService;
-using eRaven.Application.Services.PersonStatusService;
-using eRaven.Application.Services.PlanActionService;
-using eRaven.Application.Services.StatusKindService;
-using eRaven.Application.ViewModels.PlanActionViewModels;
 using eRaven.Components.Pages.PlanActions.Modals;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Models;

@@ -4,8 +4,6 @@
 // StatusTransitionsUiTests
 //------------------------------------------------------------------------------
 
-using eRaven.Components.Pages.Statuses;
-
 namespace eRaven.Tests.Components.Tests.Pages.Statuses;
 
 public sealed class StatusesUiTests

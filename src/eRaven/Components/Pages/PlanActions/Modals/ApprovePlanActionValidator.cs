@@ -1,11 +1,10 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // ApprovePlanActionValidator
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PlanActionViewModels;
 using FluentValidation;
 
 namespace eRaven.Components.Pages.PlanActions.Modals;
@@ -33,4 +32,4 @@ public sealed class ApprovePlanActionViewModelValidator : AbstractValidator<Appr
             .WithMessage("Номер наказу не може складатися лише з пробілів.")
             .MaximumLength(512).WithMessage("Номер наказу занадто довгий (до 512).");
     }
-}
+}*/

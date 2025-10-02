@@ -1,11 +1,9 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // PersonUi
 //-----------------------------------------------------------------------------
-
-using eRaven.Application.ViewModels.PersonViewModels;
 
 namespace eRaven.Components.Pages.Persons;
 
@@ -30,3 +28,4 @@ public static class PersonUi
         AttachedFromUnit = null
     };
 }
+*/

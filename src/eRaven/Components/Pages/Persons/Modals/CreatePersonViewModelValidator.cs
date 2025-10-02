@@ -1,10 +1,9 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // Components/Pages/Persons/Modals/PersonCreateModal.razor.cs
 //-----------------------------------------------------------------------------
 // CreatePersonViewModelValidator
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PersonViewModels;
 using FluentValidation;
 
 namespace eRaven.Components.Pages.Persons.Modals;
@@ -63,4 +62,4 @@ public sealed class CreatePersonViewModelValidator : AbstractValidator<CreatePer
         RuleFor(x => x.Callsign)
             .MaximumLength(64).WithMessage("Максимум 64 символи.");
     }
-}
+}*/

@@ -1,10 +1,9 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 // PositionAssignmentHistoryModal (code-behind)
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -58,3 +57,4 @@ public sealed partial class PositionAssignmentHistoryModal : ComponentBase
     private async Task CloseAsync()
         => await OnClose.InvokeAsync();
 }
+*/

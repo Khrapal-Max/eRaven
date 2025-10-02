@@ -5,8 +5,6 @@
 // EditPersonViewModelValidatorTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PersonViewModels;
-using eRaven.Components.Pages.Persons;            // де лежить EditPersonViewModelValidator
 using FluentValidation.TestHelper;
 
 namespace eRaven.Tests.Components.Tests.Pages.Persons;

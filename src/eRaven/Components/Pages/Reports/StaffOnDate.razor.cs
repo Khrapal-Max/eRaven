@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+﻿/*// -----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 // -----------------------------------------------------------------------------
 // Reports → StaffOnDatePage (code-behind)
@@ -11,10 +11,6 @@
 
 
 using Blazored.Toast.Services;
-using eRaven.Application.Services.PersonService;
-using eRaven.Application.Services.PersonStatusService;
-using eRaven.Application.Services.StatusKindService;
-using eRaven.Application.ViewModels.StaffOnDateViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 
@@ -210,3 +206,4 @@ public partial class StaffOnDate : ComponentBase, IDisposable
         GC.SuppressFinalize(this);
     }
 }
+*/

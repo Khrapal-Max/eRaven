@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 // CreatePlanActionModal
@@ -189,3 +189,4 @@ public partial class CreatePlanActionModal : ComponentBase
         }
     }
 }
+*/

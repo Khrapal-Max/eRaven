@@ -1,4 +1,4 @@
-﻿@page "/positions"
+﻿@* @page "/positions"
 
 @using eRaven.Application.ViewModels.PositionPagesViewModels
 @using eRaven.Components.Pages.Positions.Modals
@@ -101,3 +101,4 @@
 <PositionCreateModal @ref="_createModal"
                      OnClose="@(async _ => await Task.CompletedTask)"
                      OnCreated="OnCreatedAsync" />
+ *@

@@ -4,7 +4,6 @@
 // PositionAssignmentServiceTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.PositionAssignmentService;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;

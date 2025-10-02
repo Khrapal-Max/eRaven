@@ -1,4 +1,4 @@
-﻿@page "/persons"
+﻿@* @page "/persons"
 
 @using eRaven.Application.ViewModels.PersonViewModels;
 @using eRaven.Components.Pages.Persons.Modals
@@ -96,3 +96,4 @@
 <PersonCreateModal @ref="_createModal"
                    OnClose="@(async _ => await Task.CompletedTask)"
                    OnCreated="OnCreatedAsync" />
+ *@

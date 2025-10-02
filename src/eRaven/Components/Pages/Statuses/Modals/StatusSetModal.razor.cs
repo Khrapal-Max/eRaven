@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 // StatusSetModal — code-behind (partial class)
@@ -12,7 +12,6 @@
 //   - DateLocal (DateTime?) — проксі для _vm.Moment (00:00 локального дня, Kind=Unspecified).
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PersonStatusViewModels;
 using eRaven.Domain.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -115,3 +114,4 @@ public partial class StatusSetModal : ComponentBase
         return string.IsNullOrWhiteSpace(status.Name) ? null : status.Name.Trim();
     }
 }
+*/

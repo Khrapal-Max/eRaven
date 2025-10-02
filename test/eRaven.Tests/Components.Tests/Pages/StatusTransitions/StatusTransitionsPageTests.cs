@@ -7,9 +7,6 @@
 
 using Blazored.Toast.Services;
 using Bunit;
-using eRaven.Application.Services.ConfirmService;
-using eRaven.Application.Services.StatusKindService;
-using eRaven.Application.Services.StatusTransitionService;
 using eRaven.Components.Pages.StatusTransitions;
 using eRaven.Domain.Models;
 using Microsoft.Extensions.DependencyInjection;

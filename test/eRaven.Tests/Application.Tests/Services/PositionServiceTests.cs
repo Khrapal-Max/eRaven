@@ -4,7 +4,6 @@
 // PositionServiceTests (updated for required Code/OrgPath/SpecialNumber)
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.PositionService;
 using eRaven.Domain.Models;
 using eRaven.Tests.Application.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;

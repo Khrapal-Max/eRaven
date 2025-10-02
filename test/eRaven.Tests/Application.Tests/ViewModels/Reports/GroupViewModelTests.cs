@@ -4,8 +4,6 @@
 // GroupViewModelTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PlanningOnDateViewModels;
-
 namespace eRaven.Tests.Application.Tests.ViewModels.Reports;
 
 public class GroupViewModelTests

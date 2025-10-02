@@ -4,7 +4,6 @@
 //-----------------------------------------------------------------------------
 // CreatePositionUnitViewModelTests
 //-----------------------------------------------------------------------------
-using eRaven.Application.ViewModels.PositionPagesViewModels;
 using System.ComponentModel.DataAnnotations;
 
 namespace eRaven.Tests.Application.Tests.ViewModels.PositionUnit;

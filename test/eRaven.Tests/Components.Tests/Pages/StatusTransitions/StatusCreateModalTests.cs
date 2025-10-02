@@ -6,8 +6,6 @@
 //-----------------------------------------------------------------------------
 
 using Bunit;
-using eRaven.Application.Services.StatusKindService;
-using eRaven.Application.ViewModels.StatusKindViewModels;
 using eRaven.Components.Pages.StatusTransitions.Modals;
 using eRaven.Domain.Models;
 using FluentValidation;

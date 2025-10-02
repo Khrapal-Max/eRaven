@@ -13,8 +13,6 @@
 // PositionUnitViewModelTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PositionPagesViewModels;
-
 namespace eRaven.Tests.Application.Tests.ViewModels.PositionUnit;
 
 public class PositionUnitViewModelTests

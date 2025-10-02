@@ -11,8 +11,6 @@
 // TimesheetExportRowTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.TimesheetViewModels;
-
 namespace eRaven.Tests.Application.Tests.ViewModels.Excel;
 
 public class TimesheetExportRowTests

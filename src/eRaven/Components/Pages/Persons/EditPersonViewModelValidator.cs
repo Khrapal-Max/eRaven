@@ -1,11 +1,10 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // EditPersonViewModelValidator
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PersonViewModels;
 using FluentValidation;
 
 namespace eRaven.Components.Pages.Persons;
@@ -53,4 +52,4 @@ public sealed class EditPersonViewModelValidator : AbstractValidator<EditPersonV
         RuleFor(x => x.Weapon).MaximumLength(128).WithMessage("Максимум 128 символів.");
         RuleFor(x => x.Callsign).MaximumLength(64).WithMessage("Максимум 64 символи.");
     }
-}
+}*/

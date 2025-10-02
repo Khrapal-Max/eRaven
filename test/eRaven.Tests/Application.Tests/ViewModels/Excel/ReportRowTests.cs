@@ -4,7 +4,6 @@
 // ReportRowTests
 // -----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.StaffOnDateViewModels;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 

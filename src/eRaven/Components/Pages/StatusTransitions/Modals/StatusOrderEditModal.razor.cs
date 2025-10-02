@@ -1,12 +1,10 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // StatusTransitions
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Services.StatusKindService;
-using eRaven.Application.ViewModels.StatusKindViewModels;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.StatusTransitions.Modals;
@@ -72,3 +70,4 @@ public partial class StatusOrderEditModal : ComponentBase
         }
     }
 }
+*/

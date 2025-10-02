@@ -4,7 +4,6 @@
 // PlanniingOnDateRowViewModelTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PlanningOnDateViewModels;
 using System.Text.Json;
 
 namespace eRaven.Tests.Application.Tests.ViewModels.Reports;

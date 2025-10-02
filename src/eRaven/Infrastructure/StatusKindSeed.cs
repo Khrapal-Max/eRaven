@@ -15,29 +15,30 @@ internal static class Seed
 
     public static readonly StatusKind[] AllStatusKind =
     [
-        new() { Id = 1,  Name = "В районі",            Code = "30",    Order = 10,   IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 1,  Name = "Рекрут",              Code = "нб",    Order = 0,   IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 2,  Name = "В районі",            Code = "30",    Order = 10,   IsActive = true, Author="system", Modified = SeedTs },
 
-        new() { Id = 2,  Name = "В БР",                Code = "100",   Order = 100,  IsActive = true, Author="system", Modified = SeedTs },
-        new() { Id = 6,  Name = "В БТГр",              Code = "100",   Order = 100,  IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 3,  Name = "В БР",                Code = "100",   Order = 100,  IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 4,  Name = "В БТГр",              Code = "100",   Order = 100,  IsActive = true, Author="system", Modified = SeedTs },
 
         new() { Id = 5,  Name = "Розпорядження",       Code = "РОЗПОР",Order = 40,   IsActive = true, Author="system", Modified = SeedTs },
-        new() { Id = 3,  Name = "Переміщення",         Code = "нб",    Order = 50,   IsActive = true, Author="system", Modified = SeedTs },
-        new() { Id = 4,  Name = "Звільнення",          Code = "нб",    Order = 50,   IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 6,  Name = "Переміщення",         Code = "нб",    Order = 50,   IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 7,  Name = "Звільнення",          Code = "нб",    Order = 50,   IsActive = true, Author="system", Modified = SeedTs },
 
-        new() { Id = 7,  Name = "Відрядження",         Code = "ВДР",   Order = 80,   IsActive = true, Author="system", Modified = SeedTs },
-        new() { Id = 8,  Name = "Фахове навчання",     Code = "ВДР",   Order = 80,   IsActive = true, Author="system", Modified = SeedTs },
-        new() { Id = 9,  Name = "Відпустка",           Code = "В",     Order = 90,   IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 8,  Name = "Відрядження",         Code = "ВДР",   Order = 80,   IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 9,  Name = "Фахове навчання",     Code = "ВДР",   Order = 80,   IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 10,  Name = "Відпустка",           Code = "В",     Order = 90,   IsActive = true, Author="system", Modified = SeedTs },
 
-        new() { Id = 10, Name = "Проходження ВЛК",     Code = "Л_Х",   Order = 120,  IsActive = true, Author="system", Modified = SeedTs },
-        new() { Id = 11, Name = "Направлення на МСЕК", Code = "Л_Х",   Order = 120,  IsActive = true, Author="system", Modified = SeedTs },
-        new() { Id = 12, Name = "Лікування по хворобі",Code = "Л_Х",   Order = 120,  IsActive = true, Author="system", Modified = SeedTs },
-        new() { Id = 13, Name = "Лікування по пораненню", Code = "Л_Б",Order = 130,  IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 11, Name = "Проходження ВЛК",     Code = "Л_Х",   Order = 120,  IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 12, Name = "Направлення на МСЕК", Code = "Л_Х",   Order = 120,  IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 13, Name = "Лікування по хворобі",Code = "Л_Х",   Order = 120,  IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 14, Name = "Лікування по пораненню", Code = "Л_Б",Order = 130,  IsActive = true, Author="system", Modified = SeedTs },
 
-        new() { Id = 14, Name = "Безвісті",            Code = "БВ",    Order = 170,  IsActive = true, Author="system", Modified = SeedTs },
-        new() { Id = 15, Name = "Полон",               Code = "П",     Order = 175,  IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 15, Name = "Безвісті",            Code = "БВ",    Order = 170,  IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 16, Name = "Полон",               Code = "П",     Order = 175,  IsActive = true, Author="system", Modified = SeedTs },
         new() { Id = 17, Name = "Арешт",               Code = "А",     Order = 178,  IsActive = true, Author="system", Modified = SeedTs },
         new() { Id = 18, Name = "СЗЧ",                 Code = "СЗЧ",   Order = 180,  IsActive = true, Author="system", Modified = SeedTs },
-        new() { Id = 16, Name = "Загибель",            Code = "200",   Order = 190,  IsActive = true, Author="system", Modified = SeedTs },
+        new() { Id = 19, Name = "Загибель",            Code = "200",   Order = 190,  IsActive = true, Author="system", Modified = SeedTs },
     ];
 
 

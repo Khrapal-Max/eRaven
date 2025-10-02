@@ -1,4 +1,4 @@
-﻿@page "/status-transitions"
+﻿@* @page "/status-transitions"
 
 @using eRaven.Application.ViewModels.PersonStatusViewModels
 @using eRaven.Components.Pages.Statuses.Modals
@@ -83,7 +83,7 @@
     }
 </div>
 
-@* Модальне вікно зміни статусу *@
+@* Модальне вікно зміни статусу 
 <StatusSetModal Open="@_isStatusModalOpen"
                 Busy="@Busy"
                 PersonCard="@_modalPerson"
@@ -91,3 +91,4 @@
                 AllowedNextStatuses="@_mapStatuses"
                 OnSubmit="HandleStatusSubmitAsync"
                 OnClose="HandleStatusCloseAsync" />
+ *@

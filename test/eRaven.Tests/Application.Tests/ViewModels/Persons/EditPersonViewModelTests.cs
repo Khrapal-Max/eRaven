@@ -5,7 +5,6 @@
 // EditPersonViewModelTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.ViewModels.PersonViewModels;
 using System.ComponentModel.DataAnnotations;
 
 namespace eRaven.Tests.Application.Tests.ViewModels.Persons;
