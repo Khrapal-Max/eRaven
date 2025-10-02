@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PlanActionCreatedEvent
+// PlanActionRecordedEvent
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Enums;
@@ -10,9 +10,9 @@ using eRaven.Domain.Enums;
 namespace eRaven.Domain.Events;
 
 /// <summary>
-/// Подія створення планової дії
+/// Подія створення планової дії з повним snapshot (частина історії агрегату)
 /// </summary>
-public class PlanActionCreatedEvent
+public class PlanActionRecordedEvent
 {
     public Guid Id { get; private set; }
     public Guid PersonId { get; private set; }
@@ -41,7 +41,7 @@ public class PlanActionCreatedEvent
 
     public DateTime RecordedAt { get; private set; }
 
-    private PlanActionCreatedEvent()
+    private PlanActionRecordedEvent()
     {
         PlanActionName = string.Empty;
         Location = string.Empty;
@@ -53,7 +53,7 @@ public class PlanActionCreatedEvent
         StatusKindOnDate = string.Empty;
     }
 
-    internal PlanActionCreatedEvent(
+    internal PlanActionRecordedEvent(
         Guid personId,
         string planActionName,
         DateTime effectiveAtUtc,

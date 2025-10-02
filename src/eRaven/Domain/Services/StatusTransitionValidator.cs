@@ -5,37 +5,27 @@
 // StatusTransitionValidator
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Repositories;
-
 namespace eRaven.Domain.Services;
 
 // Реалізація (використовує репозиторій StatusTransition)
 public class StatusTransitionValidator : IStatusTransitionValidator
 {
-    private readonly IStatusTransitionRepository _repository;
-    private readonly IStatusKindRepository _statusKindRepository;
-    public StatusTransitionValidator(
-        IStatusTransitionRepository repository,
-        IStatusKindRepository statusKindRepository)
-    {
-        _repository = repository;
-        _statusKindRepository = statusKindRepository;
-    }
-
     public bool IsValidInitialStatus(int statusKindId)
     {
-        // Початковим може бути лише "В районі" (код "30")
-        var statusKind = _statusKindRepository.GetById(statusKindId);
-        return statusKind?.Code == "30";
+        // Початковим може бути лише "В районі" (ID = 2 згідно seed)
+        return statusKindId == 2;
     }
 
-    public bool IsTransitionAllowed(int? fromStatusKindId, int toStatusKindId)
+    public bool IsTransitionAllowed(
+        int? fromStatusKindId,
+        int toStatusKindId,
+        HashSet<int> allowedTransitions)
     {
-        // Перший статус (якщо fromStatusKindId == null) — завжди дозволено
+        // Перший статус - завжди дозволено якщо валідний
         if (fromStatusKindId == null)
             return IsValidInitialStatus(toStatusKindId);
 
-        // Перевіряємо наявність переходу в таблиці StatusTransitions
-        return _repository.IsTransitionAllowed(fromStatusKindId.Value, toStatusKindId);
+        // Перевіряємо чи є перехід у дозволених
+        return allowedTransitions.Contains(toStatusKindId);
     }
 }

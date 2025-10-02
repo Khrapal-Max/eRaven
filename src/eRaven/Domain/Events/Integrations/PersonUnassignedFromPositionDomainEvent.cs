@@ -2,15 +2,14 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// IStatusTransitionValidator
+// PersonUnassignedFromPositionDomainEvent
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Domain.Services;
+namespace eRaven.Domain.Events.Integrations;
 
-// Інтерфейс для валідації переходів статусів
-public interface IStatusTransitionValidator
+public record PersonUnassignedFromPositionDomainEvent(
+    Guid PersonId,
+    DateTime EffectiveAt) : IDomainEvent
 {
-    bool IsValidInitialStatus(int statusKindId);
-
-    bool IsTransitionAllowed(int? fromStatusKindId, int toStatusKindId, HashSet<int> allowedTransitions);
+    public DateTime OccurredOn { get; init; } = DateTime.UtcNow;
 }

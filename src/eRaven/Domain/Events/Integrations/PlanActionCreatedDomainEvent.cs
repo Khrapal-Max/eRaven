@@ -2,15 +2,18 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// IStatusTransitionValidator
+// PlanActionCreatedDomainEvent
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Domain.Services;
+using eRaven.Domain.Enums;
 
-// Інтерфейс для валідації переходів статусів
-public interface IStatusTransitionValidator
+namespace eRaven.Domain.Events.Integrations;
+
+public record PlanActionCreatedDomainEvent(
+    Guid PersonId,
+    Guid PlanActionId,
+    DateTime EffectiveAt,
+    MoveType MoveType) : IDomainEvent
 {
-    bool IsValidInitialStatus(int statusKindId);
-
-    bool IsTransitionAllowed(int? fromStatusKindId, int toStatusKindId, HashSet<int> allowedTransitions);
+    public DateTime OccurredOn { get; init; } = DateTime.UtcNow;
 }

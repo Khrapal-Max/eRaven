@@ -7,39 +7,39 @@
 
 using eRaven.Domain.Enums;
 using eRaven.Domain.Events;
+using eRaven.Domain.Events.Integrations;
 using eRaven.Domain.Exceptions;
-using eRaven.Domain.Models;
 using eRaven.Domain.Services;
 using eRaven.Domain.ValueObjects;
 
 namespace eRaven.Domain.Aggregates;
 
 /// <summary>
-/// Людина, основа для картки
+/// Агрегат Особа - облік військовослужбовця через події
 /// </summary>
 public class PersonAggregate
 {
     // ==================== Identity ====================
-    public Guid Id { get; set; }
+    public Guid Id { get; private set; }
 
     // ==================== Value Objects ====================
-    public PersonalInfo PersonalInfo { get; private set; } = default!;
-    public MilitaryDetails MilitaryDetails { get; private set; } = default!;
+    public PersonalInfo PersonalInfo { get; private set; }
+    public MilitaryDetails MilitaryDetails { get; private set; }
 
-    // ==================== Current State ====================
-    public int? StatusKindId { get; private set; }
-    public Guid? PositionUnitId { get; private set; }
+    // ==================== Current State (для оптимізації запитів) ====================
+    public int? CurrentStatusKindId { get; private set; }
+    public Guid? CurrentPositionUnitId { get; private set; }
 
-    // ==================== History (частина агрегату) ====================
-    private readonly List<PersonStatus> _statusHistory = [];
-    private readonly List<PersonPositionAssignment> _positionAssignments = [];
-    private readonly List<PlanAction> _planActions = [];
+    // ==================== Event History(частина агрегату) ====================
+    private readonly List<StatusChangedEvent> _statusHistory = [];
+    private readonly List<PositionAssignedEvent> _positionHistory = [];
+    private readonly List<PlanActionRecordedEvent> _planActions = []; // ← RENAMED
 
-    public IReadOnlyList<PersonStatus> StatusHistory => _statusHistory.AsReadOnly();
-    public IReadOnlyList<PersonPositionAssignment> PositionAssignments => _positionAssignments.AsReadOnly();
-    public IReadOnlyList<PlanAction> PlanActions => _planActions.AsReadOnly();
+    public IReadOnlyList<StatusChangedEvent> StatusHistory => _statusHistory.AsReadOnly();
+    public IReadOnlyList<PositionAssignedEvent> PositionHistory => _positionHistory.AsReadOnly();
+    public IReadOnlyList<PlanActionRecordedEvent> PlanActions => _planActions.AsReadOnly(); // ← RENAMED
 
-    // ==================== Domain Events ====================
+    // ==================== Domain Events (для інтеграції) ====================
     private readonly List<IDomainEvent> _domainEvents = [];
     public IReadOnlyList<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
@@ -49,8 +49,12 @@ public class PersonAggregate
 
     // ==================== Constructors ====================
 
-    // Для EF Core (приватний)
-    private PersonAggregate() { }
+    // EF Core constructor
+    private PersonAggregate()
+    {
+        PersonalInfo = null!;
+        MilitaryDetails = null!;
+    }
 
     // Фабричний метод для створення нової особи
     public static PersonAggregate Create(
@@ -68,10 +72,10 @@ public class PersonAggregate
             ModifiedUtc = DateTime.UtcNow
         };
 
-        // Встановлюємо початковий статус (завжди "В районі")
         person.SetInitialStatus(initialStatusKindId, transitionValidator);
 
-        person.AddDomainEvent(new PersonCreatedEvent(person.Id, personalInfo.FullName));
+        // Integration event
+        person.AddDomainEvent(new PersonCreatedDomainEvent(person.Id, personalInfo.FullName));
         return person;
     }
 
@@ -80,136 +84,126 @@ public class PersonAggregate
     private void SetInitialStatus(int statusKindId, IStatusTransitionValidator validator)
     {
         if (!validator.IsValidInitialStatus(statusKindId))
-            throw new DomainException("Початковим статусом може бути лише 'В районі'");
+            throw new DomainException("Початковим статусом може бути лише 'В районі' (код 30)");
 
-        var status = new PersonStatus
-        {
-            Id = Guid.NewGuid(),
-            PersonId = this.Id,
-            StatusKindId = statusKindId,
-            OpenDate = DateTime.UtcNow,
-            Sequence = 0,
-            IsActive = true,
-            Author = "system",
-            Modified = DateTime.UtcNow
-        };
+        var statusEvent = new StatusChangedEvent(
+            personId: Id,
+            statusKindId: statusKindId,
+            effectiveAt: DateTime.UtcNow,
+            sequence: 0,
+            note: "Початковий статус",
+            author: "system"
+        );
 
-        _statusHistory.Add(status);
-        StatusKindId = statusKindId;
-        ModifiedUtc = DateTime.UtcNow;
+        _statusHistory.Add(statusEvent);
+        CurrentStatusKindId = statusKindId;
     }
 
     public void ChangeStatus(
-        int newStatusKindId,
-        DateTime effectiveAtUtc,
-        IStatusTransitionValidator transitionValidator,
-        string? note = null,
-        string? author = null)
+         int newStatusKindId,
+         DateTime effectiveAtUtc,
+         IStatusTransitionValidator transitionValidator,
+         HashSet<int> allowedTransitions,
+         string? note = null,
+         string author = "system",
+         Guid? sourceDocumentId = null,
+         string? sourceDocumentType = null)
     {
-        // 1. Перевірка переходу
-        if (!transitionValidator.IsTransitionAllowed(StatusKindId, newStatusKindId))
-            throw new DomainException($"Перехід зі статусу {StatusKindId} до {newStatusKindId} заборонено");
+        // 1. Валідація переходу
+        if (!transitionValidator.IsTransitionAllowed(CurrentStatusKindId, newStatusKindId, allowedTransitions))
+            throw new DomainException($"Перехід зі статусу {CurrentStatusKindId} до {newStatusKindId} заборонено");
 
         // 2. Перевірка часової послідовності
-        var currentStatus = GetCurrentStatus();
-        if (currentStatus != null && effectiveAtUtc < currentStatus.OpenDate)
+        var lastEvent = GetLastStatusEvent();
+        if (lastEvent != null && effectiveAtUtc < lastEvent.EffectiveAt)
             throw new DomainException("Момент має бути пізніший за останній відкритий статус");
 
         // 3. Визначаємо Sequence
         var sequence = CalculateNextSequence(effectiveAtUtc);
 
-        // 4. Створюємо новий статус
-        var status = new PersonStatus
-        {
-            Id = Guid.NewGuid(),
-            PersonId = this.Id,
-            StatusKindId = newStatusKindId,
-            OpenDate = effectiveAtUtc,
-            Sequence = sequence,
-            IsActive = true,
-            Note = note?.Trim(),
-            Author = author?.Trim() ?? "system",
-            Modified = DateTime.UtcNow
-        };
+        // 4. Створюємо подію
+        var statusEvent = new StatusChangedEvent(
+           personId: Id,
+           statusKindId: newStatusKindId,
+           effectiveAt: effectiveAtUtc,
+           sequence: CalculateNextSequence(effectiveAtUtc),
+           note: note,
+           author: author,
+           sourceDocumentId: sourceDocumentId,
+           sourceDocumentType: sourceDocumentType
+       );
 
-        _statusHistory.Add(status);
-        StatusKindId = newStatusKindId;
+        _statusHistory.Add(statusEvent);
+        CurrentStatusKindId = newStatusKindId;
         ModifiedUtc = DateTime.UtcNow;
 
-        AddDomainEvent(new PersonStatusChangedEvent(Id, newStatusKindId, effectiveAtUtc));
+        // Integration event
+        AddDomainEvent(new PersonStatusChangedDomainEvent(Id, newStatusKindId, effectiveAtUtc));
     }
 
     // ==================== Бізнес-логіка посад ====================
 
     public void AssignToPosition(
-        Guid positionUnitId,
-        DateTime openUtc,
-        IPositionAssignmentPolicy policy,
-        string? note = null)
+       Guid positionUnitId,
+       DateTime openUtc,
+       IPositionAssignmentPolicy policy,
+       string? note = null,
+       string author = "system")
     {
-        // 1. Перевірка політики (посада активна і вільна)
+        // 1. Перевірка політики
         if (!policy.CanAssignToPosition(positionUnitId))
-            throw new DomainException("Неможливо призначити на цю посаду");
+            throw new DomainException("Неможливо призначити на цю посаду (вона зайнята або неактивна)");
 
         // 2. Закриваємо попереднє призначення
-        var activeAssignment = GetActiveAssignment();
+        var activeAssignment = GetActivePositionAssignment();
         if (activeAssignment != null)
         {
             if (activeAssignment.OpenUtc >= openUtc)
                 throw new DomainException("Дата відкриття має бути пізніше за попереднє призначення");
 
-            activeAssignment.CloseUtc = openUtc.AddDays(-1);
-            activeAssignment.ModifiedUtc = DateTime.UtcNow;
+            activeAssignment.Close(openUtc.AddDays(-1), "Автоматично закрито при новому призначенні");
         }
 
-        // 3. Створюємо нове призначення
-        var assignment = new PersonPositionAssignment
-        {
-            Id = Guid.NewGuid(),
-            PersonId = this.Id,
-            PositionUnitId = positionUnitId,
-            OpenUtc = openUtc,
-            CloseUtc = null,
-            Note = note?.Trim(),
-            Author = "system",
-            ModifiedUtc = DateTime.UtcNow
-        };
+        // Aggregate internal event
+        var assignmentEvent = new PositionAssignedEvent(
+            personId: Id,
+            positionUnitId: positionUnitId,
+            openUtc: openUtc,
+            note: note,
+            author: author
+        );
 
-        _positionAssignments.Add(assignment);
-        PositionUnitId = positionUnitId;
+        _positionHistory.Add(assignmentEvent);
+        CurrentPositionUnitId = positionUnitId;
         ModifiedUtc = DateTime.UtcNow;
 
-        AddDomainEvent(new PersonAssignedToPositionEvent(Id, positionUnitId, openUtc));
+        // Integration event
+        AddDomainEvent(new PersonAssignedToPositionDomainEvent(Id, positionUnitId, openUtc));
     }
 
     public void UnassignFromPosition(DateTime closeUtc, string? note = null)
     {
-        var activeAssignment = GetActiveAssignment()
+        var activeAssignment = GetActivePositionAssignment()
             ?? throw new DomainException("Немає активного призначення");
 
-        if (activeAssignment.OpenUtc >= closeUtc)
-            throw new DomainException("Дата закриття має бути пізніше дати відкриття");
-
-        activeAssignment.CloseUtc = closeUtc;
-        activeAssignment.Note = note?.Trim();
-        activeAssignment.ModifiedUtc = DateTime.UtcNow;
-
-        PositionUnitId = null;
+        activeAssignment.Close(closeUtc, note);
+        CurrentPositionUnitId = null;
         ModifiedUtc = DateTime.UtcNow;
 
-        AddDomainEvent(new PersonUnassignedFromPositionEvent(Id, closeUtc));
+        // Integration event
+        AddDomainEvent(new PersonUnassignedFromPositionDomainEvent(Id, closeUtc));
     }
 
     // ==================== Бізнес-логіка планових дій ====================
 
     public void CreatePlanAction(
-        string planActionName,
-        DateTime effectiveAtUtc,
-        MoveType moveType,
-        string location,
-        string? groupName = null,
-        string? crewName = null,
-        string? note = null)
+      string planActionName,
+      DateTime effectiveAtUtc,
+      MoveType moveType,
+      string location,
+      string? groupName = null,
+      string? crewName = null,
+      string? note = null)
     {
         // Валідація: дата не може бути раніше останньої планової дії
         var lastAction = _planActions
@@ -219,55 +213,72 @@ public class PersonAggregate
         if (lastAction != null && effectiveAtUtc <= lastAction.EffectiveAtUtc)
             throw new DomainException("Дата планової дії має бути пізніше за останню");
 
-        var action = new PlanAction
-        {
-            Id = Guid.NewGuid(),
-            PersonId = Id,
-            PlanActionName = planActionName,
-            EffectiveAtUtc = effectiveAtUtc,
-            ActionState = ActionState.PlanAction,
-            MoveType = moveType,
-            Location = location,
-            GroupName = groupName!,
-            CrewName = crewName!,
-            Note = note ?? string.Empty,
+        // Створюємо snapshot поточного стану
+        var activePosition = GetActivePositionAssignment();
+        var lastStatus = GetLastStatusEvent();
 
-            // Snapshot поточного стану
-            Rnokpp = PersonalInfo.Rnokpp,
-            FullName = PersonalInfo.FullName,
-            RankName = MilitaryDetails.Rank,
-            Callsign = MilitaryDetails.Callsign ?? string.Empty,
-            BZVP = MilitaryDetails.BZVP,
-            Weapon = MilitaryDetails.Weapon!
-        };
+        // Aggregate internal event (with full snapshot)
+        var planAction = new PlanActionRecordedEvent( // ← RENAMED
+            personId: Id,
+            planActionName: planActionName,
+            effectiveAtUtc: effectiveAtUtc,
+            moveType: moveType,
+            location: location,
+            groupName: groupName,
+            crewName: crewName,
+            note: note,
+            // Snapshot
+            rnokpp: PersonalInfo.Rnokpp,
+            fullName: PersonalInfo.FullName,
+            rankName: MilitaryDetails.Rank,
+            callsign: MilitaryDetails.Callsign,
+            bzvp: MilitaryDetails.BZVP,
+            weapon: MilitaryDetails.Weapon,
+            positionName: activePosition != null ? $"Посада {activePosition.PositionUnitId}" : "Без посади",
+            statusKindOnDate: lastStatus != null ? $"Статус {lastStatus.StatusKindId}" : "Невідомо"
+        );
 
-        _planActions.Add(action);
-        AddDomainEvent(new PlanActionCreatedEvent(Id, action.Id, effectiveAtUtc));
+        _planActions.Add(planAction);
+
+        // Integration event (minimal data)
+        AddDomainEvent(new PlanActionCreatedDomainEvent(
+            PersonId: Id,
+            PlanActionId: planAction.Id,
+            EffectiveAt: effectiveAtUtc,
+            MoveType: moveType
+        ));
+    }
+
+    public void ApprovePlanAction(Guid planActionId, string order)
+    {
+        var planAction = _planActions.FirstOrDefault(a => a.Id == planActionId)
+            ?? throw new DomainException("Планова дія не знайдена");
+
+        planAction.Approve(order);
+        ModifiedUtc = DateTime.UtcNow;
     }
 
     // ==================== Допоміжні методи ====================
 
-    private PersonStatus? GetCurrentStatus() =>
+    private StatusChangedEvent? GetLastStatusEvent() =>
         _statusHistory
-            .Where(s => s.IsActive)
-            .OrderByDescending(s => s.OpenDate)
+            .OrderByDescending(s => s.EffectiveAt)
             .ThenByDescending(s => s.Sequence)
             .FirstOrDefault();
 
-    private PersonPositionAssignment? GetActiveAssignment() =>
-        _positionAssignments.FirstOrDefault(a => a.CloseUtc == null);
+    private PositionAssignedEvent? GetActivePositionAssignment() =>
+        _positionHistory.FirstOrDefault(a => a.CloseUtc == null);
 
-    private short CalculateNextSequence(DateTime openDate)
+    private short CalculateNextSequence(DateTime effectiveAt)
     {
         var maxSeq = _statusHistory
-            .Where(s => s.IsActive && s.OpenDate == openDate)
+            .Where(s => s.EffectiveAt == effectiveAt)
             .Select(s => (short?)s.Sequence)
             .Max() ?? -1;
         return (short)(maxSeq + 1);
     }
 
     private void AddDomainEvent(IDomainEvent @event) => _domainEvents.Add(@event);
-
     public void ClearDomainEvents() => _domainEvents.Clear();
 
     // ==================== Оновлення інформації ====================
