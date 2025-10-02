@@ -19,7 +19,7 @@ public sealed class ApprovePlanActionCommandHandler(IPersonRepository personRepo
         ApprovePlanActionCommand cmd,
         CancellationToken ct = default)
     {
-        var person = await _personRepository.GetByIdAsync(cmd.ActionId, ct)
+        var person = await _personRepository.GetByIdAsync(cmd.PersonId, ct)
             ?? throw new InvalidOperationException("Особа не знайдена");
 
         person.ApprovePlanAction(cmd.ActionId, cmd.Order);

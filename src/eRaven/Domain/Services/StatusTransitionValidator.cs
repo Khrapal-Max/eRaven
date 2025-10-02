@@ -12,8 +12,8 @@ public class StatusTransitionValidator : IStatusTransitionValidator
 {
     public bool IsValidInitialStatus(int statusKindId)
     {
-        // Початковим може бути лише "В районі" (ID = 2 згідно seed)
-        return statusKindId == 2;
+        // Початковим може бути лише "Рекрут" (ID = 1 згідно seed)
+        return statusKindId == 1;
     }
 
     public bool IsTransitionAllowed(

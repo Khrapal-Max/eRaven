@@ -8,6 +8,7 @@
 namespace eRaven.Application.Commands.PlanActions;
 
 public sealed record ApprovePlanActionCommand(
+    Guid PersonId,
     Guid ActionId,
     string Order
 );

@@ -84,7 +84,7 @@ public class PersonAggregate
     private void SetInitialStatus(int statusKindId, IStatusTransitionValidator validator)
     {
         if (!validator.IsValidInitialStatus(statusKindId))
-            throw new DomainException("Початковим статусом може бути лише 'В районі' (код 30)");
+            throw new DomainException("Початковим статусом може бути лише 'Рекрут' (ID 1)");
 
         var statusEvent = new StatusChangedEvent(
             personId: Id,
