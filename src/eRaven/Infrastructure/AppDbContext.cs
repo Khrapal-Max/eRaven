@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Aggregates;
+using eRaven.Domain.Events;
 using eRaven.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,21 +14,28 @@ namespace eRaven.Infrastructure;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
+    // Агрегат
     public DbSet<PersonAggregate> Persons { get; set; }
-    public DbSet<PlanAction> PlanActions { get; set; }
-    public DbSet<PersonStatus> PersonStatuses { get; set; }
-    public DbSet<PersonPositionAssignment> PersonPositionAssignments { get; set; }
+
+    // Events (частина агрегату)
+    public DbSet<StatusChangedEvent> StatusChangedEvents { get; set; }
+    public DbSet<PositionAssignedEvent> PositionAssignedEvents { get; set; }
+    public DbSet<PlanActionRecordedEvent> PlanActionRecordedEvents { get; set; }
+
+    // Довідники
     public DbSet<PositionUnit> PositionUnits { get; set; }
     public DbSet<StatusKind> StatusKinds { get; set; }
     public DbSet<StatusTransition> StatusTransitions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Postgres extension лише для Npgsql
+        // Postgres розширення для темпоральних обмежень
         if (Database.IsNpgsql())
+        {
             modelBuilder.HasPostgresExtension("btree_gist");
+        }
 
-        // Підтягнути всі IEntityTypeConfiguration<> з поточної збірки
+        // Застосувати всі конфігурації з поточної збірки
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
 }

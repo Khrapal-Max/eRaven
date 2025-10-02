@@ -13,10 +13,12 @@ namespace eRaven.Application.CommandHandlers.Persons;
 
 public sealed class ChangePersonStatusCommandHandler(
     IPersonRepository personRepository,
+    IStatusTransitionRepository statusTransitionRepository,
     IStatusTransitionValidator transitionValidator)
         : ICommandHandler<ChangePersonStatusCommand>
 {
     private readonly IPersonRepository _personRepository = personRepository;
+    private readonly IStatusTransitionRepository _statusTransitionRepository = statusTransitionRepository;
     private readonly IStatusTransitionValidator _transitionValidator = transitionValidator;
 
     public async Task HandleAsync(
@@ -26,12 +28,17 @@ public sealed class ChangePersonStatusCommandHandler(
         var person = await _personRepository.GetByIdAsync(cmd.PersonId, ct)
             ?? throw new InvalidOperationException("Особа не знайдена");
 
+        // Отримуємо дозволені переходи
+        var allowedTransitions = await _statusTransitionRepository
+            .GetAllowedToStatusesAsync(person.CurrentStatusKindId ?? 0, ct);
+
         person.ChangeStatus(
             cmd.NewStatusKindId,
             cmd.EffectiveAtUtc,
             _transitionValidator,
+            allowedTransitions,
             cmd.Note,
-            cmd.Author
+            cmd.Author!
         );
 
         await _personRepository.UpdateAsync(person, ct);

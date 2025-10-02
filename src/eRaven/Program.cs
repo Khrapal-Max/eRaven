@@ -31,7 +31,6 @@ using eRaven.Domain.Services;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Repositories;
-using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -94,8 +93,6 @@ builder.Services.AddScoped<ICommandHandler<CreatePlanActionCommand, Guid>,
     CreatePlanActionCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ApprovePlanActionCommand>,
     ApprovePlanActionCommandHandler>();
-builder.Services.AddScoped<ICommandHandler<DeletePlanActionCommand>,
-    DeletePlanActionCommandHandler>();
 
 // ========== COMMAND HANDLERS - STATUS KINDS ==========
 builder.Services.AddScoped<ICommandHandler<CreateStatusKindCommand, int>,
@@ -110,16 +107,6 @@ builder.Services.AddScoped<IQueryHandler<GetAllStatusKindsQuery, IReadOnlyList<S
     GetAllStatusKindsQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<GetStatusKindByIdQuery, StatusKindDto?>,
     GetStatusKindByIdQueryHandler>();
-
-// ========== INFRASTRUCTURE SERVICES (залишаємо) ==========
-builder.Services.AddScoped<IExcelService, ExcelService>();
-builder.Services.AddScoped<IConfirmService, ConfirmService>();
-
-// ========== VALIDATORS (FluentValidation) ==========
-builder.Services.AddTransient<IValidator<EditPersonViewModel>, EditPersonViewModelValidator>();
-builder.Services.AddTransient<IValidator<CreateKindViewModel>, CreateKindViewModelValidator>();
-builder.Services.AddTransient<IValidator<CreatePersonViewModel>, CreatePersonViewModelValidator>();
-builder.Services.AddTransient<IValidator<CreatePositionUnitViewModel>, CreatePositionUnitViewModelValidator>();
 
 var app = builder.Build();
 

@@ -6,15 +6,19 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Commands.Positions;
+using eRaven.Application.Repositories;
 using eRaven.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Application.CommandHandlers.Positions;
 
-public sealed class SetPositionActiveStateCommandHandler(IDbContextFactory<AppDbContext> dbFactory)
+public sealed class SetPositionActiveStateCommandHandler(
+    IDbContextFactory<AppDbContext> dbFactory,
+    IPersonRepository personRepository)
         : ICommandHandler<SetPositionActiveStateCommand>
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
+    private readonly IPersonRepository _personRepository = personRepository;
 
     public async Task HandleAsync(
         SetPositionActiveStateCommand cmd,
@@ -31,9 +35,8 @@ public sealed class SetPositionActiveStateCommandHandler(IDbContextFactory<AppDb
 
         if (!cmd.IsActive)
         {
-            // Перевірка, чи не закріплена
-            var occupied = await db.Persons
-                .AnyAsync(p => p.PositionUnitId == cmd.PositionId, ct);
+            // Перевірка через repository
+            var occupied = _personRepository.IsPositionOccupied(cmd.PositionId);
 
             if (occupied)
                 throw new InvalidOperationException(

@@ -15,54 +15,42 @@ public class StatusTransitionConfiguration : IEntityTypeConfiguration<StatusTran
 {
     public void Configure(EntityTypeBuilder<StatusTransition> e)
     {
-        // ===============================
-        // Table & Keys
-        // ===============================
         e.ToTable("status_transitions");
         e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasColumnName("id");
 
-        e.Property(x => x.Id)
-         .HasColumnName("id");
-
-        // ===============================
-        // Columns (lower snake_case)
-        // ===============================
         e.Property(x => x.FromStatusKindId)
-         .HasColumnName("from_status_kind_id")
-         .IsRequired();
+            .HasColumnName("from_status_kind_id")
+            .IsRequired();
 
         e.Property(x => x.ToStatusKindId)
-         .HasColumnName("to_status_kind_id")
-         .IsRequired();
+            .HasColumnName("to_status_kind_id")
+            .IsRequired();
 
-        // ===============================
-        // Relationships
-        // ===============================
-        e.HasOne(x => x.FromStatusKind)
-         .WithMany()
-         .HasForeignKey(x => x.FromStatusKindId)
-         .OnDelete(DeleteBehavior.Restrict);
+        // Зв'язки
+        e.HasOne<StatusKind>()
+            .WithMany()
+            .HasForeignKey(x => x.FromStatusKindId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        e.HasOne(x => x.ToStatusKind)
-         .WithMany()
-         .HasForeignKey(x => x.ToStatusKindId)
-         .OnDelete(DeleteBehavior.Restrict);
+        e.HasOne<StatusKind>()
+            .WithMany()
+            .HasForeignKey(x => x.ToStatusKindId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        // ===============================
-        // Constraints & Indexes
-        // ===============================
+        // Індекси та обмеження
         e.HasIndex(x => new { x.FromStatusKindId, x.ToStatusKindId })
-         .HasDatabaseName("ix_status_transitions_from_to")
-         .IsUnique();
+            .HasDatabaseName("ix_status_transitions_from_to").IsUnique();
+
+        e.HasIndex(x => x.FromStatusKindId)
+            .HasDatabaseName("ix_status_transitions_from");
 
         e.ToTable(t => t.HasCheckConstraint(
             "ck_status_transitions_from_ne_to",
             "from_status_kind_id <> to_status_kind_id"
         ));
 
-        // ===============================
-        // Seed
-        // ===============================
-        e.HasData(Seed.GetStatus());
+        // Початкові дані
+        e.HasData(Seed.GetStatusTransitions());
     }
 }

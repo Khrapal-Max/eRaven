@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // Components/Pages/Persons/Modals/PersonCreateModal.razor.cs
 //-----------------------------------------------------------------------------
 // PersonCreateModal (code-behind)
@@ -93,3 +93,4 @@ public partial class PersonCreateModal : ComponentBase
         StateHasChanged();
     }
 }
+*/

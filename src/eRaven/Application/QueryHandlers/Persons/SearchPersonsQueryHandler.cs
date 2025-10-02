@@ -44,8 +44,8 @@ public sealed class SearchPersonsQueryHandler(IDbContextFactory<AppDbContext> db
                 BZVP = p.MilitaryDetails.BZVP,
                 Weapon = p.MilitaryDetails.Weapon,
                 Callsign = p.MilitaryDetails.Callsign,
-                StatusKindId = p.StatusKindId,
-                PositionUnitId = p.PositionUnitId,
+                StatusKindId = p.CurrentStatusKindId,
+                PositionUnitId = p.CurrentPositionUnitId,
                 CreatedUtc = p.CreatedUtc,
                 ModifiedUtc = p.ModifiedUtc
             })

@@ -42,7 +42,7 @@ public sealed class GetAllPositionsQueryHandler(IDbContextFactory<AppDbContext> 
                     ? p.ShortName
                     : p.ShortName + " " + p.OrgPath,
                 IsActived = p.IsActived,
-                CurrentPersonFullName = p.CurrentPerson.Value //TODO: lazy load
+                CurrentPersonFullName = p.FullName //TODO: lazy load
             })
             .ToListAsync(ct);
 
