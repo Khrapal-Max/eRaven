@@ -5,7 +5,6 @@
 // PlanActionRecordedEventConfiguration
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Aggregates;
 using eRaven.Domain.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -16,12 +15,16 @@ public class PlanActionRecordedEventConfiguration : IEntityTypeConfiguration<Pla
 {
     public void Configure(EntityTypeBuilder<PlanActionRecordedEvent> e)
     {
+        // ===============================
+        // Таблиця та ключі
+        // ===============================
         e.ToTable("plan_action_recorded_events");
         e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasColumnName("id");
 
-        e.Property(x => x.Id)
-            .HasColumnName("id");
-
+        // ===============================
+        // Основні поля
+        // ===============================
         e.Property(x => x.PersonId)
             .HasColumnName("person_id")
             .IsRequired();
@@ -36,15 +39,22 @@ public class PlanActionRecordedEventConfiguration : IEntityTypeConfiguration<Pla
             .HasColumnType("timestamp with time zone")
             .IsRequired();
 
+        // ===============================
+        // Enum поля - конверсія в int
+        // ===============================
         e.Property(x => x.ActionState)
             .HasColumnName("action_state")
-            .HasConversion().IsRequired();
+            .HasConversion<int>()
+            .IsRequired();
 
         e.Property(x => x.MoveType)
             .HasColumnName("move_type")
-            .HasConversion()
+            .HasConversion<int>()
             .IsRequired();
 
+        // ===============================
+        // Додаткова інформація
+        // ===============================
         e.Property(x => x.Location)
             .HasColumnName("location")
             .HasMaxLength(256)
@@ -66,10 +76,12 @@ public class PlanActionRecordedEventConfiguration : IEntityTypeConfiguration<Pla
             .HasColumnName("order_number")
             .HasMaxLength(512);
 
-        // Snapshot
+        // ===============================
+        // Snapshot (денормалізовані дані)
+        // ===============================
         e.Property(x => x.Rnokpp)
             .HasColumnName("rnokpp")
-            .HasMaxLength(10)
+            .HasMaxLength(16)
             .IsRequired();
 
         e.Property(x => x.FullName)
@@ -107,7 +119,9 @@ public class PlanActionRecordedEventConfiguration : IEntityTypeConfiguration<Pla
             .HasColumnType("timestamp with time zone")
             .IsRequired();
 
-        // Індекси
+        // ===============================
+        // Індекси для швидкого пошуку
+        // ===============================
         e.HasIndex(x => new { x.PersonId, x.EffectiveAtUtc })
             .HasDatabaseName("ix_plan_action_recorded_events_person_date");
 
@@ -116,5 +130,8 @@ public class PlanActionRecordedEventConfiguration : IEntityTypeConfiguration<Pla
 
         e.HasIndex(x => x.ActionState)
             .HasDatabaseName("ix_plan_action_recorded_events_action_state");
+
+        e.HasIndex(x => x.EffectiveAtUtc)
+            .HasDatabaseName("ix_plan_action_recorded_events_effective_date");
     }
 }
