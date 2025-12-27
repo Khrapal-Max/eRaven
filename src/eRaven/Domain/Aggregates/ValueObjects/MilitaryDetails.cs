@@ -5,7 +5,7 @@
 // MilitaryDetails
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Domain.ValueObjects;
+namespace eRaven.Domain.Aggregates.ValueObjects;
 
 /// <summary>
 /// Інформація про військовий стан
