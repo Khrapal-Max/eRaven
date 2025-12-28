@@ -33,7 +33,10 @@ public partial class PositionUnits : IDisposable
             PositionUnitsList = [.. await PositionUnitRepository.GetAllPositionUnits(_cts.Token)];
         }
         catch (OperationCanceledException) { }
-        finally { IsLoading = false; }
+        finally 
+        { 
+            IsLoading = false; 
+        }
     }
 
     protected void OnRowClick(PositionUnit unit) => Selected = unit;

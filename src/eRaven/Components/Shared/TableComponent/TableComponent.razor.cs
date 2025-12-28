@@ -29,8 +29,7 @@ public partial class TableComponent<TItem> : ComponentBase
     private string GetRowClass(TItem item)
     {
         var isSelected = IsSelected(item);
-        // глобальные классы: "table-row" и "is-selected"
-        return isSelected ? "table-row is-selected" : "table-row";
+        return isSelected ? "table-row table-active" : "table-row";
     }
 
     private bool IsSelected(TItem item)

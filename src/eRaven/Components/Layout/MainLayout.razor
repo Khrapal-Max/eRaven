@@ -1,27 +1,27 @@
 ﻿@inherits LayoutComponentBase
 
-<NavBar />
+<div class="app-shell">
+    <header class="app-header">
+        <NavBar />
+    </header>
 
-<main class="layout-main container-fluid">
-  <ErrorBoundary>
-    <ChildContent>
-      @Body
-    </ChildContent>
-    <ErrorContent>
-      <div class="container py-4">
-        <div class="alert alert-danger d-flex align-items-center" role="alert">
-          <i class="bi bi-exclamation-triangle-fill me-2"></i>
-          <div>
-            Сталася неочікувана помилка. <a class="alert-link" href=".">Оновити сторінку</a>
-          </div>
+    <main class="app-main">
+        <div class="page-container">
+            <ErrorBoundary>
+                <ChildContent>
+                    @Body
+                </ChildContent>
+                <ErrorContent>
+                    <div class="container py-4">
+                        <div class="alert alert-danger d-flex align-items-center" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <div>
+                                Сталася неочікувана помилка. <a class="alert-link" href=".">Оновити сторінку</a>
+                            </div>
+                        </div>
+                    </div>
+                </ErrorContent>
+            </ErrorBoundary>
         </div>
-      </div>
-    </ErrorContent>
-  </ErrorBoundary>
-</main>
-
-<div id="blazor-error-ui" data-nosnippet class="d-none">
-    Виникла необроблена помилка.
-    <a href="." class="reload">Перезавантажити</a>
-    <span class="dismiss">🗙</span>
+    </main>
 </div>

@@ -1,14 +1,15 @@
-﻿﻿<button class="btn text-decoration-none text-white p-2 m-2 fw-bold @Class"
-         type="button"
-         style="@Style"
-         Disabled=@IsDisabled
-         @onclick=ClickButton>
-    @if (ChildContent != null)
+﻿<button class="btn @Class"
+        type="button"
+        style="@Style"
+        disabled="@IsDisabled"
+        @onclick="ClickButton">
+    @if (ChildContent is not null)
     {
         @ChildContent
     }
-    @if (!string.IsNullOrEmpty(Label))
+    else if (!string.IsNullOrWhiteSpace(Label))
     {
+
         @Label
     }
 </button>

@@ -14,23 +14,26 @@ else if (PositionUnitsList.Count == 0)
 }
 else if (PositionUnitsList.Count > 0)
 {
+
     <TableComponent Items="@PositionUnitsList"
                     TItem="PositionUnit"
                     KeySelector="x => x.Id"
                     OnClick="OnRowClick">
         <TableHeader>
-            <th class="text-black">Код.</th>
-            <th class="text-black">Назва посади</th>
-            <th class="text-black">Повна посада</th>
-            <th class="text-black">ВОС</th>
-            <th class="text-black">Статус</th>
+            <th>Код.</th>
+            <th>Назва посади</th>
+            <th>Повна посада</th>
+            <th>ВОС</th>
+            <th>Статус</th>
+            <th>Дія</th>
         </TableHeader>
         <RowTemplate Context="unit">
             <td>@unit.Code</td>
             <td>@unit.ShortName</td>
             <td>@unit.FullName</td>
             <td>@unit.SpecialNumber</td>
-            <td>@(unit.IsActived ? "Активна" : "Неактивна")</td>
+            <td class="align-middle">@(unit.IsActived ? "А" : "Н")</td>
+            <td class="align-middle">кноп</td>
         </RowTemplate>
     </TableComponent>
 }
