@@ -5,7 +5,7 @@
 // AppDbContext
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Models;
+using eRaven.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure;
@@ -14,8 +14,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     // Довідники
     public DbSet<PositionUnit> PositionUnits { get; set; }
-    public DbSet<StatusKind> StatusKinds { get; set; }
-    public DbSet<StatusTransition> StatusTransitions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

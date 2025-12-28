@@ -5,7 +5,7 @@
 // PositionUnit
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Domain.Models;
+namespace eRaven.Domain.Entities;
 
 /// <summary>
 /// Посада
@@ -17,7 +17,7 @@ public class PositionUnit
     /// <summary>
     /// Код посади
     /// </summary>
-    public string? Code { get; set; }
+    public string Code { get; set; } = string.Empty;
 
     /// <summary>
     /// Коротка назва посади
@@ -27,7 +27,7 @@ public class PositionUnit
     /// <summary>
     /// Шлях посади
     /// </summary>
-    public string? OrgPath { get; set; }
+    public string FullName { get; set; } = string.Empty;
 
     /// <summary>
     /// номер спеціальності
@@ -38,10 +38,4 @@ public class PositionUnit
     /// Стан посади - активний дійсний
     /// </summary>
     public bool IsActived { get; set; }
-
-    /// <summary>
-    /// Конкатенація повної назви посади
-    /// </summary>
-    public string FullName =>
-       string.IsNullOrWhiteSpace(OrgPath) ? ShortName : $"{ShortName} {OrgPath}";
 }

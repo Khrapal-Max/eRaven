@@ -5,10 +5,10 @@
 // Program
 //-----------------------------------------------------------------------------
 
-using Blazored.Toast;
 using eRaven.Components;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
+using eRaven.Infrastructure.Repositories.PositionUnitRepository;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,7 +22,9 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")); // або ваш провайдер
 });
 
-builder.Services.AddBlazoredToast();
+// Add services to the container.
+// Repository
+builder.Services.AddTransient<IPositionUnitRepository, PositionUnitRepository>();
 
 var app = builder.Build();
 

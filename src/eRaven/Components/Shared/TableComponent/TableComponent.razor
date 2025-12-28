@@ -1,0 +1,26 @@
+﻿@typeparam TItem
+
+<div class="table-wrap">
+    <div class="table-scroll">
+        <table class="table table-hover w-100 mb-0 @Class">
+            <thead class="table-head sticky-top">
+                <tr class="table-head-row">
+                    @TableHeader
+                </tr>
+            </thead>
+
+            <tbody class="table-body">
+                @if (Items is not null)
+                {
+                    @foreach (var item in Items)
+                    {
+                        <tr class="@GetRowClass(item)"
+                            @onclick="() => OnRowClicked(item)">
+                            @RowTemplate(item)
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

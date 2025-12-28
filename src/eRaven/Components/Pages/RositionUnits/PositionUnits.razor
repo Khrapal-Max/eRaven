@@ -1,0 +1,36 @@
+﻿@page "/position-units"
+@using eRaven.Domain.Entities
+@using eRaven.Components.Shared.ButtonComponent
+
+<PageTitle>Посади</PageTitle>
+
+@if (IsLoading)
+{
+    <p><em>Завантаження...</em></p>
+}
+else if (PositionUnitsList.Count == 0)
+{
+    <p><em>Записи відсутні.</em></p>
+}
+else if (PositionUnitsList.Count > 0)
+{
+    <TableComponent Items="@PositionUnitsList"
+                    TItem="PositionUnit"
+                    KeySelector="x => x.Id"
+                    OnClick="OnRowClick">
+        <TableHeader>
+            <th class="text-black">Код.</th>
+            <th class="text-black">Назва посади</th>
+            <th class="text-black">Повна посада</th>
+            <th class="text-black">ВОС</th>
+            <th class="text-black">Статус</th>
+        </TableHeader>
+        <RowTemplate Context="unit">
+            <td>@unit.Code</td>
+            <td>@unit.ShortName</td>
+            <td>@unit.FullName</td>
+            <td>@unit.SpecialNumber</td>
+            <td>@(unit.IsActived ? "Активна" : "Неактивна")</td>
+        </RowTemplate>
+    </TableComponent>
+}

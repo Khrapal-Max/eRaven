@@ -5,7 +5,7 @@
 // PositionUnitConfiguration
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Models;
+using eRaven.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -37,8 +37,8 @@ public class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
          .HasMaxLength(128)
          .IsRequired();
 
-        e.Property(x => x.OrgPath)
-         .HasColumnName("org_path")
+        e.Property(x => x.FullName)
+         .HasColumnName("full_name")
          .HasMaxLength(512)
          .IsRequired();
 
@@ -62,17 +62,5 @@ public class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
 
         e.HasIndex(x => x.SpecialNumber)
         .HasDatabaseName("ix_position_units_number");
-
-        // ===============================
-        // Relationships
-        // ===============================
-        // Навігація CurrentPerson налаштована з боку Person:
-        // PersonConfiguration: HasOne(p => p.PositionUnit).WithOne(u => u.CurrentPerson)...
-        // Тут додатково нічого не визначаємо, щоб не дублювати.
-
-        // ===============================
-        // Ignored (computed)
-        // ===============================
-        e.Ignore(x => x.FullName);
     }
 }
