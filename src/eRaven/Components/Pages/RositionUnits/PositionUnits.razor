@@ -2,63 +2,62 @@
 @using eRaven.Domain.Entities
 @using Microsoft.AspNetCore.Components.Forms
 
-<PageTitle>Посади</PageTitle>
+<div class="page-flex">
+    <PageToolbar Title="Посади">
+        <Right>
+            <PositionUnitImportExport OnChanged="LoadAsync" />
+            <Button Class="btn-sm btn-primary" Label="Створити" OnClickButton="OnAddPositionUnitClick" />
+        </Right>
+    </PageToolbar>
 
-<PageToolbar Title="Посади">
-    <Right>
-        <PositionUnitImportExport OnChanged="LoadAsync" />
+    <div class="page-content">
+        @if (IsLoading)
+        {
+            <p><em>Завантаження...</em></p>
+        }
+        else if (PositionUnitsList.Count == 0)
+        {
+            <p><em>Записи відсутні.</em></p>
+        }
+        else
+        {
+            <Table Items="@PositionUnitsList"
+                   TItem="PositionUnit"
+                   KeySelector="x => x.Id"
+                   @bind-SelectedItem="Selected">
+                <TableHeader>
+                    <th>#</th>
+                    <th>Код.</th>
+                    <th>Назва посади</th>
+                    <th>Повна посада</th>
+                    <th>ВОС</th>
+                    <th>ШПК</th>
+                    <th>ТР</th>
+                    <th class="text-center">Статус</th>
+                    <th class="text-center">Дія</th>
+                </TableHeader>
 
-        <Button Class="btn-sm btn-primary"
-                Label="Створити"
-                OnClickButton="OnAddPositionUnitClick" />
-    </Right>
-</PageToolbar>
-
-@if (IsLoading)
-{
-    <p><em>Завантаження...</em></p>
-}
-else if (PositionUnitsList.Count == 0)
-{
-    <p><em>Записи відсутні.</em></p>
-}
-else
-{
-    <Table Items="@PositionUnitsList"
-           TItem="PositionUnit"
-           KeySelector="x => x.Id"
-           @bind-SelectedItem="Selected">
-        <TableHeader>
-            <th>#</th>
-            <th>Код.</th>
-            <th>Назва посади</th>
-            <th>Повна посада</th>
-            <th>ВОС</th>
-            <th>ШПК</th>
-            <th>ТР</th>
-            <th class="text-center">Статус</th>
-            <th class="text-center">Дія</th>
-        </TableHeader>
-
-        <RowTemplate Context="unit">
-            <td>@unit.Number</td>
-            <td>@unit.Code</td>
-            <td>@unit.ShortName</td>
-            <td>@unit.FullName</td>
-            <td>@unit.SpecialNumber</td>
-            <td>@unit.Rank</td>
-            <td>@unit.Tarif</td>
-            <td class="text-center">@(unit.IsActived ? "А" : "Н")</td>
-            <td class="text-center">
-                <Button Class="btn-sm btn-outline-danger"
-                        Label="Закрити"
-                        IsDisabled="!unit.IsActived"
-                        StopPropagation="true"
-                        OnClickButton="() => AskDeactivate(unit)" />
-            </td>
-        </RowTemplate>
-    </Table>
-}
+                <RowTemplate Context="unit">
+                    <td>@unit.Number</td>
+                    <td>@unit.Code</td>
+                    <td>@unit.ShortName</td>
+                    <td>@unit.FullName</td>
+                    <td>@unit.SpecialNumber</td>
+                    <td>@unit.Rank</td>
+                    <td>@unit.Tarif</td>
+                    <td class="text-center">@(unit.IsActived ? "А" : "Н")</td>
+                    <td class="text-center">
+                        <Button Class="btn-sm btn-outline-danger"
+                                Label="Закрити"
+                                IsDisabled="!unit.IsActived"
+                                StopPropagation="true"
+                                OnClickButton="() => AskDeactivate(unit)" />
+                    </td>
+                </RowTemplate>
+            </Table>
+        }
+    </div>
+</div>
 
 <Modal Title="Створити посаду"
        IsOpen="@CreateOpen"

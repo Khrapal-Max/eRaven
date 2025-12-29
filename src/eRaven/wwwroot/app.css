@@ -1,20 +1,21 @@
 ﻿/* =========================
-   Accounting UI (soft gray)
+   Base (Bootstrap-first)
    ========================= */
 :root {
-    /* neutral base */
-    --bs-body-bg: #d2d4d6; /* light gray background */
-    --bs-body-color: #212529; /* dark text */
-    /* surfaces */
+    --bs-body-bg: #d2d4d6;
+    --bs-body-color: #212529;
     --bs-secondary-bg: #e9ecef;
     --bs-tertiary-bg: #f8f9fa;
     --bs-light: #f8f9fa;
-    /* borders */
     --bs-border-color: #dfe3e8;
-    /* primary accent (bootstrap default) */
     --bs-primary: #0d6efd;
-    /* typography */
+    --bs-table-color: #212529;
+    --bs-table-bg: transparent;
+    --bs-table-head-color: #212529;
+    --bs-table-head-bg: #f8f9fa;
     --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    /* якщо Navbar має стабільну висоту (bootstrap lg) */
+    --app-header-h: 56px;
 }
 
 html, body {
@@ -28,20 +29,21 @@ body {
     line-height: 1.45;
     background: var(--bs-body-bg);
     color: var(--bs-body-color);
-    overflow: hidden; /* scroll only in app-main */
+    overflow: hidden; /* важливо: скрол НЕ на body */
 }
 
 /* =========================
-   Shell
+   App shell
    ========================= */
 .app-shell {
     height: 100dvh;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
     min-height: 0;
+    overflow: hidden;
 }
 
+/* Header: не скролиться */
 .app-header {
     flex: 0 0 auto;
     position: sticky;
@@ -51,19 +53,23 @@ body {
     border-bottom: 1px solid var(--bs-border-color);
 }
 
+/* Main: єдина зона скрола */
 .app-main {
     flex: 1 1 auto;
-    overflow: auto;
     min-height: 0;
+    overflow: auto;
     background: var(--bs-body-bg);
 }
 
-    .app-main > .page-container {
-        padding: 0.75rem 1rem;
-    }
+/* контейнер сторінки */
+.page-container {
+    height: 100%; /* важливо */
+    min-height: 0; /* важливо */
+    padding: .75rem 1rem;
+}
 
 /* =========================
-   Navbar (readable, not bright)
+   Navbar (легкі правки)
    ========================= */
 .app-navbar {
     background: var(--bs-light);
@@ -75,15 +81,11 @@ body {
     }
 
         .app-navbar .nav-link:hover,
-        .app-navbar .nav-link:focus {
-            color: var(--bs-primary) !important;
-        }
-
+        .app-navbar .nav-link:focus,
         .app-navbar .nav-link.active {
             color: var(--bs-primary) !important;
         }
 
-    /* dropdown look */
     .app-navbar .dropdown-menu {
         background: var(--bs-light);
         border: 1px solid var(--bs-border-color);
@@ -97,53 +99,98 @@ body {
 
         .app-navbar .dropdown-item:hover,
         .app-navbar .dropdown-item:focus {
-            background: rgba(13, 110, 253, .08);
-            color: var(--bs-body-color);
+            background: rgba(13,110,253,.08);
         }
 
 /* =========================
-   TableComponent – accounting style
+   Page layout helper
    ========================= */
-/* wrapper */
-.table-wrap {
-    width: 100%;
+/* сторінка як flex-колонка: toolbar -> content */
+.page-flex {
+    height: 100%;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
 }
 
-/* scroll only here */
+/* блок контенту на сторінці займає залишок */
+.page-content {
+    flex: 1 1 auto;
+    min-height: 0; /* критично для overflow */
+}
+
+/* =========================
+   Toolbar
+   ========================= */
+.page-toolbar {
+    flex: 0 0 auto;
+    padding: .5rem .75rem;
+    background: var(--bs-tertiary-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: .5rem;
+}
+
+/* =========================
+   Table (internal scroll + sticky head)
+   ========================= */
+
+.table-wrap {
+    height: 100%;
+    min-height: 0; /* важливо для flex */
+}
+
+/* саме тут скролиться таблиця */
 .table-scroll {
-    max-height: 74vh; /* або height: 100% у flex */
-    overflow-y: scroll; /* стабільна ширина -> немає “смикання” */
-    overflow-x: auto;
+    height: 100%;
+    min-height: 0;
+    overflow: auto;
     scrollbar-gutter: stable both-edges;
-    position: relative; /* потрібно для sticky */
+    /* optional: якщо хочеш “рамку” контейнера таблиці */
+    /* border: 1px solid var(--bs-border-color);
+       border-radius: .5rem;
+       background: var(--bs-tertiary-bg); */
 }
 
-/* base table look */
+/* базовий вигляд */
 .table {
+    width: 100%;
+    min-width: 100%;
+    margin-bottom: 0;
     color: var(--bs-body-color);
     background-color: transparent;
-    margin-bottom: 0;
-    min-width: 100%;
+    /* bootstrap vars */
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--bs-body-color);
     --bs-table-hover-bg: rgba(13,110,253,.06);
     --bs-table-active-bg: rgba(13,110,253,.14);
+    /* header vars */
+    --bs-table-head-bg: var(--bs-tertiary-bg);
+    --bs-table-head-color: var(--bs-body-color);
 }
 
-    /* sticky header - робимо на TH, а не на THEAD */
+    /* sticky header у межах .table-scroll */
     .table thead th {
         position: sticky;
         top: 0;
         z-index: 2;
-        background-color: var(--bs-tertiary-bg);
-        color: var(--bs-body-color);
-        border-bottom: 1px solid var(--bs-border-color);
+        background-color: var(--bs-table-head-bg) !important;
+        color: var(--bs-table-head-color) !important;
         font-weight: 600;
+        border-bottom: 1px solid var(--bs-border-color);
+        /* щоб не “мигтіло” на деяких браузерах */
+        background-clip: padding-box;
     }
 
-    /* body cells */
+    /* клітинки */
     .table tbody td {
         color: var(--bs-body-color);
         vertical-align: middle;
+    }
+
+    /* рядки */
+    .table tbody tr.table-row {
+        cursor: pointer;
     }
 
     /* hover поверх active */
@@ -151,59 +198,42 @@ body {
         background-color: rgba(13,110,253,.20);
     }
 
-    .table tbody tr.table-row {
-        cursor: pointer;
-    }
-
-.table-scroll {
-    padding-right: 16px; /* резерв під вертикальний scrollbar */
-    box-sizing: border-box;
-}
-
 /* =========================
-   PageToolbarComponent – accounting style
+   Forms / validation
    ========================= */
-
-.page-toolbar {
-    padding: .5rem .75rem;
-    background: var(--bs-tertiary-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: .5rem;
-    margin-bottom: .75rem;
+.form-label {
+    font-size: .875rem;
+    font-weight: 600;
+    margin-bottom: .25rem;
 }
-
-/* =========================
-   Validation – accounting style
-   ========================= */
 
 .validation-message {
     display: block;
     margin-top: .25rem;
     font-size: .825rem;
-    color: #b02a37; /* близько до bootstrap danger */
+    color: #b02a37;
     line-height: 1.25;
 }
 
-/* =========================
-   ModalComponent – accounting style
-   ========================= */
-
-/* Поля вводу: трохи контрастніші, ніж фон */
 .form-control, .form-select, .form-check-input {
     border-color: var(--bs-border-color);
     background-color: #fff;
 }
 
-    /* Фокус: акуратна рамка + легке підсвічування */
     .form-control:focus, .form-select:focus {
         border-color: rgba(13,110,253,.45);
         box-shadow: 0 0 0 .2rem rgba(13,110,253,.12);
     }
 
-/* Лейбли: компактніші і читабельні */
-.form-label {
-    font-size: .875rem;
-    font-weight: 600;
-    color: var(--bs-body-color);
-    margin-bottom: .25rem;
+/* =========================
+   Responsive
+   ========================= */
+@media (max-width: 576px) {
+    .page-container {
+        padding: .5rem .5rem;
+    }
+
+    .page-toolbar {
+        padding: .5rem;
+    }
 }
