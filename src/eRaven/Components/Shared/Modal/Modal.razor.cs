@@ -7,9 +7,9 @@
 
 using Microsoft.AspNetCore.Components;
 
-namespace eRaven.Components.Shared.ModalComponent;
+namespace eRaven.Components.Shared.Modal;
 
-public partial class ModalComponent : ComponentBase
+public partial class Modal : ComponentBase
 {
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }

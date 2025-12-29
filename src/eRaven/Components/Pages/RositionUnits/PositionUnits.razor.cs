@@ -5,7 +5,7 @@
 // PositionUnits
 //-----------------------------------------------------------------------------
 
-using eRaven.Components.Shared.ConfirmModalComponent;
+using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Entities;
 using eRaven.Extensions;
 using eRaven.Infrastructure.Repositories.PositionUnitRepository;
@@ -32,7 +32,7 @@ public partial class PositionUnits : IDisposable
     protected PositionUnit CreateModel { get; set; } = new();
 
     // ==== comfirm modal state ====
-    private ConfirmModalComponent<PositionUnit> _deactivateModal = default!;
+    private ConfirmModal<PositionUnit> _deactivateModal = default!;
 
     // ==== dependensy ====
     [Inject] private IPositionUnitRepository PositionUnitRepository { get; set; } = default!;

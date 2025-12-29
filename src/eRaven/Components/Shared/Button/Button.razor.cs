@@ -7,9 +7,9 @@
 
 using Microsoft.AspNetCore.Components;
 
-namespace eRaven.Components.Shared.ButtonComponent;
+namespace eRaven.Components.Shared.Button;
 
-public partial class ButtonComponent : ComponentBase
+public partial class Button : ComponentBase
 {
     [Parameter]
     public string? Label { get; set; }

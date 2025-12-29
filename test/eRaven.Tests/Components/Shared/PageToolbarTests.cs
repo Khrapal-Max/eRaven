@@ -2,21 +2,21 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PageToolbarComponentTests -> PageToolbarComponent
+// PageToolbarTests -> PageToolbar
 //-----------------------------------------------------------------------------
 
 using Bunit;
-using eRaven.Components.Shared.PageToolbarComponent;
+using eRaven.Components.Shared.PageToolbar;
 
 namespace eRaven.Tests.Components.Shared;
 
-public class PageToolbarComponentTests : BunitContext
+public class PageToolbarTests : BunitContext
 {
     [Fact]
     public void Renders_Title_When_Provided()
     {
         // Act
-        var cut = Render<PageToolbarComponent>(ps => ps
+        var cut = Render<PageToolbar>(ps => ps
             .Add(p => p.Title, "Посади")
             .Add(p => p.Right, b =>
             {
@@ -33,7 +33,7 @@ public class PageToolbarComponentTests : BunitContext
     public void Does_Not_Render_Title_When_Null()
     {
         // Act
-        var cut = Render<PageToolbarComponent>(ps => ps
+        var cut = Render<PageToolbar>(ps => ps
             .Add(p => p.Title, null)
             .Add(p => p.Right, b =>
             {
@@ -50,7 +50,7 @@ public class PageToolbarComponentTests : BunitContext
     public void Renders_Left_When_Provided()
     {
         // Act
-        var cut = Render<PageToolbarComponent>(ps => ps
+        var cut = Render<PageToolbar>(ps => ps
             .Add(p => p.Title, "Test")
             .Add(p => p.Left, b =>
             {
@@ -71,7 +71,7 @@ public class PageToolbarComponentTests : BunitContext
     public void Renders_Right_Content()
     {
         // Act
-        var cut = Render<PageToolbarComponent>(ps => ps
+        var cut = Render<PageToolbar>(ps => ps
             .Add(p => p.Title, "Test")
             .Add(p => p.Right, b =>
             {

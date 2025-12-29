@@ -2,16 +2,16 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// TableComponentTests -> TableComponent
+// TableTests -> Table
 //-----------------------------------------------------------------------------
 
 using Bunit;
-using eRaven.Components.Shared.TableComponent;
+using eRaven.Components.Shared.Table;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Tests.Components.Shared;
 
-public class TableComponentTests : BunitContext
+public class TableTests : BunitContext
 {
     private sealed class TestRow
     {
@@ -48,7 +48,7 @@ public class TableComponentTests : BunitContext
         var classParametr = "m-0";
 
         // Act
-        var cut = Render<TableComponent<string>>(parameters => parameters
+        var cut = Render<Table<string>>(parameters => parameters
             .Add(p => p.Class, classParametr)
             .Add(p => p.Items, list)
             .Add(p => p.TableHeader, Header("TableHeader"))
@@ -71,7 +71,7 @@ public class TableComponentTests : BunitContext
         var list = new List<string> { "Foo", "Bar", "Baz" };
         string? clicked = null;
 
-        var cut = Render<TableComponent<string>>(parameters => parameters
+        var cut = Render<Table<string>>(parameters => parameters
            .Add(p => p.Items, list)
            .Add(p => p.TableHeader, Header("TableHeader"))
            .Add(p => p.RowTemplate, RowTemplateString())
@@ -111,7 +111,7 @@ public class TableComponentTests : BunitContext
         // SelectedItem НЕ з цього списку (інший instance), але з таким самим Id => має підсвітитись
         var selected = new TestRow { Id = idB, Name = "B (external instance)" };
 
-        var cut = Render<TableComponent<TestRow>>(parameters => parameters
+        var cut = Render<Table<TestRow>>(parameters => parameters
             .Add(p => p.Items, items)
             .Add(p => p.TableHeader, Header("Name"))
             .Add(p => p.RowTemplate, RowTemplateTestRow())

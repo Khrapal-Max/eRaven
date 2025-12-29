@@ -2,21 +2,21 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ConfirmModalComponentTests -> ConfirmModalComponent
+// ConfirmModalTests -> ConfirmModal
 //-----------------------------------------------------------------------------
 
 using Bunit;
-using eRaven.Components.Shared.ConfirmModalComponent;
+using eRaven.Components.Shared.ConfirmModal;
 
 namespace eRaven.Tests.Components.Shared;
 
-public class ConfirmModalComponentTests : BunitContext
+public class ConfirmModalTests : BunitContext
 {
     [Fact]
     public async Task ShowAsync_WithBodyText_RendersTitleAndTextAndBackdrop()
     {
         // Arrange
-        var cut = Render<ConfirmModalComponent<string>>(ps => ps
+        var cut = Render<ConfirmModal<string>>(ps => ps
             .Add(p => p.Title, "Заголовок")
             .Add(p => p.ConfirmText, "Так")
             .Add(p => p.CancelText, "Ні"));
@@ -39,7 +39,7 @@ public class ConfirmModalComponentTests : BunitContext
     public async Task ShowAsync_WithBodyTemplate_RendersTemplateInsteadOfBodyText()
     {
         // Arrange
-        var cut = Render<ConfirmModalComponent<string>>(ps => ps
+        var cut = Render<ConfirmModal<string>>(ps => ps
             .Add(p => p.Title, "Підтвердження")
             .Add(p => p.BodyTemplate!, m => builder =>
             {
@@ -68,7 +68,7 @@ public class ConfirmModalComponentTests : BunitContext
     public async Task Confirm_ReturnsTrue_AndHidesModal()
     {
         // Arrange
-        var cut = Render<ConfirmModalComponent<int>>(ps => ps
+        var cut = Render<ConfirmModal<int>>(ps => ps
             .Add(p => p.Title, "Confirm")
             .Add(p => p.ConfirmText, "Підтвердити")
             .Add(p => p.CancelText, "Скасувати"));
@@ -99,7 +99,7 @@ public class ConfirmModalComponentTests : BunitContext
     public async Task Cancel_ReturnsFalse_AndHidesModal()
     {
         // Arrange
-        var cut = Render<ConfirmModalComponent<Guid>>();
+        var cut = Render<ConfirmModal<Guid>>();
 
         // Act
         var task = cut.InvokeAsync(() => cut.Instance.ShowAsync(Guid.NewGuid(), "Cancel me"));
@@ -122,7 +122,7 @@ public class ConfirmModalComponentTests : BunitContext
     public async Task ShowAsync_WhenAlreadyOpen_ThrowsInvalidOperationException()
     {
         // Arrange
-        var cut = Render<ConfirmModalComponent<string>>();
+        var cut = Render<ConfirmModal<string>>();
 
         // Act: open modal (do NOT await completion yet)
         var pending = cut.InvokeAsync(() => cut.Instance.ShowAsync("A", "First"));

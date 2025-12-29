@@ -2,22 +2,22 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ModalComponentTests -> ModalComponent
+// ModalTests -> Modal
 //-----------------------------------------------------------------------------
 
 using Bunit;
-using eRaven.Components.Shared.ModalComponent;
+using eRaven.Components.Shared.Modal;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Tests.Components.Shared;
 
-public class ModalComponentTests : BunitContext
+public class ModalTests : BunitContext
 {
     [Fact]
     public void Should_Not_Render_When_IsOpen_False()
     {
         // Act
-        var cut = Render<ModalComponent>(ps => ps
+        var cut = Render<Modal>(ps => ps
             .Add(p => p.IsOpen, false)
             .AddChildContent("<div>Body</div>"));
 
@@ -30,7 +30,7 @@ public class ModalComponentTests : BunitContext
     public void Should_Render_Title_And_ChildContent_When_IsOpen_True()
     {
         // Act
-        var cut = Render<ModalComponent>(ps => ps
+        var cut = Render<Modal>(ps => ps
             .Add(p => p.IsOpen, true)
             .Add(p => p.Title, "Створення посади")
             .AddChildContent("<div class='body-test'>Hello</div>"));
@@ -47,7 +47,7 @@ public class ModalComponentTests : BunitContext
         // Arrange
         var isOpen = true;
 
-        var cut = Render<ModalComponent>(ps => ps
+        var cut = Render<Modal>(ps => ps
             .Add(p => p.IsOpen, true)
             .Add(p => p.IsOpenChanged, v => isOpen = v)
             .AddChildContent("<div>Body</div>"));
@@ -70,7 +70,7 @@ public class ModalComponentTests : BunitContext
 
         static Task<bool> OnCreateAsync() => Task.FromResult(true);
 
-        var cut = Render<ModalComponent>(ps => ps
+        var cut = Render<Modal>(ps => ps
             .Add(p => p.IsOpen, true)
             .Add(p => p.IsOpenChanged, v => isOpen = v)
             .Add(p => p.OnCreateAsync, OnCreateAsync)
@@ -95,7 +95,7 @@ public class ModalComponentTests : BunitContext
 
         static Task<bool> OnCreateAsync() => Task.FromResult(false);
 
-        var cut = Render<ModalComponent>(ps => ps
+        var cut = Render<Modal>(ps => ps
             .Add(p => p.IsOpen, true)
             .Add(p => p.IsOpenChanged, v => isOpen = v)
             .Add(p => p.OnCreateAsync, OnCreateAsync)
@@ -131,7 +131,7 @@ public class ModalComponentTests : BunitContext
             return Task.CompletedTask;
         }
 
-        var cut = Render<ModalComponent>(ps => ps
+        var cut = Render<Modal>(ps => ps
             .Add(p => p.IsOpen, true)
             .Add(p => p.IsBusy, true)
             .Add(p => p.IsOpenChanged, v => isOpen = v)

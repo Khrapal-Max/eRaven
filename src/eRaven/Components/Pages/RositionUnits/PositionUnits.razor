@@ -1,13 +1,12 @@
 ﻿@page "/position-units"
 @using eRaven.Domain.Entities
-@using eRaven.Components.Shared.ButtonComponent
 @using Microsoft.AspNetCore.Components.Forms
 
 <PageTitle>Посади</PageTitle>
 
-<PageToolbarComponent Title="Посади">
+<PageToolbar Title="Посади">
     <Right>
-        <ButtonComponent Class="btn-sm btn-primary"
+        <Button Class="btn-sm btn-primary"
                          Label="Створити"
                          OnClickButton="OnAddPositionUnitClick" />
 
@@ -19,7 +18,7 @@
                          Label="Експорт"
                          OnClickButton="OnExportClick" /> *@
     </Right>
-</PageToolbarComponent>
+</PageToolbar>
 
 @if (IsLoading)
 {
@@ -31,7 +30,7 @@ else if (PositionUnitsList.Count == 0)
 }
 else
 {
-    <TableComponent Items="@PositionUnitsList"
+    <Table Items="@PositionUnitsList"
                     TItem="PositionUnit"
                     KeySelector="x => x.Id"
                     @bind-SelectedItem="Selected">
@@ -53,17 +52,17 @@ else
             <td>@unit.SpecialNumber</td>
             <td class="text-center">@(unit.IsActived ? "А" : "Н")</td>
             <td class="text-center">
-                <ButtonComponent Class="btn-sm btn-outline-danger"
+                <Button Class="btn-sm btn-outline-danger"
                                  Label="Закрити"
                                  IsDisabled="!unit.IsActived"
                                  StopPropagation="true"
                                  OnClickButton="() => AskDeactivate(unit)" />
             </td>
         </RowTemplate>
-    </TableComponent>
+    </Table>
 }
 
-<ModalComponent Title="Створити посаду"
+<Modal Title="Створити посаду"
                 IsOpen="@CreateOpen"
                 IsOpenChanged="v => CreateOpen = v"
                 CreateText="Створити"
@@ -119,16 +118,16 @@ else
             </div>
         </EditForm>
     }
-</ModalComponent>
+</Modal>
 
-<ConfirmModalComponent T="PositionUnit"
-                       @ref="_deactivateModal"
-                       Title="Закриття посади в штатному розкладі"
-                       ConfirmText="Закрити"
-                       CancelText="Відміна"
-                       DialogSize="modal-md">
+<ConfirmModal T="PositionUnit"
+              @ref="_deactivateModal"
+              Title="Закриття посади в штатному розкладі"
+              ConfirmText="Закрити"
+              CancelText="Відміна"
+              DialogSize="modal-md">
     <BodyTemplate Context="u">
         <p class="mb-0">Закрити посаду <b>@u.FullName</b>?</p>
         <div class="text-muted small mt-1">Код: @u.Code • ВОС: @u.SpecialNumber</div>
     </BodyTemplate>
-</ConfirmModalComponent>
+</ConfirmModal>

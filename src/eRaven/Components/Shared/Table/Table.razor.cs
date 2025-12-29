@@ -7,9 +7,9 @@
 
 using Microsoft.AspNetCore.Components;
 
-namespace eRaven.Components.Shared.TableComponent;
+namespace eRaven.Components.Shared.Table;
 
-public partial class TableComponent<TItem> : ComponentBase
+public partial class Table<TItem> : ComponentBase
 {
     [Parameter] public string Class { get; set; } = string.Empty;
 

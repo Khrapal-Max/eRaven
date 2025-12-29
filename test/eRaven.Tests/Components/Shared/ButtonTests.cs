@@ -2,16 +2,16 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ButtonComponentTests -> ButtonComponent
+// ButtonTests -> Button
 //-----------------------------------------------------------------------------
 
 using Bunit;
-using eRaven.Components.Shared.ButtonComponent;
+using eRaven.Components.Shared.Button;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Tests.Components.Shared;
 
-public class ButtonComponentTests : BunitContext
+public class ButtonTests : BunitContext
 {
     [Fact]
     public void ShouldRenderButton_And_Invoke_Click()
@@ -21,7 +21,7 @@ public class ButtonComponentTests : BunitContext
         void OnClick() => clicked = true;
 
         // Act
-        var cut = Render<ButtonComponent>(parameters => parameters
+        var cut = Render<Button>(parameters => parameters
             .Add(p => p.Label, "Button")
             .Add(p => p.Class, "custom-class")
             .Add(p => p.Style, "width: 100px;")
@@ -41,7 +41,7 @@ public class ButtonComponentTests : BunitContext
     public void Button_Is_Not_Disabled_By_Default()
     {
         // Act
-        var cut = Render<ButtonComponent>();
+        var cut = Render<Button>();
 
         // Assert
         var button = cut.Find("button");
@@ -52,7 +52,7 @@ public class ButtonComponentTests : BunitContext
     public void StopPropagation_Is_False_By_Default()
     {
         // Act
-        var cut = Render<ButtonComponent>();
+        var cut = Render<Button>();
 
         // Assert
         Assert.False(cut.Instance.StopPropagation);
@@ -66,7 +66,7 @@ public class ButtonComponentTests : BunitContext
     public void StopPropagation_True_Renders_StopPropagation_Attribute()
     {
         // Act
-        var cut = Render<ButtonComponent>(parameters => parameters
+        var cut = Render<Button>(parameters => parameters
             .Add(p => p.StopPropagation, true)
         );
 
