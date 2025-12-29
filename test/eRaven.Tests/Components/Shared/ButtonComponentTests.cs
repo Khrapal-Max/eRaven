@@ -14,28 +14,24 @@ namespace eRaven.Tests.Components.Shared;
 public class ButtonComponentTests : BunitContext
 {
     [Fact]
-    public void ShouldRenderButton()
+    public void ShouldRenderButton_And_Invoke_Click()
     {
-        //Arrange
+        // Arrange
         var clicked = false;
         void OnClick() => clicked = true;
 
-        //Act
+        // Act
         var cut = Render<ButtonComponent>(parameters => parameters
             .Add(p => p.Label, "Button")
             .Add(p => p.Class, "custom-class")
             .Add(p => p.Style, "width: 100px;")
             .Add(p => p.IsDisabled, false)
-            .Add(p => p.ChildContent, builder =>
-            {
-                builder.AddMarkupContent(0, "<h1>Hello World</h1>");
-            })
             .Add(p => p.OnClickButton, EventCallback.Factory.Create(this, OnClick))
         );
 
-        cut.Instance.ClickButton();
+        cut.Find("button").Click();
 
-        //Assert
+        // Assert
         Assert.NotNull(cut);
         Assert.False(cut.Instance.IsDisabled);
         Assert.True(clicked);
@@ -50,5 +46,35 @@ public class ButtonComponentTests : BunitContext
         // Assert
         var button = cut.Find("button");
         Assert.False(button.HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void StopPropagation_Is_False_By_Default()
+    {
+        // Act
+        var cut = Render<ButtonComponent>();
+
+        // Assert
+        Assert.False(cut.Instance.StopPropagation);
+
+        // Blazor не рендерить атрибут, якщо false
+        var markup = cut.Markup;
+        Assert.DoesNotContain("stopPropagation", markup);
+    }
+
+    [Fact]
+    public void StopPropagation_True_Renders_StopPropagation_Attribute()
+    {
+        // Act
+        var cut = Render<ButtonComponent>(parameters => parameters
+            .Add(p => p.StopPropagation, true)
+        );
+
+        // Assert
+        Assert.True(cut.Instance.StopPropagation);
+
+        // Перевіряємо, що атрибут реально присутній у markup
+        var markup = cut.Markup;
+        Assert.Contains("stopPropagation", markup);
     }
 }

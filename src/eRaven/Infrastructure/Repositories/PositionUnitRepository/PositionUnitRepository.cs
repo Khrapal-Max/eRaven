@@ -53,10 +53,36 @@ public class PositionUnitRepository(IDbContextFactory<AppDbContext> dbFactory) :
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var position = await db.PositionUnits.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var position = await db.PositionUnits.FirstOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new KeyNotFoundException($"PositionUnit '{id}' not found.");
 
-        position!.IsActived = false;
+        position.IsActived = false;
 
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Перевірка на існування коду в базі
+    /// </summary>
+    /// <param name="code"></param>
+    /// <param name="ct"></param>
+    /// <returns>bool</returns>
+    public async Task<bool> CodeExistsAsync(string code, CancellationToken ct)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        return await db.PositionUnits.AsNoTracking().AnyAsync(x => x.Code == code, ct);
+    }
+
+    /// <summary>
+    ///  Перевірка на активність номеру посади в базі
+    /// </summary>
+    /// <param name="number"></param>
+    /// <param name="ct"></param>
+    /// <returns>bool</returns>
+    public async Task<bool> ActiveNumberExistsAsync(int number, CancellationToken ct)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        return await db.PositionUnits.AsNoTracking()
+            .AnyAsync(x => x.Number == number && x.IsActived, ct);
     }
 }

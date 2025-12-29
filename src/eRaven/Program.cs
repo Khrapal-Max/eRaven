@@ -6,9 +6,12 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Components;
+using eRaven.Domain.Entities;
+using eRaven.Domain.Validation;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Repositories.PositionUnitRepository;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +24,9 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 {
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")); // або ваш провайдер
 });
+
+// Validation
+builder.Services.AddScoped<IValidator<PositionUnit>, PositionUnitValidator>();
 
 // Add services to the container.
 // Repository

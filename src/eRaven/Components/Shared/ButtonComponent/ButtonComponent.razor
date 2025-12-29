@@ -2,7 +2,8 @@
         type="button"
         style="@Style"
         disabled="@IsDisabled"
-        @onclick="ClickButton">
+        @onclick="ClickButton" 
+        @onclick:stopPropagation="StopPropagation">
     @if (ChildContent is not null)
     {
         @ChildContent

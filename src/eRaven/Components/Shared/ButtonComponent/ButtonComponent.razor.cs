@@ -24,6 +24,9 @@ public partial class ButtonComponent : ComponentBase
     public EventCallback OnClickButton { get; set; }
 
     [Parameter]
+    public bool StopPropagation { get; set; } = false;
+
+    [Parameter]
     public bool IsDisabled { get; set; }
 
     [Parameter]

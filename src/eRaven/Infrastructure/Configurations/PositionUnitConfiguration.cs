@@ -70,7 +70,8 @@ public class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
         // Indexes
         // ===============================
         e.HasIndex(x => x.Code)
-         .HasDatabaseName("ix_position_units_code");
+         .HasDatabaseName("ix_position_units_code")
+         .IsUnique();
 
         e.HasIndex(x => x.ShortName)
          .HasDatabaseName("ix_position_units_short_name");

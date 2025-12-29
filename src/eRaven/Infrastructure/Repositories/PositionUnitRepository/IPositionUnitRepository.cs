@@ -16,4 +16,8 @@ public interface IPositionUnitRepository
     Task AddPositionUnit(PositionUnit positionUnit, CancellationToken ct);
 
     Task DeActivatedPositionUnit(Guid id, CancellationToken ct);
+
+    Task<bool> CodeExistsAsync(string code, CancellationToken ct);
+
+    Task<bool> ActiveNumberExistsAsync(int number, CancellationToken ct);
 }
