@@ -112,7 +112,7 @@ body {
 
 /* scroll only here */
 .table-scroll {
-    max-height: 85vh; /* або height: 100% у flex */
+    max-height: 74vh; /* або height: 100% у flex */
     overflow-y: scroll; /* стабільна ширина -> немає “смикання” */
     overflow-x: auto;
     scrollbar-gutter: stable both-edges;

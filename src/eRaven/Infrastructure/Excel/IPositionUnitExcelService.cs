@@ -2,16 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PageToolbar
+// IPositionUnitExcelService
 //-----------------------------------------------------------------------------
 
-using Microsoft.AspNetCore.Components;
+using eRaven.Domain.Entities;
 
-namespace eRaven.Components.Shared.PageToolbar;
+namespace eRaven.Infrastructure.Excel;
 
-public partial class PageToolbar : ComponentBase
+public interface IPositionUnitExcelService
 {
-    [Parameter] public string? Title { get; set; }
-    [Parameter] public RenderFragment? Left { get; set; }
-    [Parameter, EditorRequired] public RenderFragment Right { get; set; } = default!;
+    byte[] Export(IEnumerable<PositionUnit> items);
+    Task<PositionUnitImportResult> ParseAsync(Stream stream, CancellationToken ct);
 }

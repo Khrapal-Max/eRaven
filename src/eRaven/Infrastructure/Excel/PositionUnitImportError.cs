@@ -2,11 +2,9 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ImportExportToolbarComponent
+// PositionUnitImportError
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Components.Shared.ImportExportToolbar;
+namespace eRaven.Infrastructure.Excel;
 
-public partial class ImportExportToolbar
-{
-}
+public sealed record PositionUnitImportError(int RowNumber, string Field, string Message);

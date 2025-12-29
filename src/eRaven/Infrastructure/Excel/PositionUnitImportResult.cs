@@ -2,16 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PageToolbar
+// PositionUnitImportResult
 //-----------------------------------------------------------------------------
 
-using Microsoft.AspNetCore.Components;
+using eRaven.Domain.Entities;
 
-namespace eRaven.Components.Shared.PageToolbar;
+namespace eRaven.Infrastructure.Excel;
 
-public partial class PageToolbar : ComponentBase
+public sealed class PositionUnitImportResult
 {
-    [Parameter] public string? Title { get; set; }
-    [Parameter] public RenderFragment? Left { get; set; }
-    [Parameter, EditorRequired] public RenderFragment Right { get; set; } = default!;
+    public List<PositionUnit> ValidItems { get; } = [];
+    public List<PositionUnitImportError> Errors { get; } = [];
 }

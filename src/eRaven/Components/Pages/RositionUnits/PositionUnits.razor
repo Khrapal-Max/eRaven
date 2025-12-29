@@ -6,17 +6,11 @@
 
 <PageToolbar Title="Посади">
     <Right>
+        <PositionUnitImportExport OnChanged="LoadAsync" />
+
         <Button Class="btn-sm btn-primary"
-                         Label="Створити"
-                         OnClickButton="OnAddPositionUnitClick" />
-
-        @* <ButtonComponent Class="btn-sm btn-outline-secondary"
-                         Label="Імпорт"
-                         OnClickButton="OnImportClick" />
-
-        <ButtonComponent Class="btn-sm btn-outline-secondary"
-                         Label="Експорт"
-                         OnClickButton="OnExportClick" /> *@
+                Label="Створити"
+                OnClickButton="OnAddPositionUnitClick" />
     </Right>
 </PageToolbar>
 
@@ -31,15 +25,17 @@ else if (PositionUnitsList.Count == 0)
 else
 {
     <Table Items="@PositionUnitsList"
-                    TItem="PositionUnit"
-                    KeySelector="x => x.Id"
-                    @bind-SelectedItem="Selected">
+           TItem="PositionUnit"
+           KeySelector="x => x.Id"
+           @bind-SelectedItem="Selected">
         <TableHeader>
-            <th>Номер в шт.</th>
+            <th>#</th>
             <th>Код.</th>
             <th>Назва посади</th>
             <th>Повна посада</th>
             <th>ВОС</th>
+            <th>ШПК</th>
+            <th>ТР</th>
             <th class="text-center">Статус</th>
             <th class="text-center">Дія</th>
         </TableHeader>
@@ -50,25 +46,27 @@ else
             <td>@unit.ShortName</td>
             <td>@unit.FullName</td>
             <td>@unit.SpecialNumber</td>
+            <td>@unit.Rank</td>
+            <td>@unit.Tarif</td>
             <td class="text-center">@(unit.IsActived ? "А" : "Н")</td>
             <td class="text-center">
                 <Button Class="btn-sm btn-outline-danger"
-                                 Label="Закрити"
-                                 IsDisabled="!unit.IsActived"
-                                 StopPropagation="true"
-                                 OnClickButton="() => AskDeactivate(unit)" />
+                        Label="Закрити"
+                        IsDisabled="!unit.IsActived"
+                        StopPropagation="true"
+                        OnClickButton="() => AskDeactivate(unit)" />
             </td>
         </RowTemplate>
     </Table>
 }
 
 <Modal Title="Створити посаду"
-                IsOpen="@CreateOpen"
-                IsOpenChanged="v => CreateOpen = v"
-                CreateText="Створити"
-                CancelText="Відміна" 
-                DialogSize="modal-xl"
-                OnCreateAsync="CreateAsync">
+       IsOpen="@CreateOpen"
+       IsOpenChanged="v => CreateOpen = v"
+       CreateText="Створити"
+       CancelText="Відміна"
+       DialogSize="modal-xl"
+       OnCreateAsync="CreateAsync">
 
     @if (_createEditContext is not null)
     {

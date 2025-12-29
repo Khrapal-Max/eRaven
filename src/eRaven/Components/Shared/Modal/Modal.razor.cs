@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ModalComponent
+// Modal
 //-----------------------------------------------------------------------------
 
 using Microsoft.AspNetCore.Components;

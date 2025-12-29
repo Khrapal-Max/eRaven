@@ -10,6 +10,7 @@ using eRaven.Domain.Entities;
 using eRaven.Domain.Validation;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
+using eRaven.Infrastructure.Excel;
 using eRaven.Infrastructure.Repositories.PositionUnitRepository;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,9 @@ builder.Services.AddScoped<IValidator<PositionUnit>, PositionUnitValidator>();
 // Add services to the container.
 // Repository
 builder.Services.AddTransient<IPositionUnitRepository, PositionUnitRepository>();
+
+// services
+builder.Services.AddScoped<IPositionUnitExcelService, PositionUnitExcelService>();
 
 var app = builder.Build();
 
