@@ -5,7 +5,7 @@
 // PositionUnits
 //-----------------------------------------------------------------------------
 
-using eRaven.Components.Shared.ConfirmModal;
+using eRaven.Components.Shared.ConfirmModalComponent;
 using eRaven.Domain.Entities;
 using eRaven.Infrastructure.Repositories.PositionUnitRepository;
 using Microsoft.AspNetCore.Components;
@@ -20,7 +20,7 @@ public partial class PositionUnits : IDisposable
     protected bool IsLoading { get; private set; } = true;
 
     private readonly CancellationTokenSource _cts = new();
-    private ConfirmModal<PositionUnit> _deactivateModal = default!;
+    private ConfirmModalComponent<PositionUnit> _deactivateModal = default!;
 
     [Inject] private IPositionUnitRepository PositionUnitRepository { get; set; } = default!;
 
@@ -35,16 +35,16 @@ public partial class PositionUnits : IDisposable
             PositionUnitsList = [.. await PositionUnitRepository.GetAllPositionUnits(_cts.Token)];
         }
         catch (OperationCanceledException) { }
-        finally 
-        { 
-            IsLoading = false; 
+        finally
+        {
+            IsLoading = false;
         }
     }
 
     protected void OnRowClick(PositionUnit unit) => Selected = unit;
     protected void OnAddPositionUnitClick()
     {
-        /* TODO */ 
+        /* TODO */
     }
 
     protected async Task AskDeactivate(PositionUnit unit)

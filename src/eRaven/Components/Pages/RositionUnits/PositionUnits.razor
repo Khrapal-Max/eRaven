@@ -47,7 +47,7 @@ else if (PositionUnitsList.Count > 0)
     </TableComponent>
 }
 
-<ConfirmModal T="PositionUnit"
+<ConfirmModalComponent T="PositionUnit"
               @ref="_deactivateModal"
               Title="Закриття посади в штатному розкладі"
               ConfirmText="Закрити"
@@ -57,4 +57,4 @@ else if (PositionUnitsList.Count > 0)
         <p class="mb-0">Закрити посаду <b>@u.FullName</b>?</p>
         <div class="text-muted small mt-1">Код: @u.Code • ВОС: @u.SpecialNumber</div>
     </BodyTemplate>
-</ConfirmModal>
+</ConfirmModalComponent>

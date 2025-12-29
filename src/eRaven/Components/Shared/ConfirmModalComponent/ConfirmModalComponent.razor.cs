@@ -7,9 +7,9 @@
 
 using Microsoft.AspNetCore.Components;
 
-namespace eRaven.Components.Shared.ConfirmModal;
+namespace eRaven.Components.Shared.ConfirmModalComponent;
 
-public partial class ConfirmModal<T> : ComponentBase
+public partial class ConfirmModalComponent<T> : ComponentBase
 {
     [Parameter] public string Title { get; set; } = "Підтвердження";
     [Parameter] public string ConfirmText { get; set; } = "Закрити";
