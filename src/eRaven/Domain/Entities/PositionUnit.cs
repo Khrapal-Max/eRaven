@@ -15,6 +15,11 @@ public class PositionUnit
     public Guid Id { get; set; }
 
     /// <summary>
+    /// Порядковий номер посади
+    /// </summary>
+    public int Number { get; set; }
+
+    /// <summary>
     /// Код посади
     /// </summary>
     public string Code { get; set; } = string.Empty;

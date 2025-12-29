@@ -5,6 +5,7 @@
 // PositionUnits
 //-----------------------------------------------------------------------------
 
+using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Entities;
 using eRaven.Infrastructure.Repositories.PositionUnitRepository;
 using Microsoft.AspNetCore.Components;
@@ -19,6 +20,7 @@ public partial class PositionUnits : IDisposable
     protected bool IsLoading { get; private set; } = true;
 
     private readonly CancellationTokenSource _cts = new();
+    private ConfirmModal<PositionUnit> _deactivateModal = default!;
 
     [Inject] private IPositionUnitRepository PositionUnitRepository { get; set; } = default!;
 
@@ -40,7 +42,21 @@ public partial class PositionUnits : IDisposable
     }
 
     protected void OnRowClick(PositionUnit unit) => Selected = unit;
-    protected void CreateNew() { /* TODO */ }
+    protected void OnAddPositionUnitClick()
+    {
+        /* TODO */ 
+    }
+
+    protected async Task AskDeactivate(PositionUnit unit)
+    {
+        var ok = await _deactivateModal.ShowAsync(unit);
+        if (!ok) return;
+
+        //* TODO Перевірка чи можна деактивувати посаду, можливо на ній стоїть людина
+
+        await PositionUnitRepository.DeActivatedPositionUnit(unit.Id, _cts.Token);
+        await LoadAsync();
+    }
 
     public void Dispose()
     {

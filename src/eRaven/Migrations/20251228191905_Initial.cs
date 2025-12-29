@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -18,6 +19,7 @@ namespace eRaven.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
+                    number = table.Column<int>(type: "int", nullable: false),
                     code = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     short_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     full_name = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),

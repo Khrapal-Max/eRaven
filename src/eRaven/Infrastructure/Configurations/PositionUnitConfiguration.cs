@@ -27,6 +27,11 @@ public class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
         // ===============================
         // Columns (lower snake_case)
         // ===============================
+        e.Property(x => x.Number)
+         .HasColumnName("number")
+         .HasColumnType("int")
+         .IsRequired();
+
         e.Property(x => x.Code)
          .HasColumnName("code")
          .HasMaxLength(64)

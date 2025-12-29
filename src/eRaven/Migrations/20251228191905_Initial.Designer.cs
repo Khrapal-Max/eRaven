@@ -12,7 +12,7 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251228081214_Initial")]
+    [Migration("20251228191905_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -50,6 +50,10 @@ namespace eRaven.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
                         .HasColumnName("is_active");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("int")
+                        .HasColumnName("number");
 
                     b.Property<string>("ShortName")
                         .IsRequired()

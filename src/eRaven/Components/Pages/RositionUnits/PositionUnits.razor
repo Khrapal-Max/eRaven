@@ -4,6 +4,10 @@
 
 <PageTitle>Посади</PageTitle>
 
+@* <ButtonComponent Class="btn-primary"
+                 Label="Додати посаду"
+                 OnClickButton="OnAddPositionUnitClick" /> *@
+
 @if (IsLoading)
 {
     <p><em>Завантаження...</em></p>
@@ -33,7 +37,24 @@ else if (PositionUnitsList.Count > 0)
             <td>@unit.FullName</td>
             <td>@unit.SpecialNumber</td>
             <td class="align-middle">@(unit.IsActived ? "А" : "Н")</td>
-            <td class="align-middle">кноп</td>
+            <td class="text-end">
+                <ButtonComponent Class="btn btn-sm btn-outline-danger"
+                                 Label="Закрити"
+                                 IsDisabled="!unit.IsActived"
+                                 OnClickButton="(e) => AskDeactivate(unit)" />
+            </td>
         </RowTemplate>
     </TableComponent>
 }
+
+<ConfirmModal T="PositionUnit"
+              @ref="_deactivateModal"
+              Title="Закриття посади в штатному розкладі"
+              ConfirmText="Закрити"
+              CancelText="Відміна"
+              DialogSize="modal-md">
+    <BodyTemplate Context="u">
+        <p class="mb-0">Закрити посаду <b>@u.FullName</b>?</p>
+        <div class="text-muted small mt-1">Код: @u.Code • ВОС: @u.SpecialNumber</div>
+    </BodyTemplate>
+</ConfirmModal>

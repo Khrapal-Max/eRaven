@@ -48,6 +48,10 @@ namespace eRaven.Migrations
                         .HasDefaultValue(true)
                         .HasColumnName("is_active");
 
+                    b.Property<int>("Number")
+                        .HasColumnType("int")
+                        .HasColumnName("number");
+
                     b.Property<string>("ShortName")
                         .IsRequired()
                         .HasMaxLength(128)

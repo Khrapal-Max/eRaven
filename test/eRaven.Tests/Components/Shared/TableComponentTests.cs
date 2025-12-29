@@ -88,9 +88,9 @@ public class TableComponentTests : BunitContext
         // Assert 2: компонент виставив SelectedItem
         Assert.Equal("Bar", cut.Instance.SelectedItem);
 
-        // Assert 3: у DOM додався клас is-selected на вибраній строкі
+        // Assert 3: у DOM додався клас table-active на вибраній строкі
         rows = cut.FindAll("tbody tr"); // перечитуємо після ререндеру
-        Assert.Contains("is-selected", rows[1].GetAttribute("class") ?? string.Empty);
+        Assert.Contains("table-active", rows[1].GetAttribute("class") ?? string.Empty);
         Assert.DoesNotContain("is-selected", rows[0].GetAttribute("class") ?? string.Empty);
         Assert.DoesNotContain("is-selected", rows[2].GetAttribute("class") ?? string.Empty);
     }
@@ -123,7 +123,7 @@ public class TableComponentTests : BunitContext
         var rows = cut.FindAll("tbody tr");
 
         // Assert: друга строка (B) має бути selected завдяки KeySelector
-        Assert.DoesNotContain("is-selected", rows[0].GetAttribute("class") ?? string.Empty);
-        Assert.Contains("is-selected", rows[1].GetAttribute("class") ?? string.Empty);
+        Assert.DoesNotContain("table-active", rows[0].GetAttribute("class") ?? string.Empty);
+        Assert.Contains("table-active", rows[1].GetAttribute("class") ?? string.Empty);
     }
 }
