@@ -52,6 +52,16 @@ public class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
          .HasMaxLength(15)
          .IsRequired();
 
+        e.Property(x => x.Rank)
+         .HasColumnName("rank")
+         .HasMaxLength(128)
+         .IsRequired();
+
+        e.Property(x => x.Tarif)
+         .HasColumnName("tarif")
+         .HasMaxLength(5)
+         .IsRequired();
+
         e.Property(x => x.IsActived)
          .HasColumnName("is_active")
          .HasDefaultValue(true);

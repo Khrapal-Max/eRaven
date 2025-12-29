@@ -40,6 +40,16 @@ public class PositionUnit
     public string SpecialNumber { get; set; } = string.Empty;
 
     /// <summary>
+    /// Шпк посади
+    /// </summary>
+    public string Rank { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Тарифний розряд посади
+    /// </summary>
+    public string Tarif { get; set; } = string.Empty;
+
+    /// <summary>
     /// Стан посади - активний дійсний
     /// </summary>
     public bool IsActived { get; set; }
