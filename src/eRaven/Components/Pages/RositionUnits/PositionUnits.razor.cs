@@ -56,8 +56,6 @@ public partial class PositionUnits : IDisposable
         }
     }
 
-    protected void OnRowClick(PositionUnit unit) => Selected = unit;
-
     protected void OnAddPositionUnitClick()
     {
         CreateModel = new PositionUnit { Id = Guid.NewGuid(), IsActived = true };
@@ -71,6 +69,8 @@ public partial class PositionUnits : IDisposable
 
         var isValid = await _createEditContext.ValidateWithFluentValidationAsync(PositionUnitValidator, _cts.Token);
         if (!isValid) return false;
+
+        CreateModel.Code = (CreateModel.Code ?? string.Empty).Trim();
 
         if (await PositionUnitRepository.CodeExistsAsync(CreateModel.Code, _cts.Token))
         {

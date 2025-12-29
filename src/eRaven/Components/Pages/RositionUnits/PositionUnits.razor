@@ -34,7 +34,7 @@ else
     <TableComponent Items="@PositionUnitsList"
                     TItem="PositionUnit"
                     KeySelector="x => x.Id"
-                    OnClick="OnRowClick">
+                    @bind-SelectedItem="Selected">
         <TableHeader>
             <th>Номер в шт.</th>
             <th>Код.</th>
