@@ -64,7 +64,8 @@ public class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
 
         e.Property(x => x.IsActived)
          .HasColumnName("is_active")
-         .HasDefaultValue(true);
+         .HasDefaultValue(true)
+         .IsRequired();
 
         // ===============================
         // Indexes
