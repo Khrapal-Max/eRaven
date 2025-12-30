@@ -21,13 +21,13 @@ public sealed class PositionUnitExcelService(IValidator<PositionUnit> validator)
         var ws = wb.AddWorksheet("PositionUnits");
 
         // Header
-        ws.Cell(1, 1).Value = "Number";
-        ws.Cell(1, 2).Value = "Code";
-        ws.Cell(1, 3).Value = "ShortName";
-        ws.Cell(1, 4).Value = "FullName";
-        ws.Cell(1, 5).Value = "SpecialNumber";
-        ws.Cell(1, 6).Value = "Rank";
-        ws.Cell(1, 7).Value = "Tarif";
+        ws.Cell(1, 1).Value = "#";
+        ws.Cell(1, 2).Value = "Індекс";
+        ws.Cell(1, 3).Value = "Назва посади";
+        ws.Cell(1, 4).Value = "Повна посада";
+        ws.Cell(1, 5).Value = "ВОС";
+        ws.Cell(1, 6).Value = "ШПК";
+        ws.Cell(1, 7).Value = "ТР";
 
         var r = 2;
         foreach (var x in items)
