@@ -78,7 +78,6 @@ body {
 .page-container {
     height: 100%; /* важливо */
     min-height: 0; /* важливо */
-    padding: .75rem 1rem;
 }
 
 /* =========================
@@ -232,8 +231,8 @@ body {
    ========================= */
 .page-toolbar {
     flex: 0 0 auto;
-    padding: .5rem .75rem;
-    background: var(--bs-tertiary-bg);
+    padding-left: 1.5rem;
+    background: var(--bs-app-header);
     border: 1px solid var(--bs-border-color);
     border-radius: .5rem;
 }
@@ -253,10 +252,6 @@ body {
     min-height: 0;
     overflow: auto;
     scrollbar-gutter: stable both-edges;
-    /* optional: якщо хочеш “рамку” контейнера таблиці */
-    /* border: 1px solid var(--bs-border-color);
-       border-radius: .5rem;
-       background: var(--bs-tertiary-bg); */
 }
 
 /* базовий вигляд */
