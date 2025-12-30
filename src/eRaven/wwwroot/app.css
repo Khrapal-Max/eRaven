@@ -232,6 +232,7 @@ body {
 .page-toolbar {
     flex: 0 0 auto;
     padding-left: 1.5rem;
+    padding-right: 1.5rem;
     background: var(--bs-app-header);
     border: 1px solid var(--bs-border-color);
     border-radius: .5rem;
@@ -250,6 +251,7 @@ body {
 .table-scroll {
     height: 100%;
     min-height: 0;
+    padding-right: 0.5rem;
     overflow: auto;
     scrollbar-gutter: stable both-edges;
 }
