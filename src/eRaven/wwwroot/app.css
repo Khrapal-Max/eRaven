@@ -2,19 +2,32 @@
    Base (Bootstrap-first)
    ========================= */
 :root {
-    --bs-body-bg: #d2d4d6;
-    --bs-body-color: #212529;
-    --bs-secondary-bg: #e9ecef;
-    --bs-tertiary-bg: #f8f9fa;
-    --bs-light: #f8f9fa;
-    --bs-border-color: #dfe3e8;
+    /* ===== Neutral soft gray (balanced) ===== */
+    --bs-body-bg: #eef1f4; /* фон сторінки (м’який, не білий) */
+    --bs-body-color: #1f2937; /* темно-сірий текст */
+    /* surfaces */
+    --bs-secondary-bg: #e7ecf1; /* cards/панелі */
+    --bs-tertiary-bg: #f4f6f8; /* toolbar/thead/легкі блоки */
+    --bs-light: #f4f6f8; /* можна лишити так само */
+    /* header/nav */
+    --bs-app-header: #e3e8ee; /* navbar (трішки темніше за surface) */
+    /* borders */
+    --bs-border-color: #d6dde5;
+    /* accent */
     --bs-primary: #0d6efd;
-    --bs-table-color: #212529;
+    /* table */
+    --bs-table-color: var(--bs-body-color);
     --bs-table-bg: transparent;
-    --bs-table-head-color: #212529;
-    --bs-table-head-bg: #f8f9fa;
+    --bs-table-head-color: var(--bs-body-color);
+    --bs-table-head-bg: var(--bs-tertiary-bg);
+    /* nav text */
+    --nav-text: #1f2937;
+    --nav-muted: #374151;
+    /* nav interactions (дуже м’яко) */
+    --nav-pill-hover-bg: rgba(13,110,253,.08);
+    --nav-pill-active-bg: rgba(13,110,253,.12);
+    /* font */
     --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-    /* якщо Navbar має стабільну висоту (bootstrap lg) */
     --app-header-h: 56px;
 }
 
@@ -69,38 +82,132 @@ body {
 }
 
 /* =========================
-   Navbar (легкі правки)
+   Navbar – full-height sections
    ========================= */
+
 .app-navbar {
-    background: var(--bs-light);
+    background: var(--bs-app-header);
+    border-bottom: 1px solid var(--bs-border-color);
+    /* ВАЖЛИВО: прибираємо внутрішні відступи bootstrap navbar */
+    padding-top: 0;
+    padding-bottom: 0;
 }
 
-    .app-navbar .navbar-brand,
-    .app-navbar .nav-link {
-        color: var(--bs-body-color) !important;
+    /* container має тягнутись по висоті */
+    .app-navbar .container-fluid {
+        padding-top: 0;
+        padding-bottom: 0;
+        align-items: stretch; /* щоб діти могли зайняти всю висоту */
+        min-height: 56px; /* стандарт bootstrap navbar height */
     }
 
+    /* collapse теж має stretch */
+    .app-navbar .navbar-collapse {
+        align-items: stretch;
+    }
+
+    /* список меню тягнеться по висоті */
+    .app-navbar .navbar-nav {
+        gap: 0;
+        height: 100%;
+        align-items: stretch;
+    }
+
+    /* кожен item — секція на всю висоту */
+    .app-navbar .nav-item {
+        margin: 0;
+        display: flex;
+        align-items: stretch;
+    }
+
+    /* nav-link як повний блок-секція */
+    .app-navbar .nav-link {
+        display: flex;
+        align-items: center;
+        height: 100%;
+        /* секція без “повітря” зверху/знизу */
+        padding: 0 1.25rem;
+        line-height: 56px; /* ключ: рівно по висоті navbar */
+        border-radius: 0;
+        border: none;
+        color: var(--nav-muted) !important;
+        font-weight: 600;
+        letter-spacing: .2px;
+        transition: background-color .12s ease, color .12s ease;
+    }
+
+        /* hover */
         .app-navbar .nav-link:hover,
-        .app-navbar .nav-link:focus,
+        .app-navbar .nav-link:focus {
+            background-color: rgba(13,110,253,.08);
+            color: var(--nav-text) !important;
+        }
+
+        /* active */
         .app-navbar .nav-link.active {
+            background-color: rgba(13,110,253,.14);
             color: var(--bs-primary) !important;
         }
 
+    /* caret */
+    .app-navbar .dropdown-toggle::after {
+        margin-left: .4rem;
+        opacity: .6;
+    }
+
+    /* dropdown під секцією */
     .app-navbar .dropdown-menu {
-        background: var(--bs-light);
+        margin-top: 0;
+        border-radius: 0 0 .5rem .5rem;
         border: 1px solid var(--bs-border-color);
-        box-shadow: 0 .5rem 1rem rgba(0,0,0,.10);
+        border-top: none;
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.12);
         z-index: 2000;
     }
 
+    /* dropdown items */
     .app-navbar .dropdown-item {
-        color: var(--bs-body-color);
+        padding: .55rem .75rem;
+        font-weight: 600;
+        color: var(--nav-text);
     }
 
         .app-navbar .dropdown-item:hover,
         .app-navbar .dropdown-item:focus {
             background: rgba(13,110,253,.08);
         }
+
+        .app-navbar .dropdown-item.active {
+            background: rgba(13,110,253,.14);
+        }
+
+    /* brand без зайвих відступів */
+    .app-navbar .navbar-brand {
+        padding: 0 .75rem;
+        display: flex;
+        align-items: center;
+        height: 56px; /* вирівнюємо з секціями */
+        color: var(--nav-text) !important;
+        font-weight: 700;
+        letter-spacing: .2px;
+    }
+
+/* Mobile: у collapse робимо секції нормальної висоти */
+@media (max-width: 991.98px) {
+    .app-navbar .nav-link {
+        line-height: normal;
+        height: auto;
+        padding: .6rem .75rem;
+    }
+
+    .app-navbar .navbar-nav {
+        height: auto;
+    }
+
+    .app-navbar .nav-item {
+        display: block;
+    }
+}
 
 /* =========================
    Page layout helper
