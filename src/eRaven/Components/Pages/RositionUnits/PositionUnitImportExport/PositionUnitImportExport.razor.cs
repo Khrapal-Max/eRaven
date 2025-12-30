@@ -75,7 +75,7 @@ public partial class PositionUnitImportExport : ComponentBase
         }
 
         foreach (var x in _importResult.ValidItems)
-            await Repo.AddPositionUnit(x, CancellationToken.None);
+            await Repo.AddPositionUnitAsync(x, CancellationToken.None);
 
         if (OnChanged.HasDelegate)
             await OnChanged.InvokeAsync();
@@ -86,7 +86,7 @@ public partial class PositionUnitImportExport : ComponentBase
     private async Task ExportAsync()
     {
         // тут можна попросити сторінку передати список — але простіше взяти з БД:
-        var items = await Repo.GetAllPositionUnits(CancellationToken.None);
+        var items = await Repo.GetAllPositionUnitsAsync(CancellationToken.None);
 
         var bytes = Excel.Export(items);
         var base64 = Convert.ToBase64String(bytes);

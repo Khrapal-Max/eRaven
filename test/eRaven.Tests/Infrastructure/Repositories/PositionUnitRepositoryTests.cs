@@ -66,7 +66,7 @@ public class PositionUnitRepositoryTests : IAsyncLifetime
         }
 
         // Act
-        var result = (await _repo.GetAllPositionUnits(CancellationToken.None)).ToList();
+        var result = (await _repo.GetAllPositionUnitsAsync(CancellationToken.None)).ToList();
 
         // Assert
         Assert.Equal(2, result.Count);
@@ -81,7 +81,7 @@ public class PositionUnitRepositoryTests : IAsyncLifetime
         var item = NewPosition(number: 10, code: "POS010", isActived: true);
 
         // Act
-        await _repo.AddPositionUnit(item, CancellationToken.None);
+        await _repo.AddPositionUnitAsync(item, CancellationToken.None);
 
         // Assert
         await using var ctx = await _db.Factory.CreateDbContextAsync();
@@ -113,7 +113,7 @@ public class PositionUnitRepositoryTests : IAsyncLifetime
         }
 
         // Act
-        await _repo.DeActivatedPositionUnit(id, CancellationToken.None);
+        await _repo.DeActivatedPositionUnitAsync(id, CancellationToken.None);
 
         // Debug read from repo-context? read again in new ctx
         await using var verify = await _db.Factory.CreateDbContextAsync();
@@ -131,6 +131,6 @@ public class PositionUnitRepositoryTests : IAsyncLifetime
 
         // Act + Assert (position! -> NullReferenceException today)
         await Assert.ThrowsAsync<KeyNotFoundException>(async () =>
-            await _repo.DeActivatedPositionUnit(missingId, CancellationToken.None));
+            await _repo.DeActivatedPositionUnitAsync(missingId, CancellationToken.None));
     }
 }

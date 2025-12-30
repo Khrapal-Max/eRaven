@@ -12,6 +12,7 @@ using eRaven.Extensions;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Excel;
 using eRaven.Infrastructure.Repositories.PositionUnitRepository;
+using eRaven.Infrastructure.Repositories.RankRepository;
 using eRaven.Presentation.Errors;
 using eRaven.Presentation.Toasts;
 using FluentValidation;
@@ -37,6 +38,7 @@ builder.Services.AddScoped<IPositionUnitRepository, PositionUnitRepository>();
 
 // services
 builder.Services.AddScoped<IPositionUnitExcelService, PositionUnitExcelService>();
+builder.Services.AddScoped<IRankRepository, RankRepository>();
 
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<ErrorBoundaryHub>();

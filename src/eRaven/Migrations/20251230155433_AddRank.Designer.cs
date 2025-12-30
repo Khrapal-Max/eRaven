@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using eRaven.Infrastructure;
@@ -11,9 +12,11 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251230155433_AddRank")]
+    partial class AddRank
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -115,12 +118,6 @@ namespace eRaven.Migrations
                         .HasColumnName("title");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("Priority")
-                        .HasDatabaseName("ix_ranks_priority");
-
-                    b.HasIndex("Title", "IsActived")
-                        .HasDatabaseName("ix_ranks_title_active");
 
                     b.ToTable("ranks", (string)null);
                 });

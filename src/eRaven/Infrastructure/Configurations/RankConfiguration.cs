@@ -35,7 +35,7 @@ public class RankConfiguration : IEntityTypeConfiguration<Rank>
         e.Property(x => x.Priority)
          .HasColumnName("priority")
          .HasColumnType("int")
-         .IsRequired();        
+         .IsRequired();
 
         e.Property(x => x.IsActived)
          .HasColumnName("is_active")
@@ -45,7 +45,10 @@ public class RankConfiguration : IEntityTypeConfiguration<Rank>
         // ===============================
         // Indexes
         // ===============================
-        e.HasIndex(x => x.Title)
-        .IsUnique();
+        e.HasIndex(x => new { x.Title, x.IsActived })
+         .HasDatabaseName("ix_ranks_title_active");
+
+        e.HasIndex(x => x.Priority)
+         .HasDatabaseName("ix_ranks_priority");
     }
 }

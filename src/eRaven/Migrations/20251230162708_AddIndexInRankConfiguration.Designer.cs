@@ -12,8 +12,8 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251230135458_AddRank")]
-    partial class AddRank
+    [Migration("20251230162708_AddIndexInRankConfiguration")]
+    partial class AddIndexInRankConfiguration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -119,8 +119,8 @@ namespace eRaven.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Title")
-                        .IsUnique();
+                    b.HasIndex("Title", "IsActived")
+                        .HasDatabaseName("ix_ranks_title_active");
 
                     b.ToTable("ranks", (string)null);
                 });

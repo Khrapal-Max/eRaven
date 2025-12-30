@@ -15,6 +15,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     // Довідники
     public DbSet<PositionUnit> PositionUnits { get; set; }
 
+    public DbSet<Rank> Ranks { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Postgres розширення для темпоральних обмежень

@@ -45,7 +45,7 @@ public partial class PositionUnits : IDisposable
         try
         {
             IsLoading = true;
-            var positions = await PositionUnitRepository.GetAllPositionUnits(_cts.Token);
+            var positions = await PositionUnitRepository.GetAllPositionUnitsAsync(_cts.Token);
 
             PositionUnitsList = [.. positions.OrderByDescending(x => x.IsActived).ThenBy(x => x.Number)];
         }
@@ -86,7 +86,7 @@ public partial class PositionUnits : IDisposable
 
         try
         {
-            await PositionUnitRepository.AddPositionUnit(CreateModel, _cts.Token);
+            await PositionUnitRepository.AddPositionUnitAsync(CreateModel, _cts.Token);
         }
         catch (DbUpdateException)
         {
@@ -108,7 +108,7 @@ public partial class PositionUnits : IDisposable
         var ok = await _deactivateModal.ShowAsync(unit);
         if (!ok) return;
 
-        await PositionUnitRepository.DeActivatedPositionUnit(unit.Id, _cts.Token);
+        await PositionUnitRepository.DeActivatedPositionUnitAsync(unit.Id, _cts.Token);
         await LoadAsync();
     }
 

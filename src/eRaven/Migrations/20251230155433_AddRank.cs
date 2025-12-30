@@ -1,5 +1,4 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -24,12 +23,6 @@ namespace eRaven.Migrations
                 {
                     table.PrimaryKey("PK_ranks", x => x.id);
                 });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ranks_title",
-                table: "ranks",
-                column: "title",
-                unique: true);
         }
 
         /// <inheritdoc />
