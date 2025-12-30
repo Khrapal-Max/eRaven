@@ -1,31 +1,50 @@
 ﻿@inherits LayoutComponentBase
 
-@using Blazored.Toast.Configuration;
+<div class="app-shell">
+    <header class="app-header">
+        <NavBar />
+    </header>
 
-<NavBar />
+    <main class="app-main">
+        <div class="page-container">
+            <ErrorBoundary @ref="_boundary">
+                <ChildContent>
+                    @Body
+                </ChildContent>
 
-<main class="layout-main container-fluid">
-  <ErrorBoundary>
-    <ChildContent>
-      @Body
-    </ChildContent>
-    <ErrorContent>
-      <div class="container py-4">
-        <div class="alert alert-danger d-flex align-items-center" role="alert">
-          <i class="bi bi-exclamation-triangle-fill me-2"></i>
-          <div>
-            Сталася неочікувана помилка. <a class="alert-link" href=".">Оновити сторінку</a>
-          </div>
+                <ErrorContent Context="ex">
+                    <div class="container py-4">
+                        <div class="alert alert-danger d-flex align-items-center" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+
+                            <div class="w-100">
+                                <div class="fw-semibold">
+                                    Сталася неочікувана помилка.
+                                </div>
+
+                                <div class="mt-2 d-flex gap-2 flex-wrap">
+                                    <Button Class="btn-outline-dark btn-sm"
+                                            Label="Спробувати ще раз"
+                                            OnClickButton="TryRecover" />
+
+                                    <a class="btn btn-light btn-sm" href="/">
+                                        На головну
+                                    </a>
+
+                                    <a class="btn btn-link btn-sm alert-link" href=".">
+                                        Оновити сторінку
+                                    </a>
+                                </div>
+
+                                @* Опційно: показати текст помилки тільки в Development *@
+                                @* <div class="small opacity-75 mt-2">@ex.Message</div> *@
+                            </div>
+                        </div>
+                    </div>
+                </ErrorContent>
+            </ErrorBoundary>
         </div>
-      </div>
-    </ErrorContent>
-  </ErrorBoundary>
-</main>
+    </main>
 
-<BlazoredToasts Position="ToastPosition.BottomRight"  />
-
-<div id="blazor-error-ui" data-nosnippet class="d-none">
-    Виникла необроблена помилка.
-    <a href="." class="reload">Перезавантажити</a>
-    <span class="dismiss">🗙</span>
+    <ToastContainer />
 </div>

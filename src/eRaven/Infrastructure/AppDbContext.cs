@@ -5,28 +5,25 @@
 // AppDbContext
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Models;
+using eRaven.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public DbSet<Person> Persons => Set<Person>();
-    public DbSet<PersonPositionAssignment> PersonPositionAssignments => Set<PersonPositionAssignment>();
-    public DbSet<PersonStatus> PersonStatuses => Set<PersonStatus>();
-    public DbSet<PlanAction> PlanActions => Set<PlanAction>();
-    public DbSet<PositionUnit> PositionUnits => Set<PositionUnit>();
-    public DbSet<StatusKind> StatusKinds => Set<StatusKind>();
-    public DbSet<StatusTransition> StatusTransitions => Set<StatusTransition>();
+    // Довідники
+    public DbSet<PositionUnit> PositionUnits { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Postgres extension лише для Npgsql
+        // Postgres розширення для темпоральних обмежень
         if (Database.IsNpgsql())
+        {
             modelBuilder.HasPostgresExtension("btree_gist");
+        }
 
-        // Підтягнути всі IEntityTypeConfiguration<> з поточної збірки
+        // Застосувати всі конфігурації з поточної збірки
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
 }

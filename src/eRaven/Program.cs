@@ -1,30 +1,19 @@
-//-----------------------------------------------------------------------------
+п»ї//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // Program
 //-----------------------------------------------------------------------------
 
-using Blazored.Toast;
-using eRaven.Application.Services.ConfirmService;
-using eRaven.Application.Services.ExcelService;
-using eRaven.Application.Services.PersonService;
-using eRaven.Application.Services.PersonStatusService;
-using eRaven.Application.Services.PlanActionService;
-using eRaven.Application.Services.PositionAssignmentService;
-using eRaven.Application.Services.PositionService;
-using eRaven.Application.Services.StatusKindService;
-using eRaven.Application.Services.StatusTransitionService;
-using eRaven.Application.ViewModels.PersonViewModels;
-using eRaven.Application.ViewModels.PositionPagesViewModels;
-using eRaven.Application.ViewModels.StatusKindViewModels;
 using eRaven.Components;
-using eRaven.Components.Pages.Persons;
-using eRaven.Components.Pages.Persons.Modals;
-using eRaven.Components.Pages.Positions.Modals;
-using eRaven.Components.Pages.StatusTransitions.Modals;
+using eRaven.Domain.Entities;
+using eRaven.Domain.Validation;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
+using eRaven.Infrastructure.Excel;
+using eRaven.Infrastructure.Repositories.PositionUnitRepository;
+using eRaven.Presentation.Errors;
+using eRaven.Presentation.Toasts;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,26 +25,21 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
 {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")); // або ваш провайдер
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")); // Р°Р±Рѕ РІР°С€ РїСЂРѕРІР°Р№РґРµСЂ
 });
 
-builder.Services.AddBlazoredToast();
+// Validation
+builder.Services.AddScoped<IValidator<PositionUnit>, PositionUnitValidator>();
 
-builder.Services.AddTransient<IValidator<EditPersonViewModel>, EditPersonViewModelValidator>();
-builder.Services.AddTransient<IValidator<CreateKindViewModel>, CreateKindViewModelValidator>();
-builder.Services.AddTransient<IValidator<CreatePersonViewModel>, CreatePersonViewModelValidator>();
-builder.Services.AddTransient<IValidator<CreatePositionUnitViewModel>, CreatePositionUnitViewModelValidator>();
+// Add services to the container.
+// Repository
+builder.Services.AddScoped<IPositionUnitRepository, PositionUnitRepository>();
 
-//Services
-builder.Services.AddScoped<IConfirmService, ConfirmService>();
-builder.Services.AddScoped<IExcelService, ExcelService>();
-builder.Services.AddScoped<IPlanActionService, PlanActionService>();
-builder.Services.AddScoped<IPersonService, PersonService>();
-builder.Services.AddScoped<IPersonStatusService, PersonStatusService>();
-builder.Services.AddScoped<IPositionService, PositionService>();
-builder.Services.AddScoped<IPositionAssignmentService, PositionAssignmentService>();
-builder.Services.AddScoped<IStatusKindService, StatusKindService>();
-builder.Services.AddScoped<IStatusTransitionService, StatusTransitionService>();
+// services
+builder.Services.AddScoped<IPositionUnitExcelService, PositionUnitExcelService>();
+
+builder.Services.AddScoped<ToastService>();
+builder.Services.AddScoped<ErrorBoundaryHub>();
 
 var app = builder.Build();
 

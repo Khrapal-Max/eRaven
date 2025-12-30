@@ -1,0 +1,132 @@
+﻿@page "/position-units"
+@using eRaven.Domain.Entities
+@using Microsoft.AspNetCore.Components.Forms
+
+<div class="page-flex">
+    <PageToolbar Title="Посади">
+        <Right>
+            <PositionUnitImportExport OnChanged="LoadAsync" />
+            <Button Class="btn-primary rounded-0 border-0" 
+                    Label="Створити" 
+                    OnClickButton="OnAddPositionUnitClick" />
+        </Right>
+    </PageToolbar>
+
+    <div class="page-content">
+        @if (IsLoading)
+        {
+            <p><em>Завантаження...</em></p>
+        }
+        else if (PositionUnitsList.Count == 0)
+        {
+            <p><em>Записи відсутні.</em></p>
+        }
+        else
+        {
+            <Table Items="@PositionUnitsList"
+                   TItem="PositionUnit"
+                   KeySelector="x => x.Id"
+                   @bind-SelectedItem="Selected">
+                <TableHeader>
+                    <th>#</th>
+                    <th>Код.</th>
+                    <th>Назва посади</th>
+                    <th>Повна посада</th>
+                    <th>ВОС</th>
+                    <th>ШПК</th>
+                    <th>ТР</th>
+                    <th class="text-center">Статус</th>
+                    <th class="text-center">Дія</th>
+                </TableHeader>
+
+                <RowTemplate Context="unit">
+                    <td>@unit.Number</td>
+                    <td>@unit.Code</td>
+                    <td>@unit.ShortName</td>
+                    <td>@unit.FullName</td>
+                    <td>@unit.SpecialNumber</td>
+                    <td>@unit.Rank</td>
+                    <td>@unit.Tarif</td>
+                    <td class="text-center">@(unit.IsActived ? "А" : "Н")</td>
+                    <td class="text-center">
+                        <Button Class="btn-sm btn-outline-danger"
+                                Label="Закрити"
+                                IsDisabled="!unit.IsActived"
+                                StopPropagation="true"
+                                OnClickButton="() => AskDeactivate(unit)" />
+                    </td>
+                </RowTemplate>
+            </Table>
+        }
+    </div>
+</div>
+
+<Modal Title="Створити посаду"
+       IsOpen="@CreateOpen"
+       IsOpenChanged="v => CreateOpen = v"
+       CreateText="Створити"
+       CancelText="Відміна"
+       DialogSize="modal-xl"
+       OnCreateAsync="CreateAsync">
+
+    @if (_createEditContext is not null)
+    {
+        <EditForm EditContext="@_createEditContext">
+            <div class="row g-2">
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Номер</label>
+                    <InputNumber class="form-control" @bind-Value="CreateModel.Number" />
+                    <ValidationMessage For="@(() => CreateModel.Number)" />
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Код</label>
+                    <InputText class="form-control" @bind-Value="CreateModel.Code" />
+                    <ValidationMessage For="@(() => CreateModel.Code)" />
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <label class="form-label">Коротка назва</label>
+                    <InputText class="form-control" @bind-Value="CreateModel.ShortName" />
+                    <ValidationMessage For="@(() => CreateModel.ShortName)" />
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label">Повна назва</label>
+                    <InputText class="form-control" @bind-Value="CreateModel.FullName" />
+                    <ValidationMessage For="@(() => CreateModel.FullName)" />
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label">ВОС</label>
+                    <InputText class="form-control" @bind-Value="CreateModel.SpecialNumber" />
+                    <ValidationMessage For="@(() => CreateModel.SpecialNumber)" />
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label">ШПК</label>
+                    <InputText class="form-control" @bind-Value="CreateModel.Rank" />
+                    <ValidationMessage For="@(() => CreateModel.Rank)" />
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label">Тариф</label>
+                    <InputText class="form-control" @bind-Value="CreateModel.Tarif" />
+                    <ValidationMessage For="@(() => CreateModel.Tarif)" />
+                </div>
+            </div>
+        </EditForm>
+    }
+</Modal>
+
+<ConfirmModal T="PositionUnit"
+              @ref="_deactivateModal"
+              Title="Закриття посади в штатному розкладі"
+              ConfirmText="Закрити"
+              CancelText="Відміна"
+              DialogSize="modal-md">
+    <BodyTemplate Context="u">
+        <p class="mb-0">Закрити посаду <b>@u.FullName</b>?</p>
+        <div class="text-muted small mt-1">Код: @u.Code • ВОС: @u.SpecialNumber</div>
+    </BodyTemplate>
+</ConfirmModal>

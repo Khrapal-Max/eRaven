@@ -5,7 +5,7 @@
 // PositionUnitConfiguration
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Models;
+using eRaven.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -27,6 +27,11 @@ public class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
         // ===============================
         // Columns (lower snake_case)
         // ===============================
+        e.Property(x => x.Number)
+         .HasColumnName("number")
+         .HasColumnType("int")
+         .IsRequired();
+
         e.Property(x => x.Code)
          .HasColumnName("code")
          .HasMaxLength(64)
@@ -37,14 +42,24 @@ public class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
          .HasMaxLength(128)
          .IsRequired();
 
-        e.Property(x => x.OrgPath)
-         .HasColumnName("org_path")
+        e.Property(x => x.FullName)
+         .HasColumnName("full_name")
          .HasMaxLength(512)
          .IsRequired();
 
         e.Property(x => x.SpecialNumber)
          .HasColumnName("special_number")
          .HasMaxLength(15)
+         .IsRequired();
+
+        e.Property(x => x.Rank)
+         .HasColumnName("rank")
+         .HasMaxLength(128)
+         .IsRequired();
+
+        e.Property(x => x.Tarif)
+         .HasColumnName("tarif")
+         .HasMaxLength(5)
          .IsRequired();
 
         e.Property(x => x.IsActived)
@@ -55,24 +70,13 @@ public class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
         // Indexes
         // ===============================
         e.HasIndex(x => x.Code)
-         .HasDatabaseName("ix_position_units_code");
+         .HasDatabaseName("ix_position_units_code")
+         .IsUnique();
 
         e.HasIndex(x => x.ShortName)
          .HasDatabaseName("ix_position_units_short_name");
 
         e.HasIndex(x => x.SpecialNumber)
         .HasDatabaseName("ix_position_units_number");
-
-        // ===============================
-        // Relationships
-        // ===============================
-        // Навігація CurrentPerson налаштована з боку Person:
-        // PersonConfiguration: HasOne(p => p.PositionUnit).WithOne(u => u.CurrentPerson)...
-        // Тут додатково нічого не визначаємо, щоб не дублювати.
-
-        // ===============================
-        // Ignored (computed)
-        // ===============================
-        e.Ignore(x => x.FullName);
     }
 }

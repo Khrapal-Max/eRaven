@@ -1,254 +1,343 @@
-﻿/* === Base theme & typography === */
+﻿/* =========================
+   Base (Bootstrap-first)
+   ========================= */
 :root {
-    /* Базові кольори */
-    --brand: #6ea8fe; /* акцент (тон Bootstrap primary) */
-    --brand-glow: rgba(110,168,254,.55); /* м'яке світіння */
-    --brand-text: #fff;
-    /* Типографіка */
+    /* ===== Neutral soft gray (balanced) ===== */
+    --bs-body-bg: #eef1f4; /* фон сторінки (м’який, не білий) */
+    --bs-body-color: #1f2937; /* темно-сірий текст */
+    /* surfaces */
+    --bs-secondary-bg: #e7ecf1; /* cards/панелі */
+    --bs-tertiary-bg: #f4f6f8; /* toolbar/thead/легкі блоки */
+    --bs-light: #f4f6f8; /* можна лишити так само */
+    /* header/nav */
+    --bs-app-header: #e3e8ee; /* navbar (трішки темніше за surface) */
+    /* borders */
+    --bs-border-color: #d6dde5;
+    /* accent */
+    --bs-primary: #0d6efd;
+    /* table */
+    --bs-table-color: var(--bs-body-color);
+    --bs-table-bg: transparent;
+    --bs-table-head-color: var(--bs-body-color);
+    --bs-table-head-bg: var(--bs-tertiary-bg);
+    /* nav text */
+    --nav-text: #1f2937;
+    --nav-muted: #374151;
+    /* nav interactions (дуже м’яко) */
+    --nav-pill-hover-bg: rgba(13,110,253,.08);
+    --nav-pill-active-bg: rgba(13,110,253,.12);
+    /* font */
     --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-    /* Layout */
-    --navbar-h: 56px; /* стандартна висота Bootstrap navbar */
-    --ng-bg: #492448; /* основний зелений #7ef376*/
-    --mg-bg: #007A78; /* основний зелений #7ef376*/
+    --app-header-h: 56px;
 }
 
 html, body {
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-    font-size: 16px;
-    line-height: 1.45;
-    background: #a5b0b3;    
-    color: black;
+    height: 100%;
 }
 
 body {
-    padding-top: var(--navbar-h);
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.45;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    overflow: hidden; /* важливо: скрол НЕ на body */
 }
 
-
-
-/* щоб контент не ліз під fixed-top */
-.layout-main {
-    padding-top: .75rem;
-    padding-bottom: 2rem;
+/* =========================
+   App shell
+   ========================= */
+.app-shell {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
 }
 
-.navbar {
-    background: var(--ng-bg);
-    color: black;
+/* Header: не скролиться */
+.app-header {
+    flex: 0 0 auto;
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    background: var(--bs-light);
+    border-bottom: 1px solid var(--bs-border-color);
 }
 
-/* === Navbar brand with tinted crow === */
-.navbar-brand {
-    letter-spacing: .2px;
-    color: var(--brand-text);
+/* Main: єдина зона скрола */
+.app-main {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    background: var(--bs-body-bg);
 }
 
-/* 16x16, білий колір на темному фоні */
-.brand-logo {
-    width: 18px;
-    height: 18px;
-    display: inline-block;
-    /* робимо зображення повністю білим, зберігаючи прозорий фон */
-    filter: brightness(0) invert(1);
+/* контейнер сторінки */
+.page-container {
+    height: 100%; /* важливо */
+    min-height: 0; /* важливо */
 }
 
-    .navbar-brand .brand-text {
-        color: var(--brand-text);
+/* =========================
+   Navbar – full-height sections
+   ========================= */
+
+.app-navbar {
+    background: var(--bs-app-header);
+    border-bottom: 1px solid var(--bs-border-color);
+    /* ВАЖЛИВО: прибираємо внутрішні відступи bootstrap navbar */
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+    /* container має тягнутись по висоті */
+    .app-navbar .container-fluid {
+        padding-top: 0;
+        padding-bottom: 0;
+        align-items: stretch; /* щоб діти могли зайняти всю висоту */
+        min-height: 56px; /* стандарт bootstrap navbar height */
+    }
+
+    /* collapse теж має stretch */
+    .app-navbar .navbar-collapse {
+        align-items: stretch;
+    }
+
+    /* список меню тягнеться по висоті */
+    .app-navbar .navbar-nav {
+        gap: 0;
+        height: 100%;
+        align-items: stretch;
+    }
+
+    /* кожен item — секція на всю висоту */
+    .app-navbar .nav-item {
+        margin: 0;
+        display: flex;
+        align-items: stretch;
+    }
+
+    /* nav-link як повний блок-секція */
+    .app-navbar .nav-link {
+        display: flex;
+        align-items: center;
+        height: 100%;
+        /* секція без “повітря” зверху/знизу */
+        padding: 0 1.25rem;
+        line-height: 56px; /* ключ: рівно по висоті navbar */
+        border-radius: 0;
+        border: none;
+        color: var(--nav-muted) !important;
         font-weight: 600;
+        letter-spacing: .2px;
+        transition: background-color .12s ease, color .12s ease;
+    }
+
+        /* hover */
+        .app-navbar .nav-link:hover,
+        .app-navbar .nav-link:focus {
+            background-color: rgba(13,110,253,.08);
+            color: var(--nav-text) !important;
+        }
+
+        /* active */
+        .app-navbar .nav-link.active {
+            background-color: rgba(13,110,253,.14);
+            color: var(--bs-primary) !important;
+        }
+
+    /* caret */
+    .app-navbar .dropdown-toggle::after {
+        margin-left: .4rem;
+        opacity: .6;
+    }
+
+    /* dropdown під секцією */
+    .app-navbar .dropdown-menu {
+        margin-top: 0;
+        border-radius: 0 0 .5rem .5rem;
+        border: 1px solid var(--bs-border-color);
+        border-top: none;
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.12);
+        z-index: 2000;
+    }
+
+    /* dropdown items */
+    .app-navbar .dropdown-item {
+        padding: .55rem .75rem;
+        font-weight: 600;
+        color: var(--nav-text);
+    }
+
+        .app-navbar .dropdown-item:hover,
+        .app-navbar .dropdown-item:focus {
+            background: rgba(13,110,253,.08);
+        }
+
+        .app-navbar .dropdown-item.active {
+            background: rgba(13,110,253,.14);
+        }
+
+    /* brand без зайвих відступів */
+    .app-navbar .navbar-brand {
+        padding: 0 .75rem;
+        display: flex;
+        align-items: center;
+        height: 56px; /* вирівнюємо з секціями */
+        color: var(--nav-text) !important;
+        font-weight: 700;
         letter-spacing: .2px;
     }
 
-.navbar-dark .navbar-brand:hover .brand-mark,
-.navbar-dark .navbar-brand:focus .brand-mark {
-    filter: drop-shadow(0 0 8px var(--brand-glow)) brightness(1.08);
-}
-
-.navbar .dropdown-menu {
-    min-width: 14rem;
-}
-
-/* Абсолютне центрування меню відносно ВСЬОГО navbar (на lg+) */
-@media (min-width: 992px) {
-    .navbar .container-fluid {
-        position: relative;
+/* Mobile: у collapse робимо секції нормальної висоти */
+@media (max-width: 991.98px) {
+    .app-navbar .nav-link {
+        line-height: normal;
+        height: auto;
+        padding: .6rem .75rem;
     }
 
-    .navbar .nav-center {
-        position: absolute;
-        left: 50%;
-        transform: translateX(-50%);
-        white-space: nowrap; /* щоб не «розтягувалось» */
-        display: flex; /* потрібне для .navbar-nav */
-        align-items: center;
-        gap: .25rem;
+    .app-navbar .navbar-nav {
+        height: auto;
+    }
+
+    .app-navbar .nav-item {
+        display: block;
     }
 }
 
-/* === Validation === */
-.validation-message {
-    color: #e03131;
-}
-
-.valid.modified:not([type=checkbox]) {
-    outline: 1px solid #26b050;
-    outline-offset: 0;
-}
-
-.invalid {
-    outline: 1px solid #e03131;
-}
-
-/* Прибрати зайві outline на заголовках при фокусі з клавіатури */
-h1:focus, h2:focus, h3:focus {
-    outline: none;
-}
-
-/* === Blazor built-in error UI (fallback) === */
-#blazor-error-ui {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: #b32121;
-    color: #fff;
-    padding: .75rem 1rem;
-    z-index: 2000;
-    display: none; /* показує Blazor коли треба */
-}
-
-    #blazor-error-ui .dismiss {
-        cursor: pointer;
-        margin-left: .5rem;
-    }
-
-    #blazor-error-ui .reload {
-        color: #fff;
-        text-decoration: underline;
-    }
-
-/* Трохи охайніші чекбокси й плейсхолдери */
-.darker-border-checkbox.form-check-input {
-    border-color: #929292;
-}
-
-.form-floating > .form-control-plaintext::placeholder,
-.form-floating > .form-control::placeholder {
-    color: var(--bs-secondary-color);
-    text-align: end;
-}
-
-.form-floating > .form-control-plaintext:focus::placeholder,
-.form-floating > .form-control:focus::placeholder {
-    text-align: start;
-}
-
-/*--------------- Таблиця Shared-----------------*/
-
-/* Мінімальний CSS для липкого заголовка */
-.table-scroll thead th {
-    position: sticky;
-    top: 0;
-    z-index: 5; /* поверх рядків */
-    background: var(--bs-light);
-}
-
-.blazored-toast {
-    z-index: 99999 !important;
-}
-
-.text-bg-purple {
-    background-color: #6f42c1;
-    color: #fff;
-}
-
-/* --------------Action modal ---------------*/
-/* фіксуємо висоту під помилки, щоб розмітка не «стрибала» */
-.val-slot {
-    min-height: 1.25rem;
-}
-
-/* липкий заголовок у списку людей */
-.sticky-th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: var(--bs-light);
-}
-
-/* --------------Modal ---------------*/
-.modal {
-    background-color: rgba(0,0,0,0.4);
-}
-
-.modal-header {
-    background: var(--mg-bg);
-    color: var(--brand-text);
-    border-bottom: none;
-}
-
-.break-word {
-    word-break: break-word; 
-}
-
-/* -------------- Planning on date ---------------- */
-
-/* Кореневий контейнер сторінки: займає висоту екрану мінус navbar, без скролу */
-.planning-root {
-    height: calc(100vh - (var(--navbar-h) * 2));
+/* =========================
+   Page layout helper
+   ========================= */
+/* сторінка як flex-колонка: toolbar -> content */
+.page-flex {
+    height: 100%;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* ← вимикаємо глобальний скрол у межах сторінки */
+    gap: .75rem;
 }
 
-/* Тулбар зверху — звичайний блок, не скролиться бо скрол нижче */
-.planning-toolbar {
+/* блок контенту на сторінці займає залишок */
+.page-content {
+    flex: 1 1 auto;
+    min-height: 0; /* критично для overflow */
+}
+
+/* =========================
+   Toolbar
+   ========================= */
+.page-toolbar {
     flex: 0 0 auto;
-    color: #fff;
-    padding: .6rem .8rem;
-    margin: .5rem .5rem 0 .5rem; /* невеликий відступ всередині сторінки */
-}
-
-    /* Інпут дати — чорний текст на світлому фоні */
-    .planning-toolbar .form-control {
-        background: rgba(255,255,255,.95);
-        border-color: rgba(255,255,255,.25);
-        color: #000;
-    }
-
-    .planning-toolbar .input-group-text {
-        background: rgba(255,255,255,.15);
-        color: #fff;
-        border-color: rgba(255,255,255,.2);
-    }
-
-    .planning-toolbar .input-group-sm > .form-control,
-    .planning-toolbar .input-group-sm > .btn,
-    .planning-toolbar .form-control.form-control-sm {
-        height: 30px;
-        padding-top: .125rem;
-        padding-bottom: .125rem;
-        line-height: 1.2;
-    }
-
-/* Канвас із картками: єдиний вертикальний скрол */
-.planning-cards-scroll {
-    flex: 1 1 0; /* займає весь доступний простір */
-    min-height: 0; /* критично для flex-контейнера, щоб скрол працював */
-    overflow: auto; /* ← тут єдиний вертикальний скрол */
-    overflow-x: hidden;
-    margin: .5rem; /* вирівнюємо з тулбаром */
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    background: var(--bs-app-header);
+    border: 1px solid var(--bs-border-color);
     border-radius: .5rem;
 }
 
-    /* Трохи ущільнимо відступи в картках, щоб в ряд поміщалось 2 */
-    .planning-cards-scroll .card {
-        max-width: 100%;
+/* =========================
+   Table (internal scroll + sticky head)
+   ========================= */
+
+.table-wrap {
+    height: 100%;
+    min-height: 0; /* важливо для flex */
+}
+
+/* саме тут скролиться таблиця */
+.table-scroll {
+    height: 100%;
+    min-height: 0;
+    padding-right: 0.5rem;
+    overflow: auto;
+    scrollbar-gutter: stable both-edges;
+}
+
+/* базовий вигляд */
+.table {
+    width: 100%;
+    min-width: 100%;
+    margin-bottom: 0;
+    color: var(--bs-body-color);
+    background-color: transparent;
+    /* bootstrap vars */
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--bs-body-color);
+    --bs-table-hover-bg: rgba(13,110,253,.06);
+    --bs-table-active-bg: rgba(13,110,253,.14);
+    /* header vars */
+    --bs-table-head-bg: var(--bs-tertiary-bg);
+    --bs-table-head-color: var(--bs-body-color);
+}
+
+    /* sticky header у межах .table-scroll */
+    .table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background-color: var(--bs-table-head-bg) !important;
+        color: var(--bs-table-head-color) !important;
+        font-weight: 600;
+        border-bottom: 1px solid var(--bs-border-color);
+        /* щоб не “мигтіло” на деяких браузерах */
+        background-clip: padding-box;
     }
 
-    .planning-cards-scroll .card-body .py-2 {
-        padding-top: .4rem !important;
-        padding-bottom: .4rem !important;
+    /* клітинки */
+    .table tbody td {
+        color: var(--bs-body-color);
+        vertical-align: middle;
     }
+
+    /* рядки */
+    .table tbody tr.table-row {
+        cursor: pointer;
+    }
+
+    /* hover поверх active */
+    .table.table-hover > tbody > tr.table-active:hover > * {
+        background-color: rgba(13,110,253,.20);
+    }
+
+/* =========================
+   Forms / validation
+   ========================= */
+.form-label {
+    font-size: .875rem;
+    font-weight: 600;
+    margin-bottom: .25rem;
+}
+
+.validation-message {
+    display: block;
+    margin-top: .25rem;
+    font-size: .825rem;
+    color: #b02a37;
+    line-height: 1.25;
+}
+
+.form-control, .form-select, .form-check-input {
+    border-color: var(--bs-border-color);
+    background-color: #fff;
+}
+
+    .form-control:focus, .form-select:focus {
+        border-color: rgba(13,110,253,.45);
+        box-shadow: 0 0 0 .2rem rgba(13,110,253,.12);
+    }
+
+/* =========================
+   Responsive
+   ========================= */
+@media (max-width: 576px) {
+    .page-container {
+        padding: .5rem .5rem;
+    }
+
+    .page-toolbar {
+        padding: .5rem;
+    }
+}

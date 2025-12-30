@@ -1,0 +1,48 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@using eRaven.Domain.Entities
+
+<Button Class="btn-outline-secondary rounded-0 border-0"
+        Label="Імпорт"
+        OnClickButton="OpenImport" />
+
+<Button Class="btn-outline-secondary rounded-0 border-0"
+        Label="Експорт"
+        OnClickButton="ExportAsync" />
+
+<Modal Title="Імпорт посад (Excel)"
+       IsOpen="@_importOpen"
+       IsOpenChanged="v => _importOpen = v"
+       CreateText="Імпортувати"
+       CancelText="Відміна"
+       DialogSize="modal-xl"
+       OnCreateAsync="CommitImportAsync">
+
+    <div class="d-flex flex-column gap-2">
+        <InputFile OnChange="OnFileSelected" accept=".xlsx" />
+
+        @if (_importResult is not null)
+        {
+            <div class="small text-muted">
+                Валідних: <b>@_importResult.ValidItems.Count</b>,
+                Помилок: <b>@_importResult.Errors.Count</b>
+            </div>
+
+            @if (_importResult.Errors.Count > 0)
+            {
+                <div class="alert alert-warning py-2 mb-0">
+                    <div class="fw-semibold mb-1">Є помилки у файлі:</div>
+                    <ul class="mb-0">
+                        @foreach (var e in _importResult.Errors.Take(10))
+                        {
+                            <li>Рядок @e.RowNumber, поле @e.Field: @e.Message</li>
+                        }
+                    </ul>
+                    @if (_importResult.Errors.Count > 10)
+                    {
+                        <div class="small text-muted mt-1">Показано 10 з @_importResult.Errors.Count</div>
+                    }
+                </div>
+            }
+        }
+    </div>
+</Modal>
