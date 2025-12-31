@@ -39,7 +39,7 @@ public partial class PositionUnits : IDisposable
     // ==== dependensy ====
     [Inject] private IValidator<PositionUnit> PositionUnitValidator { get; set; } = default!;
     [Inject] private IPositionUnitRepository PositionUnitRepository { get; set; } = default!;
-    [Inject] private IRankRepository RankRepository { get; set; } = default!;    
+    [Inject] private IRankRepository RankRepository { get; set; } = default!;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 

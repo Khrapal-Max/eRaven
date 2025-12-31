@@ -14,9 +14,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Moq;
 
-namespace eRaven.Tests.Components.Pages.PositionUnits;
+namespace eRaven.Tests.Components.Pages.Helpers;
 
-public sealed class PositionUnitImportExportTests : BunitContext
+public class PositionUnitImportExportTests : BunitContext
 {
     private readonly Mock<IPositionUnitExcelService> _excel = new(MockBehavior.Strict);
     private readonly Mock<IPositionUnitRepository> _repo = new(MockBehavior.Strict);
