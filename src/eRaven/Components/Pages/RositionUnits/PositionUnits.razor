@@ -117,7 +117,27 @@
 
                 <div class="col-12 col-md-4">
                     <label class="form-label">ШПК</label>
-                    <InputText class="form-control" @bind-Value="CreateModel.Rank" />
+
+                    <div class="dropdown w-100">
+                        <button class="btn btn-outline-secondary dropdown-toggle w-100 text-truncate"
+                                type="button"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false">
+                            @(string.IsNullOrWhiteSpace(CreateModel.Rank) ? "— оберіть звання —" : CreateModel.Rank)
+                        </button>
+
+                        <ul class="dropdown-menu w-100 overflow-auto" style="max-height: 30vh;">
+                            @foreach (var title in RankTitles)
+                            {
+                                <li>
+                                    <Button Class="dropdown-item"
+                                            Label="@title"
+                                            OnClickButton="() => CreateModel.Rank = title" />
+                                </li>
+                            }
+                        </ul>
+                    </div>
+
                     <ValidationMessage For="@(() => CreateModel.Rank)" />
                 </div>
 
