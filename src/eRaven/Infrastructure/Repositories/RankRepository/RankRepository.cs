@@ -26,6 +26,7 @@ public class RankRepository(IDbContextFactory<AppDbContext> dbFactory) : IRankRe
         return await db.Ranks
             .AsNoTracking()
             .OrderBy(x => x.Priority)
+            .Where(x => x.IsActived)
             .ToListAsync(ct);
     }
 

@@ -1,0 +1,100 @@
+﻿@page "/ranks"
+@using eRaven.Domain.Entities
+@using Microsoft.AspNetCore.Components.Forms
+
+<div class="page-flex">
+    <PageToolbar Title="Довідник звань">
+        <Right>
+            <Button Class="btn-primary rounded-0 border-0"
+                    Label="Додати"
+                    OnClickButton="OnAddRankClick" />
+        </Right>
+    </PageToolbar>
+
+    <div class="page-content">
+        @if (IsLoading)
+        {
+            <p class="px-3"><em>Завантаження...</em></p>
+        }
+        else if (RanksList.Count == 0)
+        {
+            <p class="px-3"><em>Записи відсутні.</em></p>
+        }
+        else
+        {
+            <Table Items="@RanksList"
+                   TItem="Rank"
+                   KeySelector="x => x.Id"
+                   @bind-SelectedItem="Selected">
+                <TableHeader>
+                    <th>Назва</th>
+                    <th>Пріоритет</th>
+                    <th class="text-center">Дія</th>
+                </TableHeader>
+
+                <RowTemplate Context="rank">
+                    <td>@rank.Title</td>
+                    <td>@rank.Priority</td>
+                    <td class="text-center">
+                        <Button Class="btn-sm btn-outline-danger"
+                                Label="Видалити"
+                                IsDisabled="!rank.IsActived"
+                                StopPropagation="true"
+                                OnClickButton="() => AskDeactivate(rank)" />
+                    </td>
+                </RowTemplate>
+            </Table>
+        }
+    </div>
+    <footer class="d-flex align-items-start gap-2 px-3 border border-primary">
+        <small class="fw-semibold text-nowrap">
+            Бізнес-правила:
+        </small>
+
+        <small class="lh-sm">
+            <em>
+                1) Назва звання не може повторюватися черед активних записів;
+                2) Пріоритет звання, оновлює порядок старшинства звань.
+            </em>
+        </small>
+    </footer>
+</div>
+
+<Modal Title="Додати звання"
+       IsOpen="@CreateOpen"
+       IsOpenChanged="v => CreateOpen = v"
+       CreateText="Додати"
+       CancelText="Відміна"
+       DialogSize="modal-lg"
+       OnCreateAsync="CreateAsync">
+
+    @if (_createEditContext is not null)
+    {
+        <EditForm EditContext="@_createEditContext">
+            <div class="flex-column g-2">
+                <div class="col-12">
+                    <label class="form-label">Назва звання</label>
+                    <InputText class="form-control" @bind-Value="CreateModel.Title" />
+                    <ValidationMessage For="@(() => CreateModel.Title)" />
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Пріоритет</label>
+                    <InputNumber class="form-control" @bind-Value="CreateModel.Priority" />
+                    <ValidationMessage For="@(() => CreateModel.Priority)" />
+                </div>
+            </div>
+        </EditForm>
+    }
+</Modal>
+
+<ConfirmModal T="Rank"
+              @ref="_deactivateModal"
+              Title="Видалення звання в довіднику"
+              ConfirmText="Видалити"
+              CancelText="Відміна"
+              DialogSize="modal-md">
+    <BodyTemplate Context="u">
+        <p class="mb-0">Видалити звання <b>@u.Title</b>?</p>
+    </BodyTemplate>
+</ConfirmModal>

@@ -14,65 +14,54 @@ public static class MigrationExtension
 {
     public static async Task AddMigrationDb(this WebApplication app)
     {
-        using (var scope = app.Services.CreateScope())
+        const int maxRetries = 10;
+        var delay = TimeSpan.FromSeconds(2);
+
+        Exception? lastError = null;
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
+            using var scope = app.Services.CreateScope();
             var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            const int maxRetries = 10;
-            var delay = TimeSpan.FromSeconds(2);
-
-            Exception? lastError = null;
-            bool migrated = false;
-
-            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            try
             {
-                try
-                {
-                    await db.Database.MigrateAsync();
-                    logger.LogInformation("✅ Database migrated successfully.");
-                    migrated = true;
-                    break;
-                }
-                catch (Npgsql.PostgresException ex)
-                {
-                    lastError = ex;
-                    logger.LogWarning(ex, "PostgresException on migrate (attempt {Attempt}/{Max}). Retrying in {Delay}s...",
-                        attempt, maxRetries, delay.TotalSeconds);
-                }
-                catch (Npgsql.NpgsqlException ex)
-                {
-                    lastError = ex;
-                    logger.LogWarning(ex, "NpgsqlException on migrate (attempt {Attempt}/{Max}). Retrying in {Delay}s...",
-                        attempt, maxRetries, delay.TotalSeconds);
-                }
-                catch (Exception ex)
-                {
-                    lastError = ex;
-                    if (attempt < maxRetries)
-                    {
-                        logger.LogWarning(ex, "Unexpected exception on migrate (attempt {Attempt}/{Max}). Retrying in {Delay}s...",
-                            attempt, maxRetries, delay.TotalSeconds);
-                    }
-                }
+                var pending = await db.Database.GetPendingMigrationsAsync();
+                logger.LogInformation("Pending migrations: {Migrations}", string.Join(", ", pending));
 
-                if (attempt < maxRetries)
-                {
-                    await Task.Delay(delay);
-                    delay += TimeSpan.FromSeconds(1);
-                }
+                await db.Database.MigrateAsync();
+                logger.LogInformation("✅ Database migrated successfully.");
+
+                await RankSeed.EnsureSeededAsync(db, CancellationToken.None);
+                logger.LogInformation("✅ Rank dictionary seeded.");
+                return;
+            }
+            catch (Exception ex) when (
+                ex is Npgsql.PostgresException ||
+                ex is Npgsql.NpgsqlException)
+            {
+                lastError = ex;
+                logger.LogWarning(ex, "DB migrate failed (attempt {Attempt}/{Max}). Retrying in {Delay}s...",
+                    attempt, maxRetries, delay.TotalSeconds);
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+                logger.LogWarning(ex, "Unexpected migrate error (attempt {Attempt}/{Max}). Retrying in {Delay}s...",
+                    attempt, maxRetries, delay.TotalSeconds);
             }
 
-            if (!migrated)
+            if (attempt < maxRetries)
             {
-                logger.LogCritical(lastError, "❌ Failed to migrate database after {Max} attempts.", maxRetries);
-                // Варіант 1 (рекомендовано): впасти з осмисленим винятком — Docker перезапустить
-                throw new InvalidOperationException(
-                    $"Database migration failed after {maxRetries} attempts.",
-                    lastError ?? new Exception("Unknown migration error"));
-                // Варіант 2 (м'яко зупинити додаток):
-                // scope.ServiceProvider.GetRequiredService<IHostApplicationLifetime>().StopApplication();
+                await Task.Delay(delay);
+                delay += TimeSpan.FromSeconds(1);
             }
         }
+
+        throw new InvalidOperationException(
+            $"Database migration failed after {maxRetries} attempts.",
+            lastError ?? new Exception("Unknown migration error"));
     }
+
 }

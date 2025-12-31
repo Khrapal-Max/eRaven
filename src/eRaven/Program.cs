@@ -31,14 +31,15 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 
 // Validation
 builder.Services.AddScoped<IValidator<PositionUnit>, PositionUnitValidator>();
+builder.Services.AddScoped<IValidator<Rank>, RankValidator>();
 
 // Add services to the container.
 // Repository
 builder.Services.AddScoped<IPositionUnitRepository, PositionUnitRepository>();
+builder.Services.AddScoped<IRankRepository, RankRepository>();
 
 // services
 builder.Services.AddScoped<IPositionUnitExcelService, PositionUnitExcelService>();
-builder.Services.AddScoped<IRankRepository, RankRepository>();
 
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<ErrorBoundaryHub>();

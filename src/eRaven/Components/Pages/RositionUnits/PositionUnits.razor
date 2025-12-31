@@ -3,11 +3,11 @@
 @using Microsoft.AspNetCore.Components.Forms
 
 <div class="page-flex">
-    <PageToolbar Title="Посади">
+    <PageToolbar Title="Довідник посад для штатного розкладу">
         <Right>
             <PositionUnitImportExport OnChanged="LoadAsync" />
             <Button Class="btn-primary rounded-0 border-0" 
-                    Label="Створити" 
+                    Label="Додати"
                     OnClickButton="OnAddPositionUnitClick" />
         </Right>
     </PageToolbar>
@@ -15,11 +15,11 @@
     <div class="page-content">
         @if (IsLoading)
         {
-            <p><em>Завантаження...</em></p>
+            <p class="px-3"><em>Завантаження...</em></p>
         }
         else if (PositionUnitsList.Count == 0)
         {
-            <p><em>Записи відсутні.</em></p>
+            <p class="px-3"><em>Записи відсутні.</em></p>
         }
         else
         {
@@ -73,10 +73,10 @@
     </footer>
 </div>
 
-<Modal Title="Створити посаду"
+<Modal Title="Додати посаду"
        IsOpen="@CreateOpen"
        IsOpenChanged="v => CreateOpen = v"
-       CreateText="Створити"
+       CreateText="Додати"
        CancelText="Відміна"
        DialogSize="modal-xl"
        OnCreateAsync="CreateAsync">

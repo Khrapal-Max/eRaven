@@ -208,7 +208,7 @@ public class RankRepositoryTests : IAsyncLifetime
         // перевіряємо весь порядок по title (бо пріоритети змістились)
         // очікування: R1,R2,R3,R4,Inserted,R5,R6,R7
         Assert.Equal(
-            [ "R1", "R2", "R3", "R4", "Inserted", "R5", "R6", "R7" ],
+            ["R1", "R2", "R3", "R4", "Inserted", "R5", "R6", "R7"],
             [.. all.Select(x => x.Title)]);
 
         // точкова перевірка зсуву:
