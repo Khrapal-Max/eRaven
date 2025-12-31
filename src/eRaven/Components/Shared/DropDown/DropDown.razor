@@ -1,0 +1,13 @@
+﻿@typeparam TEnum
+
+<select class="form-select @Class"
+        value="@Value?.ToString()"
+        @onchange="HandleChange">
+    @foreach (var item in EnumNames)
+    {
+        if (item.ToString() != "UnknownChangeType")
+        {
+            <option value="@item.ToString()">@item.ToString()</option>
+        }        
+    }
+</select>
