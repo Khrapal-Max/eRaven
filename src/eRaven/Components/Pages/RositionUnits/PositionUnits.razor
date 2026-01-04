@@ -1,6 +1,7 @@
 ﻿@page "/position-units"
 @using eRaven.Domain.Entities
 @using Microsoft.AspNetCore.Components.Forms
+@using eRaven.Domain.Enums
 
 <div class="page-flex">
     <PageToolbar Title="Довідник посад для штатного розкладу">
@@ -33,6 +34,7 @@
                     <th>Назва посади</th>
                     <th>Повна посада</th>
                     <th>ВОС</th>
+                    <th>Стан</th>
                     <th>ШПК</th>
                     <th>ТР</th>
                     <th class="text-center">Статус</th>
@@ -45,6 +47,19 @@
                     <td>@unit.ShortName</td>
                     <td>@unit.FullName</td>
                     <td>@unit.SpecialNumber</td>
+                    @switch(unit.State)
+                    {
+                        case PositionUnitState.Vacant:
+                            <td><span class="badge bg-success">Вакантна</span></td>;
+                            break;
+                        case PositionUnitState.Occupied:
+                            <td><span class="badge bg-secondary">Не вакантна</span></td>;
+                            break;
+                        case PositionUnitState.TemporarilyOccupied:
+                            <td><span class="badge bg-warning text-dark">Тимчасово зайнята</span></td>;
+                            break;
+                    }
+                    <td>(@unit.State )</td>
                     <td>@unit.Rank</td>
                     <td>@unit.Tarif</td>
                     <td class="text-center">@(unit.IsActived ? "А" : "Н")</td>

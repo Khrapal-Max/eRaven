@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
+using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.PositionUnitRepository;
@@ -55,6 +56,9 @@ public class PositionUnitRepository(IDbContextFactory<AppDbContext> dbFactory) :
 
         var position = await db.PositionUnits.FirstOrDefaultAsync(x => x.Id == id, ct)
             ?? throw new KeyNotFoundException($"PositionUnit '{id}' not found.");
+
+        if(position.State != PositionUnitState.Vacant)
+            throw new InvalidOperationException("Посада не вакантна.");
 
         position.IsActived = false;
 

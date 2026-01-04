@@ -5,7 +5,9 @@
 // PositionUnitRepositoryTests -> PositionUnitRepository
 //-----------------------------------------------------------------------------
 
+using DocumentFormat.OpenXml.Office2010.Excel;
 using eRaven.Domain.Entities;
+using eRaven.Domain.Enums;
 using eRaven.Infrastructure.Repositories.PositionUnitRepository;
 using eRaven.Tests.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -36,6 +38,7 @@ public class PositionUnitRepositoryTests : IAsyncLifetime
         string shortName = "Short",
         string fullName = "Full name",
         string specialNumber = "1234567",
+        PositionUnitState state = PositionUnitState.Vacant,
         string rank = "Rank",
         string tarif = "1",
         bool isActived = true)
@@ -47,6 +50,7 @@ public class PositionUnitRepositoryTests : IAsyncLifetime
             ShortName = shortName,
             FullName = fullName,
             SpecialNumber = specialNumber,
+            State = state,
             Rank = rank,
             Tarif = tarif,
             IsActived = isActived
@@ -132,5 +136,22 @@ public class PositionUnitRepositoryTests : IAsyncLifetime
         // Act + Assert (position! -> NullReferenceException today)
         await Assert.ThrowsAsync<KeyNotFoundException>(async () =>
             await _repo.DeActivatedPositionUnitAsync(missingId, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task DeActivatedPositionUnit_when_not_vacant_throws()
+    {
+        // Arrange
+        var item = NewPosition(id: Guid.NewGuid(), number: 7, code: "POS012", state: PositionUnitState.Occupied, isActived: true);
+
+        await using (var ctx = await _db.Factory.CreateDbContextAsync())
+        {
+            ctx.PositionUnits.Add(item);
+            await ctx.SaveChangesAsync();
+        }
+
+        // Act + Assert (position! -> NullReferenceException today)
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await _repo.DeActivatedPositionUnitAsync(item.Id, CancellationToken.None));
     }
 }
