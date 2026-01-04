@@ -64,24 +64,27 @@ public class PositionUnitExcelServiceTests
         Assert.Equal("Назва посади", ws.Cell(1, 3).GetString());
         Assert.Equal("Повна посада", ws.Cell(1, 4).GetString());
         Assert.Equal("ВОС", ws.Cell(1, 5).GetString());
-        Assert.Equal("ШПК", ws.Cell(1, 6).GetString());
-        Assert.Equal("ТР", ws.Cell(1, 7).GetString());
+        Assert.Equal("Стан", ws.Cell(1, 6).GetString());
+        Assert.Equal("ШПК", ws.Cell(1, 7).GetString());
+        Assert.Equal("ТР", ws.Cell(1, 8).GetString());
 
         Assert.Equal(1, ws.Cell(2, 1).GetValue<int>());
         Assert.Equal("A1", ws.Cell(2, 2).GetString());
         Assert.Equal("S1", ws.Cell(2, 3).GetString());
         Assert.Equal("F1", ws.Cell(2, 4).GetString());
         Assert.Equal("001", ws.Cell(2, 5).GetString());
-        Assert.Equal("R1", ws.Cell(2, 6).GetString());
-        Assert.Equal("1", ws.Cell(2, 7).GetString());
+        Assert.Equal("Вакантна", ws.Cell(2, 6).GetString());
+        Assert.Equal("R1", ws.Cell(2, 7).GetString());
+        Assert.Equal("1", ws.Cell(2, 8).GetString());
 
         Assert.Equal(2, ws.Cell(3, 1).GetValue<int>());
         Assert.Equal("A2", ws.Cell(3, 2).GetString());
         Assert.Equal("S2", ws.Cell(3, 3).GetString());
         Assert.Equal("F2", ws.Cell(3, 4).GetString());
         Assert.Equal("002", ws.Cell(3, 5).GetString());
-        Assert.Equal("R2", ws.Cell(3, 6).GetString());
-        Assert.Equal("2", ws.Cell(3, 7).GetString());
+        Assert.Equal("Вакантна", ws.Cell(3, 6).GetString());
+        Assert.Equal("R2", ws.Cell(3, 7).GetString());
+        Assert.Equal("2", ws.Cell(3, 8).GetString());
     }
 
     [Fact]
