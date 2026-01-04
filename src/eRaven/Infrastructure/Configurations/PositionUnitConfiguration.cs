@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
+using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -50,6 +51,13 @@ public class PositionUnitConfiguration : IEntityTypeConfiguration<PositionUnit>
         e.Property(x => x.SpecialNumber)
          .HasColumnName("special_number")
          .HasMaxLength(15)
+         .IsRequired();
+
+        e.Property(x => x.State)
+         .HasColumnName("state")
+         .HasConversion<int>()
+         .HasColumnType("int")
+         .HasDefaultValue(PositionUnitState.Vacant)
          .IsRequired();
 
         e.Property(x => x.Rank)

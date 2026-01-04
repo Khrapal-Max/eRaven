@@ -5,6 +5,8 @@
 // PositionUnit
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Enums;
+
 namespace eRaven.Domain.Entities;
 
 /// <summary>
@@ -38,6 +40,11 @@ public class PositionUnit
     /// номер спеціальності
     /// </summary>
     public string SpecialNumber { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Визначає стан зайнятості одиниці позиції.
+    /// </summary>
+    public PositionUnitState State { get; set; }
 
     /// <summary>
     /// Шпк посади
