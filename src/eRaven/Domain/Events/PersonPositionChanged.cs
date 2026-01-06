@@ -12,6 +12,7 @@ namespace eRaven.Domain.Events;
 /// Зміна посади у персони.
 /// </summary>
 public sealed record PersonPositionChanged(
+    Guid EventId,
     Guid AggregateId,
     DateOnly EffectiveDate,
     string Position,

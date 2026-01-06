@@ -11,6 +11,7 @@ namespace eRaven.Domain.Events;
 /// Зміна звання у персони.
 /// </summary>
 public sealed record PersonRankChanged(
+    Guid EventId,
     Guid AggregateId,
     DateOnly EffectiveDate,
     string Rank,

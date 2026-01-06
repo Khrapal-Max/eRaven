@@ -11,6 +11,7 @@ namespace eRaven.Domain.Events;
 /// Зміна БЗВП у персони.
 /// </summary>
 public sealed record PersonBzvpChanged(
+    Guid EventId,
     Guid AggregateId,
     DateOnly EffectiveDate,
     string Bzvp,

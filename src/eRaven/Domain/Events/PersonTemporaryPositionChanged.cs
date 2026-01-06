@@ -11,6 +11,7 @@ namespace eRaven.Domain.Events;
 /// Призначення або зміна тимчасової посади працівника.
 /// </summary>
 public sealed record PersonTemporaryPositionChanged(
+    Guid EventId,
     Guid AggregateId,
     DateOnly EffectiveDate,
     string? TemporaryPosition,

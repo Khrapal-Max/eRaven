@@ -11,6 +11,7 @@ namespace eRaven.Domain.Events;
 /// Подія виключення особи
 /// </summary>
 public sealed record PersonExcluded(
+    Guid EventId,
     Guid AggregateId,
     string Reason,
     DateOnly EffectiveDate,

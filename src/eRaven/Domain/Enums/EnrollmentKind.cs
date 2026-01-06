@@ -2,30 +2,28 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// IDomainEvent
+// EnrollmentKind
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Domain;
+namespace eRaven.Domain.Enums;
 
-public interface IDomainEvent
+/// <summary>
+/// Тип зарахування/врахування особи у підрозділі.
+/// </summary>
+public enum EnrollmentKind
 {
     /// <summary>
-    /// Унікальний ідентифікатор події
+    /// Зарахований у підрозділ (штатний).
     /// </summary>
-    Guid EventId { get; }
+    Unit = 0,
 
     /// <summary>
-    /// Ідентифікатор агрегата
+    /// Приряджений (по наказу).
     /// </summary>
-    Guid AggregateId { get; }
+    AttachedByOrder = 1,
 
     /// <summary>
-    /// Автор події
+    /// Приряджений (по списку).
     /// </summary>
-    string Author { get; }
-
-    /// <summary>
-    /// Час фіксації події (UTC, для аудиту)
-    /// </summary>
-    DateTime OccurredAtUtc { get; }
+    AttachedByList = 2
 }

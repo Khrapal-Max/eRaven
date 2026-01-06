@@ -11,6 +11,7 @@ namespace eRaven.Domain.Events;
 /// Зміна зброї у персони.
 /// </summary>
 public sealed record PersonWeaponChanged(
+    Guid EventId,
     Guid AggregateId,
     DateOnly EffectiveDate,
     string? Weapon,

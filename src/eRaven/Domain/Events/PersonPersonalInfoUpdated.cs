@@ -13,6 +13,7 @@ namespace eRaven.Domain.Events;
 /// Редагування базового профілю особи (наприклад, зміна прізвища тощо).
 /// </summary>
 public sealed record PersonPersonalInfoUpdated(
+    Guid EventId,
     Guid AggregateId,
     PersonalInfo Personal,
     string? PlannedPosition,

@@ -13,6 +13,7 @@ namespace eRaven.Domain.Events;
 /// Базова точка: створено кандидата + одразу заповнено персональні дані і планову посаду.
 /// </summary>
 public sealed record PersonCandidateCreated(
+    Guid EventId,
     Guid AggregateId,
     PersonalInfo Personal,
     string? PlannedPosition,

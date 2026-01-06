@@ -11,6 +11,7 @@ namespace eRaven.Domain.Events;
 /// Зміна позивного у персони.
 /// </summary>
 public sealed record PersonCallsignChanged(
+    Guid EventId,
     Guid AggregateId,
     DateOnly EffectiveDate,
     string? Callsign,
