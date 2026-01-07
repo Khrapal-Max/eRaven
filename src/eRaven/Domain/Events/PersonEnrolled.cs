@@ -10,7 +10,7 @@ using eRaven.Domain.Enums;
 namespace eRaven.Domain.Events;
 
 /// <summary>
-/// Подія зарахування/врахування особи у підрозділі.
+/// Подія зарахування особи у підрозділі.
 /// </summary>
 public sealed record PersonEnrolled(
     Guid EventId,

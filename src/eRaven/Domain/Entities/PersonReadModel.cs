@@ -15,6 +15,10 @@ public sealed class PersonReadModel
 
     public PersonLifecycle Lifecycle { get; set; }
 
+    // EnrollmentInfo (поточне)
+    public EnrollmentKind EnrollmentKind { get; set; } = EnrollmentKind.Unit;
+    public string? EnrollmentReference { get; set; }
+
     // PersonalInfo (поточне)
     public string Rnokpp { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
