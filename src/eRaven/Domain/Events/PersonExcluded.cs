@@ -16,4 +16,4 @@ public sealed record PersonExcluded(
     string Reason,
     DateOnly EffectiveDate,
     string Author,
-    DateTime OccurredAtUtc) : IDomainEvent;
+    DateTime OccurredAtUtc) : IDomainEvent, IEffectiveDatedEvent;

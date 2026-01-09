@@ -2,20 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonPositionChanged
+// IPersonEventStore
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain;
 
-namespace eRaven.Domain.Events;
+namespace eRaven.Infrastructure.Projectors;
 
-/// <summary>
-/// Зміна посади у персони.
-/// </summary>
-public sealed record PersonPositionChanged(
-    Guid EventId,
-    Guid AggregateId,
-    DateOnly EffectiveDate,
-    string Position,
-    string? Note,
-    string Author,
-    DateTime OccurredAtUtc) : IDomainEvent, IEffectiveDatedEvent;
+public interface IPersonEventStore
+{
+    Task<bool> PersonExistsAsync(string rnokpp, CancellationToken ct = default);
+    Task PersistAndProjectAsync(IReadOnlyList<IDomainEvent> events, CancellationToken ct = default);
+}

@@ -2,20 +2,22 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonPositionChanged
+// EventJsonOptions
 //-----------------------------------------------------------------------------
 
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
-namespace eRaven.Domain.Events;
+namespace eRaven.Infrastructure.Projectors;
 
-/// <summary>
-/// Зміна посади у персони.
-/// </summary>
-public sealed record PersonPositionChanged(
-    Guid EventId,
-    Guid AggregateId,
-    DateOnly EffectiveDate,
-    string Position,
-    string? Note,
-    string Author,
-    DateTime OccurredAtUtc) : IDomainEvent, IEffectiveDatedEvent;
+public static class EventJsonOptions
+{
+    public static readonly JsonSerializerOptions Options = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters =
+        {
+            new JsonStringEnumConverter()
+        }
+    };
+}

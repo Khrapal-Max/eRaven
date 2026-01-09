@@ -17,4 +17,4 @@ public sealed record PersonTemporaryPositionChanged(
     string? TemporaryPosition,
     string? Note,
     string Author,
-    DateTime OccurredAtUtc) : IDomainEvent;
+    DateTime OccurredAtUtc) : IDomainEvent, IEffectiveDatedEvent;

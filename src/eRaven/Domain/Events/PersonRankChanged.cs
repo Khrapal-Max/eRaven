@@ -17,4 +17,4 @@ public sealed record PersonRankChanged(
     string Rank,
     string? Note,
     string Author,
-    DateTime OccurredAtUtc) : IDomainEvent;
+    DateTime OccurredAtUtc) : IDomainEvent, IEffectiveDatedEvent;
