@@ -5,39 +5,39 @@
 // PersonalInfo
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Domain.Aggregates.ValueObjects;
+namespace eRaven.Domain.ValueObjects;
 
 /// <summary>
-/// Інформація про людину
+/// Персональна інформація про особу
 /// </summary>
 public sealed record PersonalInfo
 {
     /// <summary>
-    /// ІПН (Ідентифікаційний податковий номер) має бути 10 цифр
+    /// ІПН (РНОКПП)
     /// </summary>
-    public string Rnokpp { get; init; } = string.Empty;
+    public string Rnokpp { get; }
 
     /// <summary>
     /// Прізвище
     /// </summary>
-    public string LastName { get; init; } = string.Empty;
+    public string LastName { get; }
 
     /// <summary>
     /// Ім'я
     /// </summary>
-    public string FirstName { get; init; } = string.Empty;
+    public string FirstName { get; }
 
     /// <summary>
     /// По батькові
     /// </summary>
-    public string? MiddleName { get; init; }
+    public string? MiddleName { get; }
 
-    // Валідація в конструкторі
     public PersonalInfo(string rnokpp, string lastName, string firstName, string? middleName = null)
     {
         if (string.IsNullOrWhiteSpace(rnokpp))
             throw new ArgumentException("РНОКПП обов'язковий", nameof(rnokpp));
 
+        rnokpp = rnokpp.Trim();
         if (rnokpp.Length != 10 || !rnokpp.All(char.IsDigit))
             throw new ArgumentException("РНОКПП має містити рівно 10 цифр", nameof(rnokpp));
 
@@ -47,7 +47,7 @@ public sealed record PersonalInfo
         if (string.IsNullOrWhiteSpace(firstName))
             throw new ArgumentException("Ім'я обов'язкове", nameof(firstName));
 
-        Rnokpp = rnokpp.Trim();
+        Rnokpp = rnokpp;
         LastName = lastName.Trim();
         FirstName = firstName.Trim();
         MiddleName = string.IsNullOrWhiteSpace(middleName) ? null : middleName.Trim();

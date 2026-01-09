@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
+using eRaven.Domain.Enums;
 
 namespace eRaven.Tests.Domain.Entities;
 
@@ -21,6 +22,7 @@ public class PositionUnitTests
         var shortName = "Manager";
         var fullName = "Senior Manager";
         var specialNumber = "SPC123";
+        var state = PositionUnitState.Vacant;
         var rank = "Captain";
         var tarif = "T1";
         var isActived = true;
@@ -46,6 +48,7 @@ public class PositionUnitTests
         Assert.Equal(shortName, positionUnit.ShortName);
         Assert.Equal(fullName, positionUnit.FullName);
         Assert.Equal(specialNumber, positionUnit.SpecialNumber);
+        Assert.Equal(state, positionUnit.State);
         Assert.Equal(rank, positionUnit.Rank);
         Assert.Equal(tarif, positionUnit.Tarif);
         Assert.Equal(isActived, positionUnit.IsActived);

@@ -9,6 +9,7 @@ using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Entities;
 using eRaven.Extensions;
 using eRaven.Infrastructure.Repositories.PositionUnitRepository;
+using eRaven.Infrastructure.Repositories.RankRepository;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -20,6 +21,7 @@ public partial class PositionUnits : IDisposable
 {
     // ==== table of position units ====
     protected List<PositionUnit> PositionUnitsList { get; set; } = [];
+    protected List<string> RankTitles { get; private set; } = [];
     protected PositionUnit? Selected { get; set; }
 
     // ==== ui ====
@@ -35,8 +37,9 @@ public partial class PositionUnits : IDisposable
     private ConfirmModal<PositionUnit> _deactivateModal = default!;
 
     // ==== dependensy ====
-    [Inject] private IPositionUnitRepository PositionUnitRepository { get; set; } = default!;
     [Inject] private IValidator<PositionUnit> PositionUnitValidator { get; set; } = default!;
+    [Inject] private IPositionUnitRepository PositionUnitRepository { get; set; } = default!;
+    [Inject] private IRankRepository RankRepository { get; set; } = default!;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -45,7 +48,7 @@ public partial class PositionUnits : IDisposable
         try
         {
             IsLoading = true;
-            var positions = await PositionUnitRepository.GetAllPositionUnits(_cts.Token);
+            var positions = await PositionUnitRepository.GetAllPositionUnitsAsync(_cts.Token);
 
             PositionUnitsList = [.. positions.OrderByDescending(x => x.IsActived).ThenBy(x => x.Number)];
         }
@@ -56,11 +59,22 @@ public partial class PositionUnits : IDisposable
         }
     }
 
-    protected void OnAddPositionUnitClick()
+    protected async Task OnAddPositionUnitClick()
     {
+        // оновимо список перед відкриттям модалки
+        var ranks = await RankRepository.GetAllRanksAsync(_cts.Token);
+        RankTitles = [.. ranks
+        .Where(r => r.IsActived)
+        .OrderBy(r => r.Priority)
+        .Select(r => r.Title)
+        .Distinct()
+        .ToList()];
+
         CreateModel = new PositionUnit { Id = Guid.NewGuid(), IsActived = true };
         _createEditContext = new EditContext(CreateModel);
         CreateOpen = true;
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task<bool> CreateAsync()
@@ -86,7 +100,7 @@ public partial class PositionUnits : IDisposable
 
         try
         {
-            await PositionUnitRepository.AddPositionUnit(CreateModel, _cts.Token);
+            await PositionUnitRepository.AddPositionUnitAsync(CreateModel, _cts.Token);
         }
         catch (DbUpdateException)
         {
@@ -108,7 +122,7 @@ public partial class PositionUnits : IDisposable
         var ok = await _deactivateModal.ShowAsync(unit);
         if (!ok) return;
 
-        await PositionUnitRepository.DeActivatedPositionUnit(unit.Id, _cts.Token);
+        await PositionUnitRepository.DeActivatedPositionUnitAsync(unit.Id, _cts.Token);
         await LoadAsync();
     }
 

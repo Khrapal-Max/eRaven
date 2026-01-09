@@ -7,6 +7,7 @@
 
 using ClosedXML.Excel;
 using eRaven.Domain.Entities;
+using eRaven.Domain.Enums;
 using FluentValidation;
 
 namespace eRaven.Infrastructure.Excel;
@@ -26,19 +27,30 @@ public sealed class PositionUnitExcelService(IValidator<PositionUnit> validator)
         ws.Cell(1, 3).Value = "Назва посади";
         ws.Cell(1, 4).Value = "Повна посада";
         ws.Cell(1, 5).Value = "ВОС";
-        ws.Cell(1, 6).Value = "ШПК";
-        ws.Cell(1, 7).Value = "ТР";
+        ws.Cell(1, 6).Value = "Стан";
+        ws.Cell(1, 7).Value = "ШПК";
+        ws.Cell(1, 8).Value = "ТР";
 
         var r = 2;
         foreach (var x in items)
         {
+            var stateStr = x.State switch
+            {
+                PositionUnitState.Vacant => "Вакантна",
+                PositionUnitState.Occupied => "Не вакантна",
+                PositionUnitState.TemporarilyOccupied => "Тимчасово зайнята",
+                _ => "Не визначений стан"
+            };
+
+
             ws.Cell(r, 1).Value = x.Number;
             ws.Cell(r, 2).Value = x.Code;
             ws.Cell(r, 3).Value = x.ShortName;
             ws.Cell(r, 4).Value = x.FullName;
             ws.Cell(r, 5).Value = x.SpecialNumber;
-            ws.Cell(r, 6).Value = x.Rank;
-            ws.Cell(r, 7).Value = x.Tarif;
+            ws.Cell(r, 6).Value = stateStr;
+            ws.Cell(r, 7).Value = x.Rank;
+            ws.Cell(r, 8).Value = x.Tarif;
             r++;
         }
 

@@ -1,13 +1,14 @@
 ﻿@page "/position-units"
 @using eRaven.Domain.Entities
 @using Microsoft.AspNetCore.Components.Forms
+@using eRaven.Domain.Enums
 
 <div class="page-flex">
-    <PageToolbar Title="Посади">
+    <PageToolbar Title="Довідник посад для штатного розкладу">
         <Right>
             <PositionUnitImportExport OnChanged="LoadAsync" />
             <Button Class="btn-primary rounded-0 border-0" 
-                    Label="Створити" 
+                    Label="Додати"
                     OnClickButton="OnAddPositionUnitClick" />
         </Right>
     </PageToolbar>
@@ -15,11 +16,11 @@
     <div class="page-content">
         @if (IsLoading)
         {
-            <p><em>Завантаження...</em></p>
+            <p class="px-3"><em>Завантаження...</em></p>
         }
         else if (PositionUnitsList.Count == 0)
         {
-            <p><em>Записи відсутні.</em></p>
+            <p class="px-3"><em>Записи відсутні.</em></p>
         }
         else
         {
@@ -33,6 +34,7 @@
                     <th>Назва посади</th>
                     <th>Повна посада</th>
                     <th>ВОС</th>
+                    <th>Стан</th>
                     <th>ШПК</th>
                     <th>ТР</th>
                     <th class="text-center">Статус</th>
@@ -45,6 +47,18 @@
                     <td>@unit.ShortName</td>
                     <td>@unit.FullName</td>
                     <td>@unit.SpecialNumber</td>
+                    @switch(unit.State)
+                    {
+                        case PositionUnitState.Vacant:
+                            <td><span class="badge bg-success">Вакантна</span></td>;
+                            break;
+                        case PositionUnitState.Occupied:
+                            <td><span class="badge bg-secondary">Не вакантна</span></td>;
+                            break;
+                        case PositionUnitState.TemporarilyOccupied:
+                            <td><span class="badge bg-warning text-dark">Тимчасово зайнята</span></td>;
+                            break;
+                    }
                     <td>@unit.Rank</td>
                     <td>@unit.Tarif</td>
                     <td class="text-center">@(unit.IsActived ? "А" : "Н")</td>
@@ -57,14 +71,26 @@
                     </td>
                 </RowTemplate>
             </Table>
-        }
+        }       
     </div>
+    <footer class="d-flex align-items-start gap-2 px-3 border border-primary">
+        <small class="fw-semibold text-nowrap">
+            Бізнес-правила:
+        </small>
+
+        <small class="lh-sm">
+            <em>
+                1) Порядковий номер за штатним розкладом може бути активним лише у одного запису;
+                2) Індекс (код) посади є унікальним значенням і не може повторюватися.
+            </em>
+        </small>
+    </footer>
 </div>
 
-<Modal Title="Створити посаду"
+<Modal Title="Додати посаду"
        IsOpen="@CreateOpen"
        IsOpenChanged="v => CreateOpen = v"
-       CreateText="Створити"
+       CreateText="Додати"
        CancelText="Відміна"
        DialogSize="modal-xl"
        OnCreateAsync="CreateAsync">
@@ -105,7 +131,27 @@
 
                 <div class="col-12 col-md-4">
                     <label class="form-label">ШПК</label>
-                    <InputText class="form-control" @bind-Value="CreateModel.Rank" />
+
+                    <div class="dropdown w-100">
+                        <button class="btn btn-outline-secondary dropdown-toggle w-100 text-truncate"
+                                type="button"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false">
+                            @(string.IsNullOrWhiteSpace(CreateModel.Rank) ? "— оберіть звання —" : CreateModel.Rank)
+                        </button>
+
+                        <ul class="dropdown-menu w-100 overflow-auto" style="max-height: 30vh;">
+                            @foreach (var title in RankTitles)
+                            {
+                                <li>
+                                    <Button Class="dropdown-item"
+                                            Label="@title"
+                                            OnClickButton="() => CreateModel.Rank = title" />
+                                </li>
+                            }
+                        </ul>
+                    </div>
+
                     <ValidationMessage For="@(() => CreateModel.Rank)" />
                 </div>
 

@@ -5,13 +5,16 @@
 // Program
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Handlers;
 using eRaven.Components;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Validation;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Excel;
+using eRaven.Infrastructure.Projectors;
 using eRaven.Infrastructure.Repositories.PositionUnitRepository;
+using eRaven.Infrastructure.Repositories.RankRepository;
 using eRaven.Presentation.Errors;
 using eRaven.Presentation.Toasts;
 using FluentValidation;
@@ -30,13 +33,19 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 
 // Validation
 builder.Services.AddScoped<IValidator<PositionUnit>, PositionUnitValidator>();
+builder.Services.AddScoped<IValidator<Rank>, RankValidator>();
 
 // Add services to the container.
 // Repository
 builder.Services.AddScoped<IPositionUnitRepository, PositionUnitRepository>();
+builder.Services.AddScoped<IRankRepository, RankRepository>();
 
 // services
 builder.Services.AddScoped<IPositionUnitExcelService, PositionUnitExcelService>();
+
+builder.Services.AddScoped<PersonEventRecordFactory>();
+builder.Services.AddScoped<IPersonEventStore, PersonEventStore>();
+builder.Services.AddScoped<CreateCandidateCommandHandler>();
 
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<ErrorBoundaryHub>();

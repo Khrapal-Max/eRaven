@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
+using eRaven.Domain.Enums;
 using eRaven.Infrastructure.Repositories.PositionUnitRepository;
 using eRaven.Tests.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -36,6 +37,7 @@ public class PositionUnitRepositoryTests : IAsyncLifetime
         string shortName = "Short",
         string fullName = "Full name",
         string specialNumber = "1234567",
+        PositionUnitState state = PositionUnitState.Vacant,
         string rank = "Rank",
         string tarif = "1",
         bool isActived = true)
@@ -47,6 +49,7 @@ public class PositionUnitRepositoryTests : IAsyncLifetime
             ShortName = shortName,
             FullName = fullName,
             SpecialNumber = specialNumber,
+            State = state,
             Rank = rank,
             Tarif = tarif,
             IsActived = isActived
@@ -66,7 +69,7 @@ public class PositionUnitRepositoryTests : IAsyncLifetime
         }
 
         // Act
-        var result = (await _repo.GetAllPositionUnits(CancellationToken.None)).ToList();
+        var result = (await _repo.GetAllPositionUnitsAsync(CancellationToken.None)).ToList();
 
         // Assert
         Assert.Equal(2, result.Count);
@@ -81,7 +84,7 @@ public class PositionUnitRepositoryTests : IAsyncLifetime
         var item = NewPosition(number: 10, code: "POS010", isActived: true);
 
         // Act
-        await _repo.AddPositionUnit(item, CancellationToken.None);
+        await _repo.AddPositionUnitAsync(item, CancellationToken.None);
 
         // Assert
         await using var ctx = await _db.Factory.CreateDbContextAsync();
@@ -113,7 +116,7 @@ public class PositionUnitRepositoryTests : IAsyncLifetime
         }
 
         // Act
-        await _repo.DeActivatedPositionUnit(id, CancellationToken.None);
+        await _repo.DeActivatedPositionUnitAsync(id, CancellationToken.None);
 
         // Debug read from repo-context? read again in new ctx
         await using var verify = await _db.Factory.CreateDbContextAsync();
@@ -131,6 +134,23 @@ public class PositionUnitRepositoryTests : IAsyncLifetime
 
         // Act + Assert (position! -> NullReferenceException today)
         await Assert.ThrowsAsync<KeyNotFoundException>(async () =>
-            await _repo.DeActivatedPositionUnit(missingId, CancellationToken.None));
+            await _repo.DeActivatedPositionUnitAsync(missingId, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task DeActivatedPositionUnit_when_not_vacant_throws()
+    {
+        // Arrange
+        var item = NewPosition(id: Guid.NewGuid(), number: 7, code: "POS012", state: PositionUnitState.Occupied, isActived: true);
+
+        await using (var ctx = await _db.Factory.CreateDbContextAsync())
+        {
+            ctx.PositionUnits.Add(item);
+            await ctx.SaveChangesAsync();
+        }
+
+        // Act + Assert (position! -> NullReferenceException today)
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await _repo.DeActivatedPositionUnitAsync(item.Id, CancellationToken.None));
     }
 }

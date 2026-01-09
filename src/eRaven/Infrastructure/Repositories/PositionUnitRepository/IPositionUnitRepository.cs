@@ -11,11 +11,11 @@ namespace eRaven.Infrastructure.Repositories.PositionUnitRepository;
 
 public interface IPositionUnitRepository
 {
-    Task<IEnumerable<PositionUnit>> GetAllPositionUnits(CancellationToken ct);
+    Task<IEnumerable<PositionUnit>> GetAllPositionUnitsAsync(CancellationToken ct);
 
-    Task AddPositionUnit(PositionUnit positionUnit, CancellationToken ct);
+    Task AddPositionUnitAsync(PositionUnit positionUnit, CancellationToken ct);
 
-    Task DeActivatedPositionUnit(Guid id, CancellationToken ct);
+    Task DeActivatedPositionUnitAsync(Guid id, CancellationToken ct);
 
     Task<bool> CodeExistsAsync(string code, CancellationToken ct);
 

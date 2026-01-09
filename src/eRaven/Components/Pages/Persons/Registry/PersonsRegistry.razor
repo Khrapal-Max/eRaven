@@ -1,0 +1,11 @@
+﻿@page "/persons"
+@using eRaven.Application.DTOs
+@using eRaven.Components.Pages.Persons.Registry.Modals
+
+<div class="page-content">
+    <RegistryToolbar OnCreateCandidate="OpenCreateCandidate" />
+</div>
+
+<CreateCandidateModal IsOpen="@_createOpen"
+                      IsOpenChanged="v => _createOpen = v"
+                      OnCreate="CreateCandidate" />

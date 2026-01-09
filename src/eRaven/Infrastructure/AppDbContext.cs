@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
+using eRaven.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure;
@@ -14,6 +15,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     // Довідники
     public DbSet<PositionUnit> PositionUnits { get; set; }
+    public DbSet<Rank> Ranks { get; set; }
+
+    // Особа 
+    public DbSet<PersonReadModel> PersonRead { get; set; }
+    public DbSet<PersonEventRecord> PersonEvents { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -25,5 +31,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         // Застосувати всі конфігурації з поточної збірки
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+        modelBuilder.ConfigureProviderSpecificTypes(this);
     }
 }

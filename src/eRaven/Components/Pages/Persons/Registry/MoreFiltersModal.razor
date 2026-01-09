@@ -1,0 +1,55 @@
+﻿<div class="modal fade" id="moreFilters" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content rounded-0">
+            <div class="modal-header">
+                <h5 class="modal-title">Розширені фільтри</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Статус</label>
+                        <select class="form-select rounded-0">
+                            <option>Any</option>
+                            <option>Candidate</option>
+                            <option>Enrolled</option>
+                            <option>Excluded</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Kind</label>
+                        <select class="form-select rounded-0">
+                            <option>Any</option>
+                            <option>Unit</option>
+                            <option>AttachedByOrder</option>
+                            <option>AttachedByList</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Звання</label>
+                        <input class="form-control rounded-0" placeholder="Напр. Солдат" />
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Посада</label>
+                        <input class="form-control rounded-0" placeholder="Напр. Оператор" />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Стан на дату</label>
+                        <input class="form-control rounded-0" placeholder="yyyy-mm-dd (stub)" />
+                        <small class="text-muted">Пізніше: date picker і “стан на дату” з projection.</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary rounded-0" data-bs-dismiss="modal">Скасувати</button>
+                <button class="btn btn-primary rounded-0" data-bs-dismiss="modal">Застосувати</button>
+            </div>
+        </div>
+    </div>
+</div>

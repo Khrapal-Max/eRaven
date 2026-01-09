@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
+using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.PositionUnitRepository;
@@ -15,11 +16,11 @@ public class PositionUnitRepository(IDbContextFactory<AppDbContext> dbFactory) :
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
     /// <summary>
-    /// Повернення всіх активних посад
+    /// Повернення всі посади
     /// </summary>
     /// <param name="ct"></param>
     /// <returns>IEnumerable PositionUnit<see cref="PositionUnit"/></returns>
-    public async Task<IEnumerable<PositionUnit>> GetAllPositionUnits(CancellationToken ct)
+    public async Task<IEnumerable<PositionUnit>> GetAllPositionUnitsAsync(CancellationToken ct)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
@@ -34,7 +35,7 @@ public class PositionUnitRepository(IDbContextFactory<AppDbContext> dbFactory) :
     /// <param name="positionUnit"></param>
     /// <param name="ct"></param>
     /// <returns>Task</returns>
-    public async Task AddPositionUnit(PositionUnit positionUnit, CancellationToken ct)
+    public async Task AddPositionUnitAsync(PositionUnit positionUnit, CancellationToken ct)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
@@ -49,12 +50,15 @@ public class PositionUnitRepository(IDbContextFactory<AppDbContext> dbFactory) :
     /// <param name="id"></param>
     /// <param name="ct"></param>
     /// <returns>Task</returns>
-    public async Task DeActivatedPositionUnit(Guid id, CancellationToken ct)
+    public async Task DeActivatedPositionUnitAsync(Guid id, CancellationToken ct)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var position = await db.PositionUnits.FirstOrDefaultAsync(x => x.Id == id, ct)
             ?? throw new KeyNotFoundException($"PositionUnit '{id}' not found.");
+
+        if (position.State != PositionUnitState.Vacant)
+            throw new InvalidOperationException("Посада не вакантна.");
 
         position.IsActived = false;
 

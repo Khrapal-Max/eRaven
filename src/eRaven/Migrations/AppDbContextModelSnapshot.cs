@@ -23,6 +23,173 @@ namespace eRaven.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "btree_gist");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("eRaven.Domain.Entities.PersonEventRecord", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<Guid>("AggregateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("aggregate_id");
+
+                    b.Property<string>("Author")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("author");
+
+                    b.Property<DateOnly?>("EffectiveDate")
+                        .HasColumnType("date")
+                        .HasColumnName("effective_date");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("event_type");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at_utc");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("EventId");
+
+                    b.HasIndex("EventType")
+                        .HasDatabaseName("ix_person_events_event_type");
+
+                    b.HasIndex("AggregateId", "EffectiveDate")
+                        .HasDatabaseName("ix_person_events_aggregate_effective_date");
+
+                    b.HasIndex("AggregateId", "Version")
+                        .IsUnique()
+                        .HasDatabaseName("ix_person_events_aggregate_version");
+
+                    b.ToTable("person_events", (string)null);
+                });
+
+            modelBuilder.Entity("eRaven.Domain.Entities.PersonReadModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Bzvp")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("bzvp");
+
+                    b.Property<string>("Callsign")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("callsign");
+
+                    b.Property<DateOnly?>("EnrolledAt")
+                        .HasColumnType("date")
+                        .HasColumnName("enrolled_at");
+
+                    b.Property<int>("EnrollmentKind")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EnrollmentReference")
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly?>("ExcludedAt")
+                        .HasColumnType("date")
+                        .HasColumnName("excluded_at");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("first_name");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("full_name");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("last_name");
+
+                    b.Property<int>("Lifecycle")
+                        .HasColumnType("integer")
+                        .HasColumnName("lifecycle");
+
+                    b.Property<string>("MiddleName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("middle_name");
+
+                    b.Property<string>("PlannedPosition")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("planned_position");
+
+                    b.Property<string>("Position")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("position");
+
+                    b.Property<string>("Rank")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("rank");
+
+                    b.Property<string>("Rnokpp")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("rnokpp");
+
+                    b.Property<string>("TemporaryPosition")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("temporary_position");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.Property<string>("Weapon")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("weapon");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Lifecycle")
+                        .HasDatabaseName("ix_person_read_lifecycle");
+
+                    b.HasIndex("Rnokpp")
+                        .IsUnique()
+                        .HasDatabaseName("ux_person_read_rnokpp");
+
+                    b.HasIndex("EnrolledAt", "ExcludedAt")
+                        .HasDatabaseName("ix_person_read_enrolled_excluded");
+
+                    b.ToTable("person_read", (string)null);
+                });
+
             modelBuilder.Entity("eRaven.Domain.Entities.PositionUnit", b =>
                 {
                     b.Property<Guid>("Id")
@@ -70,6 +237,12 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(15)")
                         .HasColumnName("special_number");
 
+                    b.Property<int>("State")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("state");
+
                     b.Property<string>("Tarif")
                         .IsRequired()
                         .HasMaxLength(5)
@@ -89,6 +262,40 @@ namespace eRaven.Migrations
                         .HasDatabaseName("ix_position_units_number");
 
                     b.ToTable("position_units", (string)null);
+                });
+
+            modelBuilder.Entity("eRaven.Domain.Entities.Rank", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("IsActived")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int")
+                        .HasColumnName("priority");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Priority")
+                        .HasDatabaseName("ix_ranks_priority");
+
+                    b.HasIndex("Title", "IsActived")
+                        .HasDatabaseName("ix_ranks_title_active");
+
+                    b.ToTable("ranks", (string)null);
                 });
 #pragma warning restore 612, 618
         }

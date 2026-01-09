@@ -1,0 +1,55 @@
+﻿@page "/persons/{PersonId:guid}"
+
+<div class="page-content">
+    <PersonHeader PersonId="PersonId" />
+
+    <div class="row g-3 mt-2">
+        <div class="col-12 col-lg-7">
+            <PersonSnapshotPanel />
+        </div>
+        <div class="col-12 col-lg-5">
+            <PersonActionsPanel />
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <ul class="nav nav-tabs">
+            <li class="nav-item">
+                <button class="nav-link @(Tab == "career" ? "active" : "")"
+                        @onclick="ShowCareer">
+                    Кар’єра (EffectiveDate)
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link @(Tab == "audit" ? "active" : "")"
+                        @onclick="ShowAudit">
+                    Аудит подій (OccurredAtUtc)
+                </button>
+            </li>
+        </ul>
+
+        <div class="border border-top-0 p-3">
+            @if (Tab == "career")
+            {
+                <CareerTimelineTab />
+            }
+            else
+            {
+                <EventsAuditTab />
+            }
+        </div>
+    </div>
+
+    <ChangeRankModal />
+    <ChangePositionModal />
+    <VoidEventModal />
+</div>
+
+@code {
+    [Parameter] public Guid PersonId { get; set; }
+
+    private string Tab { get; set; } = "career";
+
+    private void ShowCareer() => Tab = "career";
+    private void ShowAudit() => Tab = "audit";
+}
