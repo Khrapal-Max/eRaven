@@ -1,0 +1,49 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@using eRaven.Application.DTOs
+
+<Modal Title="Створити кандидата"
+       CreateText="Створити"
+       CancelText="Скасувати"
+       DialogSize="modal-lg"
+       IsOpen="@IsOpen"
+       IsOpenChanged="@IsOpenChanged"
+       IsBusy="@_busy"
+       OnCreateAsync="OnCreateAsync"
+       OnCancel="OnCancel">
+
+    <div class="p-2">
+        <EditForm EditContext="@_editContext">
+            <DataAnnotationsValidator />
+
+            <div class="row g-2">
+                <div class="col-12 col-md-4">
+                    <label class="form-label mb-1">РНОКПП (10 цифр)</label>
+                    <InputText class="form-control rounded-0" @bind-Value="Model.Rnokpp" />
+                    <ValidationMessage For="@(() => Model.Rnokpp)" />
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label mb-1">Прізвище</label>
+                    <InputText class="form-control rounded-0" @bind-Value="Model.LastName" />
+                    <ValidationMessage For="@(() => Model.LastName)" />
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label mb-1">Ім’я</label>
+                    <InputText class="form-control rounded-0" @bind-Value="Model.FirstName" />
+                    <ValidationMessage For="@(() => Model.FirstName)" />
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label mb-1">По батькові (опц.)</label>
+                    <InputText class="form-control rounded-0" @bind-Value="Model.MiddleName" />
+                </div>
+
+                <div class="col-12 col-md-8">
+                    <label class="form-label mb-1">Планова посада (опц.)</label>
+                    <InputText class="form-control rounded-0" @bind-Value="Model.PlannedPosition" />
+                </div>
+            </div>
+        </EditForm>
+    </div>
+</Modal>
