@@ -8,15 +8,12 @@
 using eRaven.Application.Commands;
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.ValueObjects;
-using eRaven.Infrastructure;
 using eRaven.Infrastructure.Projectors;
-using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Application.Handlers;
 
-public sealed class CreateCandidateCommandHandler(IDbContextFactory<AppDbContext> dbFactory, IPersonEventStore eventStore)
+public sealed class CreateCandidateCommandHandler(IPersonEventStore eventStore)
 {
-    private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
     private readonly IPersonEventStore _eventStore = eventStore;
 
     public async Task<Guid> HandleAsync(CreatePersonCandidateCommand command, CancellationToken ct = default)
@@ -58,4 +55,5 @@ public sealed class CreateCandidateCommandHandler(IDbContextFactory<AppDbContext
 
         return id;
     }
+
 }

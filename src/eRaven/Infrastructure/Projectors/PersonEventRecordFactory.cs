@@ -28,16 +28,5 @@ public sealed class PersonEventRecordFactory
         };
 
     private static DateOnly? GetEffectiveDate(IDomainEvent evt)
-        => evt switch
-        {
-            PersonRankChanged x => x.EffectiveDate,
-            PersonPositionChanged x => x.EffectiveDate,
-            PersonTemporaryPositionChanged x => x.EffectiveDate,
-            PersonBzvpChanged x => x.EffectiveDate,
-            PersonWeaponChanged x => x.EffectiveDate,
-            PersonCallsignChanged x => x.EffectiveDate,
-            PersonExcluded x => x.EffectiveDate,
-            PersonEnrolled x => x.EnrollDate,
-            _ => null
-        };
+        => evt is IEffectiveDatedEvent dated ? dated.EffectiveDate : null;
 }

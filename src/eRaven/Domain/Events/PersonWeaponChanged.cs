@@ -16,4 +16,4 @@ public sealed record PersonWeaponChanged(
     DateOnly EffectiveDate,
     string? Weapon,
     string Author,
-    DateTime OccurredAtUtc) : IDomainEvent;
+    DateTime OccurredAtUtc) : IDomainEvent, IEffectiveDatedEvent;

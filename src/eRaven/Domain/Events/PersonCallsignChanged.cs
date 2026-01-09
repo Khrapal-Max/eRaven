@@ -16,4 +16,4 @@ public sealed record PersonCallsignChanged(
     DateOnly EffectiveDate,
     string? Callsign,
     string Author,
-    DateTime OccurredAtUtc) : IDomainEvent;
+    DateTime OccurredAtUtc) : IDomainEvent, IEffectiveDatedEvent;

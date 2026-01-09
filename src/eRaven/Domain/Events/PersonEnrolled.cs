@@ -20,4 +20,7 @@ public sealed record PersonEnrolled(
     string Reason,              // підстава/коментар (обов’язково)
     DateOnly EnrollDate,
     string Author,
-    DateTime OccurredAtUtc) : IDomainEvent;
+    DateTime OccurredAtUtc) : IDomainEvent, IEffectiveDatedEvent
+{
+    public DateOnly EffectiveDate => EnrollDate;
+}

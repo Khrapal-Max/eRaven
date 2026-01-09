@@ -17,4 +17,4 @@ public sealed record PersonBzvpChanged(
     string Bzvp,
     string? Note,
     string Author,
-    DateTime OccurredAtUtc) : IDomainEvent;
+    DateTime OccurredAtUtc) : IDomainEvent, IEffectiveDatedEvent;
