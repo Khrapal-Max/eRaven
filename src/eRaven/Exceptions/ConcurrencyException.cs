@@ -2,15 +2,12 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// IPersonReadModelProjector
+// ConcurrencyException
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Entities;
+namespace eRaven.Exceptions;
 
-namespace eRaven.Infrastructure.Projectors;
-
-public interface IPersonReadModelProjector
+public sealed class ConcurrencyException : Exception
 {
-    Task ProjectAsync(AppDbContext db, PersonEventRecord record, CancellationToken ct = default);
-    Task RebuildAsync(AppDbContext db, Guid aggregateId, CancellationToken ct = default);
+    public ConcurrencyException(string message) : base(message) { }
 }

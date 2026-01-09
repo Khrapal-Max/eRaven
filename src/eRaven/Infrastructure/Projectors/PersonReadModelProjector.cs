@@ -13,24 +13,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Projectors;
 
-public sealed class PersonReadModelProjector(AppDbContext db) : IPersonReadModelProjector
+public sealed class PersonReadModelProjector : IPersonReadModelProjector
 {
-    private readonly AppDbContext _db = db;
-
-    public async Task ProjectAsync(PersonEventRecord record, CancellationToken ct = default)
+    public async Task ProjectAsync(AppDbContext db, PersonEventRecord record, CancellationToken ct = default)
     {
         var evt = PersonEventTypeRegistry.Deserialize(record);
 
-        // void => повний rebuild
         if (evt is PersonEventVoided)
         {
-            await RebuildAsync(record.AggregateId, ct);
+            await RebuildAsync(db, record.AggregateId, ct);
             return;
         }
 
-        var rm = await _db.PersonRead.SingleOrDefaultAsync(x => x.Id == record.AggregateId, ct);
+        var rm = await db.PersonRead.SingleOrDefaultAsync(x => x.Id == record.AggregateId, ct);
 
-        // create
         if (evt is PersonCandidateCreated created)
         {
             if (rm is not null)
@@ -40,12 +36,11 @@ public sealed class PersonReadModelProjector(AppDbContext db) : IPersonReadModel
             rm.Version = record.Version;
             rm.UpdatedAtUtc = record.OccurredAtUtc;
 
-            _db.PersonRead.Add(rm);
-            await _db.SaveChangesAsync(ct);
+            db.PersonRead.Add(rm);
+            await db.SaveChangesAsync(ct);
             return;
         }
 
-        // update
         if (rm is null)
             return;
 
@@ -57,16 +52,12 @@ public sealed class PersonReadModelProjector(AppDbContext db) : IPersonReadModel
         rm.Version = record.Version;
         rm.UpdatedAtUtc = record.OccurredAtUtc;
 
-        await _db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);
     }
 
-    // ============================
-    // Rebuild after void
-    // ============================
-
-    private async Task RebuildAsync(Guid aggregateId, CancellationToken ct)
+    public async Task RebuildAsync(AppDbContext db, Guid aggregateId, CancellationToken ct)
     {
-        var records = await _db.PersonEvents
+        var records = await db.PersonEvents
             .AsNoTracking()
             .Where(x => x.AggregateId == aggregateId)
             .OrderBy(x => x.Version)
@@ -74,29 +65,37 @@ public sealed class PersonReadModelProjector(AppDbContext db) : IPersonReadModel
 
         if (records.Count == 0)
         {
-            var rmMissing = await _db.PersonRead.SingleOrDefaultAsync(x => x.Id == aggregateId, ct);
+            var rmMissing = await db.PersonRead.SingleOrDefaultAsync(x => x.Id == aggregateId, ct);
             if (rmMissing is not null)
             {
-                _db.PersonRead.Remove(rmMissing);
-                await _db.SaveChangesAsync(ct);
+                db.PersonRead.Remove(rmMissing);
+                await db.SaveChangesAsync(ct);
             }
             return;
         }
 
         var events = records.Select(PersonEventTypeRegistry.Deserialize).ToList();
 
-        var voided = new HashSet<Guid>(
-            events.OfType<PersonEventVoided>().Select(x => x.TargetEventId)
-        );
+        // тот же правильный "void-of-void" подход: backward scan
+        var voided = new HashSet<Guid>();
+        for (int i = events.Count - 1; i >= 0; i--)
+        {
+            var evt = events[i];
+            if (voided.Contains(evt.EventId))
+                continue;
 
-        var created = events.OfType<PersonCandidateCreated>().FirstOrDefault();
+            if (evt is PersonEventVoided v)
+                voided.Add(v.TargetEventId);
+        }
+
+        var created = events.OfType<PersonCandidateCreated>().FirstOrDefault(x => !voided.Contains(x.EventId));
         if (created is null)
         {
-            var rmBad = await _db.PersonRead.SingleOrDefaultAsync(x => x.Id == aggregateId, ct);
+            var rmBad = await db.PersonRead.SingleOrDefaultAsync(x => x.Id == aggregateId, ct);
             if (rmBad is not null)
             {
-                _db.PersonRead.Remove(rmBad);
-                await _db.SaveChangesAsync(ct);
+                db.PersonRead.Remove(rmBad);
+                await db.SaveChangesAsync(ct);
             }
             return;
         }
@@ -105,10 +104,10 @@ public sealed class PersonReadModelProjector(AppDbContext db) : IPersonReadModel
 
         foreach (var evt in events)
         {
-            if (evt is PersonEventVoided)
+            if (voided.Contains(evt.EventId))
                 continue;
 
-            if (voided.Contains(evt.EventId))
+            if (evt is PersonEventVoided)
                 continue;
 
             if (evt is PersonCandidateCreated)
@@ -121,22 +120,14 @@ public sealed class PersonReadModelProjector(AppDbContext db) : IPersonReadModel
         rebuilt.Version = last.Version;
         rebuilt.UpdatedAtUtc = last.OccurredAtUtc;
 
-        var existing = await _db.PersonRead.SingleOrDefaultAsync(x => x.Id == aggregateId, ct);
+        var existing = await db.PersonRead.SingleOrDefaultAsync(x => x.Id == aggregateId, ct);
         if (existing is null)
-        {
-            _db.PersonRead.Add(rebuilt);
-        }
+            db.PersonRead.Add(rebuilt);
         else
-        {
             CopyTo(existing, rebuilt);
-        }
 
-        await _db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);
     }
-
-    // ============================
-    // Apply & helpers
-    // ============================
 
     private static PersonReadModel CreateFrom(PersonCandidateCreated created)
         => new()
@@ -151,11 +142,9 @@ public sealed class PersonReadModelProjector(AppDbContext db) : IPersonReadModel
             FullName = created.Personal.FullName,
             PlannedPosition = Normalize(created.PlannedPosition),
 
-            // дефолти enrollment
+            // если тебе не нужен дефолт — сделай null
             EnrollmentKind = EnrollmentKind.Unit,
             EnrollmentReference = null,
-
-            // інші поля лишаються null/дефолт
         };
 
     private static void Apply(PersonReadModel rm, IDomainEvent evt)
@@ -206,9 +195,6 @@ public sealed class PersonReadModelProjector(AppDbContext db) : IPersonReadModel
                 rm.Lifecycle = PersonLifecycle.Excluded;
                 rm.ExcludedAt = x.EffectiveDate;
                 return;
-
-            default:
-                return;
         }
     }
 
@@ -216,11 +202,9 @@ public sealed class PersonReadModelProjector(AppDbContext db) : IPersonReadModel
     {
         target.Lifecycle = source.Lifecycle;
 
-        // enrollment
         target.EnrollmentKind = source.EnrollmentKind;
         target.EnrollmentReference = source.EnrollmentReference;
 
-        // personal
         target.Rnokpp = source.Rnokpp;
         target.LastName = source.LastName;
         target.FirstName = source.FirstName;
@@ -228,7 +212,6 @@ public sealed class PersonReadModelProjector(AppDbContext db) : IPersonReadModel
         target.FullName = source.FullName;
         target.PlannedPosition = source.PlannedPosition;
 
-        // key points
         target.Rank = source.Rank;
         target.Position = source.Position;
         target.TemporaryPosition = source.TemporaryPosition;
@@ -236,11 +219,9 @@ public sealed class PersonReadModelProjector(AppDbContext db) : IPersonReadModel
         target.Weapon = source.Weapon;
         target.Callsign = source.Callsign;
 
-        // dates
         target.EnrolledAt = source.EnrolledAt;
         target.ExcludedAt = source.ExcludedAt;
 
-        // meta
         target.Version = source.Version;
         target.UpdatedAtUtc = source.UpdatedAtUtc;
     }

@@ -6,8 +6,12 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs;
+using eRaven.Exceptions;
+using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace eRaven.Components.Pages.Persons.Registry.Modals;
 
@@ -18,11 +22,11 @@ public partial class CreateCandidateModal
 
     [Parameter] public EventCallback<CreateCandidateDto> OnCreate { get; set; }
 
-    protected CreateCandidateDto Model { get; set; } = new();
+    [Inject] public ToastService Toasts { get; set; } = default!;
 
     private EditContext _editContext = default!;
     private bool _busy;
-
+    protected CreateCandidateDto Model { get; set; } = new();
     protected override void OnParametersSet()
     {
         // при першому рендері або кожному відкритті — нова модель/контекст
@@ -38,15 +42,13 @@ public partial class CreateCandidateModal
     {
         if (_busy) return false;
 
-        // Тригеримо валідацію
         var isValid = _editContext.Validate();
         if (!isValid)
-            return false; // Modal залишиться відкритим
+            return false;
 
         _busy = true;
         try
         {
-            // trim перед відправкою
             Model.Rnokpp = TrimOrEmpty(Model.Rnokpp);
             Model.LastName = TrimOrEmpty(Model.LastName);
             Model.FirstName = TrimOrEmpty(Model.FirstName);
@@ -55,7 +57,29 @@ public partial class CreateCandidateModal
 
             await OnCreate.InvokeAsync(Model);
 
-            return true; // Modal закриється
+            Toasts.Success("Кандидата створено");
+            return true; // закроется
+        }
+        catch (ConcurrencyException)
+        {
+            Toasts.Warning("Конфлікт змін", "Запис був змінений кимось іншим. Оновіть сторінку і повторіть дію.");
+            return false; // модалка остается открытой
+        }
+        catch (InvalidOperationException ex)
+        {
+            // доменные правила, например "RNOKPP уже существует"
+            Toasts.Warning("Неможливо виконати дію", ex.Message);
+            return false;
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            Toasts.Warning("Дубль", "Особа з таким РНОКПП вже існує.");
+            return false;
+        }
+        catch (Exception)
+        {
+            Toasts.Error("Помилка", "Сталася неочікувана помилка. Спробуйте ще раз.");
+            return false; // или throw; если хочешь ErrorBoundary
         }
         finally
         {
@@ -75,4 +99,6 @@ public partial class CreateCandidateModal
 
     private static string TrimOrEmpty(string? s) => (s ?? string.Empty).Trim();
     private static string? TrimOrNull(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+    private static bool IsUniqueViolation(DbUpdateException ex)
+       => ex.InnerException is PostgresException pg && pg.SqlState == PostgresErrorCodes.UniqueViolation;
 }

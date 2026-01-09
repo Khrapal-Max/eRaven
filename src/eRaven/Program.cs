@@ -13,6 +13,8 @@ using eRaven.Domain.Validation;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Excel;
+using eRaven.Infrastructure.Projectors;
+using eRaven.Infrastructure.Repositories.PersonRepository;
 using eRaven.Infrastructure.Repositories.PositionUnitRepository;
 using eRaven.Infrastructure.Repositories.RankRepository;
 using eRaven.Presentation.Errors;
@@ -37,12 +39,18 @@ builder.Services.AddScoped<IValidator<Rank>, RankValidator>();
 
 // Add services to the container.
 // Repository
+builder.Services.AddScoped<IPersonRepository, PersonRepository>();
 builder.Services.AddScoped<IPositionUnitRepository, PositionUnitRepository>();
 builder.Services.AddScoped<IRankRepository, RankRepository>();
 
+// Projector (stateless)
+builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();
+
+// Command handlers
+builder.Services.AddScoped<ICommandHandler<CreatePersonCandidateCommand, Guid>, CreateCandidateCommandHandler>();
+
 // services
 builder.Services.AddScoped<IPositionUnitExcelService, PositionUnitExcelService>();
-
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<ErrorBoundaryHub>();
 

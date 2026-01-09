@@ -2,9 +2,10 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonAggregateTests
+// PersonAggregateTests (updated for canonical ES aggregate)
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain;
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Events;
@@ -19,12 +20,15 @@ public sealed class PersonAggregateTests
     private static PersonalInfo Personal(string lastName = "Ivanov", string firstName = "Ivan", string? middle = "Ivanovich")
         => new("1234567890", lastName, firstName, middle);
 
+    private static PersonAggregate.StoredEvent SE(long version, IDomainEvent evt)
+        => new(version, evt);
+
     // =========================
     // replay
     // =========================
 
     [Fact]
-    public void LoadFromHistory_when_candidate_created_should_initialize_state()
+    public void LoadFromHistory_when_candidate_created_should_initialize_state_and_set_stream_version()
     {
         var id = Guid.NewGuid();
 
@@ -38,10 +42,10 @@ public sealed class PersonAggregateTests
 
         var sut = new PersonAggregate();
 
-        sut.LoadFromHistory([created]);
+        sut.LoadFromHistory([SE(1, created)]);
 
         Assert.Equal(id, sut.Id);
-        Assert.Equal(1, sut.Version);
+        Assert.Equal(1, sut.Version); // stream version
 
         Assert.Equal(PersonLifecycle.Candidate, sut.Lifecycle);
 
@@ -66,10 +70,13 @@ public sealed class PersonAggregateTests
         Assert.Null(sut.ExcludedAt);
         Assert.Null(sut.EnrollmentKind);
         Assert.Null(sut.EnrollmentReference);
+
+        // rehydrate must not create uncommitted changes
+        Assert.Empty(sut.GetUncommittedChanges());
     }
 
     [Fact]
-    public void LoadFromHistory_when_event_voided_should_ignore_that_event_on_replay()
+    public void LoadFromHistory_when_event_voided_should_ignore_that_event_on_replay_but_keep_stream_version()
     {
         var id = Guid.NewGuid();
 
@@ -101,15 +108,19 @@ public sealed class PersonAggregateTests
 
         var sut = new PersonAggregate();
 
-        sut.LoadFromHistory([created, rankChanged, voided]);
+        sut.LoadFromHistory([
+            SE(1, created),
+            SE(2, rankChanged),
+            SE(3, voided)
+        ]);
 
         Assert.Equal(PersonLifecycle.Candidate, sut.Lifecycle);
-        Assert.Null(sut.Rank);
-        Assert.Equal(1, sut.Version); // applied only CandidateCreated (rank voided)
+        Assert.Null(sut.Rank);       // rank was voided
+        Assert.Equal(3, sut.Version); // ✅ stream version = last record version (including void)
     }
 
     [Fact]
-    public void LoadFromHistory_when_enrolled_should_set_enrollment_fields()
+    public void LoadFromHistory_when_enrolled_should_set_enrollment_fields_and_stream_version()
     {
         var id = Guid.NewGuid();
 
@@ -150,12 +161,72 @@ public sealed class PersonAggregateTests
             OccurredAtUtc: NowUtc.AddMinutes(4));
 
         var sut = new PersonAggregate();
-        sut.LoadFromHistory([created, rank, pos, enrolled]);
+        sut.LoadFromHistory([
+            SE(1, created),
+            SE(2, rank),
+            SE(3, pos),
+            SE(4, enrolled)
+        ]);
 
+        Assert.Equal(4, sut.Version); // stream version
         Assert.Equal(PersonLifecycle.Enrolled, sut.Lifecycle);
         Assert.Equal(new DateOnly(2026, 01, 10), sut.EnrolledAt);
         Assert.Equal(EnrollmentKind.AttachedByOrder, sut.EnrollmentKind);
         Assert.Equal("№123", sut.EnrollmentReference);
+    }
+
+    [Fact]
+    public void LoadFromHistory_void_of_void_should_restore_original_event_effect()
+    {
+        var id = Guid.NewGuid();
+
+        var created = new PersonCandidateCreated(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Personal: Personal(),
+            PlannedPosition: null,
+            Author: "tester",
+            OccurredAtUtc: NowUtc);
+
+        var rankEventId = Guid.NewGuid();
+        var rankChanged = new PersonRankChanged(
+            EventId: rankEventId,
+            AggregateId: id,
+            EffectiveDate: new DateOnly(2026, 01, 01),
+            Rank: "Солдат",
+            Note: null,
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(1));
+
+        var voidId = Guid.NewGuid();
+        var voidedRank = new PersonEventVoided(
+            EventId: voidId,
+            AggregateId: id,
+            TargetEventId: rankEventId,
+            Reason: "wrong rank",
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(2));
+
+        // void of void
+        var voidedVoid = new PersonEventVoided(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            TargetEventId: voidId,
+            Reason: "restore",
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(3));
+
+        var sut = new PersonAggregate();
+        sut.LoadFromHistory([
+            SE(1, created),
+            SE(2, rankChanged),
+            SE(3, voidedRank),
+            SE(4, voidedVoid)
+        ]);
+
+        // ✅ rank должен вернуться, потому что voidedRank сам вырезан
+        Assert.Equal("Солдат", sut.Rank);
+        Assert.Equal(4, sut.Version);
     }
 
     // =========================
@@ -163,7 +234,7 @@ public sealed class PersonAggregateTests
     // =========================
 
     [Fact]
-    public void CreateCandidate_should_produce_uncommitted_event()
+    public void CreateCandidate_should_produce_uncommitted_event_and_apply_state_immediately()
     {
         var id = Guid.NewGuid();
 
@@ -173,6 +244,11 @@ public sealed class PersonAggregateTests
             plannedPosition: " Planned ",
             author: " tester ",
             nowUtc: NowUtc);
+
+        // state applied (canonical)
+        Assert.Equal(id, sut.Id);
+        Assert.Equal(PersonLifecycle.Candidate, sut.Lifecycle);
+        Assert.Equal("Planned", sut.PlannedPosition);
 
         var changes = sut.GetUncommittedChanges();
         Assert.Single(changes);
@@ -206,7 +282,10 @@ public sealed class PersonAggregateTests
             OccurredAtUtc: NowUtc.AddMinutes(1));
 
         var sut = new PersonAggregate();
-        sut.LoadFromHistory([created, excluded]);
+        sut.LoadFromHistory([
+            SE(1, created),
+            SE(2, excluded)
+        ]);
 
         Assert.Throws<InvalidOperationException>(() =>
             sut.UpdatePersonalInfo(Personal(lastName: "NEW"), null, "tester", NowUtc.AddMinutes(2)));
@@ -235,7 +314,10 @@ public sealed class PersonAggregateTests
             OccurredAtUtc: NowUtc.AddMinutes(1));
 
         var sut = new PersonAggregate();
-        sut.LoadFromHistory([created, pos]);
+        sut.LoadFromHistory([
+            SE(1, created),
+            SE(2, pos)
+        ]);
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
             sut.Enroll(
@@ -272,7 +354,10 @@ public sealed class PersonAggregateTests
             OccurredAtUtc: NowUtc.AddMinutes(1));
 
         var sut = new PersonAggregate();
-        sut.LoadFromHistory([created, rank]);
+        sut.LoadFromHistory([
+            SE(1, created),
+            SE(2, rank)
+        ]);
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
             sut.Enroll(
@@ -287,7 +372,7 @@ public sealed class PersonAggregateTests
     }
 
     [Fact]
-    public void Enroll_when_ok_should_add_uncommitted_event_with_all_fields()
+    public void Enroll_when_ok_should_add_uncommitted_event_with_all_fields_and_apply_state()
     {
         var id = Guid.NewGuid();
 
@@ -318,7 +403,11 @@ public sealed class PersonAggregateTests
             OccurredAtUtc: NowUtc.AddMinutes(2));
 
         var sut = new PersonAggregate();
-        sut.LoadFromHistory([created, rank, pos]);
+        sut.LoadFromHistory([
+            SE(1, created),
+            SE(2, rank),
+            SE(3, pos)
+        ]);
 
         sut.Enroll(
             kind: EnrollmentKind.AttachedByList,
@@ -327,6 +416,12 @@ public sealed class PersonAggregateTests
             enrollDate: new DateOnly(2026, 01, 10),
             author: "tester",
             nowUtc: NowUtc.AddMinutes(3));
+
+        // state applied immediately
+        Assert.Equal(PersonLifecycle.Enrolled, sut.Lifecycle);
+        Assert.Equal(new DateOnly(2026, 01, 10), sut.EnrolledAt);
+        Assert.Equal(EnrollmentKind.AttachedByList, sut.EnrollmentKind);
+        Assert.Equal("List-55", sut.EnrollmentReference);
 
         var changes = sut.GetUncommittedChanges();
         Assert.Single(changes);
@@ -342,7 +437,7 @@ public sealed class PersonAggregateTests
     }
 
     [Fact]
-    public void Exclude_should_add_uncommitted_event_and_after_replay_lifecycle_is_excluded()
+    public void Exclude_should_add_uncommitted_event_and_apply_state_immediately()
     {
         var id = Guid.NewGuid();
 
@@ -355,9 +450,13 @@ public sealed class PersonAggregateTests
             OccurredAtUtc: NowUtc);
 
         var sut = new PersonAggregate();
-        sut.LoadFromHistory([created]);
+        sut.LoadFromHistory([SE(1, created)]);
 
         sut.Exclude("reason", new DateOnly(2026, 01, 11), "tester", NowUtc.AddMinutes(1));
+
+        // state applied immediately
+        Assert.Equal(PersonLifecycle.Excluded, sut.Lifecycle);
+        Assert.Equal(new DateOnly(2026, 01, 11), sut.ExcludedAt);
 
         var change = Assert.Single(sut.GetUncommittedChanges());
         var evt = Assert.IsType<PersonExcluded>(change);
@@ -366,10 +465,14 @@ public sealed class PersonAggregateTests
         Assert.Equal("reason", evt.Reason);
         Assert.Equal(new DateOnly(2026, 01, 11), evt.EffectiveDate);
 
-        // replay should set excluded
+        // replay should set excluded and keep stream version
         var sut2 = new PersonAggregate();
-        sut2.LoadFromHistory([created, evt]);
+        sut2.LoadFromHistory([
+            SE(1, created),
+            SE(2, evt)
+        ]);
 
+        Assert.Equal(2, sut2.Version);
         Assert.Equal(PersonLifecycle.Excluded, sut2.Lifecycle);
         Assert.Equal(new DateOnly(2026, 01, 11), sut2.ExcludedAt);
     }
@@ -387,7 +490,7 @@ public sealed class PersonAggregateTests
             OccurredAtUtc: NowUtc);
 
         var sut = new PersonAggregate();
-        sut.LoadFromHistory([created]);
+        sut.LoadFromHistory([SE(1, created)]);
 
         Assert.Throws<ArgumentException>(() => sut.VoidEvent(Guid.Empty, "x", "tester", NowUtc));
         Assert.Throws<ArgumentException>(() => sut.VoidEvent(Guid.NewGuid(), "", "tester", NowUtc));
@@ -403,5 +506,21 @@ public sealed class PersonAggregateTests
         Assert.Equal(targetId, evt.TargetEventId);
         Assert.Equal("fix", evt.Reason);
         Assert.Equal("tester", evt.Author);
+    }
+
+    [Fact]
+    public void LoadFromHistory_should_clear_uncommitted_changes()
+    {
+        var id = Guid.NewGuid();
+
+        var sut = PersonAggregate.CreateCandidate(id, Personal(), null, "tester", NowUtc);
+        Assert.Single(sut.GetUncommittedChanges());
+
+        // rehydrate with empty history => clear changes and reset
+        sut.LoadFromHistory(Array.Empty<PersonAggregate.StoredEvent>());
+
+        Assert.Empty(sut.GetUncommittedChanges());
+        Assert.Equal(Guid.Empty, sut.Id);
+        Assert.Equal(0, sut.Version);
     }
 }

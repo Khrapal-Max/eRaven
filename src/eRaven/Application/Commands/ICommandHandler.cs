@@ -5,12 +5,9 @@
 // IPersonReadModelProjector
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Entities;
+namespace eRaven.Application.Commands;
 
-namespace eRaven.Infrastructure.Projectors;
-
-public interface IPersonReadModelProjector
+public interface ICommandHandler<in TCommand, TResult>
 {
-    Task ProjectAsync(AppDbContext db, PersonEventRecord record, CancellationToken ct = default);
-    Task RebuildAsync(AppDbContext db, Guid aggregateId, CancellationToken ct = default);
+    Task<TResult> HandleAsync(TCommand command, CancellationToken ct = default);
 }

@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonReadModelProjectorTests
+// PersonReadModelProjectorTests (direct calls to IPersonReadModelProjector methods)
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain;
@@ -28,20 +28,14 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
-        Converters =
-        {
-            new JsonStringEnumConverter()
-        }
+        Converters = { new JsonStringEnumConverter() }
     };
 
-    public async Task InitializeAsync()
+    public Task InitializeAsync()
     {
         _db = new SqliteTestDb();
-
-        var ctx = _db.Factory.CreateDbContext();
-        _projector = new PersonReadModelProjector(ctx);
-
-        await Task.CompletedTask;
+        _projector = new PersonReadModelProjector(); // concrete, stored as interface
+        return Task.CompletedTask;
     }
 
     public async Task DisposeAsync()
@@ -134,32 +128,37 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
-        await _projector.ProjectAsync(ToRecord(evt, version: 1));
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            await _projector.ProjectAsync(ctx, ToRecord(evt, version: 1));
+        }
 
-        await using var ctx = _db.Factory.CreateDbContext();
-        var rm = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            var rm = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
 
-        AssertAllFields(
-            rm,
-            id: id,
-            lifecycle: PersonLifecycle.Candidate,
-            enrollmentKind: EnrollmentKind.Unit,
-            enrollmentRef: null,
-            rnokpp: "1234567890",
-            lastName: "Ivanov",
-            firstName: "Ivan",
-            middleName: "Ivanovich",
-            fullName: "Ivanov Ivan Ivanovich",
-            plannedPosition: "Planned",
-            rank: null,
-            position: null,
-            temporaryPosition: null,
-            bzvp: null,
-            weapon: null,
-            callsign: null,
-            enrolledAt: null,
-            excludedAt: null,
-            version: 1);
+            AssertAllFields(
+                rm,
+                id: id,
+                lifecycle: PersonLifecycle.Candidate,
+                enrollmentKind: EnrollmentKind.Unit,
+                enrollmentRef: null,
+                rnokpp: "1234567890",
+                lastName: "Ivanov",
+                firstName: "Ivan",
+                middleName: "Ivanovich",
+                fullName: "Ivanov Ivan Ivanovich",
+                plannedPosition: "Planned",
+                rank: null,
+                position: null,
+                temporaryPosition: null,
+                bzvp: null,
+                weapon: null,
+                callsign: null,
+                enrolledAt: null,
+                excludedAt: null,
+                version: 1);
+        }
     }
 
     [Fact]
@@ -175,8 +174,6 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
-        await _projector.ProjectAsync(ToRecord(created, 1));
-
         var updatedSameVersion = new PersonPersonalInfoUpdated(
             EventId: Guid.NewGuid(),
             AggregateId: id,
@@ -185,15 +182,19 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
 
-        // same version => ignore
-        await _projector.ProjectAsync(ToRecord(updatedSameVersion, 1));
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            await _projector.ProjectAsync(ctx, ToRecord(created, 1));
+            await _projector.ProjectAsync(ctx, ToRecord(updatedSameVersion, 1)); // same version => ignore
+        }
 
-        await using var ctx = _db.Factory.CreateDbContext();
-        var rm = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
-
-        Assert.Equal("Ivanov", rm.LastName);
-        Assert.Null(rm.PlannedPosition);
-        Assert.Equal(1, rm.Version);
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            var rm = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
+            Assert.Equal("Ivanov", rm.LastName);
+            Assert.Null(rm.PlannedPosition);
+            Assert.Equal(1, rm.Version);
+        }
     }
 
     [Fact]
@@ -219,33 +220,38 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
 
-        await _projector.ProjectAsync(ToRecord(created, 1));
-        await _projector.ProjectAsync(ToRecord(enrolled, 2, enrolled.EnrollDate));
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            await _projector.ProjectAsync(ctx, ToRecord(created, 1));
+            await _projector.ProjectAsync(ctx, ToRecord(enrolled, 2, enrolled.EnrollDate));
+        }
 
-        await using var ctx = _db.Factory.CreateDbContext();
-        var rm = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            var rm = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
 
-        AssertAllFields(
-            rm,
-            id: id,
-            lifecycle: PersonLifecycle.Enrolled,
-            enrollmentKind: EnrollmentKind.AttachedByOrder,
-            enrollmentRef: "123/ORD",
-            rnokpp: "1234567890",
-            lastName: "Ivanov",
-            firstName: "Ivan",
-            middleName: "M",
-            fullName: "Ivanov Ivan M",
-            plannedPosition: "P",
-            rank: null,
-            position: null,
-            temporaryPosition: null,
-            bzvp: null,
-            weapon: null,
-            callsign: null,
-            enrolledAt: new DateOnly(2026, 01, 10),
-            excludedAt: null,
-            version: 2);
+            AssertAllFields(
+                rm,
+                id: id,
+                lifecycle: PersonLifecycle.Enrolled,
+                enrollmentKind: EnrollmentKind.AttachedByOrder,
+                enrollmentRef: "123/ORD",
+                rnokpp: "1234567890",
+                lastName: "Ivanov",
+                firstName: "Ivan",
+                middleName: "M",
+                fullName: "Ivanov Ivan M",
+                plannedPosition: "P",
+                rank: null,
+                position: null,
+                temporaryPosition: null,
+                bzvp: null,
+                weapon: null,
+                callsign: null,
+                enrolledAt: new DateOnly(2026, 01, 10),
+                excludedAt: null,
+                version: 2);
+        }
     }
 
     [Fact]
@@ -269,15 +275,19 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
 
-        await _projector.ProjectAsync(ToRecord(created, 1));
-        await _projector.ProjectAsync(ToRecord(excluded, 2, excluded.EffectiveDate));
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            await _projector.ProjectAsync(ctx, ToRecord(created, 1));
+            await _projector.ProjectAsync(ctx, ToRecord(excluded, 2, excluded.EffectiveDate));
+        }
 
-        await using var ctx = _db.Factory.CreateDbContext();
-        var rm = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
-
-        Assert.Equal(PersonLifecycle.Excluded, rm.Lifecycle);
-        Assert.Equal(new DateOnly(2026, 01, 31), rm.ExcludedAt);
-        Assert.Equal(2, rm.Version);
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            var rm = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
+            Assert.Equal(PersonLifecycle.Excluded, rm.Lifecycle);
+            Assert.Equal(new DateOnly(2026, 01, 31), rm.ExcludedAt);
+            Assert.Equal(2, rm.Version);
+        }
     }
 
     [Fact]
@@ -330,7 +340,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(4));
 
-        // зберігаємо історію в PersonEvents, щоб rebuild мав що читати
+        // Зберігаємо історію в PersonEvents, щоб rebuild мав що читати
         await using (var ctx = _db.Factory.CreateDbContext())
         {
             ctx.PersonEvents.AddRange(
@@ -343,11 +353,14 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             await ctx.SaveChangesAsync();
         }
 
-        // програємо інкрементально (як в проді)
-        await _projector.ProjectAsync(ToRecord(created, 1));
-        await _projector.ProjectAsync(ToRecord(rankChanged, 2));
-        await _projector.ProjectAsync(ToRecord(positionChanged, 3));
-        await _projector.ProjectAsync(ToRecord(enrolled, 4));
+        // Програємо інкрементально (як в проді)
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            await _projector.ProjectAsync(ctx, ToRecord(created, 1));
+            await _projector.ProjectAsync(ctx, ToRecord(rankChanged, 2));
+            await _projector.ProjectAsync(ctx, ToRecord(positionChanged, 3));
+            await _projector.ProjectAsync(ctx, ToRecord(enrolled, 4));
+        }
 
         // sanity before void
         await using (var ctx = _db.Factory.CreateDbContext())
@@ -361,8 +374,11 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Assert.Equal(4, before.Version);
         }
 
-        // void => rebuild
-        await _projector.ProjectAsync(ToRecord(voided, 5));
+        // void => rebuild (внутри ProjectAsync)
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            await _projector.ProjectAsync(ctx, ToRecord(voided, 5));
+        }
 
         await using (var ctx = _db.Factory.CreateDbContext())
         {
@@ -371,7 +387,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             AssertAllFields(
                 after,
                 id: id,
-                lifecycle: PersonLifecycle.Enrolled,                // enrollment лишився
+                lifecycle: PersonLifecycle.Enrolled,
                 enrollmentKind: EnrollmentKind.AttachedByList,
                 enrollmentRef: "LIST-9",
                 rnokpp: "1234567890",
@@ -380,8 +396,8 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
                 middleName: null,
                 fullName: "Ivanov Ivan",
                 plannedPosition: "P",
-                rank: null,                                         // ✅ void rank
-                position: "Оператор",                                // ✅ position лишився
+                rank: null,                // ✅ void rank
+                position: "Оператор",       // ✅ position лишився
                 temporaryPosition: null,
                 bzvp: null,
                 weapon: null,
@@ -389,6 +405,107 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
                 enrolledAt: new DateOnly(2026, 01, 10),
                 excludedAt: null,
                 version: 5);
+        }
+    }
+
+    [Fact]
+    public async Task RebuildAsync_when_no_events_should_remove_read_model()
+    {
+        var id = Guid.NewGuid();
+
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            ctx.PersonRead.Add(new PersonReadModel
+            {
+                Id = id,
+                Rnokpp = "1234567890",
+                FullName = "X",
+                Version = 1,
+                UpdatedAtUtc = NowUtc
+            });
+
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            await _projector.RebuildAsync(ctx, id, default);
+        }
+
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            var rm = await ctx.PersonRead.SingleOrDefaultAsync(x => x.Id == id);
+            Assert.Null(rm);
+        }
+    }
+
+    [Fact]
+    public async Task RebuildAsync_should_rebuild_from_events_ignoring_voided()
+    {
+        var id = Guid.NewGuid();
+
+        var created = new PersonCandidateCreated(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Personal: new PersonalInfo("1234567890", "Ivanov", "Ivan", null),
+            PlannedPosition: "P",
+            Author: "t",
+            OccurredAtUtc: NowUtc);
+
+        var rankEventId = Guid.NewGuid();
+        var rankChanged = new PersonRankChanged(
+            EventId: rankEventId,
+            AggregateId: id,
+            EffectiveDate: new DateOnly(2026, 01, 02),
+            Rank: "Солдат",
+            Note: null,
+            Author: "t",
+            OccurredAtUtc: NowUtc.AddMinutes(1));
+
+        var voided = new PersonEventVoided(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            TargetEventId: rankEventId,
+            Reason: "wrong",
+            Author: "t",
+            OccurredAtUtc: NowUtc.AddMinutes(2));
+
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            ctx.PersonEvents.AddRange(
+                ToRecord(created, 1),
+                ToRecord(rankChanged, 2, rankChanged.EffectiveDate),
+                ToRecord(voided, 3));
+
+            // создаём “битый” read-model, чтобы rebuild точно перезаписал
+            ctx.PersonRead.Add(new PersonReadModel
+            {
+                Id = id,
+                Rnokpp = "1234567890",
+                FullName = "Old",
+                Rank = "WRONG",
+                PlannedPosition = "OLD",
+                Version = 999,
+                UpdatedAtUtc = NowUtc
+            });
+
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            await _projector.RebuildAsync(ctx, id, default);
+        }
+
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            var rm = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
+
+            Assert.Equal("Ivanov Ivan", rm.FullName);
+            Assert.Equal("P", rm.PlannedPosition);
+            Assert.Null(rm.Rank);       // ✅ rank был voided
+            Assert.Equal(3, rm.Version); // last record version
+            Assert.NotEqual(default, rm.UpdatedAtUtc);
         }
     }
 }

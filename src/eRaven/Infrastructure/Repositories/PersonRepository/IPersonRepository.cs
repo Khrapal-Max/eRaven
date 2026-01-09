@@ -2,15 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// IPersonReadModelProjector
+// IPersonRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Entities;
+using eRaven.Domain.Aggregates;
 
-namespace eRaven.Infrastructure.Projectors;
+namespace eRaven.Infrastructure.Repositories.PersonRepository;
 
-public interface IPersonReadModelProjector
+public interface IPersonRepository
 {
-    Task ProjectAsync(AppDbContext db, PersonEventRecord record, CancellationToken ct = default);
-    Task RebuildAsync(AppDbContext db, Guid aggregateId, CancellationToken ct = default);
+    Task<PersonAggregate?> LoadAsync(Guid id, CancellationToken ct = default);
+    Task SaveAsync(PersonAggregate agg, long expectedVersion, CancellationToken ct = default);
 }

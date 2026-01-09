@@ -13,11 +13,14 @@ namespace eRaven.Domain.Aggregates;
 
 public sealed class PersonAggregate
 {
+    // Envelope для ре-хайдрата со stream version
+    public readonly record struct StoredEvent(long Version, IDomainEvent Event);
+
     private readonly List<IDomainEvent> _changes = [];
     private readonly HashSet<Guid> _voidedEventIds = [];
 
     public Guid Id { get; private set; }
-    public long Version { get; private set; }
+    public long Version { get; private set; } // stream version (последний persisted version)
 
     public PersonLifecycle Lifecycle { get; private set; } = PersonLifecycle.Candidate;
 
@@ -31,7 +34,6 @@ public sealed class PersonAggregate
     public string? Weapon { get; private set; }
     public string? Callsign { get; private set; }
 
-    // Enrollment (потрібно для звітів/групувань)
     public EnrollmentKind? EnrollmentKind { get; private set; }
     public string? EnrollmentReference { get; private set; }
 
@@ -45,15 +47,21 @@ public sealed class PersonAggregate
     public IReadOnlyList<IDomainEvent> GetUncommittedChanges() => _changes;
     public void ClearUncommittedChanges() => _changes.Clear();
 
-    private void ApplyChange(IDomainEvent e)
+    internal void MarkChangesAsCommitted(long newVersion)
     {
-        // Команди не перераховують стан в пам’яті.
-        // Стан — тільки через replay (LoadFromHistory) або read-model.
+        Version = newVersion;
+        _changes.Clear();
+    }
+
+    // Канонический ES: применить к состоянию + отследить как uncommitted
+    private void Raise(IDomainEvent e)
+    {
+        Apply(e);
         _changes.Add(e);
     }
 
     // ============================
-    // Commands (для хендлерів)
+    // Commands
     // ============================
 
     public static PersonAggregate CreateCandidate(
@@ -73,7 +81,7 @@ public sealed class PersonAggregate
 
         var a = new PersonAggregate();
 
-        a.ApplyChange(new PersonCandidateCreated(
+        a.Raise(new PersonCandidateCreated(
             EventId: Guid.NewGuid(),
             AggregateId: id,
             Personal: personal,
@@ -95,7 +103,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        ApplyChange(new PersonPersonalInfoUpdated(
+        Raise(new PersonPersonalInfoUpdated(
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             Personal: personal,
@@ -116,7 +124,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        ApplyChange(new PersonRankChanged(
+        Raise(new PersonRankChanged(
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             EffectiveDate: effectiveDate,
@@ -138,7 +146,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        ApplyChange(new PersonPositionChanged(
+        Raise(new PersonPositionChanged(
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             EffectiveDate: effectiveDate,
@@ -157,7 +165,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        ApplyChange(new PersonTemporaryPositionChanged(
+        Raise(new PersonTemporaryPositionChanged(
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             EffectiveDate: effectiveDate,
@@ -179,7 +187,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        ApplyChange(new PersonBzvpChanged(
+        Raise(new PersonBzvpChanged(
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             EffectiveDate: effectiveDate,
@@ -198,7 +206,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        ApplyChange(new PersonWeaponChanged(
+        Raise(new PersonWeaponChanged(
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             EffectiveDate: effectiveDate,
@@ -216,7 +224,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        ApplyChange(new PersonCallsignChanged(
+        Raise(new PersonCallsignChanged(
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             EffectiveDate: effectiveDate,
@@ -255,7 +263,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        ApplyChange(new PersonEnrolled(
+        Raise(new PersonEnrolled(
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             Kind: kind,
@@ -278,7 +286,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        ApplyChange(new PersonExcluded(
+        Raise(new PersonExcluded(
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             Reason: reason.Trim(),
@@ -302,7 +310,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        ApplyChange(new PersonEventVoided(
+        Raise(new PersonEventVoided(
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             TargetEventId: targetEventId,
@@ -313,33 +321,56 @@ public sealed class PersonAggregate
     }
 
     // ============================
-    // Replay from history
+    // Replay from history (канонично)
     // ============================
 
-    public void LoadFromHistory(IEnumerable<IDomainEvent> history)
+    public void LoadFromHistory(IEnumerable<StoredEvent> history)
     {
-        // Порядок задає EventStore (Version у PersonEventRecord), тут НЕ сортуємо.
-        var events = history as IList<IDomainEvent> ?? [.. history];
-
-        _voidedEventIds.Clear();
-        foreach (var e in events)
-        {
-            if (e is PersonEventVoided v)
-                _voidedEventIds.Add(v.TargetEventId);
-        }
+        var events = history as IList<StoredEvent> ?? [.. history];
 
         ResetStateForReplay();
+        _changes.Clear();            // канонично: rehydrate => никаких uncommitted
+        _voidedEventIds.Clear();
 
-        foreach (var e in events)
+        if (events.Count == 0)
         {
-            if (e is PersonEventVoided)
+            Version = 0;
+            return;
+        }
+
+        // 1) backward scan: определить итоговый набор voided, корректно для "void of void"
+        // Правило: если событие само voided => оно не оказывает эффекта (включая void-события).
+        var voided = new HashSet<Guid>();
+
+        for (int i = events.Count - 1; i >= 0; i--)
+        {
+            var evt = events[i].Event;
+
+            if (voided.Contains(evt.EventId))
+                continue; // это событие "вырезано" более поздним void
+
+            if (evt is PersonEventVoided v)
+            {
+                voided.Add(v.TargetEventId);
+            }
+        }
+
+        _voidedEventIds.UnionWith(voided);
+
+        // 2) forward apply: применяем только "живые" (не voided) и не void-события
+        foreach (var se in events)
+        {
+            Version = se.Version; // stream version всегда двигается по записи, даже если evt voided
+
+            var evt = se.Event;
+
+            if (voided.Contains(evt.EventId))
                 continue;
 
-            if (_voidedEventIds.Contains(e.EventId))
+            if (evt is PersonEventVoided)
                 continue;
 
-            ApplyNonVoided(e);
-            Version++;
+            Apply(evt);
         }
     }
 
@@ -365,11 +396,10 @@ public sealed class PersonAggregate
 
         EnrolledAt = null;
         ExcludedAt = null;
-
-        // ⚠️ _changes НЕ чіпаємо
     }
 
-    private void ApplyNonVoided(IDomainEvent e)
+    // Apply должен быть чисто state mutation (без _changes)
+    private void Apply(IDomainEvent e)
     {
         switch (e)
         {
@@ -420,6 +450,8 @@ public sealed class PersonAggregate
                 Lifecycle = PersonLifecycle.Excluded;
                 ExcludedAt = x.EffectiveDate;
                 break;
+
+                // PersonEventVoided не меняет state напрямую (state считается через rebuild/replay)
         }
     }
 
