@@ -5,7 +5,6 @@
 // Program
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Commands;
 using eRaven.Application.Handlers;
 using eRaven.Components;
 using eRaven.Domain.Entities;

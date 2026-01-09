@@ -18,6 +18,8 @@ public sealed class CreateCandidateCommandHandler(IPersonEventStore eventStore)
 
     public async Task<Guid> HandleAsync(CreatePersonCandidateCommand command, CancellationToken ct = default)
     {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
         // 2) (опційно, але дуже бажано) перевірка дубля РНОКПП по read-model
         var rnokppExists = await _eventStore.PersonExistsAsync(command.Rnokpp, ct);
 
