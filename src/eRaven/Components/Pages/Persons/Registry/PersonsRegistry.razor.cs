@@ -5,12 +5,17 @@
 // PersonsRegistry
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Commands;
 using eRaven.Application.DTOs;
+using eRaven.Application.Handlers;
+using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Persons.Registry;
 
 public partial class PersonsRegistry
 {
+    [Inject] public CreateCandidateCommandHandler CreateCandidateHandler { get; set; } = default!;
+
     private bool _createOpen;
 
     private Task OpenCreateCandidate()
@@ -21,9 +26,13 @@ public partial class PersonsRegistry
 
     private async Task CreateCandidate(CreateCandidateDto dto)
     {
-        // TODO: тут буде command handler/service
-        // await _personsService.CreateCandidateAsync(dto);
+        var command = new CreatePersonCandidateCommand(
+            Rnokpp: dto.Rnokpp,
+            LastName: dto.LastName,
+            FirstName: dto.FirstName,
+            MiddleName: dto.MiddleName,
+            PlannedPosition: dto.PlannedPosition);
 
-        await Task.CompletedTask;
+        await CreateCandidateHandler.HandleAsync(command);
     }
 }
