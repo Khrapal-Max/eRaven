@@ -6,11 +6,15 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Commands;
+using eRaven.Domain;
 using eRaven.Domain.Aggregates;
+using eRaven.Domain.Events;
 using eRaven.Domain.ValueObjects;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Projectors;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace eRaven.Application.Handlers;
 
