@@ -64,9 +64,9 @@ public sealed class CreateCandidateCommandHandler(IDbContextFactory<AppDbContext
             throw new InvalidOperationException("CreateCandidate не створив подій.");
 
         // 4) persist events (новий агрегат => Version з 1)
-        var records = events
-            .Select((e, i) => ToRecord(e, version: i + 1))
-            .ToList();
+        var records = new List<PersonEventRecord>(events.Count);
+        for (var i = 0; i < events.Count; i++)
+            records.Add(ToRecord(events[i], version: i + 1));
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 

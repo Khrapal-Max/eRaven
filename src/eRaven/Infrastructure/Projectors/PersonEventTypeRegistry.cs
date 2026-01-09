@@ -10,7 +10,6 @@ using eRaven.Domain;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Events;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace eRaven.Infrastructure.Projectors;
 
@@ -36,15 +35,6 @@ public static class PersonEventTypeRegistry
         if (!_map.TryGetValue(r.EventType, out var type))
             throw new InvalidOperationException($"Unknown event type: {r.EventType}");
 
-        return (IDomainEvent)JsonSerializer.Deserialize(r.PayloadJson, type, _options)!;
+        return (IDomainEvent)JsonSerializer.Deserialize(r.PayloadJson, type, EventJsonOptions.Options)!;
     }
-
-    private static readonly JsonSerializerOptions _options = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        Converters =
-        {
-            new JsonStringEnumConverter()
-        }
-    };
 }
