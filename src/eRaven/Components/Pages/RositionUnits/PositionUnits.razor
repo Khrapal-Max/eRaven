@@ -56,8 +56,11 @@
                             <td><span class="badge bg-secondary">Не вакантна</span></td>;
                             break;
                         case PositionUnitState.TemporarilyOccupied:
-                            <td><span class="badge bg-warning text-dark">Тимчасово зайнята</span></td>;
+                            <td><span class="badge bg-warning text-dark">ТВО</span></td>;
                             break;
+                        case PositionUnitState.TemporarilyCandidate:
+                            <td><span class="badge bg-primary">РЕКРУТ</span></td>;
+                            break;                            
                     }
                     <td>@unit.Rank</td>
                     <td>@unit.Tarif</td>

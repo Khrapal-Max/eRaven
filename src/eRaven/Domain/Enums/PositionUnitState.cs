@@ -25,5 +25,9 @@ public enum PositionUnitState
     /// <summary>
     /// Тимчасово зайнята особою, яка виконує обов'язки.
     /// </summary>
-    TemporarilyOccupied = 2
+    TemporarilyOccupied = 2,
+    /// <summary>
+    /// Призначена для кандидата.
+    /// </summary>     
+    TemporarilyCandidate = 3
 }
