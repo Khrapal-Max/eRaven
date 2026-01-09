@@ -43,6 +43,8 @@ builder.Services.AddScoped<IRankRepository, RankRepository>();
 // services
 builder.Services.AddScoped<IPositionUnitExcelService, PositionUnitExcelService>();
 
+builder.Services.AddScoped<CreateCandidateCommandHandler>();
+
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<ErrorBoundaryHub>();
 
