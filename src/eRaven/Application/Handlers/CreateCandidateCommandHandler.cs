@@ -6,23 +6,36 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Commands;
+using eRaven.Domain;
 using eRaven.Domain.Aggregates;
+using eRaven.Domain.Events;
 using eRaven.Domain.ValueObjects;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Projectors;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace eRaven.Application.Handlers;
 
-public sealed class CreateCandidateCommandHandler(AppDbContext db, IPersonReadModelProjector projector)
+public sealed class CreateCandidateCommandHandler(IDbContextFactory<AppDbContext> dbFactory)
 {
-    private readonly AppDbContext _db = db;
-    private readonly IPersonReadModelProjector _projector = projector;
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        Converters =
+        {
+            new JsonStringEnumConverter()
+        }
+    };
+
+    private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
     public async Task<Guid> HandleAsync(CreatePersonCandidateCommand command, CancellationToken ct = default)
     {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
         // 2) (опційно, але дуже бажано) перевірка дубля РНОКПП по read-model
-        var rnokppExists = await _db.PersonRead
+        var rnokppExists = await db.PersonRead
             .AsNoTracking()
             .AnyAsync(x => x.Rnokpp == command.Rnokpp, ct);
 
@@ -31,6 +44,7 @@ public sealed class CreateCandidateCommandHandler(AppDbContext db, IPersonReadMo
 
         // 3) create aggregate -> events
         var id = Guid.NewGuid();
+        var nowUtc = DateTime.UtcNow;
 
         var personal = new PersonalInfo(
             rnokpp: command.Rnokpp,
@@ -43,7 +57,7 @@ public sealed class CreateCandidateCommandHandler(AppDbContext db, IPersonReadMo
             personal: personal,
             plannedPosition: command.PlannedPosition,
             author: "author", //TODO : звідки беремо автора?
-            nowUtc: DateTime.Now);
+            nowUtc: nowUtc);
 
         var events = agg.GetUncommittedChanges();
         if (events.Count == 0)
@@ -54,14 +68,15 @@ public sealed class CreateCandidateCommandHandler(AppDbContext db, IPersonReadMo
             .Select((e, i) => ToRecord(e, version: i + 1))
             .ToList();
 
-        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        _db.PersonEvents.AddRange(records);
-        await _db.SaveChangesAsync(ct);
+        db.PersonEvents.AddRange(records);
+        await db.SaveChangesAsync(ct);
 
         // 5) project read-model (послідовно)
+        var projector = new PersonReadModelProjector(db);
         foreach (var r in records)
-            await _projector.ProjectAsync(r, ct);
+            await projector.ProjectAsync(r, ct);
 
         await tx.CommitAsync(ct);
 
@@ -70,4 +85,31 @@ public sealed class CreateCandidateCommandHandler(AppDbContext db, IPersonReadMo
 
         return id;
     }
+
+    private static PersonEventRecord ToRecord(IDomainEvent evt, long version)
+        => new()
+        {
+            EventId = evt.EventId,
+            AggregateId = evt.AggregateId,
+            Version = version,
+            EventType = evt.GetType().Name,
+            PayloadJson = JsonSerializer.Serialize(evt, SerializerOptions),
+            Author = evt.Author,
+            OccurredAtUtc = evt.OccurredAtUtc,
+            EffectiveDate = GetEffectiveDate(evt)
+        };
+
+    private static DateOnly? GetEffectiveDate(IDomainEvent evt)
+        => evt switch
+        {
+            PersonRankChanged x => x.EffectiveDate,
+            PersonPositionChanged x => x.EffectiveDate,
+            PersonTemporaryPositionChanged x => x.EffectiveDate,
+            PersonBzvpChanged x => x.EffectiveDate,
+            PersonWeaponChanged x => x.EffectiveDate,
+            PersonCallsignChanged x => x.EffectiveDate,
+            PersonExcluded x => x.EffectiveDate,
+            PersonEnrolled x => x.EnrollDate,
+            _ => null
+        };
 }
