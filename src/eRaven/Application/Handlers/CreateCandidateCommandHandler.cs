@@ -14,11 +14,20 @@ using eRaven.Infrastructure;
 using eRaven.Infrastructure.Projectors;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace eRaven.Application.Handlers;
 
 public sealed class CreateCandidateCommandHandler(IDbContextFactory<AppDbContext> dbFactory)
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        Converters =
+        {
+            new JsonStringEnumConverter()
+        }
+    };
+
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
     public async Task<Guid> HandleAsync(CreatePersonCandidateCommand command, CancellationToken ct = default)
@@ -84,7 +93,7 @@ public sealed class CreateCandidateCommandHandler(IDbContextFactory<AppDbContext
             AggregateId = evt.AggregateId,
             Version = version,
             EventType = evt.GetType().Name,
-            PayloadJson = JsonSerializer.Serialize(evt, EventJsonOptions.Options),
+            PayloadJson = JsonSerializer.Serialize(evt, SerializerOptions),
             Author = evt.Author,
             OccurredAtUtc = evt.OccurredAtUtc,
             EffectiveDate = GetEffectiveDate(evt)
