@@ -14,15 +14,19 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Application.Handlers;
 
-public sealed class CreateCandidateCommandHandler(AppDbContext db, IPersonReadModelProjector projector)
+public sealed class CreateCandidateCommandHandler(
+    IDbContextFactory<AppDbContext> dbFactory,
+    PersonEventRecordFactory recordFactory)
 {
-    private readonly AppDbContext _db = db;
-    private readonly IPersonReadModelProjector _projector = projector;
+    private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
+    private readonly PersonEventRecordFactory _recordFactory = recordFactory;
 
     public async Task<Guid> HandleAsync(CreatePersonCandidateCommand command, CancellationToken ct = default)
     {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
         // 2) (опційно, але дуже бажано) перевірка дубля РНОКПП по read-model
-        var rnokppExists = await _db.PersonRead
+        var rnokppExists = await db.PersonRead
             .AsNoTracking()
             .AnyAsync(x => x.Rnokpp == command.Rnokpp, ct);
 
@@ -31,6 +35,7 @@ public sealed class CreateCandidateCommandHandler(AppDbContext db, IPersonReadMo
 
         // 3) create aggregate -> events
         var id = Guid.NewGuid();
+        var nowUtc = DateTime.UtcNow;
 
         var personal = new PersonalInfo(
             rnokpp: command.Rnokpp,
@@ -43,25 +48,26 @@ public sealed class CreateCandidateCommandHandler(AppDbContext db, IPersonReadMo
             personal: personal,
             plannedPosition: command.PlannedPosition,
             author: "author", //TODO : звідки беремо автора?
-            nowUtc: DateTime.Now);
+            nowUtc: nowUtc);
 
         var events = agg.GetUncommittedChanges();
         if (events.Count == 0)
             throw new InvalidOperationException("CreateCandidate не створив подій.");
 
         // 4) persist events (новий агрегат => Version з 1)
-        var records = events
-            .Select((e, i) => ToRecord(e, version: i + 1))
-            .ToList();
+        var records = new List<PersonEventRecord>(events.Count);
+        for (var i = 0; i < events.Count; i++)
+            records.Add(_recordFactory.Create(events[i], version: i + 1));
 
-        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        _db.PersonEvents.AddRange(records);
-        await _db.SaveChangesAsync(ct);
+        db.PersonEvents.AddRange(records);
+        await db.SaveChangesAsync(ct);
 
         // 5) project read-model (послідовно)
+        var projector = new PersonReadModelProjector(db);
         foreach (var r in records)
-            await _projector.ProjectAsync(r, ct);
+            await projector.ProjectAsync(r, ct);
 
         await tx.CommitAsync(ct);
 
@@ -70,4 +76,5 @@ public sealed class CreateCandidateCommandHandler(AppDbContext db, IPersonReadMo
 
         return id;
     }
+
 }
