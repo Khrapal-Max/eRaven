@@ -10,29 +10,20 @@ using eRaven.Domain;
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Events;
 using eRaven.Domain.ValueObjects;
-using eRaven.Infrastructure;
 using eRaven.Infrastructure.Projectors;
-using Microsoft.EntityFrameworkCore;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace eRaven.Application.Handlers;
 
-public sealed class CreateCandidateCommandHandler(
-    IDbContextFactory<AppDbContext> dbFactory,
-    PersonEventRecordFactory recordFactory)
+public sealed class CreateCandidateCommandHandler(IPersonEventStore eventStore)
 {
-    private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
-    private readonly PersonEventRecordFactory _recordFactory = recordFactory;
+    private readonly IPersonEventStore _eventStore = eventStore;
 
     public async Task<Guid> HandleAsync(CreatePersonCandidateCommand command, CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         // 2) (опційно, але дуже бажано) перевірка дубля РНОКПП по read-model
-        var rnokppExists = await db.PersonRead
-            .AsNoTracking()
-            .AnyAsync(x => x.Rnokpp == command.Rnokpp, ct);
+        var rnokppExists = await _eventStore.PersonExistsAsync(command.Rnokpp, ct);
 
         if (rnokppExists)
             throw new InvalidOperationException("Особа з таким РНОКПП вже існує.");
@@ -58,24 +49,10 @@ public sealed class CreateCandidateCommandHandler(
         if (events.Count == 0)
             throw new InvalidOperationException("CreateCandidate не створив подій.");
 
-        // 4) persist events (новий агрегат => Version з 1)
-        var records = new List<PersonEventRecord>(events.Count);
-        for (var i = 0; i < events.Count; i++)
-            records.Add(_recordFactory.Create(events[i], version: i + 1));
+        // 4) persist events + project read-model (новий агрегат => Version з 1)
+        await _eventStore.PersistAndProjectAsync(events, ct);
 
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-        db.PersonEvents.AddRange(records);
-        await db.SaveChangesAsync(ct);
-
-        // 5) project read-model (послідовно)
-        var projector = new PersonReadModelProjector(db);
-        foreach (var r in records)
-            await projector.ProjectAsync(r, ct);
-
-        await tx.CommitAsync(ct);
-
-        // 6) clear changes
+        // 5) clear changes
         agg.ClearUncommittedChanges();
 
         return id;
