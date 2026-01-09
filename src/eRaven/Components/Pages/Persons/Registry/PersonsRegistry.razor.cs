@@ -30,6 +30,7 @@ public partial class PersonsRegistry
             dto.LastName,
             dto.FirstName,
             dto.MiddleName,
+            dto.PlannedPositionUnitId,
             dto.PlannedPosition);
 
         await CreateCandidateHandler.HandleAsync(command);

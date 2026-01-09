@@ -2,16 +2,12 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CreatePersonCandidateCommand
+// GetVacantPositionUnitsQuery
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Commands;
+namespace eRaven.Application.Queries;
 
-public record CreatePersonCandidateCommand(
-    string Rnokpp,
-    string LastName,
-    string FirstName,
-    string? MiddleName,
-    Guid? PlannedPositionUnitId,
-    string? PlannedPosition
-);
+public interface IQueryHandler<in TQuery, TResult>
+{
+    Task<TResult> HandleAsync(TQuery query, CancellationToken ct = default);
+}

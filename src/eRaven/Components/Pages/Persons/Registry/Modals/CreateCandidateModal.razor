@@ -39,9 +39,16 @@
                     <InputText class="form-control rounded-0" @bind-Value="Model.MiddleName" />
                 </div>
 
-                <div class="col-12 col-md-8">
-                    <label class="form-label mb-1">Планова посада (опц.)</label>
-                    <InputText class="form-control rounded-0" @bind-Value="Model.PlannedPosition" />
+                <div class="col-12">
+                    <label class="form-label mb-1">Вакантна посада (опц.)</label>
+
+                    <InputSelect class="form-select rounded-0" @bind-Value="Model.PlannedPositionUnitId">
+                        <option value="">-- не обирати --</option>
+                        @foreach (var p in _positions)
+                        {
+                            <option value="@p.Id">@($"{p.Code} • {p.ShortName} • {p.Rank} • {p.Tarif}")</option>
+                        }
+                    </InputSelect>
                 </div>
             </div>
         </EditForm>

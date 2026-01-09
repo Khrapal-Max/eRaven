@@ -7,7 +7,6 @@
 
 namespace eRaven.Exceptions;
 
-public sealed class ConcurrencyException : Exception
+public sealed class ConcurrencyException(string message) : Exception(message)
 {
-    public ConcurrencyException(string message) : base(message) { }
 }

@@ -6,7 +6,9 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Commands;
+using eRaven.Application.DTOs;
 using eRaven.Application.Handlers;
+using eRaven.Application.Queries;
 using eRaven.Components;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Validation;
@@ -45,6 +47,12 @@ builder.Services.AddScoped<IRankRepository, RankRepository>();
 
 // Projector (stateless)
 builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();
+
+
+// Query handlers
+builder.Services.AddScoped<
+    IQueryHandler<GetVacantPositionUnitsQuery, IReadOnlyList<PositionUnitOptionDto>>,
+    GetVacantPositionUnitsQueryHandler>();
 
 // Command handlers
 builder.Services.AddScoped<ICommandHandler<CreatePersonCandidateCommand, Guid>, CreateCandidateCommandHandler>();

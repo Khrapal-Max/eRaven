@@ -22,5 +22,7 @@ public class CreateCandidateDto
     public string FirstName { get; set; } = string.Empty;
 
     public string? MiddleName { get; set; }
+
+    public Guid? PlannedPositionUnitId { get; set; }
     public string? PlannedPosition { get; set; }
 }

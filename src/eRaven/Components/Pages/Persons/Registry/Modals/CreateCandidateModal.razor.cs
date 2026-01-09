@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs;
+using eRaven.Application.Queries;
 using eRaven.Exceptions;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
@@ -19,21 +20,26 @@ public partial class CreateCandidateModal
 {
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
-
     [Parameter] public EventCallback<CreateCandidateDto> OnCreate { get; set; }
+
+    [Inject] public IQueryHandler<GetVacantPositionUnitsQuery, IReadOnlyList<PositionUnitOptionDto>> VacantPositionsQuery { get; set; } = default!;
 
     [Inject] public ToastService Toasts { get; set; } = default!;
 
-    private EditContext _editContext = default!;
     private bool _busy;
+    private EditContext _editContext = default!;
+    private IReadOnlyList<PositionUnitOptionDto> _positions = [];
+
     protected CreateCandidateDto Model { get; set; } = new();
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        // при першому рендері або кожному відкритті — нова модель/контекст
-        if (IsOpen && (_editContext is null || ReferenceEquals(_editContext.Model, Model) == false))
+        if (IsOpen && (_editContext is null || !ReferenceEquals(_editContext.Model, Model)))
         {
             Model = new CreateCandidateDto();
             _editContext = new EditContext(Model);
+
+            // подгружаем вакансии при открытии модалки
+            _positions = await VacantPositionsQuery.HandleAsync(new GetVacantPositionUnitsQuery(Take: 200));
         }
     }
 

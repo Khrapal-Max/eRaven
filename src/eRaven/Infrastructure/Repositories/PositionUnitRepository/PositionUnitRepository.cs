@@ -58,7 +58,7 @@ public class PositionUnitRepository(IDbContextFactory<AppDbContext> dbFactory) :
             ?? throw new KeyNotFoundException($"PositionUnit '{id}' not found.");
 
         if (position.State != PositionUnitState.Vacant)
-            throw new InvalidOperationException("Посада не вакантна.");
+            throw new InvalidOperationException("Посада має зв'язок з персоналом.");
 
         position.IsActived = false;
 

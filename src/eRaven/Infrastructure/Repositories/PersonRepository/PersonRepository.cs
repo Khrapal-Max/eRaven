@@ -8,9 +8,11 @@
 using eRaven.Domain;
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
+using eRaven.Domain.Events;
 using eRaven.Exceptions;
 using eRaven.Infrastructure.Projectors;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using System.Data;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -49,19 +51,38 @@ public sealed class PersonRepository(
         return agg;
     }
 
-    public async Task SaveAsync(PersonAggregate agg, long expectedVersion, CancellationToken ct = default)
+    public async Task<long> SaveAsync(PersonAggregate agg, long expectedVersion, CancellationToken ct = default)
     {
         if (agg.Id == Guid.Empty)
             throw new InvalidOperationException("Aggregate must be initialized before saving.");
 
         var changes = agg.GetUncommittedChanges();
         if (changes.Count == 0)
-            return;
+            return expectedVersion;
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
 
-        // 1) optimistic concurrency: текущая версия стрима в БД
+        var newVersion = await SaveAsync(db, agg, expectedVersion, ct);
+
+        await tx.CommitAsync(ct);
+
+        // Коммит завершён — можно фиксировать версию агрегата и чистить uncommitted
+        agg.MarkChangesAsCommitted(newVersion);
+        return newVersion;
+    }
+
+    public async Task<long> SaveAsync(AppDbContext db, PersonAggregate agg, long expectedVersion, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        if (agg.Id == Guid.Empty)
+            throw new InvalidOperationException("Aggregate must be initialized before saving.");
+
+        var changes = agg.GetUncommittedChanges();
+        if (changes.Count == 0)
+            return expectedVersion;
+
+        // 1) optimistic concurrency: текущая версия в БД
         var currentVersion = await db.PersonEvents
             .Where(x => x.AggregateId == agg.Id)
             .MaxAsync(x => (long?)x.Version, ct) ?? 0;
@@ -70,9 +91,8 @@ public sealed class PersonRepository(
             throw new ConcurrencyException(
                 $"Concurrency conflict for {agg.Id}. ExpectedVersion={expectedVersion}, CurrentVersion={currentVersion}");
 
-        // 2) append: expectedVersion + 1..N
+        // 2) append: expectedVersion+1..N
         var records = new List<PersonEventRecord>(changes.Count);
-
         for (int i = 0; i < changes.Count; i++)
         {
             var version = expectedVersion + i + 1;
@@ -80,39 +100,64 @@ public sealed class PersonRepository(
         }
 
         db.PersonEvents.AddRange(records);
-        await db.SaveChangesAsync(ct);
 
-        // 3) sync projection В ТОЙ ЖЕ ТРАНЗАКЦИИ и на том же DbContext
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsUniqueAggregateVersionViolation(ex))
+        {
+            // На случай гонки: UNIQUE(AggregateId, Version)
+            throw new ConcurrencyException(
+                $"Concurrency conflict for {agg.Id}. ExpectedVersion={expectedVersion} (unique violation AggregateId+Version).");
+        }
+
+        // 3) sync projection на том же DbContext/Tx
         foreach (var r in records)
             await _projector.ProjectAsync(db, r, ct);
 
-        // ✅ Если хочешь быстрее: убери SaveChanges из ProjectAsync и сделай один финальный SaveChanges здесь.
-
-        await tx.CommitAsync(ct);
-
-        // 4) update aggregate stream version + clear
-        agg.MarkChangesAsCommitted(expectedVersion + records.Count);
+        // ВАЖНО:
+        // Здесь НЕ вызываем MarkChangesAsCommitted() — пусть хендлер делает это ПОСЛЕ Commit(),
+        // иначе при rollback у тебя в памяти будут очищены события.
+        return expectedVersion + records.Count;
     }
 
     private static PersonEventRecord ToRecord(IDomainEvent evt, Guid aggregateId, long version)
     {
-        var eventType = evt.GetType().Name;
-
         var payloadJson = JsonSerializer.Serialize(evt, evt.GetType(), JsonOptions);
 
-        // Подстрой под твою сущность PersonEventRecord
         return new PersonEventRecord
         {
             AggregateId = aggregateId,
             Version = version,
 
             EventId = evt.EventId,
-            EventType = eventType,
+            EventType = evt.GetType().Name,
 
+            Author = evt.Author,
             OccurredAtUtc = evt.OccurredAtUtc,
+            EffectiveDate = GetEffectiveDate(evt),
+
             PayloadJson = payloadJson
         };
     }
+
+    private static DateOnly? GetEffectiveDate(IDomainEvent evt) => evt switch
+    {
+        PersonRankChanged x => x.EffectiveDate,
+        PersonPositionChanged x => x.EffectiveDate,
+        PersonTemporaryPositionChanged x => x.EffectiveDate,
+        PersonBzvpChanged x => x.EffectiveDate,
+        PersonWeaponChanged x => x.EffectiveDate,
+        PersonCallsignChanged x => x.EffectiveDate,
+        PersonEnrolled x => x.EnrollDate,
+        PersonExcluded x => x.EffectiveDate,
+        _ => null
+    };
+
+    private static bool IsUniqueAggregateVersionViolation(DbUpdateException ex)
+        => ex.InnerException is PostgresException pg
+           && pg.SqlState == PostgresErrorCodes.UniqueViolation;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
