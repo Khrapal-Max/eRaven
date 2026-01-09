@@ -18,17 +18,12 @@ using System.Text.Json.Serialization;
 
 namespace eRaven.Application.Handlers;
 
-public sealed class CreateCandidateCommandHandler(IDbContextFactory<AppDbContext> dbFactory)
+public sealed class CreateCandidateCommandHandler(
+    IDbContextFactory<AppDbContext> dbFactory,
+    PersonEventRecordFactory recordFactory)
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        Converters =
-        {
-            new JsonStringEnumConverter()
-        }
-    };
-
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
+    private readonly PersonEventRecordFactory _recordFactory = recordFactory;
 
     public async Task<Guid> HandleAsync(CreatePersonCandidateCommand command, CancellationToken ct = default)
     {
@@ -66,7 +61,7 @@ public sealed class CreateCandidateCommandHandler(IDbContextFactory<AppDbContext
         // 4) persist events (новий агрегат => Version з 1)
         var records = new List<PersonEventRecord>(events.Count);
         for (var i = 0; i < events.Count; i++)
-            records.Add(ToRecord(events[i], version: i + 1));
+            records.Add(_recordFactory.Create(events[i], version: i + 1));
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
@@ -86,30 +81,4 @@ public sealed class CreateCandidateCommandHandler(IDbContextFactory<AppDbContext
         return id;
     }
 
-    private static PersonEventRecord ToRecord(IDomainEvent evt, long version)
-        => new()
-        {
-            EventId = evt.EventId,
-            AggregateId = evt.AggregateId,
-            Version = version,
-            EventType = evt.GetType().Name,
-            PayloadJson = JsonSerializer.Serialize(evt, SerializerOptions),
-            Author = evt.Author,
-            OccurredAtUtc = evt.OccurredAtUtc,
-            EffectiveDate = GetEffectiveDate(evt)
-        };
-
-    private static DateOnly? GetEffectiveDate(IDomainEvent evt)
-        => evt switch
-        {
-            PersonRankChanged x => x.EffectiveDate,
-            PersonPositionChanged x => x.EffectiveDate,
-            PersonTemporaryPositionChanged x => x.EffectiveDate,
-            PersonBzvpChanged x => x.EffectiveDate,
-            PersonWeaponChanged x => x.EffectiveDate,
-            PersonCallsignChanged x => x.EffectiveDate,
-            PersonExcluded x => x.EffectiveDate,
-            PersonEnrolled x => x.EnrollDate,
-            _ => null
-        };
 }
