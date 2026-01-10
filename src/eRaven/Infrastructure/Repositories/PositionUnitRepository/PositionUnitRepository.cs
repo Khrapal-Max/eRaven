@@ -64,6 +64,19 @@ public class PositionUnitRepository(IDbContextFactory<AppDbContext> dbFactory) :
             .ToListAsync(ct);
     }
 
+    public async Task<PositionUnitOptionDto?> GetOptionByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        return await db.PositionUnits
+            .AsNoTracking()
+            .Where(x => x.Id == id)
+            .Select(x => new PositionUnitOptionDto(
+                x.Id, x.Code, x.ShortName, x.FullName, x.Rank, x.Tarif
+            ))
+            .FirstOrDefaultAsync(ct);
+    }
+
     /// <summary>
     /// Додавання посади
     /// </summary>

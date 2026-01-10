@@ -19,6 +19,7 @@ public interface IPositionUnitRepository
        int take,
        CancellationToken ct = default);
 
+    Task<PositionUnitOptionDto?> GetOptionByIdAsync(Guid id, CancellationToken ct = default);
 
     Task AddPositionUnitAsync(PositionUnit positionUnit, CancellationToken ct);
 
