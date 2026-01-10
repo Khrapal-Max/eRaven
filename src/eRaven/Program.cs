@@ -50,9 +50,10 @@ builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjecto
 
 
 // Query handlers
-builder.Services.AddScoped<
-    IQueryHandler<GetVacantPositionUnitsQuery, IReadOnlyList<PositionUnitOptionDto>>,
-    GetVacantPositionUnitsQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetVacantPositionUnitsQuery, 
+    IReadOnlyList<PositionUnitOptionDto>>,GetVacantPositionUnitsQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, 
+    PagedResult<PersonRowDto>>, GetPersonsPageQueryHandler>();
 
 // Command handlers
 builder.Services.AddScoped<ICommandHandler<CreatePersonCandidateCommand, Guid>, CreateCandidateCommandHandler>();

@@ -5,6 +5,8 @@
 // PersonRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs;
+using eRaven.Application.Queries;
 using eRaven.Domain;
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
@@ -48,6 +50,74 @@ public sealed class PersonRepository(
         var agg = new PersonAggregate();
         agg.LoadFromHistory(stored);
         return agg;
+    }
+
+    public async Task<PagedResult<PersonRowDto>> GetPersonsPageAsync(GetPersonsPageQuery q, CancellationToken ct = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(q.Page, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(q.PageSize, 1);
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        IQueryable<PersonReadModel> query = db.PersonRead.AsNoTracking();
+
+        // Search (ПІБ + РНОКПП)
+        if (!string.IsNullOrWhiteSpace(q.Search))
+        {
+            var s = q.Search.Trim();
+
+            // ILIKE (PostgreSQL, Npgsql)
+            query = query.Where(x =>
+                EF.Functions.ILike(x.FullName, $"%{s}%") ||
+                EF.Functions.ILike(x.Rnokpp, $"%{s}%"));
+        }
+
+        // Filters
+        if (q.EnrollmentKind is not null)
+            query = query.Where(x => x.EnrollmentKind == q.EnrollmentKind.Value);
+
+        if (q.Lifecycle is not null)
+            query = query.Where(x => x.Lifecycle == q.Lifecycle.Value);
+
+        // AsOfDate (простий “на виріст” варіант на основі EnrolledAt/ExcludedAt)
+        // Ідея: визначити "стан на дату" через кордони.
+        if (q.AsOfDate is DateOnly asOf)
+        {
+            query = query.Where(x =>
+                // якщо виключений до/на дату — він "не активний" на цю дату
+                !(x.ExcludedAt.HasValue && x.ExcludedAt.Value <= asOf));
+            // (за потреби можна буде допиляти до “на дату був зарахований” і т.д.)
+        }
+
+        var total = await query.CountAsync(ct);
+
+        // Стабільне сортування (можеш замінити під UX)
+        query = query
+            .OrderByDescending(x => x.UpdatedAtUtc)
+            .ThenBy(x => x.FullName);
+
+        var skip = (q.Page - 1) * q.PageSize;
+
+        var items = await query
+            .Skip(skip)
+            .Take(q.PageSize)
+            .Select(x => new PersonRowDto(
+                x.Id,
+                x.FullName,
+                x.Rnokpp,
+                x.Lifecycle,
+                x.EnrollmentKind,
+                x.Rank,
+                x.Position,
+                x.TemporaryPosition,
+                x.PlannedPosition,
+                x.EnrolledAt,
+                x.ExcludedAt,
+                x.UpdatedAtUtc
+            ))
+            .ToListAsync(ct);
+
+        return new PagedResult<PersonRowDto>(items, q.Page, q.PageSize, total);
     }
 
     public async Task SaveAsync(PersonAggregate agg, long expectedVersion, CancellationToken ct = default)

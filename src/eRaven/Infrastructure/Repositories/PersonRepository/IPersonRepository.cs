@@ -5,6 +5,8 @@
 // IPersonRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs;
+using eRaven.Application.Queries;
 using eRaven.Domain.Aggregates;
 
 namespace eRaven.Infrastructure.Repositories.PersonRepository;
@@ -12,5 +14,8 @@ namespace eRaven.Infrastructure.Repositories.PersonRepository;
 public interface IPersonRepository
 {
     Task<PersonAggregate?> LoadAsync(Guid id, CancellationToken ct = default);
+
+    Task<PagedResult<PersonRowDto>> GetPersonsPageAsync(GetPersonsPageQuery query, CancellationToken ct = default);
+
     Task SaveAsync(PersonAggregate agg, long expectedVersion, CancellationToken ct = default);
 }

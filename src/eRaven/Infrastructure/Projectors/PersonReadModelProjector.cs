@@ -162,7 +162,6 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
                 rm.FirstName = x.Personal.FirstName;
                 rm.MiddleName = x.Personal.MiddleName;
                 rm.FullName = x.Personal.FullName;
-                rm.PlannedPosition = Normalize(x.PlannedPosition);
                 return;
 
             case PersonRankChanged x:
@@ -197,15 +196,20 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
                 rm.EnrollmentKind = x.Kind;
                 rm.EnrollmentReference = Normalize(x.Reference);
                 rm.PlannedPositionUnitId = null;
+                rm.PlannedPosition = null;
                 rm.PositionUnitId = x.PositionUnitId;
+                rm.Position = x.Position;
                 return;
 
             case PersonExcluded x:
                 rm.Lifecycle = PersonLifecycle.Excluded;
                 rm.ExcludedAt = x.EffectiveDate;
                 rm.PlannedPositionUnitId = null;
+                rm.PlannedPosition = null;
                 rm.PositionUnitId = null;
+                rm.Position = null;
                 rm.TemporaryPositionUnitId = null;
+                rm.TemporaryPosition = null;
                 return;
         }
     }

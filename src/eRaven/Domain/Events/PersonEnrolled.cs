@@ -19,7 +19,8 @@ public sealed record PersonEnrolled(
     string? Reference,
     string Reason,
     DateOnly EnrollDate,
-    Guid PositionUnitId,           // NEW (реальна посада)
+    Guid PositionUnitId,           
+    string? Position,               
     string Author,
     DateTime OccurredAtUtc
 ) : IDomainEvent;

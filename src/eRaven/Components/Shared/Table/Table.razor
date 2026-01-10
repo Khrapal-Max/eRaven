@@ -14,7 +14,8 @@
                 {
                     @foreach (var item in Items)
                     {
-                        <tr class="@GetRowClass(item)"
+                        <tr @key="KeySelector?.Invoke(item) ?? item"
+                            class="@GetRowClass(item)"
                             @onclick="() => OnRowClicked(item)">
                             @RowTemplate(item)
                         </tr>

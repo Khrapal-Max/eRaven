@@ -4,8 +4,44 @@
 
 <div class="page-content">
     <RegistryToolbar OnCreateCandidate="OpenCreateCandidate" />
+
+    @if (_loading)
+    {
+        <p class="px-3"><em>Завантаження...</em></p>
+    }
+    else if (_items.Count == 0)
+    {
+        <p class="px-3"><em>Записів немає.</em></p>
+    }
+    else
+    {
+        <PersonsTable Items="_items"
+                      Selected="_selected"
+                      SelectedChanged="OnSelectedChanged"
+                      OnRowClick="OnRowClick" />
+
+        <div class="d-flex align-items-center justify-content-between px-3 py-2 border-top">
+            <div class="small text-muted">
+                Показано: @_items.Count • Сторінка @CurrentPage • Всього: @_totalCount
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-secondary"
+                        disabled="@(!HasPrev)"
+                        @onclick="PrevPage">
+                    ‹
+                </button>
+
+                <button class="btn btn-sm btn-outline-secondary"
+                        disabled="@(!HasNext)"
+                        @onclick="NextPage">
+                    ›
+                </button>
+            </div>
+        </div>
+    }
 </div>
 
 <CreateCandidateModal IsOpen="@_createOpen"
                       IsOpenChanged="v => _createOpen = v"
-                      OnCreate="CreateCandidate" />
+                      OnCreate="HandleCreateCandidate" />

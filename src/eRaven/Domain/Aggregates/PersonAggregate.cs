@@ -257,6 +257,7 @@ public sealed class PersonAggregate
         string reason,
         DateOnly enrollDate,
         Guid PositionUnitId,
+        string Position,
         string author,
         DateTime nowUtc)
     {
@@ -289,6 +290,7 @@ public sealed class PersonAggregate
             Reason: reason.Trim(),
             EnrollDate: enrollDate,
             PositionUnitId: PositionUnitId,
+            Position: Position,
             Author: author.Trim(),
             OccurredAtUtc: nowUtc
         ));

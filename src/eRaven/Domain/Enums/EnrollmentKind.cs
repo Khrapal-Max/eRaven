@@ -13,17 +13,22 @@ namespace eRaven.Domain.Enums;
 public enum EnrollmentKind
 {
     /// <summary>
+    /// Рекрут
+    /// </summary>
+    Recruit = 0,
+
+    /// <summary>
     /// Зарахований у підрозділ (штатний).
     /// </summary>
-    Unit = 0,
+    Unit = 1,
 
     /// <summary>
     /// Приряджений (по наказу).
     /// </summary>
-    AttachedByOrder = 1,
+    AttachedByOrder = 2,
 
     /// <summary>
     /// Приряджений (по списку).
     /// </summary>
-    AttachedByList = 2
+    AttachedByList = 3
 }
