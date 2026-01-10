@@ -128,6 +128,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             reason: "ok",
             enrollDate: new DateOnly(2026, 01, 10),
             PositionUnitId: main1Id,
+            Position: "Командир відділення",
             author: "tester",
             nowUtc: NowUtc.AddMinutes(2));
 
@@ -294,6 +295,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             reason: "ok",
             enrollDate: new DateOnly(2026, 01, 10),
             PositionUnitId: mainPos,
+            Position: "Рядовий",
             author: "tester",
             nowUtc: NowUtc.AddMinutes(4));               // v3 (uncommitted)
 
@@ -355,6 +357,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             reason: "ok",
             enrollDate: new DateOnly(2026, 01, 10),
             PositionUnitId: mainPos,
+            Position: "Рядовий",
             author: "tester",
             nowUtc: NowUtc.AddMinutes(3));              // v3
 

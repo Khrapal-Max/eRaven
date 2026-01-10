@@ -223,6 +223,7 @@ public sealed class PersonAggregateTests
             Reason: "Наказ",
             EnrollDate: new DateOnly(2026, 01, 10),
             PositionUnitId: mainPosId,
+            Position: "Стрілець",
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(4));
 
@@ -350,6 +351,7 @@ public sealed class PersonAggregateTests
                 reason: "ok",
                 enrollDate: new DateOnly(2026, 01, 10),
                 PositionUnitId: posId,
+                Position: "Стрілець",
                 author: "tester",
                 nowUtc: NowUtc.AddMinutes(2)));
 
@@ -389,6 +391,7 @@ public sealed class PersonAggregateTests
                 reason: "ok",
                 enrollDate: new DateOnly(2026, 01, 10),
                 PositionUnitId: Guid.Empty, // ✅ now this is the real "no position"
+                Position: string.Empty,
                 author: "tester",
                 nowUtc: NowUtc.AddMinutes(2)));
 
@@ -440,6 +443,7 @@ public sealed class PersonAggregateTests
             reason: "Test reason",
             enrollDate: new DateOnly(2026, 01, 10),
             PositionUnitId: mainPosId,
+            Position: "Оператор",
             author: "tester",
             nowUtc: NowUtc.AddMinutes(3));
 
@@ -546,7 +550,7 @@ public sealed class PersonAggregateTests
 
         Assert.Single(sut.GetUncommittedChanges());
 
-        sut.LoadFromHistory(Array.Empty<PersonAggregate.StoredEvent>());
+        sut.LoadFromHistory([]);
 
         Assert.Empty(sut.GetUncommittedChanges());
         Assert.Equal(Guid.Empty, sut.Id);

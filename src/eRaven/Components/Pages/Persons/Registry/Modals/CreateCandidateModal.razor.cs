@@ -58,7 +58,8 @@ public partial class CreateCandidateModal
             Model.LastName = TrimOrEmpty(Model.LastName);
             Model.FirstName = TrimOrEmpty(Model.FirstName);
             Model.MiddleName = TrimOrNull(Model.MiddleName);
-            Model.PlannedPosition = TrimOrNull(Model.PlannedPosition);
+            Model.PlannedPosition = _positions.FirstOrDefault(x => x.Id == Model.PlannedPositionUnitId) is null
+                    ? null : _positions.FirstOrDefault(x => x.Id == Model.PlannedPositionUnitId)?.FullName;
 
             await OnCreate.InvokeAsync(Model);
 

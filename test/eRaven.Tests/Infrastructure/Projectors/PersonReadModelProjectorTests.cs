@@ -139,6 +139,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
         await using (var ctx = _db.Factory.CreateDbContext())
         {
             await _projector.ProjectAsync(ctx, ToRecord(evt, version: 1));
+            await ctx.SaveChangesAsync();
         }
 
         await using (var ctx = _db.Factory.CreateDbContext())
@@ -149,7 +150,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
                 rm,
                 id: id,
                 lifecycle: PersonLifecycle.Candidate,
-                enrollmentKind: EnrollmentKind.Unit,
+                enrollmentKind: EnrollmentKind.Recruit,
                 enrollmentRef: null,
                 rnokpp: "1234567890",
                 lastName: "Ivanov",
@@ -197,6 +198,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
         {
             await _projector.ProjectAsync(ctx, ToRecord(created, 1));
             await _projector.ProjectAsync(ctx, ToRecord(updatedSameVersion, 1)); // same version => ignore
+            await ctx.SaveChangesAsync();
         }
 
         await using (var ctx = _db.Factory.CreateDbContext())
@@ -233,6 +235,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Reason: "reason",
             EnrollDate: new DateOnly(2026, 01, 10),
             PositionUnitId: mainPosId,
+            Position: "Оператор",               // ✅ було null
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
 
@@ -240,6 +243,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
         {
             await _projector.ProjectAsync(ctx, ToRecord(created, 1));
             await _projector.ProjectAsync(ctx, ToRecord(enrolled, 2, enrolled.EnrollDate));
+            await ctx.SaveChangesAsync();        // ✅ обов’язково
         }
 
         await using (var ctx = _db.Factory.CreateDbContext())
@@ -257,10 +261,10 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
                 firstName: "Ivan",
                 middleName: "M",
                 fullName: "Ivanov Ivan M",
-                plannedPositionUnitId: null,          // ✅ cleared
-                plannedPosition: "P",
-                positionUnitId: mainPosId,            // ✅ set
-                position: null,
+                plannedPositionUnitId: null,          // ✅ очищено
+                plannedPosition: null,                // ✅ тепер теж null (було "P")
+                positionUnitId: mainPosId,
+                position: "Оператор",                 // ✅ має стояти
                 temporaryPositionUnitId: null,
                 temporaryPosition: null,
                 bzvp: null,
@@ -311,6 +315,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             await _projector.ProjectAsync(ctx, ToRecord(created, 1));
             await _projector.ProjectAsync(ctx, ToRecord(posChanged, 2, posChanged.EffectiveDate));
             await _projector.ProjectAsync(ctx, ToRecord(excluded, 3, excluded.EffectiveDate));
+            await ctx.SaveChangesAsync();
         }
 
         await using (var ctx = _db.Factory.CreateDbContext())
@@ -322,8 +327,11 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Assert.Equal(3, rm.Version);
 
             Assert.Null(rm.PlannedPositionUnitId);
+            Assert.Null(rm.PlannedPosition);
             Assert.Null(rm.PositionUnitId);
+            Assert.Null(rm.Position);
             Assert.Null(rm.TemporaryPositionUnitId);
+            Assert.Null(rm.TemporaryPosition);
         }
     }
 
@@ -372,6 +380,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Reason: "r",
             EnrollDate: new DateOnly(2026, 01, 10),
             PositionUnitId: mainPosId,
+            Position: "Оператор",             // ✅ було null
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(3));
 
@@ -403,6 +412,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             await _projector.ProjectAsync(ctx, ToRecord(rankChanged, 2));
             await _projector.ProjectAsync(ctx, ToRecord(positionChanged, 3));
             await _projector.ProjectAsync(ctx, ToRecord(enrolled, 4));
+            await ctx.SaveChangesAsync();     // ✅
         }
 
         // sanity before void
@@ -414,7 +424,9 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Assert.Equal(mainPosId, before.PositionUnitId);
             Assert.Equal(PersonLifecycle.Enrolled, before.Lifecycle);
 
-            Assert.Null(before.PlannedPositionUnitId); // уже очищен на Enrolled
+            Assert.Null(before.PlannedPositionUnitId);
+            Assert.Null(before.PlannedPosition);   // ✅ тепер planned очищено на Enrolled
+
             Assert.Equal(4, before.Version);
         }
 
@@ -422,6 +434,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
         await using (var ctx = _db.Factory.CreateDbContext())
         {
             await _projector.ProjectAsync(ctx, ToRecord(voided, 5));
+            await ctx.SaveChangesAsync();     // ✅
         }
 
         await using (var ctx = _db.Factory.CreateDbContext())
@@ -440,7 +453,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
                 middleName: null,
                 fullName: "Ivanov Ivan",
                 plannedPositionUnitId: null,
-                plannedPosition: "P",
+                plannedPosition: null,              // ✅ було "P"
                 positionUnitId: mainPosId,
                 position: "Оператор",
                 temporaryPositionUnitId: null,
@@ -478,6 +491,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
         await using (var ctx = _db.Factory.CreateDbContext())
         {
             await _projector.RebuildAsync(ctx, id, default);
+            await ctx.SaveChangesAsync(); // ✅
         }
 
         await using (var ctx = _db.Factory.CreateDbContext())
@@ -546,6 +560,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
         await using (var ctx = _db.Factory.CreateDbContext())
         {
             await _projector.RebuildAsync(ctx, id, default);
+            await ctx.SaveChangesAsync(); // ✅ обов’язково
         }
 
         await using (var ctx = _db.Factory.CreateDbContext())
