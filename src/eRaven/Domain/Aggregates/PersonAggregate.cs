@@ -476,6 +476,7 @@ public sealed class PersonAggregate
                 EnrollmentReference = Normalize(x.Reference);
                 PositionUnitId = x.PositionUnitId;          // NEW
                 PlannedPositionUnitId = null;               // логічно: резерв більше не потрібен
+                PlannedPosition = null;
                 break;
 
             case PersonExcluded x:
@@ -486,6 +487,9 @@ public sealed class PersonAggregate
                 PlannedPositionUnitId = null;
                 TemporaryPositionUnitId = null;
                 PositionUnitId = null;
+                PlannedPosition = null;
+                TemporaryPosition = null;
+                Position = null;
                 break;
 
                 // PersonEventVoided не меняет state напрямую (state считается через rebuild/replay)

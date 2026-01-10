@@ -162,6 +162,7 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
                 rm.FirstName = x.Personal.FirstName;
                 rm.MiddleName = x.Personal.MiddleName;
                 rm.FullName = x.Personal.FullName;
+                rm.PlannedPosition = Normalize(x.PlannedPosition);
                 return;
 
             case PersonRankChanged x:
