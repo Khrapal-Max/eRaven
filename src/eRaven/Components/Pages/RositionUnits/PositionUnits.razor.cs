@@ -7,6 +7,7 @@
 
 using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Entities;
+using eRaven.Domain.Enums;
 using eRaven.Extensions;
 using eRaven.Infrastructure.Repositories.PositionUnitRepository;
 using eRaven.Infrastructure.Repositories.RankRepository;
@@ -119,8 +120,16 @@ public partial class PositionUnits : IDisposable
 
     protected async Task AskDeactivate(PositionUnit unit)
     {
+        if (unit is null)
+            return;
+
+        // ✅ hard guard: не дозволяємо навіть відкривати confirm
+        if (!unit.IsActived || unit.State != PositionUnitState.Vacant)
+            return;
+
         var ok = await _deactivateModal.ShowAsync(unit);
-        if (!ok) return;
+        if (!ok)
+            return;
 
         await PositionUnitRepository.DeActivatedPositionUnitAsync(unit.Id, _cts.Token);
         await LoadAsync();

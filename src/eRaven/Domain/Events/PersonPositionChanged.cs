@@ -15,7 +15,9 @@ public sealed record PersonPositionChanged(
     Guid EventId,
     Guid AggregateId,
     DateOnly EffectiveDate,
-    string Position,
+    Guid PositionUnitId,        // ✅ NEW
+    string Position,            // (можно оставить для снапшота/читаемости)
     string? Note,
     string Author,
-    DateTime OccurredAtUtc) : IDomainEvent;
+    DateTime OccurredAtUtc
+) : IDomainEvent;

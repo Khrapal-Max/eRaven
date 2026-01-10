@@ -17,6 +17,7 @@ public sealed record PersonCandidateCreated(
     Guid AggregateId,
     PersonalInfo Personal,
     string? PlannedPosition,
+    Guid? PlannedPositionUnitId,   // NEW
     string Author,
     DateTime OccurredAtUtc
 ) : IDomainEvent;

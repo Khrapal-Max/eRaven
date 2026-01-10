@@ -16,8 +16,10 @@ public sealed record PersonEnrolled(
     Guid EventId,
     Guid AggregateId,
     EnrollmentKind Kind,
-    string? Reference,          // № наказу / № списку / інша коротка прив’язка (optional)
-    string Reason,              // підстава/коментар (обов’язково)
+    string? Reference,
+    string Reason,
     DateOnly EnrollDate,
+    Guid PositionUnitId,           // NEW (реальна посада)
     string Author,
-    DateTime OccurredAtUtc) : IDomainEvent;
+    DateTime OccurredAtUtc
+) : IDomainEvent;

@@ -140,7 +140,12 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
             FirstName = created.Personal.FirstName,
             MiddleName = created.Personal.MiddleName,
             FullName = created.Personal.FullName,
+
+            PlannedPositionUnitId = created.PlannedPositionUnitId,
             PlannedPosition = Normalize(created.PlannedPosition),
+
+            PositionUnitId = null,
+            TemporaryPositionUnitId = null,
 
             // если тебе не нужен дефолт — сделай null
             EnrollmentKind = EnrollmentKind.Unit,
@@ -165,10 +170,12 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
                 return;
 
             case PersonPositionChanged x:
+                rm.PositionUnitId = x.PositionUnitId;
                 rm.Position = x.Position;
                 return;
 
             case PersonTemporaryPositionChanged x:
+                rm.TemporaryPositionUnitId = x.TemporaryPositionUnitId;
                 rm.TemporaryPosition = Normalize(x.TemporaryPosition);
                 return;
 
@@ -189,11 +196,16 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
                 rm.EnrolledAt = x.EnrollDate;
                 rm.EnrollmentKind = x.Kind;
                 rm.EnrollmentReference = Normalize(x.Reference);
+                rm.PlannedPositionUnitId = null;
+                rm.PositionUnitId = x.PositionUnitId;
                 return;
 
             case PersonExcluded x:
                 rm.Lifecycle = PersonLifecycle.Excluded;
                 rm.ExcludedAt = x.EffectiveDate;
+                rm.PlannedPositionUnitId = null;
+                rm.PositionUnitId = null;
+                rm.TemporaryPositionUnitId = null;
                 return;
         }
     }
@@ -210,11 +222,18 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
         target.FirstName = source.FirstName;
         target.MiddleName = source.MiddleName;
         target.FullName = source.FullName;
+
+        target.PlannedPositionUnitId = source.PlannedPositionUnitId;
         target.PlannedPosition = source.PlannedPosition;
 
         target.Rank = source.Rank;
+
+        target.PositionUnitId = source.PositionUnitId;
         target.Position = source.Position;
+
+        target.TemporaryPositionUnitId = source.TemporaryPositionUnitId;
         target.TemporaryPosition = source.TemporaryPosition;
+
         target.Bzvp = source.Bzvp;
         target.Weapon = source.Weapon;
         target.Callsign = source.Callsign;
@@ -225,6 +244,7 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
         target.Version = source.Version;
         target.UpdatedAtUtc = source.UpdatedAtUtc;
     }
+
 
     private static string? Normalize(string? s)
         => string.IsNullOrWhiteSpace(s) ? null : s.Trim();

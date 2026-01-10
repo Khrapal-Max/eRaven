@@ -22,9 +22,8 @@ public partial class CreateCandidateModal
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
     [Parameter] public EventCallback<CreateCandidateDto> OnCreate { get; set; }
 
-    [Inject] public IQueryHandler<GetVacantPositionUnitsQuery, IReadOnlyList<PositionUnitOptionDto>> VacantPositionsQuery { get; set; } = default!;
-
     [Inject] public ToastService Toasts { get; set; } = default!;
+    [Inject] public IQueryHandler<GetVacantPositionUnitsQuery, IReadOnlyList<PositionUnitOptionDto>> VacantPositionsQuery { get; set; } = default!;
 
     private bool _busy;
     private EditContext _editContext = default!;

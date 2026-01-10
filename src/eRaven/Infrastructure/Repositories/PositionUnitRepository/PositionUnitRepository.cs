@@ -5,6 +5,7 @@
 // PositionUnitRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +27,40 @@ public class PositionUnitRepository(IDbContextFactory<AppDbContext> dbFactory) :
 
         return await db.PositionUnits
             .AsNoTracking()
+            .ToListAsync(ct);
+    }
+
+    /// <summary>
+    /// Повертання вакантних посад з фільтром пошуку
+    /// </summary>
+    /// <param name="search"></param>
+    /// <param name="take"></param>
+    /// <param name="ct"></param>
+    /// <returns>IReadOnlyList PositionUnitOptionDto<see cref="PositionUnit"/></returns>
+    public async Task<IReadOnlyList<PositionUnitOptionDto>> GetVacantOptionsAsync(
+       string? search,
+       int take,
+       CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var q = db.PositionUnits
+            .AsNoTracking()
+            .Where(x => x.IsActived)
+            .Where(x => x.State == PositionUnitState.Vacant);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim();
+            q = q.Where(x => x.Code.Contains(s) || x.ShortName.Contains(s) || x.FullName.Contains(s));
+        }
+
+        return await q
+            .OrderBy(x => x.Number)
+            .Take(take)
+            .Select(x => new PositionUnitOptionDto(
+                x.Id, x.Code, x.ShortName, x.FullName, x.Rank, x.Tarif
+            ))
             .ToListAsync(ct);
     }
 

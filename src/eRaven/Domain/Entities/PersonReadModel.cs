@@ -27,12 +27,18 @@ public sealed class PersonReadModel
 
     public string FullName { get; set; } = string.Empty;
 
-    public string? PlannedPosition { get; set; }
-
     // Key points (поточне)
     public string? Rank { get; set; }
+
+    public Guid? PlannedPositionUnitId { get; set; }
+    public string? PlannedPosition { get; set; }
+
+    public Guid? PositionUnitId { get; set; }
     public string? Position { get; set; }
+
+    public Guid? TemporaryPositionUnitId { get; set; }
     public string? TemporaryPosition { get; set; }
+
     public string? Bzvp { get; set; }
     public string? Weapon { get; set; }
     public string? Callsign { get; set; }

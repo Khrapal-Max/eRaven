@@ -15,6 +15,8 @@ public sealed record PersonTemporaryPositionChanged(
     Guid AggregateId,
     DateOnly EffectiveDate,
     string? TemporaryPosition,
+    Guid? TemporaryPositionUnitId,   // NEW
     string? Note,
     string Author,
-    DateTime OccurredAtUtc) : IDomainEvent;
+    DateTime OccurredAtUtc
+) : IDomainEvent;

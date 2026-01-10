@@ -47,20 +47,23 @@
                     <td>@unit.ShortName</td>
                     <td>@unit.FullName</td>
                     <td>@unit.SpecialNumber</td>
-                    @switch(unit.State)
+                    @switch (unit.State)
                     {
                         case PositionUnitState.Vacant:
-                            <td><span class="badge bg-success">Вакантна</span></td>;
+                            <td><span class="badge bg-success">Вакантна</span></td>
                             break;
+
                         case PositionUnitState.Occupied:
-                            <td><span class="badge bg-secondary">Не вакантна</span></td>;
+                            <td><span class="badge bg-secondary">Не вакантна</span></td>
                             break;
+
                         case PositionUnitState.TemporarilyOccupied:
-                            <td><span class="badge bg-warning text-dark">ТВО</span></td>;
+                            <td><span class="badge bg-warning text-dark">ТВО</span></td>
                             break;
+
                         case PositionUnitState.TemporarilyCandidate:
-                            <td><span class="badge bg-primary">РЕКРУТ</span></td>;
-                            break;                            
+                            <td><span class="badge bg-primary">РЕКРУТ</span></td>
+                            break;
                     }
                     <td>@unit.Rank</td>
                     <td>@unit.Tarif</td>
@@ -68,7 +71,7 @@
                     <td class="text-center">
                         <Button Class="btn-sm btn-outline-danger"
                                 Label="Закрити"
-                                IsDisabled="!unit.IsActived"
+                                IsDisabled="!unit.IsActived || unit.State != PositionUnitState.Vacant"
                                 StopPropagation="true"
                                 OnClickButton="() => AskDeactivate(unit)" />
                     </td>

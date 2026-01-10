@@ -5,6 +5,7 @@
 // PositionUnitRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs;
 using eRaven.Domain.Entities;
 
 namespace eRaven.Infrastructure.Repositories.PositionUnitRepository;
@@ -12,6 +13,12 @@ namespace eRaven.Infrastructure.Repositories.PositionUnitRepository;
 public interface IPositionUnitRepository
 {
     Task<IEnumerable<PositionUnit>> GetAllPositionUnitsAsync(CancellationToken ct);
+
+    Task<IReadOnlyList<PositionUnitOptionDto>> GetVacantOptionsAsync(
+       string? search,
+       int take,
+       CancellationToken ct = default);
+
 
     Task AddPositionUnitAsync(PositionUnit positionUnit, CancellationToken ct);
 
