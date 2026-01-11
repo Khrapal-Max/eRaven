@@ -9,60 +9,49 @@ using eRaven.Application.DTOs;
 using Microsoft.AspNetCore.Components;
 using System.Linq.Expressions;
 
-namespace eRaven.Components.Shared.Pickers;
+namespace eRaven.Components.Pages.Persons.Registry.Pickers;
 
 public partial class PositionUnitPicker
 {
     [Parameter] public string Label { get; set; } = "Вакантна посада (опц.)";
-
     [Parameter] public IReadOnlyList<PositionUnitOptionDto> Items { get; set; } = [];
 
-    // двосторонній bind по Id (щоб інтегруватися з твоєю Model.PlannedPositionUnitId)
     [Parameter] public Guid? SelectedId { get; set; }
     [Parameter] public EventCallback<Guid?> SelectedIdChanged { get; set; }
 
-    // повертаємо повний об’єкт (щоб ти міг поставити PlannedPosition = FullName)
     [Parameter] public EventCallback<PositionUnitOptionDto?> OnSelected { get; set; }
 
-    // для ValidationMessage
+    // Для ValidationMessage
     [Parameter] public Expression<Func<object>>? For { get; set; }
 
     private string _search = string.Empty;
-
     private List<PositionUnitOptionDto> _filtered = [];
     private PositionUnitOptionDto? _selected;
 
-    private bool HasSelection => SelectedId is not null;
-
     protected override void OnParametersSet()
     {
-        // синхронізуємо _selected якщо SelectedId поставили зовні (або Items оновили)
         _selected = SelectedId is Guid id ? Items.FirstOrDefault(x => x.Id == id) : null;
 
+        // якщо вже є selection — таблицю не показуємо (вона в UI вже схована)
+        if (_selected is null)
+            ApplyFilter();
+        else
+            _filtered = [];
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? string.Empty;
         ApplyFilter();
     }
 
     private void ApplyFilter()
     {
-        if (Items.Count == 0)
-        {
-            _filtered = [];
-            return;
-        }
+        _filtered = [];
 
         var s = _search?.Trim();
-        if (string.IsNullOrWhiteSpace(s))
-        {
-            _filtered = []; // нічого не показуємо без пошуку
+        if (string.IsNullOrWhiteSpace(s) || s.Length < 2)
             return;
-        }
-        if (s.Length < 2)
-        {
-            _filtered = []; // починаємо з 2 символів
-            return;
-        }
-
-        s = s.ToLowerInvariant();
 
         _filtered = [.. Items
             .Where(x =>
@@ -74,19 +63,29 @@ public partial class PositionUnitPicker
             .Take(200)];
     }
 
-    private void OnSearchInput(ChangeEventArgs e)
+    private Task ClearSearch()
     {
-        _search = e.Value?.ToString() ?? string.Empty;
-        ApplyFilter();
+        _search = string.Empty;
+        _filtered = [];
+        return Task.CompletedTask;
     }
 
-    private string RowClass(PositionUnitOptionDto p)
-        => SelectedId is Guid id && p.Id == id ? "table-active" : "";
+    private async Task ShowSearch()
+    {
+        // залишаємо SelectedId як є, але дозволяємо змінити:
+        _selected = null;
+        _search = string.Empty;
+        _filtered = [];
+        await InvokeAsync(StateHasChanged);
+    }
 
     private async Task Select(PositionUnitOptionDto p)
     {
         SelectedId = p.Id;
         _selected = p;
+
+        _search = string.Empty;
+        _filtered = []; // ✅ ховаємо список одразу після вибору
 
         if (SelectedIdChanged.HasDelegate)
             await SelectedIdChanged.InvokeAsync(p.Id);
@@ -100,8 +99,7 @@ public partial class PositionUnitPicker
         SelectedId = null;
         _selected = null;
         _search = string.Empty;
-
-        ApplyFilter();
+        _filtered = [];
 
         if (SelectedIdChanged.HasDelegate)
             await SelectedIdChanged.InvokeAsync(null);

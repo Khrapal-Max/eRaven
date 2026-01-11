@@ -2,19 +2,21 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonBzvpChanged
+// PersonPositionChanged
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Domain.Events;
+namespace eRaven.Domain.Events.PersonEvents;
 
 /// <summary>
-/// Зміна БЗВП у персони.
+/// Зміна посади у персони.
 /// </summary>
-public sealed record PersonBzvpChanged(
+public sealed record PersonPositionChanged(
     Guid EventId,
     Guid AggregateId,
     DateOnly EffectiveDate,
-    string Bzvp,
+    Guid PositionUnitId,        // ✅ NEW
+    string Position,            // (можно оставить для снапшота/читаемости)
     string? Note,
     string Author,
-    DateTime OccurredAtUtc) : IDomainEvent;
+    DateTime OccurredAtUtc
+) : IDomainEvent;

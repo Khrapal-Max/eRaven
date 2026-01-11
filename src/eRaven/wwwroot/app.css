@@ -427,19 +427,24 @@ body {
 .picker {
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto;
     min-height: 0;
 }
 
 .picker-results {
-    flex: 1 1 auto;
-    min-height: 0;
     overflow: auto;
-    /* fallback: завжди буде скрол якщо багато рядків */
-    max-height: 45vh;
+    max-height: 320px; /* стабільно дає скрол */
+}
+
+.picker-table {
+    table-layout: fixed; /* щоб truncate працював прогнозовано */
+}
+
+.picker-selected {
+    background: #fff;
 }
 
 .picker-preview {
     white-space: normal;
     word-break: break-word;
+    line-height: 1.25;
 }

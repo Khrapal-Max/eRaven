@@ -1,5 +1,6 @@
 ﻿@using Microsoft.AspNetCore.Components.Forms
 @using eRaven.Application.DTOs
+@using eRaven.Components.Pages.Persons.Registry.Pickers
 
 <div class="drawer-backdrop @(IsOpen ? "show" : "")"
      @onclick="OnBackdropClick"
@@ -54,6 +55,7 @@
                                         SelectedId="@Model.PlannedPositionUnitId"
                                         SelectedIdChanged="v => Model.PlannedPositionUnitId = v"
                                         OnSelected="OnPositionSelected"
+                                        For="@(() => Model.PlannedPositionUnitId!)"
                                         Label="Вакантна посада (опц.)" />
                 </div>
             </EditForm>

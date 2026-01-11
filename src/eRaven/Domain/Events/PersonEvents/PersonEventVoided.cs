@@ -5,7 +5,7 @@
 // PersonEventVoided
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Domain.Events;
+namespace eRaven.Domain.Events.PersonEvents;
 
 /// <summary>
 /// Подія анулювання (void) доменної події.

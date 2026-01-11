@@ -8,7 +8,7 @@
 using eRaven.Domain;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
-using eRaven.Domain.Events;
+using eRaven.Domain.Events.PersonEvents;
 using eRaven.Domain.ValueObjects;
 using eRaven.Infrastructure.Projectors;
 using eRaven.Tests.Extensions;

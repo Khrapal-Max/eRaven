@@ -39,6 +39,7 @@ public sealed class PositionUnitExcelService(IValidator<PositionUnit> validator)
                 PositionUnitState.Vacant => "Вакантна",
                 PositionUnitState.Occupied => "Не вакантна",
                 PositionUnitState.TemporarilyOccupied => "Тимчасово зайнята",
+                PositionUnitState.TemporarilyCandidate => "Призначена рекруту",
                 _ => "Не визначений стан"
             };
 

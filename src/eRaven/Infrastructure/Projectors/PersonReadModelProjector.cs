@@ -8,7 +8,7 @@
 using eRaven.Domain;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
-using eRaven.Domain.Events;
+using eRaven.Domain.Events.PersonEvents;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Projectors;

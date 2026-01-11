@@ -6,7 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Enums;
-using eRaven.Domain.Events;
+using eRaven.Domain.Events.PersonEvents;
 using eRaven.Domain.ValueObjects;
 
 namespace eRaven.Domain.Aggregates;
@@ -252,20 +252,20 @@ public sealed class PersonAggregate
     }
 
     public void Enroll(
-        EnrollmentKind kind,
-        string? reference,
-        string reason,
-        DateOnly enrollDate,
-        Guid PositionUnitId,
-        string Position,
-        string author,
-        DateTime nowUtc)
+     EnrollmentKind kind,
+     string? reference,
+     string reason,
+     DateOnly enrollDate,
+     Guid positionUnitId,
+     string position,
+     string author,
+     DateTime nowUtc)
     {
         EnsureInitialized();
-        EnsureNotExcluded();
 
-        if (Lifecycle != PersonLifecycle.Candidate)
-            throw new InvalidOperationException("Зарахування можливе лише для кандидата.");
+        // ✅ дозволяємо повторне зарахування після виключення
+        if (Lifecycle == PersonLifecycle.Enrolled)
+            throw new InvalidOperationException("Особа вже зарахована.");
 
         if (Personal is null)
             throw new InvalidOperationException("Неможливо зарахувати без персональної інформації.");
@@ -273,14 +273,21 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(Rank))
             throw new InvalidOperationException("Неможливо зарахувати без звання.");
 
-        if (PositionUnitId == Guid.Empty)
+        if (positionUnitId == Guid.Empty)
             throw new InvalidOperationException("Неможливо зарахувати без посади.");
+
+        if (string.IsNullOrWhiteSpace(position))
+            throw new ArgumentException("Position is required.", nameof(position));
 
         if (string.IsNullOrWhiteSpace(reason))
             throw new ArgumentException("Reason is required.", nameof(reason));
 
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
+
+        // опційно: заборонити “назад у часі”
+        if (ExcludedAt is DateOnly ex && enrollDate <= ex)
+            throw new InvalidOperationException("Дата зарахування має бути пізніше дати виключення.");
 
         Raise(new PersonEnrolled(
             EventId: Guid.NewGuid(),
@@ -289,8 +296,8 @@ public sealed class PersonAggregate
             Reference: Normalize(reference),
             Reason: reason.Trim(),
             EnrollDate: enrollDate,
-            PositionUnitId: PositionUnitId,
-            Position: Position,
+            PositionUnitId: positionUnitId,
+            Position: position.Trim(),
             Author: author.Trim(),
             OccurredAtUtc: nowUtc
         ));
@@ -299,7 +306,9 @@ public sealed class PersonAggregate
     public void Exclude(string reason, DateOnly effectiveDate, string author, DateTime nowUtc)
     {
         EnsureInitialized();
-        EnsureNotExcluded();
+
+        if (Lifecycle == PersonLifecycle.Excluded)
+            throw new InvalidOperationException("Особа вже виключена.");
 
         if (string.IsNullOrWhiteSpace(reason))
             throw new ArgumentException("Reason is required.", nameof(reason));
@@ -472,23 +481,24 @@ public sealed class PersonAggregate
             case PersonEnrolled x:
                 Lifecycle = PersonLifecycle.Enrolled;
                 EnrolledAt = x.EnrollDate;
+                ExcludedAt = null;                // ✅ важливо при повторному enroll
                 EnrollmentKind = x.Kind;
                 EnrollmentReference = Normalize(x.Reference);
-                PositionUnitId = x.PositionUnitId;          // NEW
-                PlannedPositionUnitId = null;               // логічно: резерв більше не потрібен
+                PositionUnitId = x.PositionUnitId;
+                Position = x.Position;
+                PlannedPositionUnitId = null;
+                PlannedPosition = null;
                 break;
 
             case PersonExcluded x:
                 Lifecycle = PersonLifecycle.Excluded;
                 ExcludedAt = x.EffectiveDate;
-
-                // можна лишити ids як історію, але практично краще занулити:
                 PlannedPositionUnitId = null;
                 TemporaryPositionUnitId = null;
                 PositionUnitId = null;
+                Position = null;
+                TemporaryPosition = null;
                 break;
-
-                // PersonEventVoided не меняет state напрямую (state считается через rebuild/replay)
         }
     }
 

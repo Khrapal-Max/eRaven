@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
-namespace eRaven.Components.Pages.Persons.Registry.Modals;
+namespace eRaven.Components.Pages.Persons.Registry.Drawer;
 
 public partial class CreateCandidateDrawer
 {
@@ -34,21 +34,6 @@ public partial class CreateCandidateDrawer
     private IReadOnlyList<PositionUnitOptionDto> _positions = [];
 
     protected CreateCandidateDto Model { get; set; } = new();
-
-    private string SelectedPositionLabel
-    {
-        get
-        {
-            if (Model.PlannedPositionUnitId is not Guid id)
-                return "— не обирати —";
-
-            var opt = _positions.FirstOrDefault(x => x.Id == id);
-            if (opt is null)
-                return "— не обирати —";
-
-            return $"{opt.Code} • {opt.ShortName} • {opt.Rank} • {opt.Tarif}";
-        }
-    }
 
     protected override void OnInitialized()
     {
@@ -83,22 +68,6 @@ public partial class CreateCandidateDrawer
         _positions = reloadPositions
             ? await VacantPositionsQuery.HandleAsync(new GetVacantPositionUnitsQuery(Take: 200))
             : [];
-    }
-
-    private void SelectPlannedPosition(PositionUnitOptionDto p)
-    {
-        Model.PlannedPositionUnitId = p.Id;
-        Model.PlannedPosition = TrimOrNull(p.FullName);
-
-        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.PlannedPositionUnitId)));
-    }
-
-    private void ClearPlannedPosition()
-    {
-        Model.PlannedPositionUnitId = null;
-        Model.PlannedPosition = null;
-
-        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.PlannedPositionUnitId)));
     }
 
     private async Task OnCreateAsync()
@@ -150,20 +119,11 @@ public partial class CreateCandidateDrawer
         }
     }
 
-    private void OnPositionSelected(PositionUnitOptionDto? p)
+    private Task OnPositionSelected(PositionUnitOptionDto? dto)
     {
-        if (p is null)
-        {
-            Model.PlannedPositionUnitId = null;
-            Model.PlannedPosition = null;
-        }
-        else
-        {
-            Model.PlannedPositionUnitId = p.Id;
-            Model.PlannedPosition = TrimOrNull(p.FullName);
-        }
-
-        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.PlannedPositionUnitId)));
+        Model.PlannedPositionUnitId = dto?.Id;
+        Model.PlannedPosition = string.IsNullOrWhiteSpace(dto?.FullName) ? null : dto!.FullName.Trim();
+        return Task.CompletedTask;
     }
 
     private async Task OnCancel()

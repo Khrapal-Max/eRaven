@@ -1,0 +1,103 @@
+﻿@using eRaven.Application.DTOs
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+
+<div class="picker">
+    <label class="form-label mb-1">@Label</label>
+
+    @if (_selected is not null)
+    {
+        <div class="picker-selected border p-2">
+            <div class="d-flex align-items-start justify-content-between gap-2">
+                <div class="min-w-0">
+                    <div class="small">
+                        <span>Вибрано:</span>
+                        <span class="fw-semibold">@($"{_selected.Code} • {_selected.ShortName} • {_selected.Rank} • {_selected.Tarif}")</span>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(_selected.FullName))
+                    {
+                        <div class="small picker-preview mt-1">
+                            @_selected.FullName
+                        </div>
+                    }
+                </div>
+
+                <div class="d-flex gap-2 flex-shrink-0">
+                    <Button Class="btn-outline-secondary rounded-0 btn-sm"
+                            Label="Змінити"
+                            OnClickButton="ShowSearch" />
+
+                    <Button Class="btn-outline-danger rounded-0 btn-sm"
+                            Label="Очистити"
+                            OnClickButton="Clear" />
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="input-group">
+            <input class="form-control rounded-0"
+                   placeholder="Пошук: код / коротка / частина повної назви..."
+                   value="@_search"
+                   @oninput="OnSearchInput" />
+
+            <Button Class="btn-outline-secondary rounded-0"
+                    Label="Очистити"
+                    IsDisabled="@string.IsNullOrWhiteSpace(_search)"
+                    OnClickButton="ClearSearch" />
+        </div>
+
+        <div class="picker-results mt-2 border">
+            @if (Items is null || Items.Count == 0)
+            {
+                <div class="p-2 small">Немає вакансій.</div>
+            }
+            else if (string.IsNullOrWhiteSpace(_search) || _search.Trim().Length < 2)
+            {
+                <div class="p-2 small">Введіть мінімум 2 символи для пошуку.</div>
+            }
+            else if (_filtered.Count == 0)
+            {
+                <div class="p-2 small">Нічого не знайдено.</div>
+            }
+            else
+            {
+                <table class="table table-hover mb-0 picker-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 1%"></th>
+                            <th style="width: 18%">Код</th>
+                            <th>Коротка</th>
+                            <th style="width: 18%">Звання</th>
+                            <th style="width: 12%">Тариф</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach (var p in _filtered)
+                        {
+                            var isSel = SelectedId is Guid sid && sid == p.Id;
+
+                            <tr class="@(isSel ? "table-active" : "")"
+                                role="button"
+                                @onclick="() => Select(p)">
+                                <td class="text-center">@((isSel) ? "✓" : "")</td>
+                                <td class="text-nowrap">@p.Code</td>
+                                <td class="text-truncate" title="@p.FullName">@p.ShortName</td>
+                                <td class="text-nowrap">@p.Rank</td>
+                                <td class="text-nowrap">@p.Tarif</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+
+    @if (For is not null)
+    {
+        <ValidationMessage For="@For" />
+    }
+</div>

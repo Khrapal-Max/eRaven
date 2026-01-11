@@ -2,18 +2,18 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonExcluded
+// PersonCallsignChanged
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Domain.Events;
+namespace eRaven.Domain.Events.PersonEvents;
 
 /// <summary>
-/// Подія виключення особи
+/// Зміна позивного у персони.
 /// </summary>
-public sealed record PersonExcluded(
+public sealed record PersonCallsignChanged(
     Guid EventId,
     Guid AggregateId,
-    string Reason,
     DateOnly EffectiveDate,
+    string? Callsign,
     string Author,
     DateTime OccurredAtUtc) : IDomainEvent;

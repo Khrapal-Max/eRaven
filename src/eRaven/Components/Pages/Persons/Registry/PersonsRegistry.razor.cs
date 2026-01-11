@@ -26,7 +26,7 @@ public partial class PersonsRegistry
     private string? _search;
 
     private int _page = 1;
-    private int _pageSize = 10;
+    private int _pageSize = 8;
     private int _totalCount = 0;
 
     private int CurrentPage => _page;

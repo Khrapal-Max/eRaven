@@ -2,18 +2,21 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonWeaponChanged
+// PersonTemporaryPositionChanged
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Domain.Events;
+namespace eRaven.Domain.Events.PersonEvents;
 
 /// <summary>
-/// Зміна зброї у персони.
+/// Призначення або зміна тимчасової посади працівника.
 /// </summary>
-public sealed record PersonWeaponChanged(
+public sealed record PersonTemporaryPositionChanged(
     Guid EventId,
     Guid AggregateId,
     DateOnly EffectiveDate,
-    string? Weapon,
+    string? TemporaryPosition,
+    Guid? TemporaryPositionUnitId,   // NEW
+    string? Note,
     string Author,
-    DateTime OccurredAtUtc) : IDomainEvent;
+    DateTime OccurredAtUtc
+) : IDomainEvent;

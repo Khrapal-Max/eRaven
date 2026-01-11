@@ -89,6 +89,85 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
     // =========================================================
 
     [Fact]
+    public async Task LoadAsync_when_no_events_should_return_null()
+    {
+        var id = Guid.NewGuid();
+
+        var loaded = await _repo.LoadAsync(id);
+
+        Assert.Null(loaded);
+    }
+
+    [Fact]
+    public async Task LoadAsync_should_rehydrate_aggregate_state_and_stream_version()
+    {
+        var personId = Guid.NewGuid();
+        var posId = Guid.NewGuid();
+
+        await SeedPositionsAsync(
+            NewPos(posId, PositionUnitState.Vacant, number: 100));
+
+        // v1
+        var agg = PersonAggregate.CreateCandidate(
+            id: personId,
+            personal: Personal(rnokpp: "7777777777"),
+            plannedPosition: "Reserve",
+            plannedPositionUnitId: posId,
+            author: "tester",
+            nowUtc: NowUtc);
+
+        await _repo.SaveAsync(agg, expectedVersion: 0);
+
+        // v2 + v3
+        agg.ChangeRank(
+            effectiveDate: new DateOnly(2026, 01, 10),
+            rank: "Солдат",
+            note: null,
+            author: "tester",
+            nowUtc: NowUtc.AddMinutes(1));
+
+        agg.Enroll(
+            kind: EnrollmentKind.Unit,
+            reference: "N-1",
+            reason: "ok",
+            enrollDate: new DateOnly(2026, 01, 10),
+            positionUnitId: posId,
+            position: "Оператор",
+            author: "tester",
+            nowUtc: NowUtc.AddMinutes(2));
+
+        await _repo.SaveAsync(agg, expectedVersion: 1);
+
+        // act
+        var loaded = await _repo.LoadAsync(personId);
+
+        // assert
+        Assert.NotNull(loaded);
+        Assert.Equal(personId, loaded!.Id);
+
+        // stream version = остання версія в стрімі
+        Assert.Equal(3, loaded.Version);
+
+        Assert.Equal(PersonLifecycle.Enrolled, loaded.Lifecycle);
+
+        Assert.Equal("7777777777", loaded.Personal!.Rnokpp);
+        Assert.Equal("Солдат", loaded.Rank);
+
+        Assert.Equal(EnrollmentKind.Unit, loaded.EnrollmentKind);
+        Assert.Equal("N-1", loaded.EnrollmentReference);
+
+        Assert.Equal(new DateOnly(2026, 01, 10), loaded.EnrolledAt);
+        Assert.Null(loaded.ExcludedAt);
+
+        Assert.Equal(posId, loaded.PositionUnitId);
+        Assert.Equal("Оператор", loaded.Position);
+
+        // reserve має бути очищений на Enroll (згідно твоєму Apply)
+        Assert.Null(loaded.PlannedPositionUnitId);
+        Assert.Null(loaded.PlannedPosition);
+    }
+
+    [Fact]
     public async Task SaveAsync_PositionChanged_should_vacate_old_main_and_occupy_new_main_and_update_read_model()
     {
         var personId = Guid.NewGuid();
@@ -127,8 +206,8 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             reference: null,
             reason: "ok",
             enrollDate: new DateOnly(2026, 01, 10),
-            PositionUnitId: main1Id,
-            Position: "Командир відділення",
+            positionUnitId: main1Id,
+            position: "Командир відділення",
             author: "tester",
             nowUtc: NowUtc.AddMinutes(2));
 
@@ -294,8 +373,8 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             reference: null,
             reason: "ok",
             enrollDate: new DateOnly(2026, 01, 10),
-            PositionUnitId: mainPos,
-            Position: "Рядовий",
+            positionUnitId: mainPos,
+            position: "Рядовий",
             author: "tester",
             nowUtc: NowUtc.AddMinutes(4));               // v3 (uncommitted)
 
@@ -356,8 +435,8 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             reference: null,
             reason: "ok",
             enrollDate: new DateOnly(2026, 01, 10),
-            PositionUnitId: mainPos,
-            Position: "Рядовий",
+            positionUnitId: mainPos,
+            position: "Рядовий",
             author: "tester",
             nowUtc: NowUtc.AddMinutes(3));              // v3
 
