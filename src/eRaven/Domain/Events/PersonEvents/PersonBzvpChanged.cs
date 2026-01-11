@@ -2,18 +2,19 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonCallsignChanged
+// PersonBzvpChanged
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Domain.Events;
+namespace eRaven.Domain.Events.PersonEvents;
 
 /// <summary>
-/// Зміна позивного у персони.
+/// Зміна БЗВП у персони.
 /// </summary>
-public sealed record PersonCallsignChanged(
+public sealed record PersonBzvpChanged(
     Guid EventId,
     Guid AggregateId,
     DateOnly EffectiveDate,
-    string? Callsign,
+    string Bzvp,
+    string? Note,
     string Author,
     DateTime OccurredAtUtc) : IDomainEvent;

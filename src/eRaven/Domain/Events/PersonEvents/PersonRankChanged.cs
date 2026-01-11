@@ -2,22 +2,19 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonCandidateCreated
+// PersonRankChanged
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.ValueObjects;
-
-namespace eRaven.Domain.Events;
+namespace eRaven.Domain.Events.PersonEvents;
 
 /// <summary>
-/// Базова точка: створено кандидата + одразу заповнено персональні дані і планову посаду.
+/// Зміна звання у персони.
 /// </summary>
-public sealed record PersonCandidateCreated(
+public sealed record PersonRankChanged(
     Guid EventId,
     Guid AggregateId,
-    PersonalInfo Personal,
-    string? PlannedPosition,
-    Guid? PlannedPositionUnitId,   // NEW
+    DateOnly EffectiveDate,
+    string Rank,
+    string? Note,
     string Author,
-    DateTime OccurredAtUtc
-) : IDomainEvent;
+    DateTime OccurredAtUtc) : IDomainEvent;

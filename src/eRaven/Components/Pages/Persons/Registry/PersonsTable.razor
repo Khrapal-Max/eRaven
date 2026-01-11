@@ -45,17 +45,6 @@
                         <span>@p.TemporaryPosition</span>
                     </div>
                 }
-
-                @* якщо хочеш показувати “резерв” і для діючих — розкоментуй *@
-                @*
-                @if (!string.IsNullOrWhiteSpace(p.PlannedPosition))
-                {
-                    <div class="small">
-                        <span class="text-muted">Резерв:</span>
-                        <span>@p.PlannedPosition</span>
-                    </div>
-                }
-                *@
             }
         </td>
 

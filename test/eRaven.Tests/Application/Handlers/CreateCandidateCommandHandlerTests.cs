@@ -8,7 +8,7 @@
 using eRaven.Application.Commands;
 using eRaven.Application.Handlers;
 using eRaven.Domain.Aggregates;
-using eRaven.Domain.Events;
+using eRaven.Domain.Events.PersonEvents;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 using Moq;
 

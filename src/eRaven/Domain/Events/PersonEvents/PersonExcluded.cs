@@ -2,22 +2,18 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonPositionChanged
+// PersonExcluded
 //-----------------------------------------------------------------------------
 
-
-namespace eRaven.Domain.Events;
+namespace eRaven.Domain.Events.PersonEvents;
 
 /// <summary>
-/// Зміна посади у персони.
+/// Подія виключення особи
 /// </summary>
-public sealed record PersonPositionChanged(
+public sealed record PersonExcluded(
     Guid EventId,
     Guid AggregateId,
+    string Reason,
     DateOnly EffectiveDate,
-    Guid PositionUnitId,        // ✅ NEW
-    string Position,            // (можно оставить для снапшота/читаемости)
-    string? Note,
     string Author,
-    DateTime OccurredAtUtc
-) : IDomainEvent;
+    DateTime OccurredAtUtc) : IDomainEvent;

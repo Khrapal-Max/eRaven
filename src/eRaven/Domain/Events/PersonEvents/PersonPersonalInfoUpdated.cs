@@ -2,25 +2,21 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonEnrolled (updated)
+// PersonPersonalInfoUpdated
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+using eRaven.Domain.ValueObjects;
 
-namespace eRaven.Domain.Events;
+namespace eRaven.Domain.Events.PersonEvents;
 
 /// <summary>
-/// Подія зарахування особи у підрозділі.
+/// Редагування базового профілю особи (наприклад, зміна прізвища тощо).
 /// </summary>
-public sealed record PersonEnrolled(
+public sealed record PersonPersonalInfoUpdated(
     Guid EventId,
     Guid AggregateId,
-    EnrollmentKind Kind,
-    string? Reference,
-    string Reason,
-    DateOnly EnrollDate,
-    Guid PositionUnitId,           
-    string? Position,               
+    PersonalInfo Personal,
+    string? PlannedPosition,
     string Author,
     DateTime OccurredAtUtc
 ) : IDomainEvent;

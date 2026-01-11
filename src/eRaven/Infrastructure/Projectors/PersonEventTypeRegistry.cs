@@ -8,7 +8,7 @@
 
 using eRaven.Domain;
 using eRaven.Domain.Entities;
-using eRaven.Domain.Events;
+using eRaven.Domain.Events.PersonEvents;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 

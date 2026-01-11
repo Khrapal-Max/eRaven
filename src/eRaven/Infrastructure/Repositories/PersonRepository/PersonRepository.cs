@@ -11,7 +11,7 @@ using eRaven.Domain;
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
-using eRaven.Domain.Events;
+using eRaven.Domain.Events.PersonEvents;
 using eRaven.Exceptions;
 using eRaven.Infrastructure.Projectors;
 using Microsoft.EntityFrameworkCore;
@@ -66,10 +66,24 @@ public sealed class PersonRepository(
         {
             var s = q.Search.Trim();
 
-            // ILIKE (PostgreSQL, Npgsql)
-            query = query.Where(x =>
-                EF.Functions.ILike(x.FullName, $"%{s}%") ||
-                EF.Functions.ILike(x.Rnokpp, $"%{s}%"));
+            if (db.Database.IsNpgsql())
+            {
+                // PostgreSQL: ILIKE (case-insensitive, нормально для кирилиці теж)
+                query = query.Where(x =>
+                    EF.Functions.ILike(x.FullName, $"%{s}%") ||
+                    EF.Functions.ILike(x.Rnokpp, $"%{s}%"));
+            }
+            else
+            {
+                // SQLite/інші: lower() + LIKE
+                // (для тестів цього зазвичай достатньо; у SQLite case-insensitive повноцінно не завжди працює для кирилиці)
+                var ss = s.ToLowerInvariant();
+                var pattern = $"%{ss}%";
+
+                query = query.Where(x =>
+                    EF.Functions.Like(x.FullName.ToLower(), pattern) ||
+                    EF.Functions.Like(x.Rnokpp.ToLower(), pattern));
+            }
         }
 
         // Filters

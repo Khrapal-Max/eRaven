@@ -8,7 +8,7 @@
 using eRaven.Domain;
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Enums;
-using eRaven.Domain.Events;
+using eRaven.Domain.Events.PersonEvents;
 using eRaven.Domain.ValueObjects;
 
 namespace eRaven.Tests.Domain.Aggregates;
@@ -223,6 +223,7 @@ public sealed class PersonAggregateTests
             Reason: "Наказ",
             EnrollDate: new DateOnly(2026, 01, 10),
             PositionUnitId: mainPosId,
+            Position: "Стрілець",
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(4));
 
@@ -349,7 +350,8 @@ public sealed class PersonAggregateTests
                 reference: null,
                 reason: "ok",
                 enrollDate: new DateOnly(2026, 01, 10),
-                PositionUnitId: posId,
+                positionUnitId: posId,
+                position: "Стрілець",
                 author: "tester",
                 nowUtc: NowUtc.AddMinutes(2)));
 
@@ -388,7 +390,8 @@ public sealed class PersonAggregateTests
                 reference: null,
                 reason: "ok",
                 enrollDate: new DateOnly(2026, 01, 10),
-                PositionUnitId: Guid.Empty, // ✅ now this is the real "no position"
+                positionUnitId: Guid.Empty, // ✅ now this is the real "no position"
+                position: string.Empty,
                 author: "tester",
                 nowUtc: NowUtc.AddMinutes(2)));
 
@@ -439,7 +442,8 @@ public sealed class PersonAggregateTests
             reference: " List-55 ",
             reason: "Test reason",
             enrollDate: new DateOnly(2026, 01, 10),
-            PositionUnitId: mainPosId,
+            positionUnitId: mainPosId,
+            position: "Оператор",
             author: "tester",
             nowUtc: NowUtc.AddMinutes(3));
 
@@ -546,10 +550,148 @@ public sealed class PersonAggregateTests
 
         Assert.Single(sut.GetUncommittedChanges());
 
-        sut.LoadFromHistory(Array.Empty<PersonAggregate.StoredEvent>());
+        sut.LoadFromHistory([]);
 
         Assert.Empty(sut.GetUncommittedChanges());
         Assert.Equal(Guid.Empty, sut.Id);
         Assert.Equal(0, sut.Version);
+    }
+
+    [Fact]
+    public void Enroll_after_excluded_should_be_allowed_and_clear_excludedAt()
+    {
+        var id = Guid.NewGuid();
+        var posId1 = Guid.NewGuid();
+        var posId2 = Guid.NewGuid();
+
+        var created = new PersonCandidateCreated(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Personal: Personal(),
+            PlannedPosition: "P",
+            PlannedPositionUnitId: Guid.NewGuid(),
+            Author: "tester",
+            OccurredAtUtc: NowUtc);
+
+        var rank = new PersonRankChanged(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            EffectiveDate: new DateOnly(2026, 01, 01),
+            Rank: "Солдат",
+            Note: null,
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(1));
+
+        var enrolled1 = new PersonEnrolled(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Kind: EnrollmentKind.Unit,
+            Reference: "A",
+            Reason: "r",
+            EnrollDate: new DateOnly(2026, 01, 02),
+            PositionUnitId: posId1,
+            Position: "Стрілець",
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(2));
+
+        var excluded = new PersonExcluded(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Reason: "x",
+            EffectiveDate: new DateOnly(2026, 01, 10),
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(3));
+
+        var sut = new PersonAggregate();
+        sut.LoadFromHistory([
+            SE(1, created),
+        SE(2, rank),
+        SE(3, enrolled1),
+        SE(4, excluded)
+        ]);
+
+        // sanity: після виключення
+        Assert.Equal(PersonLifecycle.Excluded, sut.Lifecycle);
+        Assert.Equal(new DateOnly(2026, 01, 10), sut.ExcludedAt);
+        Assert.Null(sut.PositionUnitId); // ти зануляєш на Excluded (це ок)
+
+        // act: повторне зарахування
+        sut.Enroll(
+            kind: EnrollmentKind.AttachedByOrder,
+            reference: "B",
+            reason: "re-enroll",
+            enrollDate: new DateOnly(2026, 06, 02),
+            positionUnitId: posId2,
+            position: "Командир",
+            author: "tester",
+            nowUtc: NowUtc.AddMinutes(10));
+
+        // assert: знов Enrolled + ExcludedAt скинуто
+        Assert.Equal(PersonLifecycle.Enrolled, sut.Lifecycle);
+        Assert.Equal(new DateOnly(2026, 06, 02), sut.EnrolledAt);
+        Assert.Null(sut.ExcludedAt); // ✅ ключове
+
+        Assert.Equal(EnrollmentKind.AttachedByOrder, sut.EnrollmentKind);
+        Assert.Equal("B", sut.EnrollmentReference);
+
+        Assert.Equal(posId2, sut.PositionUnitId);
+        Assert.Equal("Командир", sut.Position);
+
+        // planned очищається на Enrolled
+        Assert.Null(sut.PlannedPositionUnitId);
+        Assert.Null(sut.PlannedPosition);
+
+        var evt = Assert.IsType<PersonEnrolled>(Assert.Single(sut.GetUncommittedChanges()));
+        Assert.Equal(new DateOnly(2026, 06, 02), evt.EnrollDate);
+        Assert.Equal(posId2, evt.PositionUnitId);
+    }
+
+    [Fact]
+    public void Enroll_after_excluded_with_date_not_after_excluded_should_throw()
+    {
+        var id = Guid.NewGuid();
+        var posId = Guid.NewGuid();
+
+        var created = new PersonCandidateCreated(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Personal: Personal(),
+            PlannedPosition: null,
+            PlannedPositionUnitId: null,
+            Author: "tester",
+            OccurredAtUtc: NowUtc);
+
+        var rank = new PersonRankChanged(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            EffectiveDate: new DateOnly(2026, 01, 01),
+            Rank: "Солдат",
+            Note: null,
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(1));
+
+        var excluded = new PersonExcluded(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Reason: "x",
+            EffectiveDate: new DateOnly(2026, 01, 10),
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(2));
+
+        var sut = new PersonAggregate();
+        sut.LoadFromHistory([SE(1, created), SE(2, rank), SE(3, excluded)]);
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            sut.Enroll(
+                kind: EnrollmentKind.Unit,
+                reference: null,
+                reason: "re-enroll",
+                enrollDate: new DateOnly(2026, 01, 10), // <= ExcludedAt (не можна)
+                positionUnitId: posId,
+                position: "Стрілець",
+                author: "tester",
+                nowUtc: NowUtc.AddMinutes(3)));
+
+        Assert.Contains("пізніше дати виключення", ex.Message);
     }
 }
