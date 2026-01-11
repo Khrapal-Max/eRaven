@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
-namespace eRaven.Components.Pages.Persons.Registry.Drawer;
+namespace eRaven.Components.Pages.Persons.Registry.Drawers;
 
 public partial class CreateCandidateDrawer
 {

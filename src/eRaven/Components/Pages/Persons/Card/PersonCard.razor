@@ -1,55 +1,77 @@
 ﻿@page "/persons/{PersonId:guid}"
+@using eRaven.Application.DTOs
+@using eRaven.Application.Queries
 
 <div class="page-content">
-    <PersonHeader PersonId="PersonId" />
-
-    <div class="row g-3 mt-2">
-        <div class="col-12 col-lg-7">
-            <PersonSnapshotPanel />
+    @if (_loading)
+    {
+        <p class="px-3"><em>Завантаження...</em></p>
+    }
+    else if (_person is null)
+    {
+        <div class="alert alert-warning rounded-0 m-3">
+            Особа не знайдена.
         </div>
-        <div class="col-12 col-lg-5">
-            <PersonActionsPanel />
+    }
+    else
+    {
+        <PersonSnapshotHeader Person="_person" PersonId="PersonId" />
+
+        <div class="mt-2 px-2 ">
+            <ul class="nav nav-tabs px-2">
+                <li class="nav-item">
+                    <button type="button"
+                            class="nav-link @(Tab == "current" ? "active text-bg-success" : "text-bg-secondary")"
+                            @onclick="ShowCurrent">
+                        Поточний стан
+                    </button>
+                </li>
+
+                <li class="nav-item">
+                    <button type="button"
+                            class="nav-link @(Tab == "career" ? "active text-bg-success" : "text-bg-secondary")"
+                            @onclick="ShowCareer">
+                        Кар’єра
+                    </button>
+                </li>
+
+                <li class="nav-item">
+                    <button type="button"
+                            class="nav-link @(Tab == "audit" ? "active text-bg-success" : "text-bg-secondary")"
+                            @onclick="ShowAudit">
+                        Аудит подій
+                    </button>
+                </li>
+            </ul>
+
+            <div class="border border-top-0 p-2 p-md-3">
+                @if (Tab == "current")
+                {
+                    <div class="row g-3">
+                        <div class="col-12 col-lg-10">
+                            <PersonSnapshotPanel Person="_person" />
+                        </div>
+
+                        <div class="col-12 col-lg-2">
+                            <PersonActionsPanel Person="_person" />
+                        </div>
+                    </div>
+
+                    @* Модалки, що логічно відносяться до “Поточний” *@
+                    <ChangeRankModal PersonId="PersonId" />
+                    <ChangePositionModal PersonId="PersonId" />
+                    @* інші модалки редагування — пізніше *@
+                }
+                else if (Tab == "career")
+                {
+                    <CareerTimelineTab PersonId="PersonId" />
+                }
+                else
+                {
+                    <EventsAuditTab PersonId="PersonId" />
+                    <VoidEventModal PersonId="PersonId" />
+                }
+            </div>
         </div>
-    </div>
-
-    <div class="mt-3">
-        <ul class="nav nav-tabs">
-            <li class="nav-item">
-                <button class="nav-link @(Tab == "career" ? "active" : "")"
-                        @onclick="ShowCareer">
-                    Кар’єра (EffectiveDate)
-                </button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link @(Tab == "audit" ? "active" : "")"
-                        @onclick="ShowAudit">
-                    Аудит подій (OccurredAtUtc)
-                </button>
-            </li>
-        </ul>
-
-        <div class="border border-top-0 p-3">
-            @if (Tab == "career")
-            {
-                <CareerTimelineTab />
-            }
-            else
-            {
-                <EventsAuditTab />
-            }
-        </div>
-    </div>
-
-    <ChangeRankModal />
-    <ChangePositionModal />
-    <VoidEventModal />
+    }
 </div>
-
-@code {
-    [Parameter] public Guid PersonId { get; set; }
-
-    private string Tab { get; set; } = "career";
-
-    private void ShowCareer() => Tab = "career";
-    private void ShowAudit() => Tab = "audit";
-}

@@ -9,7 +9,7 @@ using AngleSharp.Dom;
 using Bunit;
 using eRaven.Application.DTOs;
 using eRaven.Application.Queries;
-using eRaven.Components.Pages.Persons.Registry.Drawer;
+using eRaven.Components.Pages.Persons.Registry.Drawers;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -209,7 +209,7 @@ public sealed class CreateCandidateDrawerTests : BunitContext
         // arrange
         _vacantQuery
             .Setup(x => x.HandleAsync(It.IsAny<GetVacantPositionUnitsQuery>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((IReadOnlyList<PositionUnitOptionDto>)
+            .ReturnsAsync(
             [
                 new(Guid.NewGuid(), "BBS-001", "S", "F", "R", "T")
             ]);

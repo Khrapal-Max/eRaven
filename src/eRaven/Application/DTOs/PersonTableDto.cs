@@ -12,7 +12,7 @@ namespace eRaven.Application.DTOs;
 /// <summary>
 /// Модель для табличного відображення персони
 /// </summary>
-public sealed record PersonRowDto(
+public sealed record PersonTableDto(
     Guid Id,
     string FullName,
     string Rnokpp,

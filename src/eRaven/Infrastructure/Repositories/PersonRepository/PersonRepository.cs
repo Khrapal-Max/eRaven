@@ -52,7 +52,7 @@ public sealed class PersonRepository(
         return agg;
     }
 
-    public async Task<PagedResult<PersonRowDto>> GetPersonsPageAsync(GetPersonsPageQuery q, CancellationToken ct = default)
+    public async Task<PagedResult<PersonTableDto>> GetPersonsPageAsync(GetPersonsPageQuery q, CancellationToken ct = default)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(q.Page, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(q.PageSize, 1);
@@ -115,7 +115,7 @@ public sealed class PersonRepository(
         var items = await query
             .Skip(skip)
             .Take(q.PageSize)
-            .Select(x => new PersonRowDto(
+            .Select(x => new PersonTableDto(
                 x.Id,
                 x.FullName,
                 x.Rnokpp,
@@ -131,7 +131,37 @@ public sealed class PersonRepository(
             ))
             .ToListAsync(ct);
 
-        return new PagedResult<PersonRowDto>(items, q.Page, q.PageSize, total);
+        return new PagedResult<PersonTableDto>(items, q.Page, q.PageSize, total);
+    }
+
+    public async Task<PersonDto?> GetPersonCardAsync(Guid id, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var x = await db.PersonRead
+            .AsNoTracking()
+            .SingleOrDefaultAsync(p => p.Id == id, ct);
+
+        if (x is null)
+            return null;
+
+        return new PersonDto(
+            Id: x.Id,
+            FullName: x.FullName,
+            Rnokpp: x.Rnokpp,
+            Lifecycle: x.Lifecycle,
+            EnrollmentKind: x.EnrollmentKind, // має бути nullable в RM
+            Rank: x.Rank,
+            Position: x.Position,
+            TemporaryPosition: x.TemporaryPosition,
+            PlannedPosition: x.PlannedPosition,
+            EnrolledAt: x.EnrolledAt,
+            ExcludedAt: x.ExcludedAt,
+            UpdatedAtUtc: x.UpdatedAtUtc,
+            Bzvp: x.Bzvp,
+            Weapon: x.Weapon,
+            Callsign: x.Callsign
+        );
     }
 
     public async Task SaveAsync(PersonAggregate agg, long expectedVersion, CancellationToken ct = default)

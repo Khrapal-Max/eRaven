@@ -15,13 +15,15 @@ namespace eRaven.Components.Pages.Persons.Registry;
 public partial class PersonsRegistry
 {
     [Inject] public ICommandHandler<CreatePersonCandidateCommand, Guid> CreateCandidate { get; set; } = default!;
-    [Inject] public IQueryHandler<GetPersonsPageQuery, PagedResult<PersonRowDto>> PersonsQuery { get; set; } = default!;
+    [Inject] public IQueryHandler<GetPersonsPageQuery, PagedResult<PersonTableDto>> PersonsQuery { get; set; } = default!;
 
-    private List<PersonRowDto> _items = [];
+    [Inject] public NavigationManager NavigationManager { get; set; } = default!;
+
+    private List<PersonTableDto> _items = [];
     private bool _loading;
     private bool _createOpen;
 
-    private PersonRowDto? _selected;
+    private PersonTableDto? _selected;
 
     private string? _search;
 
@@ -103,15 +105,17 @@ public partial class PersonsRegistry
         await ReloadAsync();
     }
 
-    private Task OnSelectedChanged(PersonRowDto? row)
+    private Task OnSelectedChanged(PersonTableDto? row)
     {
         _selected = row;
         return Task.CompletedTask;
     }
 
-    private Task OnRowClick(PersonRowDto row)
+    private Task OnRowClick(PersonTableDto row)
     {
         // TODO: навігація/панель деталей
         return Task.CompletedTask;
     }
+
+    private void OpenCard(PersonTableDto p) => NavigationManager.NavigateTo($"/persons/{p.Id}");
 }

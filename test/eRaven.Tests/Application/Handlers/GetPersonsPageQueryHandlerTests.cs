@@ -30,7 +30,7 @@ public sealed class GetPersonsPageQueryHandlerTests
             Lifecycle: PersonLifecycle.Enrolled,
             EnrollmentKind: EnrollmentKind.Unit);
 
-        var items = new List<PersonRowDto>
+        var items = new List<PersonTableDto>
         {
             new(
                 Id: Guid.NewGuid(),
@@ -48,7 +48,7 @@ public sealed class GetPersonsPageQueryHandlerTests
             )
         };
 
-        var expected = new PagedResult<PersonRowDto>(
+        var expected = new PagedResult<PersonTableDto>(
             Items: items,
             Page: q.Page,
             PageSize: q.PageSize,
@@ -79,7 +79,7 @@ public sealed class GetPersonsPageQueryHandlerTests
 
         var q = new GetPersonsPageQuery(Page: 1, PageSize: 50);
 
-        var expected = new PagedResult<PersonRowDto>(
+        var expected = new PagedResult<PersonTableDto>(
             Items: [],
             Page: 1,
             PageSize: 50,

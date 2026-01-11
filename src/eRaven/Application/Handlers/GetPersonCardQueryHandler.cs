@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// GetPersonsQueryHandler
+// GetPersonCardQueryHandler
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs;
@@ -11,11 +11,11 @@ using eRaven.Infrastructure.Repositories.PersonRepository;
 
 namespace eRaven.Application.Handlers;
 
-public sealed class GetPersonsPageQueryHandler(IPersonRepository repo)
-    : IQueryHandler<GetPersonsPageQuery, PagedResult<PersonTableDto>>
+public sealed class GetPersonCardQueryHandler(IPersonRepository repo)
+    : IQueryHandler<GetPersonCardQuery, PersonDto?>
 {
     private readonly IPersonRepository _repo = repo;
 
-    public async Task<PagedResult<PersonTableDto>> HandleAsync(GetPersonsPageQuery query, CancellationToken ct = default)
-        => await _repo.GetPersonsPageAsync(query, ct);
+    public Task<PersonDto?> HandleAsync(GetPersonCardQuery query, CancellationToken ct = default)
+        => _repo.GetPersonCardAsync(query.PersonId, ct);
 }

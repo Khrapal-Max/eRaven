@@ -29,3 +29,9 @@
         </div>
     </div>
 </div>
+
+@code {
+    [Parameter] public Guid PersonId { get; set; }
+
+    [Parameter] public Guid? TargetEventId { get; set; }
+}

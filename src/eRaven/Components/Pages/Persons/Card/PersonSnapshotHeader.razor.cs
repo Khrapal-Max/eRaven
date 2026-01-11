@@ -2,29 +2,23 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonsTable
+// PersonHeader
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs;
 using eRaven.Domain.Enums;
 using Microsoft.AspNetCore.Components;
 
-namespace eRaven.Components.Pages.Persons.Registry;
+namespace eRaven.Components.Pages.Persons.Card;
 
-public partial class PersonsTable
+public partial class PersonSnapshotHeader
 {
-    [Parameter] public IReadOnlyList<PersonTableDto> Items { get; set; } = [];
-    [Parameter] public PersonTableDto? Selected { get; set; }
-    [Parameter] public EventCallback<PersonTableDto?> SelectedChanged { get; set; }
+    [Parameter, EditorRequired] public PersonDto Person { get; set; } = default!;
+    [Parameter] public Guid PersonId { get; set; }
 
-    [Parameter] public EventCallback<PersonTableDto> OnRowClick { get; set; }
+    [Inject] public NavigationManager NavigationManager { get; set; } = default!;
 
-    // Чернетка: окремо “відкрити картку”
-    [Parameter] public EventCallback<PersonTableDto> OnOpenCard { get; set; }
-
-    private Task OpenCard(PersonTableDto row)
-        => OnOpenCard.HasDelegate ? OnOpenCard.InvokeAsync(row)
-                                  : (OnRowClick.HasDelegate ? OnRowClick.InvokeAsync(row) : Task.CompletedTask);
+    private void Back() => NavigationManager.NavigateTo("/persons");
 
     private static RenderFragment LifecycleBadge(PersonLifecycle lc) => builder =>
     {

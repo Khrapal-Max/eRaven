@@ -1,6 +1,6 @@
 ﻿@page "/persons"
 @using eRaven.Application.DTOs
-@using eRaven.Components.Pages.Persons.Registry.Drawer
+@using eRaven.Components.Pages.Persons.Registry.Drawers
 
 <div class="page-flex">
 
@@ -23,7 +23,8 @@
         <div class="page-content">
             <PersonsTable Items="_items"
                           Selected="_selected"
-                          SelectedChanged="OnSelectedChanged"
+                          SelectedChanged="OnSelectedChanged"                         
+                          OnOpenCard="OpenCard" 
                           OnRowClick="OnRowClick" />
         </div>
 
