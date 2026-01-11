@@ -17,5 +17,5 @@ public sealed class GetPersonCardQueryHandler(IPersonRepository repo)
     private readonly IPersonRepository _repo = repo;
 
     public Task<PersonDto?> HandleAsync(GetPersonCardQuery query, CancellationToken ct = default)
-        => _repo.GetPersonCardAsync(query.PersonId, ct);
+        => _repo.GetPersonByIdAsync(query.PersonId, ct);
 }

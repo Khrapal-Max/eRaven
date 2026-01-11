@@ -17,7 +17,7 @@ public interface IPersonRepository
 
     Task<PagedResult<PersonTableDto>> GetPersonsPageAsync(GetPersonsPageQuery query, CancellationToken ct = default);
 
-    Task<PersonDto?> GetPersonCardAsync(Guid id, CancellationToken ct = default);
+    Task<PersonDto?> GetPersonByIdAsync(Guid id, CancellationToken ct = default);
 
     Task SaveAsync(PersonAggregate agg, long expectedVersion, CancellationToken ct = default);
 }

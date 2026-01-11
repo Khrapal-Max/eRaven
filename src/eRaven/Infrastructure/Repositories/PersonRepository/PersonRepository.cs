@@ -134,7 +134,7 @@ public sealed class PersonRepository(
         return new PagedResult<PersonTableDto>(items, q.Page, q.PageSize, total);
     }
 
-    public async Task<PersonDto?> GetPersonCardAsync(Guid id, CancellationToken ct = default)
+    public async Task<PersonDto?> GetPersonByIdAsync(Guid id, CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
