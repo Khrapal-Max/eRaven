@@ -14,6 +14,7 @@ using eRaven.Infrastructure.Projectors;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 using eRaven.Tests.Extensions;
 using Microsoft.EntityFrameworkCore;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace eRaven.Tests.Infrastructure.Repositories;
 
@@ -473,5 +474,59 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             AsOfDate: new DateOnly(2026, 01, 13)
         ));
         Assert.DoesNotContain(after.Items, x => x.Id == personId);
+    }
+
+    [Fact]
+    public async Task GetPersonByIdAsync_when_not_found_should_return_null()
+    {
+        var dto = await _repo.GetPersonByIdAsync(Guid.NewGuid());
+        Assert.Null(dto);
+    }
+
+    [Fact]
+    public async Task GetPersonByIdAsync_when_not_found_should_return_person()
+    {
+        var mainPos = Guid.NewGuid();
+
+        await SeedPositionsAsync(
+            NewPos(mainPos, PositionUnitState.Vacant, number: 41));
+
+        var time = NowUtc.AddMinutes(1);
+
+        var personId = Guid.NewGuid();
+        var agg = PersonAggregate.CreateCandidate(
+            id: personId,
+            personal: Personal(rnokpp: "6666666666"),
+            plannedPosition: "Reserve",
+            plannedPositionUnitId: mainPos,
+            author: "tester",
+            nowUtc: time);
+
+        await _repo.SaveAsync(agg, expectedVersion: 0); // v1
+
+        var person = await _repo.GetPersonByIdAsync(personId, default);
+
+        Assert.NotNull(person);
+
+        Assert.Equal(personId, person!.Id);
+        Assert.Equal("Ivanov Ivan", person.FullName);
+        Assert.Equal("6666666666", person.Rnokpp);
+
+        Assert.Equal(PersonLifecycle.Candidate, person.Lifecycle);
+        Assert.Equal(EnrollmentKind.Recruit, person.EnrollmentKind);
+        Assert.Null(person.Rank);
+
+        Assert.Null(person.Position);
+        Assert.Null(person.TemporaryPosition);
+        Assert.Equal("Reserve", person.PlannedPosition);
+
+        Assert.Null(person.EnrolledAt);
+        Assert.Null(person.ExcludedAt);
+
+        Assert.Null(person.Bzvp);
+        Assert.Null(person.Weapon);
+        Assert.Null(person.Callsign);
+
+        Assert.Equal(time, person.UpdatedAtUtc);
     }
 }
