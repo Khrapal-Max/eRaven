@@ -2,46 +2,51 @@
 @using eRaven.Application.DTOs
 @using eRaven.Components.Pages.Persons.Registry.Modals
 
-<div class="page-content">
+<div class="page-flex">
+
     <RegistryToolbar OnCreateCandidate="OpenCreateCandidate" />
 
     @if (_loading)
     {
-        <p class="px-3"><em>Завантаження...</em></p>
+        <div class="page-content">
+            <p class="px-3"><em>Завантаження...</em></p>
+        </div>
     }
     else if (_items.Count == 0)
     {
-        <p class="px-3"><em>Записів немає.</em></p>
+        <div class="page-content">
+            <p class="px-3"><em>Записів немає.</em></p>
+        </div>
     }
     else
     {
-        <PersonsTable Items="_items"
-                      Selected="_selected"
-                      SelectedChanged="OnSelectedChanged"
-                      OnRowClick="OnRowClick" />
+        <div class="page-content">
+            <PersonsTable Items="_items"
+                          Selected="_selected"
+                          SelectedChanged="OnSelectedChanged"
+                          OnRowClick="OnRowClick" />
+        </div>
 
-        <div class="d-flex align-items-center justify-content-between px-3 py-2 border-top">
-            <div class="small text-muted">
+        <div class="d-flex align-items-center justify-content-between px-3 py-2 border-top flex-shrink-0">
+            <div class="small">
                 Показано: @_items.Count • Сторінка @CurrentPage • Всього: @_totalCount
             </div>
 
             <div class="btn-group">
-                <button class="btn btn-sm btn-outline-secondary"
-                        disabled="@(!HasPrev)"
-                        @onclick="PrevPage">
-                    ‹
-                </button>
+                <Button Class="btn-sm btn-outline-secondary"
+                        Label="‹"
+                        IsDisabled="@(!HasPrev)"
+                        OnClickButton="PrevPage"/>
 
-                <button class="btn btn-sm btn-outline-secondary"
-                        disabled="@(!HasNext)"
-                        @onclick="NextPage">
-                    ›
-                </button>
+                <Button Class="btn-sm btn-outline-secondary"
+                        Label="›"
+                        IsDisabled="@(!HasNext)"
+                        OnClickButton="NextPage" />
             </div>
         </div>
     }
 </div>
 
-<CreateCandidateModal IsOpen="@_createOpen"
-                      IsOpenChanged="v => _createOpen = v"
-                      OnCreate="HandleCreateCandidate" />
+<CreateCandidateDrawer IsOpen="@_createOpen"
+                       IsOpenChanged="v => _createOpen = v"
+                       OnCreate="HandleCreateCandidate" />

@@ -26,7 +26,7 @@ public partial class PersonsRegistry
     private string? _search;
 
     private int _page = 1;
-    private int _pageSize = 50;
+    private int _pageSize = 10;
     private int _totalCount = 0;
 
     private int CurrentPage => _page;
@@ -75,7 +75,7 @@ public partial class PersonsRegistry
             // AsOfDate/Lifecycle/EnrollmentKind підключиш пізніше
             ));
 
-            _items = result.Items.ToList();
+            _items = [.. result.Items];
             _totalCount = result.TotalCount;
 
             // якщо вибраний зник після фільтрів/пагінації — скинути

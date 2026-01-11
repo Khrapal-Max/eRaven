@@ -23,12 +23,12 @@ public enum EnrollmentKind
     Unit = 1,
 
     /// <summary>
-    /// Приряджений (по наказу).
+    /// Приряджений (по наказу). не офіційно
     /// </summary>
     AttachedByOrder = 2,
 
     /// <summary>
-    /// Приряджений (по списку).
+    /// Приряджений (по списку). офіційно
     /// </summary>
     AttachedByList = 3
 }
