@@ -12,7 +12,6 @@ using eRaven.Application.Queries;
 using eRaven.Components.Pages.Persons.Registry.Drawer;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
