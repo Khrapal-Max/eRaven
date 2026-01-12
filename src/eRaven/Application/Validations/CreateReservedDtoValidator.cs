@@ -38,17 +38,5 @@ public sealed class CreateReservedDtoValidator : AbstractValidator<CreateReserve
         RuleFor(x => x.Position)
             .MaximumLength(512).WithMessage("Посада занадто довга (макс. 512).")
             .When(x => !string.IsNullOrWhiteSpace(x.Position));
-
-        RuleFor(x => x.Bzvp)
-            .MaximumLength(128).WithMessage("БЗВП занадто довге (макс. 128).")
-            .When(x => !string.IsNullOrWhiteSpace(x.Bzvp));
-
-        RuleFor(x => x.Weapon)
-            .MaximumLength(128).WithMessage("Зброя занадто довга (макс. 128).")
-            .When(x => !string.IsNullOrWhiteSpace(x.Weapon));
-
-        RuleFor(x => x.Callsign)
-            .MaximumLength(128).WithMessage("Позивний занадто довгий (макс. 128).")
-            .When(x => !string.IsNullOrWhiteSpace(x.Callsign));
     }
 }

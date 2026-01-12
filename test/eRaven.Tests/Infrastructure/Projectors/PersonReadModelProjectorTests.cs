@@ -123,9 +123,6 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Personal: Personal(middle: "Ivanovich"),
             Rank: " Сержант ",
             Position: " Стрілець ",
-            Bzvp: " A123 ",
-            Weapon: " AK ",
-            Callsign: " Fox ",
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -152,9 +149,9 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
                 fullName: "Ivanov Ivan Ivanovich",
                 rank: "Сержант",
                 position: "Стрілець",
-                bzvp: "A123",
-                weapon: "AK",
-                callsign: "Fox",
+                bzvp: null,
+                weapon: null,
+                callsign: null,
                 enrolledAt: null,
                 excludedAt: null,
                 version: 1);
@@ -172,9 +169,6 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Personal: Personal(),
             Rank: null,
             Position: null,
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -213,9 +207,6 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Personal: Personal(middle: "M"),
             Rank: "Сержант",
             Position: "P",
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -285,9 +276,6 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Personal: Personal(middle: "M"),
             Rank: null,
             Position: null,
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -350,7 +338,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Excluded_sets_lifecycle_reserved_and_excluded_date_and_does_not_clear_other_fields()
+    public async Task Excluded_sets_lifecycle_reserved_and_excluded_date_and_does_not_clear_other_fields_including_bzvp_weapon_callsign()
     {
         var id = Guid.NewGuid();
 
@@ -360,9 +348,6 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Personal: Personal(),
             Rank: "Солдат",
             Position: "Оператор",
-            Bzvp: "B",
-            Weapon: "W",
-            Callsign: "C",
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -378,19 +363,50 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
 
+        // simulate "card changes" after enroll
+        var bzvpChanged = new PersonBzvpChanged(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            EffectiveDate: new DateOnly(2026, 01, 12),
+            Bzvp: "B",
+            Note: null,
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(2));
+
+        var weaponChanged = new PersonWeaponChanged(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            EffectiveDate: new DateOnly(2026, 01, 12),
+            Weapon: "W",
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(3));
+
+        var callsignChanged = new PersonCallsignChanged(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            EffectiveDate: new DateOnly(2026, 01, 12),
+            Callsign: "C",
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(4));
+
         var excluded = new PersonExcluded(
             EventId: Guid.NewGuid(),
             AggregateId: id,
             Reason: "excluded",
             EffectiveDate: new DateOnly(2026, 01, 31),
             Author: "tester",
-            OccurredAtUtc: NowUtc.AddMinutes(2));
+            OccurredAtUtc: NowUtc.AddMinutes(5));
 
         await using (var ctx = _db.Factory.CreateDbContext())
         {
             await _projector.ProjectAsync(ctx, ToRecord(created, 1));
             await _projector.ProjectAsync(ctx, ToRecord(enrolled, 2, enrolled.EnrollDate));
-            await _projector.ProjectAsync(ctx, ToRecord(excluded, 3, excluded.EffectiveDate));
+
+            await _projector.ProjectAsync(ctx, ToRecord(bzvpChanged, 3, bzvpChanged.EffectiveDate));
+            await _projector.ProjectAsync(ctx, ToRecord(weaponChanged, 4, weaponChanged.EffectiveDate));
+            await _projector.ProjectAsync(ctx, ToRecord(callsignChanged, 5, callsignChanged.EffectiveDate));
+
+            await _projector.ProjectAsync(ctx, ToRecord(excluded, 6, excluded.EffectiveDate));
             await ctx.SaveChangesAsync();
         }
 
@@ -400,11 +416,13 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
 
             Assert.Equal(PersonLifecycle.Reserved, rm.Lifecycle);
             Assert.Equal(new DateOnly(2026, 01, 31), rm.ExcludedAt);
-            Assert.Equal(3, rm.Version);
+            Assert.Equal(6, rm.Version);
 
             // ✅ must keep other fields
             Assert.Equal("Солдат", rm.Rank);
             Assert.Equal("Оператор", rm.Position);
+
+            // ✅ must keep "card fields" too (exclude shouldn't clear them)
             Assert.Equal("B", rm.Bzvp);
             Assert.Equal("W", rm.Weapon);
             Assert.Equal("C", rm.Callsign);
@@ -422,9 +440,6 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Personal: Personal(),
             Rank: null,
             Position: null,
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(0));
 
@@ -520,9 +535,6 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Personal: Personal(),
             Rank: null,
             Position: null,
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(0));
 
@@ -613,9 +625,6 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Personal: Personal(),
             Rank: null,
             Position: null,
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -749,9 +758,6 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Personal: new PersonalInfo("1234567890", "Ivanov", "Ivan", null),
             Rank: null,
             Position: null,
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "t",
             OccurredAtUtc: NowUtc);
 

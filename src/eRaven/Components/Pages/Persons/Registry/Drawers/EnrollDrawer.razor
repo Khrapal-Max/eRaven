@@ -29,17 +29,31 @@
                 <div class="drawer-grow">
                     <!-- поточна "картка" Reserved -->
                     <div class="mb-3">
-                        <div class="fw-semibold">@_person.FullName</div>
-                        <div class="small text-muted">
-                            РНОКПП: <span class="font-monospace">@_person.Rnokpp</span>
-                            · Статус: <span class="ms-1">@_person.Lifecycle</span>
-                            @if (_person.ExcludedAt is not null)
-                            {
-                                <span>· викл.: @_person.ExcludedAt.Value.ToString("dd.MM.yyyy")</span>
-                            }
+                        <div class="d-flex justify-content-between align-items-start w-100 gap-3">
+
+                            <!-- Left -->
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="fw-semibold text-truncate">@_person.FullName</div>
+
+                                <div class="small">
+                                    РНОКПП: <span class="font-monospace">@_person.Rnokpp</span>
+                                    · Статус: <span class="ms-1">@_person.Lifecycle</span>
+                                    @if (_person.ExcludedAt is not null)
+                                    {
+                                        <span>· викл.: @_person.ExcludedAt.Value.ToString("dd.MM.yyyy")</span>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Right -->
+                            <div class="small text-end text-nowrap">
+                                <div>ID: <span class="font-monospace">@_person.Id</span></div>
+                                <div>Оновлено: @_person.UpdatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                            </div>
+
                         </div>
 
-                        <div class="small text-muted">
+                        <div class="small">
                             Поточні дані:
                             звання: <span class="ms-1">@(_person.Rank ?? "—")</span> ·
                             посада: <span class="ms-1">@(_person.Position ?? "—")</span> ·
@@ -82,7 +96,15 @@
 
                             <div class="col-12 col-md-4">
                                 <label class="form-label mb-1">Звання</label>
-                                <InputText class="form-control rounded-0" @bind-Value="Model.Rank" />
+
+                                <InputSelect class="form-select rounded-0" @bind-Value="Model.Rank">
+                                    <option value="">—</option>
+                                    @foreach (var r in _ranks)
+                                    {
+                                        <option value="@r.Title">@r.Title</option>
+                                    }
+                                </InputSelect>
+
                                 <ValidationMessage For="@(() => Model.Rank)" />
                             </div>
 
@@ -113,7 +135,7 @@
         <button type="submit"
                 form="enroll-form"
                 class="btn btn-primary rounded-0"
-                disabled="@(_busy || _loading || _person is null)">
+                @attributes="SubmitAttrs">
             Зарахувати
         </button>
     </FooterContent>

@@ -5,6 +5,7 @@
 // EnrollDrawer
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.DTOs;
 using eRaven.Application.Queries;
 using eRaven.Domain.Enums;
@@ -16,15 +17,20 @@ namespace eRaven.Components.Pages.Persons.Registry.Drawers;
 public partial class EnrollDrawer
 {
     [Parameter] public bool IsOpen { get; set; }
-
     [Parameter] public Guid PersonId { get; set; }
 
     // батько виконує операцію
     [Parameter] public EventCallback<EnrollDto> OnSubmit { get; set; }
-
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
 
     [Inject] public IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?> DetailsQuery { get; set; } = default!;
+    [Inject] public IRankCatalog RankCatalog { get; set; } = default!;
+
+    private IReadOnlyDictionary<string, object>? SubmitAttrs =>
+        (_busy || _loading || _person is null)
+            ? new Dictionary<string, object> { ["disabled"] = "disabled" }
+            : null;
+    private IReadOnlyList<RankOption> _ranks = [];
 
     private bool _busy;
     private bool _wasOpen;
@@ -72,17 +78,21 @@ public partial class EnrollDrawer
         _loading = true;
         try
         {
+            _ranks = RankCatalog.GetActive();
+
             _person = await DetailsQuery.HandleAsync(new GetPersonDetailsQuery(PersonId));
 
             if (_person is not null)
             {
                 Model.Id = _person.Id;
-                // prefill з поточної картки (можна редагувати)
+
                 Model.Kind = EnrollmentKind.Unit;
-                Model.Reference = _person.EnrollmentReference; // або null
+                Model.Reference = _person.EnrollmentReference;
                 Model.EnrollDate = DateOnly.FromDateTime(DateTime.UtcNow);
 
+                // ✅ дефолт для селекта — якщо було звання, воно стане вибраним
                 Model.Rank = _person.Rank ?? string.Empty;
+
                 Model.Position = _person.Position ?? string.Empty;
             }
 
@@ -100,6 +110,7 @@ public partial class EnrollDrawer
         _loading = false;
 
         _person = null;
+        _ranks = [];
         Model = new EnrollDto();
         _editContext = new EditContext(Model);
     }
@@ -161,8 +172,8 @@ public partial class EnrollDrawer
     private static string KindTitle(EnrollmentKind k) => k switch
     {
         EnrollmentKind.Unit => "У штат (Unit)",
-        EnrollmentKind.AttachedByOrder => "Прикріплено наказом",
-        EnrollmentKind.AttachedByList => "Прикріплено списком",
+        EnrollmentKind.AttachedByOrder => "Приряджений БР",
+        EnrollmentKind.AttachedByList => "Приряджений наказом",
         _ => k.ToString()
     };
 }

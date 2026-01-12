@@ -16,7 +16,4 @@ public sealed class CreateReservedDto
 
     public string? Rank { get; set; }
     public string? Position { get; set; }
-    public string? Bzvp { get; set; }
-    public string? Weapon { get; set; }
-    public string? Callsign { get; set; }
 }

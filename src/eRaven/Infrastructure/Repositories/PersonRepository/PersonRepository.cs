@@ -178,9 +178,6 @@ public sealed class PersonRepository(
             personal: personal,
             rank: cmd.Rank,
             position: cmd.Position,
-            bzvp: cmd.Bzvp,
-            weapon: cmd.Weapon,
-            callsign: cmd.Callsign,
             author: cmd.Author,
             nowUtc: cmd.NowUtc);
 

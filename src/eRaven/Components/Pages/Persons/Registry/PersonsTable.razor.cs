@@ -16,12 +16,8 @@ public partial class PersonsTable
     [Parameter] public IReadOnlyList<PersonListItemDto> Items { get; set; } = [];
     [Parameter] public PersonListItemDto? Selected { get; set; }
     [Parameter] public EventCallback<PersonListItemDto?> SelectedChanged { get; set; }
-
     [Parameter] public EventCallback<PersonListItemDto> OnRowClick { get; set; }
-
     [Parameter] public EventCallback<PersonListItemDto> OnOpenCard { get; set; }
-
-    // NEW
     [Parameter] public EventCallback<PersonListItemDto> OnEnroll { get; set; }
     [Parameter] public EventCallback<PersonListItemDto> OnExclude { get; set; }
 
@@ -69,9 +65,9 @@ public partial class PersonsTable
         // AttachedByList = "Наказ"
         var (text, cls) = kind.Value switch
         {
-            EnrollmentKind.Unit => ("Штат", "badge text-bg-success"),
-            EnrollmentKind.AttachedByOrder => ("БР", "badge text-bg-warning"),
-            EnrollmentKind.AttachedByList => ("Наказ", "badge text-bg-success"),
+            EnrollmentKind.Unit => ("Штат", "badge bg-success"),
+            EnrollmentKind.AttachedByOrder => ("БР", "badge bg-warning"),
+            EnrollmentKind.AttachedByList => ("Наказ", "badge bg-info-subtle"),
             _ => (kind.Value.ToString(), "badge text-bg-secondary")
         };
 

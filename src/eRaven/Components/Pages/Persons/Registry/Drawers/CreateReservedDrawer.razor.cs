@@ -82,9 +82,6 @@ public partial class CreateReservedDrawer
 
             Model.Rank = TrimOrNull(Model.Rank);
             Model.Position = TrimOrNull(Model.Position);
-            Model.Bzvp = TrimOrNull(Model.Bzvp);
-            Model.Weapon = TrimOrNull(Model.Weapon);
-            Model.Callsign = TrimOrNull(Model.Callsign);
 
             await OnCreate.InvokeAsync(Model);
 

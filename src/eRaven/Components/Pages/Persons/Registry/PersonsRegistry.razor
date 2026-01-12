@@ -35,4 +35,24 @@
                   IsOpenChanged="@(v => _enrollOpen = v)"
                   PersonId="_enrollPersonId"
                   OnSubmit="HandleEnrollSubmitAsync" />
+
+    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+
+        <div class="small text-center">
+            Сторінка <span class="fw-semibold">@_page</span> із <span class="fw-semibold">@TotalPages</span>
+            <span class="ms-2">·</span>
+            <span class="ms-2">Всього: <span class="fw-semibold">@_pageData.TotalCount</span></span>
+        </div>
+        <div class="px-3 py-2 border-top d-flex justify-content-end gap-2">
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="← Назад"
+                    OnClickButton="PrevPage"
+                    IsDisabled="@IsPrevDisabled" />
+
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="Далі →"
+                    OnClickButton="NextPage"
+                    IsDisabled="@IsNextDisabled" />
+        </div>
+    </div>
 </div>      

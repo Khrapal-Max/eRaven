@@ -25,7 +25,7 @@ public partial class PersonsRegistry
     private bool _loading;
 
     private int _page = 1;
-    private int _pageSize = 8;
+    private int _pageSize = 6;
     private string? _search;
 
     private PagedResult<PersonListItemDto> _pageData = new([], 1, 25, 0);
@@ -36,6 +36,12 @@ public partial class PersonsRegistry
     // NEW: enroll drawer state
     private bool _enrollOpen;
     private Guid _enrollPersonId;
+
+    private int TotalPages =>
+    _pageData.TotalCount <= 0 ? 1 : (int)Math.Ceiling(_pageData.TotalCount / (double)_pageSize);
+
+    private bool IsPrevDisabled => _loading || _page <= 1;
+    private bool IsNextDisabled => _loading || _page >= TotalPages;
 
     protected override async Task OnInitializedAsync()
         => await ReloadAsync();
@@ -113,9 +119,6 @@ public partial class PersonsRegistry
              MiddleName: dto.MiddleName,
              Rank: dto.Rank,
              Position: dto.Position,
-             Bzvp: dto.Bzvp,
-             Weapon: dto.Weapon,
-             Callsign: dto.Callsign,
              Author: "system", // TODO : додати авторизацію користувачів
              NowUtc: DateTime.UtcNow);
 
@@ -154,5 +157,19 @@ public partial class PersonsRegistry
         {
             Toasts.Error("Помилка", "Сталася неочікувана помилка. Спробуйте ще раз.");
         }
+    }
+
+    private async Task PrevPage()
+    {
+        if (IsPrevDisabled) return;
+        _page--;
+        await ReloadAsync();
+    }
+
+    private async Task NextPage()
+    {
+        if (IsNextDisabled) return;
+        _page++;
+        await ReloadAsync();
     }
 }

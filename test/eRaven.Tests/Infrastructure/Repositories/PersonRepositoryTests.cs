@@ -49,10 +49,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
         string first = "Ivan",
         string? middle = null,
         string? rank = null,
-        string? position = null,
-        string? bzvp = null,
-        string? weapon = null,
-        string? callsign = null)
+        string? position = null)
         => new(
             PersonId: id,
             Rnokpp: rnokpp,
@@ -61,9 +58,6 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             MiddleName: middle,
             Rank: rank,
             Position: position,
-            Bzvp: bzvp,
-            Weapon: weapon,
-            Callsign: callsign,
             Author: "tester",
             NowUtc: NowUtc);
 
@@ -91,10 +85,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             rnokpp: "1234567890",
             middle: "Ivanovich",
             rank: " Сержант ",
-            position: " Стрілець ",
-            bzvp: " A123 ",
-            weapon: " AK ",
-            callsign: " Fox "));
+            position: " Стрілець "));
 
         await using var ctx = _db.Factory.CreateDbContext();
 
@@ -116,9 +107,9 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
         // normalized
         Assert.Equal("Сержант", rm.Rank);
         Assert.Equal("Стрілець", rm.Position);
-        Assert.Equal("A123", rm.Bzvp);
-        Assert.Equal("AK", rm.Weapon);
-        Assert.Equal("Fox", rm.Callsign);
+        Assert.Null(rm.Bzvp);
+        Assert.Null(rm.Weapon);
+        Assert.Null(rm.Callsign);
 
         Assert.Null(rm.EnrolledAt);
         Assert.Null(rm.ExcludedAt);

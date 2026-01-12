@@ -70,9 +70,6 @@ public sealed class PersonAggregate
         PersonalInfo personal,
         string? rank,
         string? position,
-        string? bzvp,
-        string? weapon,
-        string? callsign,
         string author,
         DateTime nowUtc)
     {
@@ -92,9 +89,6 @@ public sealed class PersonAggregate
             Personal: personal,
             Rank: Normalize(rank),
             Position: Normalize(position),
-            Bzvp: Normalize(bzvp),
-            Weapon: Normalize(weapon),
-            Callsign: Normalize(callsign),
             Author: author.Trim(),
             OccurredAtUtc: nowUtc
         ));
@@ -389,10 +383,6 @@ public sealed class PersonAggregate
 
                 Rank = Normalize(x.Rank);
                 Position = Normalize(x.Position);
-
-                BZVP = Normalize(x.Bzvp);
-                Weapon = Normalize(x.Weapon);
-                Callsign = Normalize(x.Callsign);
 
                 EnrollmentKind = null;
                 EnrollmentReference = null;

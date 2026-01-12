@@ -13,6 +13,7 @@ namespace eRaven.Components.Shared.Drawer;
 public partial class Drawer
 {
     private ElementReference _panelRef;
+    private bool _wasOpen;
 
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
@@ -47,11 +48,19 @@ public partial class Drawer
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Коли drawer відкривається — ставимо фокус на панель, щоб працював ESC
-        if (IsOpen)
+        // ✅ Фокус ставимо ТІЛЬКИ при відкритті (transition closed -> open)
+        if (IsOpen && !_wasOpen)
         {
+            _wasOpen = true;
+
+            // фокус потрібен лише якщо хочеш ловити ESC навіть без кліку в контент
             await _panelRef.FocusAsync();
+            return;
         }
+
+        // ✅ при закритті — скидаємо флаг
+        if (!IsOpen && _wasOpen)
+            _wasOpen = false;
     }
 
     private async Task HandleBackdropClick()
@@ -67,10 +76,9 @@ public partial class Drawer
         if (!IsOpen || DisableClose || !CloseOnEscape)
             return;
 
+        // ✅ важливо: не роби нічого для інших клавіш
         if (e.Key is "Escape")
-        {
             await CloseAsync();
-        }
     }
 
     public async Task OpenAsync()

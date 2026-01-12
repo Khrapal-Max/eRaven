@@ -39,9 +39,6 @@ public sealed class PersonAggregateTests
             Personal: Personal(),
             Rank: " Сержант ",
             Position: " Стрілець ",
-            Bzvp: " A123 ",
-            Weapon: " AK ",
-            Callsign: " Fox ",
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -61,9 +58,9 @@ public sealed class PersonAggregateTests
 
         Assert.Equal("Сержант", sut.Rank);
         Assert.Equal("Стрілець", sut.Position);
-        Assert.Equal("A123", sut.BZVP);
-        Assert.Equal("AK", sut.Weapon);
-        Assert.Equal("Fox", sut.Callsign);
+        Assert.Null(sut.BZVP);
+        Assert.Null(sut.Weapon);
+        Assert.Null(sut.Callsign);
 
         Assert.Null(sut.EnrolledAt);
         Assert.Null(sut.ExcludedAt);
@@ -84,9 +81,6 @@ public sealed class PersonAggregateTests
             Personal: Personal(),
             Rank: null,
             Position: null,
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
 
@@ -131,9 +125,6 @@ public sealed class PersonAggregateTests
             Personal: Personal(),
             Rank: null,
             Position: null,
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -187,9 +178,6 @@ public sealed class PersonAggregateTests
             Personal: Personal(),
             Rank: "Сержант",
             Position: "P",
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
 
@@ -237,9 +225,6 @@ public sealed class PersonAggregateTests
             personal: Personal(),
             rank: " Сержант ",
             position: " Стрілець ",
-            bzvp: " A123 ",
-            weapon: " AK ",
-            callsign: " Fox ",
             author: " tester ",
             nowUtc: NowUtc);
 
@@ -248,9 +233,6 @@ public sealed class PersonAggregateTests
 
         Assert.Equal("Сержант", sut.Rank);
         Assert.Equal("Стрілець", sut.Position);
-        Assert.Equal("A123", sut.BZVP);
-        Assert.Equal("AK", sut.Weapon);
-        Assert.Equal("Fox", sut.Callsign);
 
         var evt = Assert.IsType<PersonCreated>(Assert.Single(sut.GetUncommittedChanges()));
         Assert.Equal(id, evt.AggregateId);
@@ -258,9 +240,6 @@ public sealed class PersonAggregateTests
 
         Assert.Equal("Сержант", evt.Rank);
         Assert.Equal("Стрілець", evt.Position);
-        Assert.Equal("A123", evt.Bzvp);
-        Assert.Equal("AK", evt.Weapon);
-        Assert.Equal("Fox", evt.Callsign);
     }
 
     [Fact]
@@ -274,9 +253,6 @@ public sealed class PersonAggregateTests
             Personal: Personal(),
             Rank: "Солдат",
             Position: null,
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -306,9 +282,6 @@ public sealed class PersonAggregateTests
             Personal: Personal(),
             Rank: null,                 // <- rank missing in aggregate
             Position: null,
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -340,9 +313,6 @@ public sealed class PersonAggregateTests
             Personal: Personal(),
             Rank: "Солдат",
             Position: null,
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -375,9 +345,6 @@ public sealed class PersonAggregateTests
             Personal: Personal(),
             Rank: "Сержант",
             Position: null,
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -422,9 +389,6 @@ public sealed class PersonAggregateTests
             Personal: Personal(),
             Rank: "Сержант",
             Position: "Оператор",
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -467,9 +431,6 @@ public sealed class PersonAggregateTests
             Personal: Personal(),
             Rank: "Сержант",
             Position: "Оператор",
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -493,9 +454,6 @@ public sealed class PersonAggregateTests
             Personal: Personal(),
             Rank: null,
             Position: null,
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -526,9 +484,6 @@ public sealed class PersonAggregateTests
             personal: Personal(),
             rank: null,
             position: null,
-            bzvp: null,
-            weapon: null,
-            callsign: null,
             author: "tester",
             nowUtc: NowUtc);
 
@@ -552,9 +507,6 @@ public sealed class PersonAggregateTests
             Personal: Personal(),
             Rank: "Солдат",
             Position: "Стрілець",
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc);
 
@@ -625,9 +577,6 @@ public sealed class PersonAggregateTests
             Personal: Personal(),
             Rank: "Солдат",
             Position: "Стрілець",
-            Bzvp: null,
-            Weapon: null,
-            Callsign: null,
             Author: "tester",
             OccurredAtUtc: NowUtc);
 

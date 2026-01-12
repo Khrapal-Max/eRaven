@@ -149,9 +149,6 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
             // professional / military (можуть бути заповнені вже на створенні)
             Rank = Normalize(created.Rank),
             Position = Normalize(created.Position),
-            Bzvp = Normalize(created.Bzvp),
-            Weapon = Normalize(created.Weapon),
-            Callsign = Normalize(created.Callsign),
 
             EnrolledAt = null,
             ExcludedAt = null

@@ -24,9 +24,6 @@ public sealed class CreateReservedCommandHandlerTests
         MiddleName: "Ivanovich",
         Rank: "солдат",
         Position: "стрілець",
-        Bzvp: "A000",
-        Weapon: "AK-74",
-        Callsign: "FOX",
         Author: "tester",
         NowUtc: NowUtc
     );
