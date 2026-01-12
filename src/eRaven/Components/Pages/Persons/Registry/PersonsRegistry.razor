@@ -5,6 +5,24 @@
 
     <RegistryToolbar OnCreateReserved="OpenCreateReserved" />
 
+    <div class="page-content">
+        @if (_loading)
+        {
+            <p class="px-3"><em>Завантаження...</em></p>
+        }
+        else if (_pageData.Items.Count == 0)
+        {
+            <p class="px-3"><em>Записів немає.</em></p>
+        }
+        else
+        {
+            <PersonsTable Items="_pageData.Items"
+                          Selected="@_selected"
+                          SelectedChanged="@(v => _selected = v)"
+                          OnRowClick="OnRowClick"
+                          OnOpenCard="OpenCard" />
+        }
+    </div>
 
     <CreateReservedDrawer IsOpen="@_createReservedOpen"
                           IsOpenChanged="@(v => _createReservedOpen = v)"

@@ -422,29 +422,42 @@ body {
 }
 
 /* =========================
-   Picker
+   Dropdown
    ========================= */
-.picker {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
+.dropdown-menu .dropdown-item {
+    position: relative;
 }
 
-.picker-results {
-    overflow: auto;
-    max-height: 320px; /* стабільно дає скрол */
-}
+    .dropdown-menu .dropdown-item:hover,
+    .dropdown-menu .dropdown-item:focus {
+        background-color: rgba(0,0,0,.05); /* світла тема */
+        /* для темної теми: rgba(255,255,255,.06) */
+    }
 
-.picker-table {
-    table-layout: fixed; /* щоб truncate працював прогнозовано */
-}
+        /* смужка зліва на hover */
+        .dropdown-menu .dropdown-item:hover::before,
+        .dropdown-menu .dropdown-item:focus::before {
+            content: "";
+            position: absolute;
+            left: .35rem;
+            top: .35rem;
+            bottom: .35rem;
+            width: .2rem;
+            border-radius: .25rem;
+        }
 
-.picker-selected {
-    background: #fff;
-}
+    /* колір смужки під дію */
+    .dropdown-menu .dropdown-item.action-card:hover::before,
+    .dropdown-menu .dropdown-item.action-card:focus::before {
+        background: #000;
+    }
 
-.picker-preview {
-    white-space: normal;
-    word-break: break-word;
-    line-height: 1.25;
-}
+    .dropdown-menu .dropdown-item.action-enroll:hover::before,
+    .dropdown-menu .dropdown-item.action-enroll:focus::before {
+        background: var(--bs-success);
+    }
+
+    .dropdown-menu .dropdown-item.action-exclude:hover::before,
+    .dropdown-menu .dropdown-item.action-exclude:focus::before {
+        background: var(--bs-danger);
+    }

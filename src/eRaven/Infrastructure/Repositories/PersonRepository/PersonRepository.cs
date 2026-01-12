@@ -108,7 +108,8 @@ public sealed class PersonRepository(
                 x.Position,
                 x.EnrollmentKind,
                 x.EnrolledAt,
-                x.ExcludedAt))
+                x.ExcludedAt,
+                x.UpdatedAtUtc))
             .ToListAsync(ct);
 
         return new PagedResult<PersonListItemDto>(items, page, size, total);

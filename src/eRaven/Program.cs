@@ -5,11 +5,13 @@
 // Program
 //-----------------------------------------------------------------------------
 
+using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs;
 using eRaven.Application.Handlers;
+using eRaven.Application.Queries;
 using eRaven.Application.Validations;
 using eRaven.Components;
 using eRaven.Extensions;
@@ -48,6 +50,7 @@ builder.Services.AddScoped<IPersonRepository, PersonRepository>();
 builder.Services.AddScoped<ICommandHandler<CreateReservedCommand, Guid>, CreateReservedCommandHandler>();
 
 // Query handlers
+builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>, GetPersonsPageQueryHandler>();
 
 // services
 builder.Services.AddScoped<ToastService>();

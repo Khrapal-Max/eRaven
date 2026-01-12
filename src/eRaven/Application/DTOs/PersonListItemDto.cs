@@ -18,4 +18,5 @@ public sealed record PersonListItemDto(
     string? Position,
     EnrollmentKind? EnrollmentKind,
     DateOnly? EnrolledAt,
-    DateOnly? ExcludedAt);
+    DateOnly? ExcludedAt,
+    DateTime UpdatedAtUtc);
