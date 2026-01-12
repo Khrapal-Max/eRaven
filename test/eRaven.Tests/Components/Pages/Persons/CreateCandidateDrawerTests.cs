@@ -146,7 +146,7 @@ public sealed class CreateCandidateDrawerTests : BunitContext
         // arrange
         _vacantQuery
             .Setup(x => x.HandleAsync(It.IsAny<GetVacantPositionUnitsQuery>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((IReadOnlyList<PositionUnitOptionDto>)
+            .ReturnsAsync(
             [
                 new(Guid.NewGuid(), "BBS-010", "Short", "Full name", "R", "T")
             ]);

@@ -113,7 +113,7 @@ public partial class PersonsRegistry
 
     private Task OnRowClick(PersonTableDto row)
     {
-        // TODO: навігація/панель деталей
+        // TODO : навігація/панель деталей
         return Task.CompletedTask;
     }
 

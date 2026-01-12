@@ -18,34 +18,19 @@
         <PersonSnapshotHeader Person="_person" PersonId="PersonId" />
 
         <div class="mt-2 px-2 ">
-            <ul class="nav nav-tabs px-2">
-                <li class="nav-item">
-                    <button type="button"
-                            class="nav-link @(Tab == "current" ? "active text-bg-success" : "text-bg-secondary")"
-                            @onclick="ShowCurrent">
-                        Поточний стан
-                    </button>
-                </li>
-
-                <li class="nav-item">
-                    <button type="button"
-                            class="nav-link @(Tab == "career" ? "active text-bg-success" : "text-bg-secondary")"
-                            @onclick="ShowCareer">
-                        Кар’єра
-                    </button>
-                </li>
-
-                <li class="nav-item">
-                    <button type="button"
-                            class="nav-link @(Tab == "audit" ? "active text-bg-success" : "text-bg-secondary")"
-                            @onclick="ShowAudit">
-                        Аудит подій
-                    </button>
-                </li>
+            <ul class="nav nav-tabs px-2 person-tabs">
+                @foreach (var t in Tabs)
+                {
+                    <li class="nav-item">
+                        <Button Class="@TabClass(t.Key)"
+                                Label="@t.Label"
+                                OnClickButton="@(() => SetTab(t.Key))" />
+                    </li>
+                }
             </ul>
 
             <div class="border border-top-0 p-2 p-md-3">
-                @if (Tab == "current")
+                @if (Tab == CardTab.Current)
                 {
                     <div class="row g-3">
                         <div class="col-12 col-lg-10">
@@ -62,7 +47,7 @@
                     <ChangePositionModal PersonId="PersonId" />
                     @* інші модалки редагування — пізніше *@
                 }
-                else if (Tab == "career")
+                else if (Tab == CardTab.Career)
                 {
                     <CareerTimelineTab PersonId="PersonId" />
                 }

@@ -14,7 +14,6 @@ using eRaven.Infrastructure.Projectors;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 using eRaven.Tests.Extensions;
 using Microsoft.EntityFrameworkCore;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace eRaven.Tests.Infrastructure.Repositories;
 

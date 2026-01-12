@@ -19,7 +19,6 @@ public partial class PersonCard
 
     private bool _loading;
     private PersonDto? _person;
-    private string Tab { get; set; } = "current";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -34,7 +33,23 @@ public partial class PersonCard
         }
     }
 
-    private void ShowCurrent() => Tab = "current";
-    private void ShowCareer() => Tab = "career";
-    private void ShowAudit() => Tab = "audit";
+    private enum CardTab { Current, Career, Audit }
+
+    private CardTab Tab { get; set; } = CardTab.Current;
+
+    private static readonly (CardTab Key, string Label)[] Tabs =
+    [
+        (CardTab.Current, "Поточний стан"),
+        (CardTab.Career,  "Кар’єра"),
+        (CardTab.Audit,   "Аудит подій"),
+    ];
+
+    private void SetTab(CardTab tab) => Tab = tab;
+
+    // ✅ сірі “зливаються” → даємо контрастний фон + hover
+    private string TabClass(CardTab tab) =>
+        "nav-link rounded-0 " +
+        (Tab == tab
+            ? "active fw-semibold text-success bg-white border-primary-subtle"
+            : "text-body bg-body-tertiary border-0 border-bottom border-primary-subtle");
 }

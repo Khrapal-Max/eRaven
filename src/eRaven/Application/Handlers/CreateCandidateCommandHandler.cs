@@ -28,7 +28,7 @@ public sealed class CreateCandidateCommandHandler(IPersonRepository repo)
             personal: personal,
             plannedPositionUnitId: command.PlannedPositionUnitId,
             plannedPosition: command.PlannedPosition,
-            author: "author",
+            author: "author", // TODO : заменить на реального автора
             nowUtc: DateTime.UtcNow);
 
         await _repo.SaveAsync(
