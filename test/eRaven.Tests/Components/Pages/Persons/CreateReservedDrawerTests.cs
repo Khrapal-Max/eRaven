@@ -14,7 +14,7 @@ using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
-namespace eRaven.Tests.Components.Pages.Persons.Registry;
+namespace eRaven.Tests.Components.Pages.Persons;
 
 public sealed class CreateReservedDrawerTests : BunitContext
 {
@@ -46,11 +46,7 @@ public sealed class CreateReservedDrawerTests : BunitContext
             ]);
 
         Services.AddSingleton(rankCatalog.Object);
-
-        // ToastService — щоб інжект не падав
         Services.AddSingleton(new ToastService());
-
-        // Валідатор для моделі форми
         Services.AddSingleton<IValidator<CreateReservedDto>>(new CreateReservedDtoValidator());
 
         var isOpen = true;
@@ -65,14 +61,17 @@ public sealed class CreateReservedDrawerTests : BunitContext
         // assert
         rankCatalog.Verify(x => x.GetActive(), Times.Once);
 
-        // форма є і має id, який потрібен для submit-кнопки з FooterContent
         cut.Find("form#create-reserved-form");
 
-        // rank options відрендерені
-        var select = cut.Find("select");
-        var html = select.OuterHtml;
-        Assert.Contains("солдат", html);
-        Assert.Contains("сержант", html);
+        // ✅ тепер не select, а dropdown menu
+        var menu = cut.Find("ul.dropdown-menu");
+        var menuHtml = menu.OuterHtml;
+
+        Assert.Contains("солдат", menuHtml);
+        Assert.Contains("сержант", menuHtml);
+
+        // опційно: перевірити, що кнопка-тоггл існує
+        cut.Find("button.dropdown-toggle");
     }
 
     [Fact]
@@ -83,7 +82,7 @@ public sealed class CreateReservedDrawerTests : BunitContext
         rankCatalog.Setup(x => x.GetActive())
             .Returns(
             [
-            new RankOption("солдат"),
+                new RankOption("солдат"),
             ]);
 
         Services.AddSingleton(rankCatalog.Object);
@@ -103,16 +102,36 @@ public sealed class CreateReservedDrawerTests : BunitContext
             })
         );
 
-        // act: кожен раз перевибираємо input-и заново
-        await cut.InvokeAsync(() => cut.FindAll("input.form-control")[0].Change("1234567890"));   // Rnokpp
-        await cut.InvokeAsync(() => cut.FindAll("input.form-control")[1].Change("  Ivanov  "));   // LastName
-        await cut.InvokeAsync(() => cut.FindAll("input.form-control")[2].Change("  Ivan  "));     // FirstName
-        await cut.InvokeAsync(() => cut.FindAll("input.form-control")[3].Change("  Ivanovich  "));// MiddleName
+        const string formSel = "form#create-reserved-form";
 
-        await cut.InvokeAsync(() => cut.Find("select").Change("солдат"));
+        // act — кожна дія: Find(...) + event в одному InvokeAsync
+        await cut.InvokeAsync(() => cut.FindAll($"{formSel} input.form-control")[0].Change("1234567890"));        // Rnokpp
+        await cut.InvokeAsync(() => cut.FindAll($"{formSel} input.form-control")[1].Change("  Ivanov  "));        // LastName
+        await cut.InvokeAsync(() => cut.FindAll($"{formSel} input.form-control")[2].Change("  Ivan  "));          // FirstName
+        await cut.InvokeAsync(() => cut.FindAll($"{formSel} input.form-control")[3].Change("  Ivanovich  "));     // MiddleName
 
-        // submit: найнадійніше — Submit() форми
-        await cut.InvokeAsync(() => cut.Find("form#create-reserved-form").Submit());
+        // PositionSort (якщо є в формі)
+        // Якщо в твоїй формі PositionSort інколи відсутній — загорни в try/catch або перевір FindAll().Any()
+        await cut.InvokeAsync(() => cut.Find($"{formSel} input[type=number]").Change("10"));
+
+        // Position (зазвичай останній текстовий інпут у цій формі)
+        await cut.InvokeAsync(() =>
+        {
+            var all = cut.FindAll($"{formSel} input.form-control");
+            all[^1].Change("  оператор  ");
+        });
+
+        // ✅ вибір рангу через dropdown-item (bootstrap JS не потрібен)
+        await cut.InvokeAsync(() =>
+        {
+            // Підійде і для <button>, і для <a>, і для твого компонента, якщо клас dropdown-item на кореневому елементі
+            var items = cut.FindAll($"{formSel} .dropdown-menu .dropdown-item");
+            var soldier = items.Single(x => x.TextContent.Trim() == "солдат");
+            soldier.Click();
+        });
+
+        // submit
+        await cut.InvokeAsync(() => cut.Find(formSel).Submit());
 
         // assert
         Assert.NotNull(captured);
@@ -120,8 +139,12 @@ public sealed class CreateReservedDrawerTests : BunitContext
         Assert.Equal("Ivanov", captured.LastName);
         Assert.Equal("Ivan", captured.FirstName);
         Assert.Equal("Ivanovich", captured.MiddleName);
-        Assert.Equal("солдат", captured.Rank);
 
-        Assert.False(isOpen); // IsOpenChanged(false) після успіху
+        Assert.Equal("солдат", captured.Rank);
+        Assert.Equal("оператор", captured.Position);  // або як у тебе normalize
+
+        Assert.False(isOpen);
+
+        rankCatalog.Verify(x => x.GetActive(), Times.Once);
     }
 }
