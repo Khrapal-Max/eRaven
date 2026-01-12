@@ -5,23 +5,13 @@
 // Program
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Commands;
-using eRaven.Application.DTOs;
-using eRaven.Application.Handlers;
-using eRaven.Application.Queries;
 using eRaven.Components;
-using eRaven.Domain.Entities;
-using eRaven.Domain.Validation;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
-using eRaven.Infrastructure.Excel;
 using eRaven.Infrastructure.Projectors;
 using eRaven.Infrastructure.Repositories.PersonRepository;
-using eRaven.Infrastructure.Repositories.PositionUnitRepository;
-using eRaven.Infrastructure.Repositories.RankRepository;
 using eRaven.Presentation.Errors;
 using eRaven.Presentation.Toasts;
-using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,33 +25,18 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")); // або ваш провайдер
 });
 
-// Validation
-builder.Services.AddScoped<IValidator<PositionUnit>, PositionUnitValidator>();
-builder.Services.AddScoped<IValidator<Rank>, RankValidator>();
-
-// Add services to the container.
-// Repository
-builder.Services.AddScoped<IPersonRepository, PersonRepository>();
-builder.Services.AddScoped<IPositionUnitRepository, PositionUnitRepository>();
-builder.Services.AddScoped<IRankRepository, RankRepository>();
 
 // Projector (stateless)
 builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();
 
-
-// Query handlers
-builder.Services.AddScoped<IQueryHandler<GetVacantPositionUnitsQuery, IReadOnlyList<PositionUnitOptionDto>>,
-    GetVacantPositionUnitsQueryHandler>();
-builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonTableDto>>,
-    GetPersonsPageQueryHandler>();
-builder.Services.AddScoped<IQueryHandler<GetPersonCardQuery, PersonDto?>,
-    GetPersonCardQueryHandler>();
+// Repository
+builder.Services.AddScoped<IPersonRepository, PersonRepository>();
 
 // Command handlers
-builder.Services.AddScoped<ICommandHandler<CreatePersonCandidateCommand, Guid>, CreateCandidateCommandHandler>();
+
+// Query handlers
 
 // services
-builder.Services.AddScoped<IPositionUnitExcelService, PositionUnitExcelService>();
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<ErrorBoundaryHub>();
 

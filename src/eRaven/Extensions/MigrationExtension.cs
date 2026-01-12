@@ -33,8 +33,8 @@ public static class MigrationExtension
                 await db.Database.MigrateAsync();
                 logger.LogInformation("✅ Database migrated successfully.");
 
-                await RankSeed.EnsureSeededAsync(db, CancellationToken.None);
-                logger.LogInformation("✅ Rank dictionary seeded.");
+                // await RankSeed.EnsureSeededAsync(db, CancellationToken.None);
+                // logger.LogInformation("✅ Rank dictionary seeded.");
                 return;
             }
             catch (Exception ex) when (
@@ -63,5 +63,4 @@ public static class MigrationExtension
             $"Database migration failed after {maxRetries} attempts.",
             lastError ?? new Exception("Unknown migration error"));
     }
-
 }

@@ -2,13 +2,14 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonReadModelProjector (production-clean)
+// PersonReadModelProjector (updated for simplified lifecycle + text Position)
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
-using eRaven.Domain.Events.PersonEvents;
+using eRaven.Domain.Events.PersonEvents.Info;
+using eRaven.Domain.Events.PersonEvents.Move;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Projectors;
@@ -19,16 +20,17 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
     {
         var evt = PersonEventTypeRegistry.Deserialize(record);
 
+        // void => rebuild whole aggregate
         if (evt is PersonEventVoided)
         {
             await RebuildAsync(db, record.AggregateId, ct);
             return;
         }
 
-        // ✅ важливо: FindAsync бачить tracked entity (до SaveChanges)
+        // tracked-safe
         var rm = await db.PersonRead.FindAsync([record.AggregateId], ct);
 
-        if (evt is PersonCandidateCreated created)
+        if (evt is PersonCreated created)
         {
             if (rm is not null)
                 return; // idempotent create
@@ -44,6 +46,7 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
         if (rm is null)
             return;
 
+        // idempotency / monotonic
         if (record.Version <= rm.Version)
             return;
 
@@ -53,7 +56,7 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
         rm.UpdatedAtUtc = record.OccurredAtUtc;
     }
 
-    public async Task RebuildAsync(AppDbContext db, Guid aggregateId, CancellationToken ct)
+    public async Task RebuildAsync(AppDbContext db, Guid aggregateId, CancellationToken ct = default)
     {
         var records = await db.PersonEvents
             .AsNoTracking()
@@ -63,7 +66,6 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
 
         if (records.Count == 0)
         {
-            // ✅ FindAsync
             var rmMissing = await db.PersonRead.FindAsync([aggregateId], ct);
             if (rmMissing is not null)
                 db.PersonRead.Remove(rmMissing);
@@ -73,10 +75,12 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
 
         var events = records.Select(PersonEventTypeRegistry.Deserialize).ToList();
 
+        // build final voided set (supports "void of void")
         var voided = new HashSet<Guid>();
         for (int i = events.Count - 1; i >= 0; i--)
         {
             var evt = events[i];
+
             if (voided.Contains(evt.EventId))
                 continue;
 
@@ -84,10 +88,13 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
                 voided.Add(v.TargetEventId);
         }
 
-        var created = events.OfType<PersonCandidateCreated>().FirstOrDefault(x => !voided.Contains(x.EventId));
+        // find first alive PersonCreated
+        var created = events
+            .OfType<PersonCreated>()
+            .FirstOrDefault(x => !voided.Contains(x.EventId));
+
         if (created is null)
         {
-            // ✅ FindAsync
             var rmBad = await db.PersonRead.FindAsync([aggregateId], ct);
             if (rmBad is not null)
                 db.PersonRead.Remove(rmBad);
@@ -105,7 +112,7 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
             if (evt is PersonEventVoided)
                 continue;
 
-            if (evt is PersonCandidateCreated)
+            if (evt is PersonCreated)
                 continue;
 
             Apply(rebuilt, evt);
@@ -115,7 +122,6 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
         rebuilt.Version = last.Version;
         rebuilt.UpdatedAtUtc = last.OccurredAtUtc;
 
-        // ✅ FindAsync
         var existing = await db.PersonRead.FindAsync([aggregateId], ct);
         if (existing is null)
             db.PersonRead.Add(rebuilt);
@@ -123,36 +129,30 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
             CopyTo(existing, rebuilt);
     }
 
-    private static PersonReadModel CreateFrom(PersonCandidateCreated created)
+    private static PersonReadModel CreateFrom(PersonCreated created)
         => new()
         {
             Id = created.AggregateId,
-            Lifecycle = PersonLifecycle.Candidate,
+            Lifecycle = PersonLifecycle.Reserved,
 
-            // ✅ кандидат = рекрут
-            EnrollmentKind = EnrollmentKind.Recruit,
+            // enrollment initially empty
+            EnrollmentKind = null,
             EnrollmentReference = null,
 
+            // personal
             Rnokpp = created.Personal.Rnokpp,
             LastName = created.Personal.LastName,
             FirstName = created.Personal.FirstName,
             MiddleName = created.Personal.MiddleName,
             FullName = created.Personal.FullName,
 
-            PlannedPositionUnitId = created.PlannedPositionUnitId,
-            PlannedPosition = Normalize(created.PlannedPosition),
+            // professional / military (можуть бути заповнені вже на створенні)
+            Rank = Normalize(created.Rank),
+            Position = Normalize(created.Position),
+            Bzvp = Normalize(created.Bzvp),
+            Weapon = Normalize(created.Weapon),
+            Callsign = Normalize(created.Callsign),
 
-            // кандидат не має фактичних посад
-            PositionUnitId = null,
-            Position = null,
-            TemporaryPositionUnitId = null,
-            TemporaryPosition = null,
-
-            // інше
-            Rank = null,
-            Bzvp = null,
-            Weapon = null,
-            Callsign = null,
             EnrolledAt = null,
             ExcludedAt = null
         };
@@ -174,13 +174,7 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
                 return;
 
             case PersonPositionChanged x:
-                rm.PositionUnitId = x.PositionUnitId;
                 rm.Position = Normalize(x.Position);
-                return;
-
-            case PersonTemporaryPositionChanged x:
-                rm.TemporaryPositionUnitId = x.TemporaryPositionUnitId;
-                rm.TemporaryPosition = Normalize(x.TemporaryPosition);
                 return;
 
             case PersonBzvpChanged x:
@@ -200,36 +194,24 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
 
                 rm.EnrolledAt = x.EnrollDate;
 
-                // ✅ тепер kind визначається при зарахуванні
                 rm.EnrollmentKind = x.Kind;
                 rm.EnrollmentReference = Normalize(x.Reference);
 
-                // ✅ рекрут -> зарахований: planned зникає
-                rm.PlannedPositionUnitId = null;
-                rm.PlannedPosition = null;
+                // посада при enroll обовʼязкова (string)
+                rm.Position = x.Position;
 
-                // ✅ при зарахуванні має бути посада
-                rm.PositionUnitId = x.PositionUnitId;
-                rm.Position = Normalize(x.Position);
-
-                // тимчасова не повинна автоматом ставитись від enroll
-                rm.TemporaryPositionUnitId = null;
-                rm.TemporaryPosition = null;
-
+                // ✅ повторний enroll: очищаємо дату виключення
+                rm.ExcludedAt = null;
                 return;
 
             case PersonExcluded x:
-                rm.Lifecycle = PersonLifecycle.Excluded;
+                // ✅ виключення повертає у Reserved
+                rm.Lifecycle = PersonLifecycle.Reserved;
+
+                // ✅ зберігаємо "останнє виключення" до наступного enroll
                 rm.ExcludedAt = x.EffectiveDate;
 
-                rm.PlannedPositionUnitId = null;
-                rm.PlannedPosition = null;
-
-                rm.PositionUnitId = null;
-                rm.Position = null;
-
-                rm.TemporaryPositionUnitId = null;
-                rm.TemporaryPosition = null;
+                // інші поля НЕ чистимо (історія/останні значення лишаються)
                 return;
         }
     }
@@ -247,16 +229,8 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
         target.MiddleName = source.MiddleName;
         target.FullName = source.FullName;
 
-        target.PlannedPositionUnitId = source.PlannedPositionUnitId;
-        target.PlannedPosition = source.PlannedPosition;
-
         target.Rank = source.Rank;
-
-        target.PositionUnitId = source.PositionUnitId;
         target.Position = source.Position;
-
-        target.TemporaryPositionUnitId = source.TemporaryPositionUnitId;
-        target.TemporaryPosition = source.TemporaryPosition;
 
         target.Bzvp = source.Bzvp;
         target.Weapon = source.Weapon;

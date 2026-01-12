@@ -13,10 +13,6 @@ namespace eRaven.Infrastructure;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    // Довідники
-    public DbSet<PositionUnit> PositionUnits { get; set; }
-    public DbSet<Rank> Ranks { get; set; }
-
     // Особа 
     public DbSet<PersonReadModel> PersonRead { get; set; }
     public DbSet<PersonEventRecord> PersonEvents { get; set; }

@@ -15,11 +15,11 @@ public sealed class PersonReadModel
 
     public PersonLifecycle Lifecycle { get; set; }
 
-    // EnrollmentInfo (поточне)
-    public EnrollmentKind EnrollmentKind { get; set; } = EnrollmentKind.Unit;
+    // EnrollmentInfo (поточне / останнє)
+    public EnrollmentKind? EnrollmentKind { get; set; }   // <-- nullable
     public string? EnrollmentReference { get; set; }
 
-    // PersonalInfo (поточне)
+    // персональні дані (поточні)
     public string Rnokpp { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string FirstName { get; set; } = string.Empty;
@@ -27,18 +27,11 @@ public sealed class PersonReadModel
 
     public string FullName { get; set; } = string.Empty;
 
-    // Key points (поточне)
+    // професійні дані (поточні)
     public string? Rank { get; set; }
-
-    public Guid? PlannedPositionUnitId { get; set; }
-    public string? PlannedPosition { get; set; }
-
-    public Guid? PositionUnitId { get; set; }
     public string? Position { get; set; }
 
-    public Guid? TemporaryPositionUnitId { get; set; }
-    public string? TemporaryPosition { get; set; }
-
+    // військові дані (поточні)
     public string? Bzvp { get; set; }
     public string? Weapon { get; set; }
     public string? Callsign { get; set; }
@@ -46,8 +39,6 @@ public sealed class PersonReadModel
     public DateOnly? EnrolledAt { get; set; }
     public DateOnly? ExcludedAt { get; set; }
 
-    /// <summary>Для інкрементального апдейту (ідемпотентність проектора)</summary>
     public long Version { get; set; }
-
     public DateTime UpdatedAtUtc { get; set; }
 }

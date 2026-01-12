@@ -8,7 +8,8 @@
 
 using eRaven.Domain;
 using eRaven.Domain.Entities;
-using eRaven.Domain.Events.PersonEvents;
+using eRaven.Domain.Events.PersonEvents.Info;
+using eRaven.Domain.Events.PersonEvents.Move;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -18,11 +19,10 @@ public static class PersonEventTypeRegistry
 {
     private static readonly Dictionary<string, Type> _map = new()
     {
-        { nameof(PersonCandidateCreated), typeof(PersonCandidateCreated) },
+        { nameof(PersonCreated), typeof(PersonCreated) },
         { nameof(PersonPersonalInfoUpdated), typeof(PersonPersonalInfoUpdated) },
         { nameof(PersonRankChanged), typeof(PersonRankChanged) },
         { nameof(PersonPositionChanged), typeof(PersonPositionChanged) },
-        { nameof(PersonTemporaryPositionChanged), typeof(PersonTemporaryPositionChanged) },
         { nameof(PersonBzvpChanged), typeof(PersonBzvpChanged) },
         { nameof(PersonWeaponChanged), typeof(PersonWeaponChanged) },
         { nameof(PersonCallsignChanged), typeof(PersonCallsignChanged) },

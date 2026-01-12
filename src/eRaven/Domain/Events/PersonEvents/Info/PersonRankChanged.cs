@@ -2,11 +2,19 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// IPersonRepository
+// PersonRankChanged
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Infrastructure.Repositories.PersonRepository;
+namespace eRaven.Domain.Events.PersonEvents.Info;
 
-public interface IPersonRepository
-{
-}
+/// <summary>
+/// Зміна звання у персони.
+/// </summary>
+public sealed record PersonRankChanged(
+    Guid EventId,
+    Guid AggregateId,
+    DateOnly EffectiveDate,
+    string Rank,
+    string? Note,
+    string Author,
+    DateTime OccurredAtUtc) : IDomainEvent;

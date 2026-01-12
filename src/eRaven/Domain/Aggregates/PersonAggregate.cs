@@ -2,43 +2,35 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonAggregate
+// PersonAggregate (simplified: Position is text only)
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Enums;
-using eRaven.Domain.Events.PersonEvents;
+using eRaven.Domain.Events.PersonEvents.Info;
+using eRaven.Domain.Events.PersonEvents.Move;
 using eRaven.Domain.ValueObjects;
 
 namespace eRaven.Domain.Aggregates;
 
 public sealed class PersonAggregate
 {
-    // Envelope для ре-хайдрата со stream version
     public readonly record struct StoredEvent(long Version, IDomainEvent Event);
 
     private readonly List<IDomainEvent> _changes = [];
     private readonly HashSet<Guid> _voidedEventIds = [];
 
     public Guid Id { get; private set; }
-    public long Version { get; private set; } // stream version (последний persisted version)
+    public long Version { get; private set; }
 
-    public PersonLifecycle Lifecycle { get; private set; } = PersonLifecycle.Candidate;
+    // ============================
+    // Основні властивості
+    // ============================
+
+    public PersonLifecycle Lifecycle { get; private set; } = PersonLifecycle.Reserved;
 
     public PersonalInfo? Personal { get; private set; }
-
     public string? Rank { get; private set; }
-
-    // PlannedPositionUnitId - резерв для кандидата
-    public Guid? PlannedPositionUnitId { get; private set; }     // резерв для кандидата
-    public string? PlannedPosition { get; private set; }
-
-    // PositionUnitId - основна посада
-    public Guid? PositionUnitId { get; private set; }            // основна посада (occupied)
     public string? Position { get; private set; }
-
-    // TemporaryPositionUnitId - тимчасова посада
-    public Guid? TemporaryPositionUnitId { get; private set; }   // тимчасова посада (temporarily occupied)
-    public string? TemporaryPosition { get; private set; }
 
     public string? BZVP { get; private set; }
     public string? Weapon { get; private set; }
@@ -48,7 +40,7 @@ public sealed class PersonAggregate
     public string? EnrollmentReference { get; private set; }
 
     public DateOnly? EnrolledAt { get; private set; }
-    public DateOnly? ExcludedAt { get; private set; }
+    public DateOnly? ExcludedAt { get; private set; } // останнє виключення (історія в стрімі)
 
     // ============================
     // Uncommitted changes
@@ -63,7 +55,6 @@ public sealed class PersonAggregate
         _changes.Clear();
     }
 
-    // Канонический ES: применить к состоянию + отследить как uncommitted
     private void Raise(IDomainEvent e)
     {
         Apply(e);
@@ -74,11 +65,14 @@ public sealed class PersonAggregate
     // Commands
     // ============================
 
-    public static PersonAggregate CreateCandidate(
+    public static PersonAggregate CreateReserved(
         Guid id,
         PersonalInfo personal,
-        string? plannedPosition,
-        Guid? plannedPositionUnitId,
+        string? rank,
+        string? position,
+        string? bzvp,
+        string? weapon,
+        string? callsign,
         string author,
         DateTime nowUtc)
     {
@@ -92,12 +86,15 @@ public sealed class PersonAggregate
 
         var a = new PersonAggregate();
 
-        a.Raise(new PersonCandidateCreated(
+        a.Raise(new PersonCreated(
             EventId: Guid.NewGuid(),
             AggregateId: id,
             Personal: personal,
-            PlannedPosition: Normalize(plannedPosition),
-            PlannedPositionUnitId: plannedPositionUnitId, // NEW
+            Rank: Normalize(rank),
+            Position: Normalize(position),
+            Bzvp: Normalize(bzvp),
+            Weapon: Normalize(weapon),
+            Callsign: Normalize(callsign),
             Author: author.Trim(),
             OccurredAtUtc: nowUtc
         ));
@@ -105,11 +102,9 @@ public sealed class PersonAggregate
         return a;
     }
 
-    public void UpdatePersonalInfo(PersonalInfo personal, string? plannedPosition, string author, DateTime nowUtc)
+    public void UpdatePersonalInfo(PersonalInfo personal, string author, DateTime nowUtc)
     {
         EnsureInitialized();
-        EnsureNotExcluded();
-
         ArgumentNullException.ThrowIfNull(personal);
 
         if (string.IsNullOrWhiteSpace(author))
@@ -119,7 +114,6 @@ public sealed class PersonAggregate
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             Personal: personal,
-            PlannedPosition: Normalize(plannedPosition),
             Author: author.Trim(),
             OccurredAtUtc: nowUtc
         ));
@@ -128,7 +122,6 @@ public sealed class PersonAggregate
     public void ChangeRank(DateOnly effectiveDate, string rank, string? note, string author, DateTime nowUtc)
     {
         EnsureInitialized();
-        EnsureNotExcluded();
 
         if (string.IsNullOrWhiteSpace(rank))
             throw new ArgumentException("Rank is required.", nameof(rank));
@@ -147,16 +140,9 @@ public sealed class PersonAggregate
         ));
     }
 
-    public void ChangePosition(DateOnly effectiveDate, Guid positionUnitId, string position, string? note, string author, DateTime nowUtc)
+    public void ChangePosition(DateOnly effectiveDate, string? position, string? note, string author, DateTime nowUtc)
     {
         EnsureInitialized();
-        EnsureNotExcluded();
-
-        if (positionUnitId == Guid.Empty)
-            throw new ArgumentException("PositionUnitId is required.", nameof(positionUnitId));
-
-        if (string.IsNullOrWhiteSpace(position))
-            throw new ArgumentException("Position is required.", nameof(position));
 
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
@@ -165,28 +151,7 @@ public sealed class PersonAggregate
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             EffectiveDate: effectiveDate,
-            PositionUnitId: positionUnitId,
-            Position: position.Trim(),
-            Note: Normalize(note),
-            Author: author.Trim(),
-            OccurredAtUtc: nowUtc
-        ));
-    }
-
-    public void ChangeTemporaryPosition(DateOnly effectiveDate, string? temporaryPosition, Guid? TemporaryPositionUnitId, string? note, string author, DateTime nowUtc)
-    {
-        EnsureInitialized();
-        EnsureNotExcluded();
-
-        if (string.IsNullOrWhiteSpace(author))
-            throw new ArgumentException("Author is required.", nameof(author));
-
-        Raise(new PersonTemporaryPositionChanged(
-            EventId: Guid.NewGuid(),
-            AggregateId: Id,
-            EffectiveDate: effectiveDate,
-            TemporaryPosition: Normalize(temporaryPosition),
-            TemporaryPositionUnitId: TemporaryPositionUnitId,
+            Position: Normalize(position),   // null дозволяє "очистити"
             Note: Normalize(note),
             Author: author.Trim(),
             OccurredAtUtc: nowUtc
@@ -196,7 +161,6 @@ public sealed class PersonAggregate
     public void ChangeBzvp(DateOnly effectiveDate, string bzvp, string? note, string author, DateTime nowUtc)
     {
         EnsureInitialized();
-        EnsureNotExcluded();
 
         if (string.IsNullOrWhiteSpace(bzvp))
             throw new ArgumentException("BZVP is required.", nameof(bzvp));
@@ -218,7 +182,6 @@ public sealed class PersonAggregate
     public void ChangeWeapon(DateOnly effectiveDate, string? weapon, string author, DateTime nowUtc)
     {
         EnsureInitialized();
-        EnsureNotExcluded();
 
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
@@ -236,7 +199,6 @@ public sealed class PersonAggregate
     public void ChangeCallsign(DateOnly effectiveDate, string? callsign, string author, DateTime nowUtc)
     {
         EnsureInitialized();
-        EnsureNotExcluded();
 
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
@@ -252,18 +214,16 @@ public sealed class PersonAggregate
     }
 
     public void Enroll(
-     EnrollmentKind kind,
-     string? reference,
-     string reason,
-     DateOnly enrollDate,
-     Guid positionUnitId,
-     string position,
-     string author,
-     DateTime nowUtc)
+        EnrollmentKind kind,
+        string? reference,
+        string reason,
+        DateOnly enrollDate,
+        string position,
+        string author,
+        DateTime nowUtc)
     {
         EnsureInitialized();
 
-        // ✅ дозволяємо повторне зарахування після виключення
         if (Lifecycle == PersonLifecycle.Enrolled)
             throw new InvalidOperationException("Особа вже зарахована.");
 
@@ -273,11 +233,8 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(Rank))
             throw new InvalidOperationException("Неможливо зарахувати без звання.");
 
-        if (positionUnitId == Guid.Empty)
-            throw new InvalidOperationException("Неможливо зарахувати без посади.");
-
         if (string.IsNullOrWhiteSpace(position))
-            throw new ArgumentException("Position is required.", nameof(position));
+            throw new InvalidOperationException("Неможливо зарахувати без посади.");
 
         if (string.IsNullOrWhiteSpace(reason))
             throw new ArgumentException("Reason is required.", nameof(reason));
@@ -285,7 +242,6 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        // опційно: заборонити “назад у часі”
         if (ExcludedAt is DateOnly ex && enrollDate <= ex)
             throw new InvalidOperationException("Дата зарахування має бути пізніше дати виключення.");
 
@@ -296,8 +252,7 @@ public sealed class PersonAggregate
             Reference: Normalize(reference),
             Reason: reason.Trim(),
             EnrollDate: enrollDate,
-            PositionUnitId: positionUnitId,
-            Position: position.Trim(),
+            Position: position.Trim(),     // важливо: в події позиція НЕ nullable
             Author: author.Trim(),
             OccurredAtUtc: nowUtc
         ));
@@ -307,8 +262,8 @@ public sealed class PersonAggregate
     {
         EnsureInitialized();
 
-        if (Lifecycle == PersonLifecycle.Excluded)
-            throw new InvalidOperationException("Особа вже виключена.");
+        if (Lifecycle != PersonLifecycle.Enrolled)
+            throw new InvalidOperationException("Виключити можна лише зараховану особу.");
 
         if (string.IsNullOrWhiteSpace(reason))
             throw new ArgumentException("Reason is required.", nameof(reason));
@@ -329,7 +284,6 @@ public sealed class PersonAggregate
     public void VoidEvent(Guid targetEventId, string reason, string author, DateTime nowUtc)
     {
         EnsureInitialized();
-        EnsureNotExcluded();
 
         if (targetEventId == Guid.Empty)
             throw new ArgumentException("TargetEventId is required.", nameof(targetEventId));
@@ -351,7 +305,7 @@ public sealed class PersonAggregate
     }
 
     // ============================
-    // Replay from history (канонично)
+    // Replay from history (void-aware)
     // ============================
 
     public void LoadFromHistory(IEnumerable<StoredEvent> history)
@@ -359,7 +313,7 @@ public sealed class PersonAggregate
         var events = history as IList<StoredEvent> ?? [.. history];
 
         ResetStateForReplay();
-        _changes.Clear();            // канонично: rehydrate => никаких uncommitted
+        _changes.Clear();
         _voidedEventIds.Clear();
 
         if (events.Count == 0)
@@ -368,8 +322,6 @@ public sealed class PersonAggregate
             return;
         }
 
-        // 1) backward scan: определить итоговый набор voided, корректно для "void of void"
-        // Правило: если событие само voided => оно не оказывает эффекта (включая void-события).
         var voided = new HashSet<Guid>();
 
         for (int i = events.Count - 1; i >= 0; i--)
@@ -377,20 +329,17 @@ public sealed class PersonAggregate
             var evt = events[i].Event;
 
             if (voided.Contains(evt.EventId))
-                continue; // это событие "вырезано" более поздним void
+                continue;
 
             if (evt is PersonEventVoided v)
-            {
                 voided.Add(v.TargetEventId);
-            }
         }
 
         _voidedEventIds.UnionWith(voided);
 
-        // 2) forward apply: применяем только "живые" (не voided) и не void-события
         foreach (var se in events)
         {
-            Version = se.Version; // stream version всегда двигается по записи, даже если evt voided
+            Version = se.Version;
 
             var evt = se.Event;
 
@@ -409,19 +358,11 @@ public sealed class PersonAggregate
         Id = Guid.Empty;
         Version = 0;
 
-        Lifecycle = PersonLifecycle.Candidate;
-
+        Lifecycle = PersonLifecycle.Reserved;
         Personal = null;
+
         Rank = null;
-
-        PlannedPositionUnitId = null;
-        PlannedPosition = null;
-
-        PositionUnitId = null;
         Position = null;
-
-        TemporaryPosition = null;
-        TemporaryPositionUnitId = null;
 
         BZVP = null;
         Weapon = null;
@@ -434,22 +375,30 @@ public sealed class PersonAggregate
         ExcludedAt = null;
     }
 
-    // Apply должен быть чисто state mutation (без _changes)
     private void Apply(IDomainEvent e)
     {
         switch (e)
         {
-            case PersonCandidateCreated x:
+            case PersonCreated x:
                 Id = x.AggregateId;
-                Lifecycle = PersonLifecycle.Candidate;
+                Lifecycle = PersonLifecycle.Reserved;
+
                 Personal = x.Personal;
-                PlannedPosition = Normalize(x.PlannedPosition);
-                PlannedPositionUnitId = x.PlannedPositionUnitId; // NEW
+
+                Rank = Normalize(x.Rank);
+                Position = Normalize(x.Position);
+
+                BZVP = Normalize(x.Bzvp);
+                Weapon = Normalize(x.Weapon);
+                Callsign = Normalize(x.Callsign);
+
+                EnrollmentKind = null;
+                EnrollmentReference = null;
+                EnrolledAt = null;
                 break;
 
             case PersonPersonalInfoUpdated x:
                 Personal = x.Personal;
-                PlannedPosition = Normalize(x.PlannedPosition);
                 break;
 
             case PersonRankChanged x:
@@ -457,13 +406,7 @@ public sealed class PersonAggregate
                 break;
 
             case PersonPositionChanged x:
-                PositionUnitId = x.PositionUnitId;
-                Position = x.Position;
-                break;
-
-            case PersonTemporaryPositionChanged x:
-                TemporaryPositionUnitId = x.TemporaryPositionUnitId;
-                TemporaryPosition = Normalize(x.TemporaryPosition);
+                Position = Normalize(x.Position);
                 break;
 
             case PersonBzvpChanged x:
@@ -480,24 +423,16 @@ public sealed class PersonAggregate
 
             case PersonEnrolled x:
                 Lifecycle = PersonLifecycle.Enrolled;
-                EnrolledAt = x.EnrollDate;
-                ExcludedAt = null;                // ✅ важливо при повторному enroll
                 EnrollmentKind = x.Kind;
                 EnrollmentReference = Normalize(x.Reference);
-                PositionUnitId = x.PositionUnitId;
+                EnrolledAt = x.EnrollDate;
                 Position = x.Position;
-                PlannedPositionUnitId = null;
-                PlannedPosition = null;
+                ExcludedAt = null; // <-- ВАЖЛИВО під твою вимогу
                 break;
 
             case PersonExcluded x:
-                Lifecycle = PersonLifecycle.Excluded;
+                Lifecycle = PersonLifecycle.Reserved;
                 ExcludedAt = x.EffectiveDate;
-                PlannedPositionUnitId = null;
-                TemporaryPositionUnitId = null;
-                PositionUnitId = null;
-                Position = null;
-                TemporaryPosition = null;
                 break;
         }
     }
@@ -509,11 +444,5 @@ public sealed class PersonAggregate
     {
         if (Id == Guid.Empty)
             throw new InvalidOperationException("Агрегат не ініціалізований.");
-    }
-
-    private void EnsureNotExcluded()
-    {
-        if (Lifecycle == PersonLifecycle.Excluded)
-            throw new InvalidOperationException("Особа виключена.");
     }
 }
