@@ -80,7 +80,6 @@
     <Folder Include="Application\Handlers\" />
     <Folder Include="Components\Pages\Persons\Card\" />
     <Folder Include="Components\Pages\Persons\Dashboard\" />
-    <Folder Include="Components\Pages\Persons\Registry\" />
   </ItemGroup>
 
 </Project>
