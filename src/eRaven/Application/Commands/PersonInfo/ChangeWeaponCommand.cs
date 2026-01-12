@@ -2,12 +2,14 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ICommandHandler
+// ChangeWeaponCommand
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Commands;
+namespace eRaven.Application.Commands.PersonInfo;
 
-public interface ICommandHandler<in TCommand, TResult>
-{
-    Task<TResult> HandleAsync(TCommand command, CancellationToken ct = default);
-}
+public sealed record ChangeWeaponCommand(
+    Guid PersonId,
+    DateOnly EffectiveDate,
+    string? Weapon,
+    string Author,
+    DateTime NowUtc);

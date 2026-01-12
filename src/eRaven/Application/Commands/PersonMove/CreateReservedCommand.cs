@@ -2,12 +2,21 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ICommandHandler
+// CreateReservedCommand
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Commands;
+namespace eRaven.Application.Commands.PersonMove;
 
-public interface ICommandHandler<in TCommand, TResult>
-{
-    Task<TResult> HandleAsync(TCommand command, CancellationToken ct = default);
-}
+public sealed record CreateReservedCommand(
+    Guid PersonId,
+    string Rnokpp,
+    string LastName,
+    string FirstName,
+    string? MiddleName,
+    string? Rank,
+    string? Position,
+    string? Bzvp,
+    string? Weapon,
+    string? Callsign,
+    string Author,
+    DateTime NowUtc);

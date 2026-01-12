@@ -2,12 +2,14 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ICommandHandler
+// ExcludeCommand
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Commands;
+namespace eRaven.Application.Commands.PersonMove;
 
-public interface ICommandHandler<in TCommand, TResult>
-{
-    Task<TResult> HandleAsync(TCommand command, CancellationToken ct = default);
-}
+public sealed record ExcludeCommand(
+    Guid PersonId,
+    string Reason,
+    DateOnly EffectiveDate,
+    string Author,
+    DateTime NowUtc);

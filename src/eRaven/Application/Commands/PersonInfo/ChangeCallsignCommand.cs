@@ -2,12 +2,14 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ICommandHandler
+// ChangeCallsignCommand
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Commands;
+namespace eRaven.Application.Commands.PersonInfo;
 
-public interface ICommandHandler<in TCommand, TResult>
-{
-    Task<TResult> HandleAsync(TCommand command, CancellationToken ct = default);
-}
+public sealed record ChangeCallsignCommand(
+    Guid PersonId,
+    DateOnly EffectiveDate,
+    string? Callsign,
+    string Author,
+    DateTime NowUtc);

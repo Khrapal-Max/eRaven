@@ -2,12 +2,20 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ICommandHandler
+// PersonListItemDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Commands;
+using eRaven.Domain.Enums;
 
-public interface ICommandHandler<in TCommand, TResult>
-{
-    Task<TResult> HandleAsync(TCommand command, CancellationToken ct = default);
-}
+namespace eRaven.Application.DTOs;
+
+public sealed record PersonListItemDto(
+    Guid Id,
+    string FullName,
+    string Rnokpp,
+    PersonLifecycle Lifecycle,
+    string? Rank,
+    string? Position,
+    EnrollmentKind? EnrollmentKind,
+    DateOnly? EnrolledAt,
+    DateOnly? ExcludedAt);

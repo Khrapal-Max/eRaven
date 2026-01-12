@@ -2,12 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ICommandHandler
+// ChangeRankCommand
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Commands;
+namespace eRaven.Application.Commands.PersonInfo;
 
-public interface ICommandHandler<in TCommand, TResult>
-{
-    Task<TResult> HandleAsync(TCommand command, CancellationToken ct = default);
-}
+public sealed record ChangeRankCommand(
+    Guid PersonId,
+    DateOnly EffectiveDate,
+    string Rank,
+    string? Note,
+    string Author,
+    DateTime NowUtc);

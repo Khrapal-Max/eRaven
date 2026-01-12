@@ -36,7 +36,6 @@
   <ItemGroup>
     <Folder Include="Application\Handlers\" />
     <Folder Include="Components\Pages\Persons\" />
-    <Folder Include="Infrastructure\Repositories\" />
   </ItemGroup>
 
 </Project>

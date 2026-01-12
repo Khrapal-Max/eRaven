@@ -2,12 +2,16 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ICommandHandler
+// PersonEventDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Commands;
+namespace eRaven.Application.DTOs;
 
-public interface ICommandHandler<in TCommand, TResult>
-{
-    Task<TResult> HandleAsync(TCommand command, CancellationToken ct = default);
-}
+public sealed record PersonEventDto(
+    long Version,
+    Guid EventId,
+    string EventType,
+    string PayloadJson,
+    string Author,
+    DateTime OccurredAtUtc,
+    DateOnly? EffectiveDate);

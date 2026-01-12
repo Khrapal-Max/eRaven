@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// GetVacantPositionUnitsQuery
+// IQueryHandler
 //-----------------------------------------------------------------------------
 
 namespace eRaven.Application.Queries;

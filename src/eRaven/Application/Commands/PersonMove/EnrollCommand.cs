@@ -2,12 +2,19 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ICommandHandler
+// EnrollCommand
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Commands;
+using eRaven.Domain.Enums;
 
-public interface ICommandHandler<in TCommand, TResult>
-{
-    Task<TResult> HandleAsync(TCommand command, CancellationToken ct = default);
-}
+namespace eRaven.Application.Commands.PersonMove;
+
+public sealed record EnrollCommand(
+    Guid PersonId,
+    EnrollmentKind Kind,
+    string? Reference,
+    string Reason,
+    DateOnly EnrollDate,
+    string Position,
+    string Author,
+    DateTime NowUtc);

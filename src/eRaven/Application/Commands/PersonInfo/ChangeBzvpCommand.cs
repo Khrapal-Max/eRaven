@@ -2,11 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ConcurrencyException
+// PagedResult
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Exceptions;
+namespace eRaven.Application.Commands.PersonInfo;
 
-public sealed class ConcurrencyException(string message) : Exception(message)
-{
-}
+public sealed record ChangeBzvpCommand(
+    Guid PersonId,
+    DateOnly EffectiveDate,
+    string Bzvp,
+    string? Note,
+    string Author,
+    DateTime NowUtc);

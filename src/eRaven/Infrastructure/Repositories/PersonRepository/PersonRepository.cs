@@ -5,18 +5,353 @@
 // PersonRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Commands.PersonInfo;
+using eRaven.Application.Commands.PersonMove;
+using eRaven.Application.DTOs;
+using eRaven.Application.Queries;
+using eRaven.Domain;
+using eRaven.Domain.Aggregates;
+using eRaven.Domain.Entities;
+using eRaven.Domain.Events.PersonEvents.Info;
+using eRaven.Domain.Events.PersonEvents.Move;
+using eRaven.Domain.ValueObjects;
+using eRaven.Exceptions;
 using eRaven.Infrastructure.Projectors;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace eRaven.Infrastructure.Repositories.PersonRepository;
 
 public sealed class PersonRepository(
     IDbContextFactory<AppDbContext> dbFactory,
-    IPersonReadModelProjector projector)
-    : IPersonRepository
+    IPersonReadModelProjector projector) : IPersonRepository
 {
-    private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
-    private readonly IPersonReadModelProjector _projector = projector;
+    // =========================
+    // JSON
+    // =========================
 
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
 
+    private static string SerializeEvent(IDomainEvent evt)
+        => JsonSerializer.Serialize(evt, evt.GetType(), JsonOptions);
+
+    private static DateOnly? ExtractEffectiveDate(IDomainEvent evt) => evt switch
+    {
+        PersonRankChanged x => x.EffectiveDate,
+        PersonPositionChanged x => x.EffectiveDate,
+        PersonBzvpChanged x => x.EffectiveDate,
+        PersonWeaponChanged x => x.EffectiveDate,
+        PersonCallsignChanged x => x.EffectiveDate,
+        PersonEnrolled x => x.EnrollDate,
+        PersonExcluded x => x.EffectiveDate,
+        _ => null
+    };
+
+    // =========================
+    // Read-side
+    // =========================
+
+    public async Task<PagedResult<PersonListItemDto>> GetPageAsync(GetPersonsPageQuery query, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+        var q = db.PersonRead.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var s = query.Search.Trim();
+
+            // простий пошук по FullName/Rnokpp
+            q = q.Where(x =>
+                EF.Functions.Like(x.FullName, $"%{s}%") ||
+                EF.Functions.Like(x.Rnokpp, $"%{s}%"));
+        }
+
+        if (query.Lifecycle is not null)
+            q = q.Where(x => x.Lifecycle == query.Lifecycle);
+
+        if (query.EnrollmentKind is not null)
+            q = q.Where(x => x.EnrollmentKind == query.EnrollmentKind);
+
+        if (query.AsOfDate is not null)
+        {
+            var d = query.AsOfDate.Value;
+            // "активний на дату" (як у коментарі індексу):
+            // EnrolledAt <= d AND (ExcludedAt IS NULL OR ExcludedAt >= d)
+            q = q.Where(x =>
+                x.EnrolledAt != null &&
+                x.EnrolledAt <= d &&
+                (x.ExcludedAt == null || x.ExcludedAt >= d));
+        }
+
+        var total = await q.CountAsync(ct);
+
+        var page = query.Page < 1 ? 1 : query.Page;
+        var size = query.PageSize is < 1 or > 200 ? 25 : query.PageSize;
+        var skip = (page - 1) * size;
+
+        var items = await q
+            .OrderBy(x => x.LastName).ThenBy(x => x.FirstName).ThenBy(x => x.MiddleName)
+            .Skip(skip)
+            .Take(size)
+            .Select(x => new PersonListItemDto(
+                x.Id,
+                x.FullName,
+                x.Rnokpp,
+                x.Lifecycle,
+                x.Rank,
+                x.Position,
+                x.EnrollmentKind,
+                x.EnrolledAt,
+                x.ExcludedAt))
+            .ToListAsync(ct);
+
+        return new PagedResult<PersonListItemDto>(items, page, size, total);
+    }
+
+    public async Task<PersonDetailsDto?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+        var rm = await db.PersonRead.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (rm is null) return null;
+
+        return new PersonDetailsDto(
+            Id: rm.Id,
+            Lifecycle: rm.Lifecycle,
+            EnrollmentKind: rm.EnrollmentKind,
+            EnrollmentReference: rm.EnrollmentReference,
+            Rnokpp: rm.Rnokpp,
+            LastName: rm.LastName,
+            FirstName: rm.FirstName,
+            MiddleName: rm.MiddleName,
+            FullName: rm.FullName,
+            Rank: rm.Rank,
+            Position: rm.Position,
+            Bzvp: rm.Bzvp,
+            Weapon: rm.Weapon,
+            Callsign: rm.Callsign,
+            EnrolledAt: rm.EnrolledAt,
+            ExcludedAt: rm.ExcludedAt,
+            Version: rm.Version,
+            UpdatedAtUtc: rm.UpdatedAtUtc
+        );
+    }
+   
+    public async Task<IReadOnlyList<PersonEventDto>> GetHistoryAsync(Guid id, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+        var rows = await db.PersonEvents
+            .AsNoTracking()
+            .Where(x => x.AggregateId == id)
+            .OrderBy(x => x.Version)
+            .Select(x => new PersonEventDto(
+                x.Version,
+                x.EventId,
+                x.EventType,
+                x.PayloadJson,
+                x.Author,
+                x.OccurredAtUtc,
+                x.EffectiveDate))
+            .ToListAsync(ct);
+
+        return rows;
+    }
+
+    // =========================
+    // Commands aggregate
+    // =========================
+
+    public async Task<Guid> CreateReservedAsync(CreateReservedCommand cmd, CancellationToken ct = default)
+    {
+        var personal = new PersonalInfo(cmd.Rnokpp, cmd.LastName, cmd.FirstName, cmd.MiddleName);
+
+        var agg = PersonAggregate.CreateReserved(
+            id: cmd.PersonId,
+            personal: personal,
+            rank: cmd.Rank,
+            position: cmd.Position,
+            bzvp: cmd.Bzvp,
+            weapon: cmd.Weapon,
+            callsign: cmd.Callsign,
+            author: cmd.Author,
+            nowUtc: cmd.NowUtc);
+
+        await PersistAsync(agg, expectedVersion: 0, ct);
+        return agg.Id;
+    }
+
+    public async Task EnrollAsync(EnrollCommand cmd, CancellationToken ct = default)
+    {
+        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
+
+        agg.Enroll(
+            kind: cmd.Kind,
+            reference: cmd.Reference,
+            reason: cmd.Reason,
+            enrollDate: cmd.EnrollDate,
+            position: cmd.Position,
+            author: cmd.Author,
+            nowUtc: cmd.NowUtc);
+
+        await PersistAsync(agg, expectedVersion: agg.Version, ct);
+    }
+
+    public async Task ExcludeAsync(ExcludeCommand cmd, CancellationToken ct = default)
+    {
+        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
+        agg.Exclude(cmd.Reason, cmd.EffectiveDate, cmd.Author, cmd.NowUtc);
+        await PersistAsync(agg, expectedVersion: agg.Version, ct);
+    }
+
+    // =========================
+    // Commands personal info
+    // =========================
+
+    public async Task UpdatePersonalInfoAsync(UpdatePersonalInfoCommand cmd, CancellationToken ct = default)
+    {
+        var personal = new PersonalInfo(cmd.Rnokpp, cmd.LastName, cmd.FirstName, cmd.MiddleName);
+
+        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
+        agg.UpdatePersonalInfo(personal, cmd.Author, cmd.NowUtc);
+
+        await PersistAsync(agg, expectedVersion: agg.Version, ct);
+    }
+
+    public async Task ChangeRankAsync(ChangeRankCommand cmd, CancellationToken ct = default)
+    {
+        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
+        agg.ChangeRank(cmd.EffectiveDate, cmd.Rank, cmd.Note, cmd.Author, cmd.NowUtc);
+        await PersistAsync(agg, expectedVersion: agg.Version, ct);
+    }
+
+    public async Task ChangePositionAsync(ChangePositionCommand cmd, CancellationToken ct = default)
+    {
+        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
+        agg.ChangePosition(cmd.EffectiveDate, cmd.Position, cmd.Note, cmd.Author, cmd.NowUtc);
+        await PersistAsync(agg, expectedVersion: agg.Version, ct);
+    }
+
+    public async Task ChangeBzvpAsync(ChangeBzvpCommand cmd, CancellationToken ct = default)
+    {
+        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
+        agg.ChangeBzvp(cmd.EffectiveDate, cmd.Bzvp, cmd.Note, cmd.Author, cmd.NowUtc);
+        await PersistAsync(agg, expectedVersion: agg.Version, ct);
+    }
+
+    public async Task ChangeWeaponAsync(ChangeWeaponCommand cmd, CancellationToken ct = default)
+    {
+        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
+        agg.ChangeWeapon(cmd.EffectiveDate, cmd.Weapon, cmd.Author, cmd.NowUtc);
+        await PersistAsync(agg, expectedVersion: agg.Version, ct);
+    }
+
+    public async Task ChangeCallsignAsync(ChangeCallsignCommand cmd, CancellationToken ct = default)
+    {
+        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
+        agg.ChangeCallsign(cmd.EffectiveDate, cmd.Callsign, cmd.Author, cmd.NowUtc);
+        await PersistAsync(agg, expectedVersion: agg.Version, ct);
+    }
+
+   
+
+    public async Task VoidEventAsync(VoidPersonEventCommand cmd, CancellationToken ct = default)
+    {
+        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
+        agg.VoidEvent(cmd.TargetEventId, cmd.Reason, cmd.Author, cmd.NowUtc);
+        await PersistAsync(agg, expectedVersion: agg.Version, ct);
+    }
+
+    // =========================
+    // Aggregate load / persist
+    // =========================
+
+    private async Task<PersonAggregate> LoadAggregateAsync(Guid id, CancellationToken ct)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+        var records = await db.PersonEvents
+            .AsNoTracking()
+            .Where(x => x.AggregateId == id)
+            .OrderBy(x => x.Version)
+            .ToListAsync(ct);
+
+        if (records.Count == 0)
+            throw new InvalidOperationException($"Person stream not found: {id}");
+
+        var history = records
+            .Select(r => new PersonAggregate.StoredEvent(
+                r.Version,
+                PersonEventTypeRegistry.Deserialize(r)))
+            .ToList();
+
+        var agg = new PersonAggregate();
+        agg.LoadFromHistory(history);
+
+        return agg;
+    }
+
+    private async Task PersistAsync(PersonAggregate agg, long expectedVersion, CancellationToken ct)
+    {
+        var changes = agg.GetUncommittedChanges();
+        if (changes.Count == 0)
+            return;
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        // optimistic concurrency: last persisted version must equal expectedVersion
+        var last = await db.PersonEvents
+            .Where(x => x.AggregateId == agg.Id)
+            .OrderByDescending(x => x.Version)
+            .Select(x => (long?)x.Version)
+            .FirstOrDefaultAsync(ct);
+
+        var currentVersion = last ?? 0L;
+        if (currentVersion != expectedVersion)
+            throw new OptimisticConcurrencyException(agg.Id, expectedVersion, currentVersion);
+
+        // 1) append to event store (assign versions)
+        var nextVersion = currentVersion;
+        var newRecords = new List<PersonEventRecord>(changes.Count);
+
+        foreach (var evt in changes)
+        {
+            nextVersion++;
+
+            var rec = new PersonEventRecord
+            {
+                EventId = evt.EventId,
+                AggregateId = evt.AggregateId,
+                Version = nextVersion,
+                EventType = evt.GetType().Name,
+                PayloadJson = SerializeEvent(evt),
+                Author = evt.Author,
+                OccurredAtUtc = evt.OccurredAtUtc,
+                EffectiveDate = ExtractEffectiveDate(evt)
+            };
+
+            newRecords.Add(rec);
+            db.PersonEvents.Add(rec);
+        }
+
+        // IMPORTANT: persist events first (so void rebuild can see them in db.PersonEvents)
+        await db.SaveChangesAsync(ct);
+
+        // 2) project read model (incremental)
+        foreach (var rec in newRecords.OrderBy(x => x.Version))
+            await projector.ProjectAsync(db, rec, ct);
+
+        await db.SaveChangesAsync(ct);
+
+        await tx.CommitAsync(ct);
+
+        agg.MarkChangesAsCommitted(nextVersion);
+    }
 }
