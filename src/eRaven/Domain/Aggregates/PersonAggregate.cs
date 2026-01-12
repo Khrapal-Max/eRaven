@@ -253,8 +253,8 @@ public sealed class PersonAggregate
             Reference: Normalize(reference),
             Reason: reason.Trim(),
             EnrollDate: enrollDate,
-            Rank: rank,             
-            Position: position.Trim(),       
+            Rank: rank,
+            Position: position.Trim(),
             Author: author.Trim(),
             OccurredAtUtc: nowUtc
         ));

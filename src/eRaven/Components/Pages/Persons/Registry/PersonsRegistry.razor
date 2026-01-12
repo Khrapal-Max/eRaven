@@ -21,11 +21,18 @@
                           Selected="@_selected"
                           SelectedChanged="@(v => _selected = v)"
                           OnRowClick="OnRowClick"
-                          OnOpenCard="OpenCard" />
+                          OnOpenCard="OpenCard"
+                          OnEnroll="OpenEnroll"
+                          OnExclude="OpenExclude" />
         }
     </div>
 
     <CreateReservedDrawer IsOpen="@_createReservedOpen"
                           IsOpenChanged="@(v => _createReservedOpen = v)"
                           OnCreate="HandleCreateReservedAsync" />
+
+    <EnrollDrawer IsOpen="_enrollOpen"
+                  IsOpenChanged="@(v => _enrollOpen = v)"
+                  PersonId="_enrollPersonId"
+                  OnSubmit="HandleEnrollSubmitAsync" />
 </div>      

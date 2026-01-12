@@ -1,6 +1,5 @@
 ﻿@using Microsoft.AspNetCore.Components.Forms
 @using eRaven.Application.DTOs
-@using eRaven.Application.Commands.PersonMove
 @using eRaven.Application.Queries
 @using eRaven.Components.Shared.Validation
 @using eRaven.Components.Shared.Drawer
@@ -28,7 +27,7 @@
             else
             {
                 <div class="drawer-grow">
-                    <!-- header / person summary -->
+                    <!-- поточна "картка" Reserved -->
                     <div class="mb-3">
                         <div class="fw-semibold">@_person.FullName</div>
                         <div class="small text-muted">
@@ -39,10 +38,19 @@
                                 <span>· викл.: @_person.ExcludedAt.Value.ToString("dd.MM.yyyy")</span>
                             }
                         </div>
+
+                        <div class="small text-muted">
+                            Поточні дані:
+                            звання: <span class="ms-1">@(_person.Rank ?? "—")</span> ·
+                            посада: <span class="ms-1">@(_person.Position ?? "—")</span> ·
+                            БЗВП: <span class="ms-1">@(_person.Bzvp ?? "—")</span> ·
+                            зброя: <span class="ms-1">@(_person.Weapon ?? "—")</span> ·
+                            позивний: <span class="ms-1">@(_person.Callsign ?? "—")</span>
+                        </div>
                     </div>
 
                     <EditForm EditContext="@_editContext"
-                              OnValidSubmit="OnEnrollAsync"
+                              OnValidSubmit="SubmitAsync"
                               class="drawer-form"
                               id="enroll-form">
 
@@ -72,7 +80,13 @@
                                 <ValidationMessage For="@(() => Model.EnrollDate)" />
                             </div>
 
-                            <div class="col-12">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label mb-1">Звання</label>
+                                <InputText class="form-control rounded-0" @bind-Value="Model.Rank" />
+                                <ValidationMessage For="@(() => Model.Rank)" />
+                            </div>
+
+                            <div class="col-12 col-md-8">
                                 <label class="form-label mb-1">Посада</label>
                                 <InputText class="form-control rounded-0" @bind-Value="Model.Position" />
                                 <ValidationMessage For="@(() => Model.Position)" />

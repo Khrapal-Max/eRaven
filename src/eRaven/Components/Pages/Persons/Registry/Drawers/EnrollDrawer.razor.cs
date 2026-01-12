@@ -5,12 +5,9 @@
 // EnrollDrawer
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Commands;
-using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs;
 using eRaven.Application.Queries;
 using eRaven.Domain.Enums;
-using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 
@@ -19,16 +16,15 @@ namespace eRaven.Components.Pages.Persons.Registry.Drawers;
 public partial class EnrollDrawer
 {
     [Parameter] public bool IsOpen { get; set; }
+
+    [Parameter] public Guid PersonId { get; set; }
+
+    // батько виконує операцію
+    [Parameter] public EventCallback<EnrollDto> OnSubmit { get; set; }
+
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
 
-    [Parameter] public Guid PersonId { get; set; }                // кого зараховуємо
-    [Parameter] public string Author { get; set; } = "system";    // TODO: підставити реального юзера
-
-    [Parameter] public EventCallback<Guid> OnEnrolled { get; set; }
-
-    [Inject] public ToastService Toasts { get; set; } = default!;
     [Inject] public IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?> DetailsQuery { get; set; } = default!;
-    [Inject] public ICommandHandler<EnrollCommand, Guid> EnrollHandler { get; set; } = default!;
 
     private bool _busy;
     private bool _wasOpen;
@@ -77,14 +73,17 @@ public partial class EnrollDrawer
         try
         {
             _person = await DetailsQuery.HandleAsync(new GetPersonDetailsQuery(PersonId));
+
             if (_person is not null)
             {
-                // prefill
-                Model.Position = _person.Position ?? string.Empty;
+                Model.Id = _person.Id;
+                // prefill з поточної картки (можна редагувати)
+                Model.Kind = EnrollmentKind.Unit;
+                Model.Reference = _person.EnrollmentReference; // або null
                 Model.EnrollDate = DateOnly.FromDateTime(DateTime.UtcNow);
 
-                // дефолтний kind (якщо треба): Unit
-                // Model.Kind = EnrollmentKind.Unit;
+                Model.Rank = _person.Rank ?? string.Empty;
+                Model.Position = _person.Position ?? string.Empty;
             }
 
             _editContext = new EditContext(Model);
@@ -105,7 +104,7 @@ public partial class EnrollDrawer
         _editContext = new EditContext(Model);
     }
 
-    private async Task OnEnrollAsync()
+    private async Task SubmitAsync()
     {
         if (_busy || _loading || _person is null)
             return;
@@ -113,37 +112,30 @@ public partial class EnrollDrawer
         _busy = true;
         try
         {
-            // trim
+            // trim/normalize
             Model.Reference = TrimOrNull(Model.Reference);
-            Model.Position = TrimOrEmpty(Model.Position);
             Model.Reason = TrimOrEmpty(Model.Reason);
 
-            var cmd = new EnrollCommand(
-                PersonId: _person.Id,
-                Kind: Model.Kind,
-                Reference: Model.Reference,
-                Reason: Model.Reason,
-                EnrollDate: Model.EnrollDate,
-                Rank: _person.Rank ?? string.Empty,
-                Position: Model.Position,
-                Author: string.IsNullOrWhiteSpace(Author) ? "system" : Author.Trim(),
-                NowUtc: DateTime.UtcNow);
+            Model.Rank = TrimOrEmpty(Model.Rank);
+            Model.Position = TrimOrEmpty(Model.Position);
 
-            await EnrollHandler.HandleAsync(cmd);
+            if (OnSubmit.HasDelegate)
+            {
+                var dto = new EnrollDto
+                {
+                    Id = Model.Id,
+                    Kind = Model.Kind,
+                    Reference = Model.Reference,
+                    Reason = Model.Reason,
+                    EnrollDate = Model.EnrollDate,
+                    Rank = Model.Rank,
+                    Position = Model.Position
+                };
 
-            Toasts.Success("Зараховано в табель");
+                await OnSubmit.InvokeAsync(dto);
+            }
+
             await IsOpenChanged.InvokeAsync(false);
-
-            if (OnEnrolled.HasDelegate)
-                await OnEnrolled.InvokeAsync(_person.Id);
-        }
-        catch (InvalidOperationException ex)
-        {
-            Toasts.Warning("Неможливо виконати дію", ex.Message);
-        }
-        catch
-        {
-            Toasts.Error("Помилка", "Сталася неочікувана помилка. Спробуйте ще раз.");
         }
         finally
         {

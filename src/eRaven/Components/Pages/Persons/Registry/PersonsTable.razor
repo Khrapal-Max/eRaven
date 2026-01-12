@@ -8,6 +8,7 @@
        @bind-SelectedItem="Selected"
        OnClick="OnRowClick">
     <TableHeader>
+        <th>СТ.</th>
         <th>ПІБ</th>
         <th>РНОКПП</th>
         <th>Статус</th>
@@ -18,6 +19,9 @@
     </TableHeader>
 
     <RowTemplate Context="p">
+        <td class="text-nowrap">
+            @EnrollmentKindBadge(p.EnrollmentKind)
+        </td>
         <td class="text-truncate">@p.FullName</td>
         <td>@p.Rnokpp</td>
         <td>
@@ -32,12 +36,12 @@
 
             @if (p.Lifecycle == PersonLifecycle.Enrolled && p.EnrolledAt is not null)
             {
-                <div class="small text-muted">зарах.: @p.EnrolledAt.Value.ToString("dd.MM.yyyy")</div>
+                <div class="small">зарах.: @p.EnrolledAt.Value.ToString("dd.MM.yyyy")</div>
             }
 
             @if (p.Lifecycle == PersonLifecycle.Reserved && p.ExcludedAt is not null)
             {
-                <div class="small text-muted">викл.: @p.ExcludedAt.Value.ToString("dd.MM.yyyy")</div>
+                <div class="small">викл.: @p.ExcludedAt.Value.ToString("dd.MM.yyyy")</div>
             }
         </td>
 
@@ -56,27 +60,37 @@
 
                 <ul class="dropdown-menu dropdown-menu-end border border-secondary">
                     <li>
-                        <Button Class="dropdown-item d-flex justify-content-between align-items-center action-card"
-                                OnClickButton="() => OpenCard(p)">
-                            <span class="fw-semibold">Відкрити картку</span>
-                            <span class="badge bg-dark mx-1">C</span>
-                        </Button>
+                        <div @onclick:stopPropagation="true">
+                            <Button Class="dropdown-item d-flex justify-content-between align-items-center action-card"
+                                    OnClickButton="() => OpenCard(p)">
+                                <span class="fw-semibold">Відкрити картку</span>
+                                <span class="badge bg-dark mx-1">C</span>
+                            </Button>
+                        </div>
                     </li>
 
                     <li><hr class="dropdown-divider border border-secondary" /></li>
 
                     <li>
-                        <Button Class="dropdown-item d-flex justify-content-between align-items-center action-enroll">
-                            <span class="fw-semibold">Зарахувати в табель</span>
-                            <span class="badge bg-success mx-1">T</span>
-                        </Button>
-
+                        <div @onclick:stopPropagation="true">
+                            <Button Class="dropdown-item d-flex justify-content-between align-items-center action-enroll"
+                                    IsDisabled="@(p.Lifecycle == PersonLifecycle.Enrolled)"
+                                    OnClickButton="() => Enroll(p)">
+                                <span class="fw-semibold">Зарахувати в табель</span>
+                                <span class="badge bg-success mx-1">T</span>
+                            </Button>
+                        </div>
                     </li>
+
                     <li>
-                        <Button Class="dropdown-item d-flex justify-content-between align-items-center action-exclude">
-                            <span class="fw-semibold">Виключити з табеля</span>
-                            <span class="badge bg-danger mx-1">T</span>
-                        </Button>
+                        <div @onclick:stopPropagation="true">
+                            <Button Class="dropdown-item d-flex justify-content-between align-items-center action-exclude"
+                                    IsDisabled="@(p.Lifecycle != PersonLifecycle.Enrolled)"
+                                    OnClickButton="() => Exclude(p)">
+                                <span class="fw-semibold">Виключити з табеля</span>
+                                <span class="badge bg-danger mx-1">T</span>
+                            </Button>
+                        </div>
                     </li>
                 </ul>
             </div>

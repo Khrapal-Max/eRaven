@@ -97,7 +97,7 @@ public sealed class PersonsTableTests : BunitContext
         var badges = cut.FindAll("span.badge");
 
         // assert (порядок може бути будь-який — шукаємо по тексту)
-        var enrolledBadge = badges.First(x => x.TextContent.Contains("В СПИСКАХ"));
+        var enrolledBadge = badges.First(x => x.TextContent.Contains("В ТАБЕЛІ"));
         Assert.Contains("bg-success", enrolledBadge.GetAttribute("class"));
 
         var reservedExcludedBadge = badges.First(x => x.TextContent.Contains("РЕЗЕРВ (ВИКЛ)"));

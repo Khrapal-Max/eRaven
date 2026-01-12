@@ -5,7 +5,6 @@
 // EnrollCommandValidator
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs;
 using FluentValidation;
 
