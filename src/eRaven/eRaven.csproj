@@ -77,7 +77,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Application\Handlers\" />
     <Folder Include="Components\Pages\Persons\Card\" />
     <Folder Include="Components\Pages\Persons\Dashboard\" />
   </ItemGroup>

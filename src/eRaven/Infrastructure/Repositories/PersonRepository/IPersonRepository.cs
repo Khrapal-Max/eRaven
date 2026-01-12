@@ -16,7 +16,7 @@ public interface IPersonRepository
 {
     // Read-side
     Task<PagedResult<PersonListItemDto>> GetPageAsync(GetPersonsPageQuery query, CancellationToken ct = default);
-    Task<PersonDetailsDto?> GetByIdAsync(Guid id, CancellationToken ct = default);    
+    Task<PersonDetailsDto?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<IReadOnlyList<PersonEventDto>> GetHistoryAsync(Guid id, CancellationToken ct = default);
 
     // Commands aggregate (load aggregate -> execute -> append events -> project)

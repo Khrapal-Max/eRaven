@@ -6,28 +6,7 @@
     <RegistryToolbar OnCreateReserved="OpenCreateReserved" />
 
 
-    <Drawer Title="Форма"
-            IsOpen="@_drawerOpen"
-            IsOpenChanged="@(v => _drawerOpen = v)"
-            OnClosed="OnDrawerClosed">
-
-        <ChildContent>
-            <div class="drawer-grow">
-                <h6 class="mb-3">Створення картки (Reserved)</h6>
-
-                <!-- тут буде твоя форма -->
-                <div class="mb-2">TODO: форма створення</div>
-            </div>
-        </ChildContent>
-
-        <FooterContent>
-            <Button Class="btn-sm btn-outline-secondary rounded-0"
-                    Label="Скасувати"
-                    OnClickButton="CloseDrawer" />
-
-            <Button Class="btn-sm btn-primary rounded-0"
-                    Label="Зберегти" />
-        </FooterContent>
-
-    </Drawer>
+    <CreateReservedDrawer IsOpen="@_createReservedOpen"
+                          IsOpenChanged="@(v => _createReservedOpen = v)"
+                          OnCreate="HandleCreateReservedAsync" />
 </div>      

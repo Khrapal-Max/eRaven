@@ -5,6 +5,12 @@
 // Program
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Catalogs.Ranks;
+using eRaven.Application.Commands;
+using eRaven.Application.Commands.PersonMove;
+using eRaven.Application.DTOs;
+using eRaven.Application.Handlers;
+using eRaven.Application.Validations;
 using eRaven.Components;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
@@ -12,6 +18,7 @@ using eRaven.Infrastructure.Projectors;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 using eRaven.Presentation.Errors;
 using eRaven.Presentation.Toasts;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,6 +32,11 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")); // або ваш провайдер
 });
 
+// Catalogs
+builder.Services.AddScoped<IRankCatalog, DefaultRankCatalog>();
+
+// Validators
+builder.Services.AddScoped<IValidator<CreateReservedDto>, CreateReservedDtoValidator>();
 
 // Projector (stateless)
 builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();
@@ -33,6 +45,7 @@ builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjecto
 builder.Services.AddScoped<IPersonRepository, PersonRepository>();
 
 // Command handlers
+builder.Services.AddScoped<ICommandHandler<CreateReservedCommand, Guid>, CreateReservedCommandHandler>();
 
 // Query handlers
 

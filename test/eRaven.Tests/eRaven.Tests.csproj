@@ -33,8 +33,4 @@
     <ProjectReference Include="..\..\src\eRaven\eRaven.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Application\Handlers\" />
-  </ItemGroup>
-
 </Project>

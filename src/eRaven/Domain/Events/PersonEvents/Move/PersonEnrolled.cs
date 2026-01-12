@@ -19,7 +19,7 @@ public sealed record PersonEnrolled(
     string? Reference,
     string Reason,
     DateOnly EnrollDate,
-    string Position,         
+    string Position,
     string Author,
     DateTime OccurredAtUtc
 ) : IDomainEvent;

@@ -142,7 +142,7 @@ public sealed class PersonRepository(
             UpdatedAtUtc: rm.UpdatedAtUtc
         );
     }
-   
+
     public async Task<IReadOnlyList<PersonEventDto>> GetHistoryAsync(Guid id, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -259,7 +259,7 @@ public sealed class PersonRepository(
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
-   
+
 
     public async Task VoidEventAsync(VoidPersonEventCommand cmd, CancellationToken ct = default)
     {

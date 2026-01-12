@@ -1,0 +1,63 @@
+﻿@using FluentValidation
+@implements IDisposable
+
+@code {
+    [CascadingParameter] private EditContext CurrentEditContext { get; set; } = default!;
+    [Inject] private IServiceProvider Services { get; set; } = default!;
+
+    private ValidationMessageStore? _messages;
+
+    protected override void OnInitialized()
+    {
+        _messages = new ValidationMessageStore(CurrentEditContext);
+
+        CurrentEditContext.OnValidationRequested += OnValidationRequested;
+        CurrentEditContext.OnFieldChanged += OnFieldChanged;
+    }
+
+    private void OnValidationRequested(object? sender, ValidationRequestedEventArgs e) => Validate();
+    private void OnFieldChanged(object? sender, FieldChangedEventArgs e) => Validate();
+
+    private void Validate()
+    {
+        _messages!.Clear();
+
+        var model = CurrentEditContext.Model;
+        var validatorType = typeof(IValidator<>).MakeGenericType(model.GetType());
+        var validator = Services.GetService(validatorType);
+
+        if (validator is null)
+        {
+            CurrentEditContext.NotifyValidationStateChanged();
+            return;
+        }
+
+        // dynamic call: ((IValidator<T>)validator).Validate((T)model)
+        var method = validatorType.GetMethod("Validate", new[] { model.GetType() });
+        var result = method!.Invoke(validator, new[] { model });
+
+        var errorsProp = result!.GetType().GetProperty("Errors");
+        var errors = (System.Collections.IEnumerable?)errorsProp!.GetValue(result);
+
+        if (errors is not null)
+        {
+            foreach (var err in errors)
+            {
+                var propName = (string)err.GetType().GetProperty("PropertyName")!.GetValue(err)!;
+                var message = (string)err.GetType().GetProperty("ErrorMessage")!.GetValue(err)!;
+
+                _messages.Add(new FieldIdentifier(model, propName), message);
+            }
+        }
+
+        CurrentEditContext.NotifyValidationStateChanged();
+    }
+
+    public void Dispose()
+    {
+        if (CurrentEditContext is null) return;
+
+        CurrentEditContext.OnValidationRequested -= OnValidationRequested;
+        CurrentEditContext.OnFieldChanged -= OnFieldChanged;
+    }
+}
