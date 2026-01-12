@@ -14,6 +14,7 @@ public sealed record CreateReservedCommand(
     string FirstName,
     string? MiddleName,
     string? Rank,
+    int? PositionSort,
     string? Position,
     string Author,
     DateTime NowUtc);

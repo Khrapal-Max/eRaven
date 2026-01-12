@@ -20,6 +20,7 @@ public sealed record PersonDetailsDto(
     string? MiddleName,
     string FullName,
     string? Rank,
+    int? PositionSort,
     string? Position,
     string? Bzvp,
     string? Weapon,

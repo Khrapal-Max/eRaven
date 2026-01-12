@@ -30,6 +30,7 @@ public sealed class PersonAggregate
 
     public PersonalInfo? Personal { get; private set; }
     public string? Rank { get; private set; }
+    public int? PositionSort { get; private set; }
     public string? Position { get; private set; }
 
     public string? BZVP { get; private set; }
@@ -134,22 +135,27 @@ public sealed class PersonAggregate
         ));
     }
 
-    public void ChangePosition(DateOnly effectiveDate, string? position, string? note, string author, DateTime nowUtc)
+    public void ChangePosition(DateOnly effectiveDate, int positionSort, string position, string? note, string author, DateTime nowUtc)
     {
         EnsureInitialized();
+
+        if (positionSort <= 0)
+            throw new ArgumentException("PositionSort must be > 0", nameof(positionSort));
 
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        Raise(new PersonPositionChanged(
+        var evt = new PersonPositionChanged(
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             EffectiveDate: effectiveDate,
-            Position: Normalize(position),   // null дозволяє "очистити"
-            Note: Normalize(note),
+            PositionSort: positionSort,
+            Position: position.Trim(),
+            Note: string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
             Author: author.Trim(),
-            OccurredAtUtc: nowUtc
-        ));
+            OccurredAtUtc: nowUtc);
+
+        Raise(evt);
     }
 
     public void ChangeBzvp(DateOnly effectiveDate, string bzvp, string? note, string author, DateTime nowUtc)
@@ -208,14 +214,15 @@ public sealed class PersonAggregate
     }
 
     public void Enroll(
-    EnrollmentKind kind,
-    string? reference,
-    string reason,
-    DateOnly enrollDate,
-    string rank,
-    string position,
-    string author,
-    DateTime nowUtc)
+     EnrollmentKind kind,
+     string? reference,
+     string reason,
+     DateOnly enrollDate,
+     string rank,
+     int positionSort,
+     string position,
+     string author,
+     DateTime nowUtc)
     {
         EnsureInitialized();
 
@@ -240,18 +247,20 @@ public sealed class PersonAggregate
         if (ExcludedAt is DateOnly ex && enrollDate <= ex)
             throw new InvalidOperationException("Дата зарахування має бути пізніше дати виключення.");
 
-        Raise(new PersonEnrolled(
+        var evt = new PersonEnrolled(
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             Kind: kind,
             Reference: Normalize(reference),
             Reason: reason.Trim(),
             EnrollDate: enrollDate,
-            Rank: rank,
+            Rank: rank.Trim(),
+            PositionSort: positionSort,
             Position: position.Trim(),
             Author: author.Trim(),
-            OccurredAtUtc: nowUtc
-        ));
+            OccurredAtUtc: nowUtc);
+
+        Raise(evt);
     }
 
     public void Exclude(string reason, DateOnly effectiveDate, string author, DateTime nowUtc)
@@ -358,6 +367,7 @@ public sealed class PersonAggregate
         Personal = null;
 
         Rank = null;
+        PositionSort = 0;
         Position = null;
 
         BZVP = null;
@@ -399,6 +409,7 @@ public sealed class PersonAggregate
 
             case PersonPositionChanged x:
                 Position = Normalize(x.Position);
+                PositionSort = x.PositionSort;
                 break;
 
             case PersonBzvpChanged x:
@@ -419,6 +430,7 @@ public sealed class PersonAggregate
                 EnrollmentReference = Normalize(x.Reference);
                 EnrolledAt = x.EnrollDate;
                 Rank = x.Rank;
+                PositionSort = x.PositionSort;
                 Position = x.Position;
                 ExcludedAt = null;
                 break;

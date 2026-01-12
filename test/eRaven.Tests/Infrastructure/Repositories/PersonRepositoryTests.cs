@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonRepositoryTests (SQLite in-memory + projector + event store)
+// PersonRepositoryTests (SQLite in-memory + projector + event store) - updated for PositionSort
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Commands.PersonInfo;
@@ -57,6 +57,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             FirstName: first,
             MiddleName: middle,
             Rank: rank,
+            PositionSort: null,
             Position: position,
             Author: "tester",
             NowUtc: NowUtc);
@@ -107,6 +108,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
         // normalized
         Assert.Equal("Сержант", rm.Rank);
         Assert.Equal("Стрілець", rm.Position);
+        Assert.Null(rm.PositionSort); // ✅ CreateReserved не ставить сорт
         Assert.Null(rm.Bzvp);
         Assert.Null(rm.Weapon);
         Assert.Null(rm.Callsign);
@@ -174,6 +176,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             Reason: "r",
             EnrollDate: new DateOnly(2026, 01, 10),
             Rank: "Солдат",
+            PositionSort: 10,
             Position: "Оператор",
             Author: "tester",
             NowUtc: NowUtc.AddMinutes(1)));
@@ -188,6 +191,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             Assert.Null(dto.ExcludedAt);
             Assert.Equal("Солдат", dto.Rank);
             Assert.Equal("Оператор", dto.Position);
+            Assert.Equal(10, dto.PositionSort);
         }
 
         await _repo.ExcludeAsync(new ExcludeCommand(
@@ -200,11 +204,13 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
         {
             var dto = await _repo.GetByIdAsync(id);
             Assert.NotNull(dto);
-            Assert.Equal(PersonLifecycle.Reserved, dto!.Lifecycle); // ключове правило
+            Assert.Equal(PersonLifecycle.Reserved, dto!.Lifecycle);
             Assert.Equal(new DateOnly(2026, 01, 20), dto.ExcludedAt);
+
             // інші поля не чистимо
             Assert.Equal("Солдат", dto.Rank);
             Assert.Equal("Оператор", dto.Position);
+            Assert.Equal(10, dto.PositionSort);
         }
 
         await _repo.EnrollAsync(new EnrollCommand(
@@ -214,6 +220,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             Reason: "re",
             EnrollDate: new DateOnly(2026, 06, 02),
             Rank: "Сержант",
+            PositionSort: 9999,          // ✅ правило для приряджених
             Position: "Командир",
             Author: "tester",
             NowUtc: NowUtc.AddMinutes(3)));
@@ -225,9 +232,10 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             Assert.Equal(EnrollmentKind.AttachedByOrder, dto.EnrollmentKind);
             Assert.Equal("B", dto.EnrollmentReference);
             Assert.Equal(new DateOnly(2026, 06, 02), dto.EnrolledAt);
-            Assert.Null(dto.ExcludedAt); // ✅ очищено на re-enroll
+            Assert.Null(dto.ExcludedAt);
             Assert.Equal("Сержант", dto.Rank);
             Assert.Equal("Командир", dto.Position);
+            Assert.Equal(9999, dto.PositionSort);
         }
     }
 
@@ -289,13 +297,33 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
         // p1 active only in Jan 2026
         var p1 = Guid.NewGuid();
         await _repo.CreateReservedAsync(CreateCmd(p1, "1234567890", last: "Alpha", first: "A", rank: "R", position: "P"));
-        await _repo.EnrollAsync(new EnrollCommand(p1, EnrollmentKind.Unit, null, "r", new DateOnly(2026, 01, 10), "soldier", "Pos1", "tester", NowUtc.AddMinutes(1)));
+        await _repo.EnrollAsync(new EnrollCommand(
+            PersonId: p1,
+            Kind: EnrollmentKind.Unit,
+            Reference: null,
+            Reason: "r",
+            EnrollDate: new DateOnly(2026, 01, 10),
+            Rank: "soldier",
+            PositionSort: 10,
+            Position: "Pos1",
+            Author: "tester",
+            NowUtc: NowUtc.AddMinutes(1)));
         await _repo.ExcludeAsync(new ExcludeCommand(p1, "x", new DateOnly(2026, 01, 20), "tester", NowUtc.AddMinutes(2)));
 
         // p2 enrolled and still active
         var p2 = Guid.NewGuid();
         await _repo.CreateReservedAsync(CreateCmd(p2, "1234567891", last: "Bravo", first: "B", rank: "R", position: "P"));
-        await _repo.EnrollAsync(new EnrollCommand(p2, EnrollmentKind.AttachedByList, "REF", "r", new DateOnly(2026, 01, 05), "soldier", "Pos2", "tester", NowUtc.AddMinutes(1)));
+        await _repo.EnrollAsync(new EnrollCommand(
+            PersonId: p2,
+            Kind: EnrollmentKind.AttachedByList,
+            Reference: "REF",
+            Reason: "r",
+            EnrollDate: new DateOnly(2026, 01, 05),
+            Rank: "soldier",
+            PositionSort: 9999,
+            Position: "Pos2",
+            Author: "tester",
+            NowUtc: NowUtc.AddMinutes(1)));
 
         // p3 reserved only
         var p3 = Guid.NewGuid();
@@ -350,9 +378,11 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
         var id = Guid.NewGuid();
 
         await _repo.CreateReservedAsync(CreateCmd(id, "1234567890", last: "Ivanov", first: "Ivan"));
+
         await _repo.ChangePositionAsync(new ChangePositionCommand(
             PersonId: id,
             EffectiveDate: new DateOnly(2026, 01, 03),
+            PositionSort: 20,
             Position: "O",
             Note: null,
             Author: "tester",
@@ -388,6 +418,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             Reason: "r",
             EnrollDate: new DateOnly(2026, 01, 10),
             Rank: "Солдат",
+            PositionSort: 10,
             Position: "Оператор",
             Author: "tester",
             NowUtc: NowUtc.AddMinutes(1)));
@@ -396,8 +427,10 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
         Assert.NotNull(dto);
 
         Assert.Equal(PersonLifecycle.Enrolled, dto!.Lifecycle);
-        Assert.Equal("Солдат", dto.Rank);        // ✅ ключове
+        Assert.Equal("Солдат", dto.Rank);
         Assert.Equal("Оператор", dto.Position);
+        Assert.Equal(10, dto.PositionSort);
+
         Assert.Equal(EnrollmentKind.Unit, dto.EnrollmentKind);
         Assert.Equal("A", dto.EnrollmentReference);
     }

@@ -148,6 +148,7 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
 
             // professional / military (можуть бути заповнені вже на створенні)
             Rank = Normalize(created.Rank),
+            PositionSort = null,
             Position = Normalize(created.Position),
 
             EnrolledAt = null,
@@ -171,6 +172,7 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
                 return;
 
             case PersonPositionChanged x:
+                rm.PositionSort = x.PositionSort;
                 rm.Position = Normalize(x.Position);
                 return;
 
@@ -196,6 +198,7 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
 
                 // звання та посада при enroll обовʼязкова (string)
                 rm.Rank = x.Rank.Trim();
+                rm.PositionSort = x.PositionSort;
                 rm.Position = x.Position.Trim();
 
                 // ✅ повторний enroll: очищаємо дату виключення
@@ -228,6 +231,7 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
         target.FullName = source.FullName;
 
         target.Rank = source.Rank;
+        target.PositionSort = source.PositionSort;
         target.Position = source.Position;
 
         target.Bzvp = source.Bzvp;

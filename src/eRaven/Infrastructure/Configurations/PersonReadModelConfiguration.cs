@@ -63,6 +63,9 @@ public sealed class PersonReadModelConfiguration : IEntityTypeConfiguration<Pers
             .HasColumnName("rank")
             .HasMaxLength(128);
 
+        e.Property(x => x.PositionSort)
+            .HasColumnName("position_sort");
+
         e.Property(x => x.Position)
             .HasColumnName("position")
             .HasMaxLength(512);
@@ -103,5 +106,8 @@ public sealed class PersonReadModelConfiguration : IEntityTypeConfiguration<Pers
 
         e.HasIndex(x => new { x.EnrolledAt, x.ExcludedAt })
             .HasDatabaseName("ix_person_read_enrolled_excluded");
+
+        e.HasIndex(x => new { x.EnrollmentKind, x.PositionSort, x.LastName })
+            .HasDatabaseName("ix_person_read_kind_possort_last");
     }
 }

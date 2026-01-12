@@ -133,6 +133,7 @@ public sealed class PersonRepository(
             MiddleName: rm.MiddleName,
             FullName: rm.FullName,
             Rank: rm.Rank,
+            PositionSort: rm.PositionSort,
             Position: rm.Position,
             Bzvp: rm.Bzvp,
             Weapon: rm.Weapon,
@@ -190,14 +191,15 @@ public sealed class PersonRepository(
         var agg = await LoadAggregateAsync(cmd.PersonId, ct);
 
         agg.Enroll(
-            kind: cmd.Kind,
-            reference: cmd.Reference,
-            reason: cmd.Reason,
-            enrollDate: cmd.EnrollDate,
-            rank: cmd.Rank,
-            position: cmd.Position,
-            author: cmd.Author,
-            nowUtc: cmd.NowUtc);
+             kind: cmd.Kind,
+             reference: cmd.Reference,
+             reason: cmd.Reason,
+             enrollDate: cmd.EnrollDate,
+             rank: cmd.Rank,
+             position: cmd.Position,
+             positionSort: cmd.PositionSort,
+             author: cmd.Author,
+             nowUtc: cmd.NowUtc);
 
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
 
@@ -235,7 +237,7 @@ public sealed class PersonRepository(
     public async Task ChangePositionAsync(ChangePositionCommand cmd, CancellationToken ct = default)
     {
         var agg = await LoadAggregateAsync(cmd.PersonId, ct);
-        agg.ChangePosition(cmd.EffectiveDate, cmd.Position, cmd.Note, cmd.Author, cmd.NowUtc);
+        agg.ChangePosition(cmd.EffectiveDate, cmd.PositionSort ?? 0, cmd.Position ?? string.Empty, cmd.Note, cmd.Author, cmd.NowUtc);
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 

@@ -31,6 +31,9 @@ public sealed class EnrollDtoValidator : AbstractValidator<EnrollDto>
         RuleFor(x => x.EnrollDate)
             .NotEmpty().WithMessage("Вкажіть звання.");
 
+        RuleFor(x => x.PositionSort)
+            .LessThan(1).WithMessage("Вкажіть посаду.");
+
         RuleFor(x => x.Position)
             .NotEmpty().WithMessage("Вкажіть посаду.")
             .MaximumLength(512).WithMessage("Посада занадто довга (макс. 512).");

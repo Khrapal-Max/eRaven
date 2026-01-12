@@ -23,5 +23,6 @@ public sealed class EnrollDto
 
     // обов’язкові при зарахуванні (користувач має заповнити)
     public string Rank { get; set; } = string.Empty;
+    public int PositionSort { get; set; } = 0;
     public string Position { get; set; } = string.Empty;
 }

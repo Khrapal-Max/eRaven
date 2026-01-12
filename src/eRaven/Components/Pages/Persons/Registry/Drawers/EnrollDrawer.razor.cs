@@ -81,7 +81,6 @@ public partial class EnrollDrawer
             _ranks = RankCatalog.GetActive();
 
             _person = await DetailsQuery.HandleAsync(new GetPersonDetailsQuery(PersonId));
-
             if (_person is not null)
             {
                 Model.Id = _person.Id;
@@ -90,9 +89,8 @@ public partial class EnrollDrawer
                 Model.Reference = _person.EnrollmentReference;
                 Model.EnrollDate = DateOnly.FromDateTime(DateTime.UtcNow);
 
-                // ✅ дефолт для селекта — якщо було звання, воно стане вибраним
                 Model.Rank = _person.Rank ?? string.Empty;
-
+                Model.PositionSort = _person.PositionSort ?? 0;
                 Model.Position = _person.Position ?? string.Empty;
             }
 
@@ -130,6 +128,9 @@ public partial class EnrollDrawer
             Model.Rank = TrimOrEmpty(Model.Rank);
             Model.Position = TrimOrEmpty(Model.Position);
 
+            if (Model.Kind != EnrollmentKind.Unit)
+                Model.PositionSort = 9999;
+
             if (OnSubmit.HasDelegate)
             {
                 var dto = new EnrollDto
@@ -140,6 +141,7 @@ public partial class EnrollDrawer
                     Reason = Model.Reason,
                     EnrollDate = Model.EnrollDate,
                     Rank = Model.Rank,
+                    PositionSort = Model.PositionSort,
                     Position = Model.Position
                 };
 

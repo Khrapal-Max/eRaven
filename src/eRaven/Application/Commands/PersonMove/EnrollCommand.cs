@@ -16,6 +16,7 @@ public sealed record EnrollCommand(
     string Reason,
     DateOnly EnrollDate,
     string Rank,
+    int PositionSort,
     string Position,
     string Author,
     DateTime NowUtc);

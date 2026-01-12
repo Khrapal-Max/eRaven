@@ -23,6 +23,7 @@ public sealed class CreateReservedCommandHandlerTests
         FirstName: "Ivan",
         MiddleName: "Ivanovich",
         Rank: "солдат",
+        PositionSort: 1,
         Position: "стрілець",
         Author: "tester",
         NowUtc: NowUtc

@@ -65,7 +65,6 @@
 
                     <EditForm EditContext="@_editContext"
                               OnValidSubmit="SubmitAsync"
-                              class="drawer-form"
                               id="enroll-form">
 
                         <FluentValidationValidator />
@@ -93,22 +92,40 @@
                                 <InputDate class="form-control rounded-0" @bind-Value="Model.EnrollDate" />
                                 <ValidationMessage For="@(() => Model.EnrollDate)" />
                             </div>
-
+                           
                             <div class="col-12 col-md-4">
-                                <label class="form-label mb-1">Звання</label>
+                                <label class="form-label">Звання</label>
 
-                                <InputSelect class="form-select rounded-0" @bind-Value="Model.Rank">
-                                    <option value="">—</option>
-                                    @foreach (var r in _ranks)
-                                    {
-                                        <option value="@r.Title">@r.Title</option>
-                                    }
-                                </InputSelect>
+                                <div class="dropdown w-100">
+                                    <button class="btn btn-outline-secondary dropdown-toggle w-100 text-truncate"
+                                            type="button"
+                                            data-bs-toggle="dropdown"
+                                            aria-expanded="false">
+                                        @(string.IsNullOrWhiteSpace(Model.Rank) ? "— оберіть звання —" : Model.Rank)
+                                    </button>
+
+                                    <ul class="dropdown-menu border w-100 overflow-auto" style="max-height: 30vh;">
+                                        @foreach (var title in _ranks)
+                                        {
+                                            <li>
+                                                <Button Class="dropdown-item"
+                                                        Label="@title.Title"
+                                                        OnClickButton="() => Model.Rank = title.Title" />
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
 
                                 <ValidationMessage For="@(() => Model.Rank)" />
                             </div>
 
-                            <div class="col-12 col-md-8">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label mb-1">Порядок посади</label>
+                                <InputNumber class="form-control rounded-0" @bind-Value="Model.PositionSort" />
+                                <ValidationMessage For="@(() => Model.PositionSort)" />
+                            </div>
+
+                            <div class="col-12">
                                 <label class="form-label mb-1">Посада</label>
                                 <InputText class="form-control rounded-0" @bind-Value="Model.Position" />
                                 <ValidationMessage For="@(() => Model.Position)" />

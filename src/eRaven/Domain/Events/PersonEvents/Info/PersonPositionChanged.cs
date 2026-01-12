@@ -14,6 +14,7 @@ public sealed record PersonPositionChanged(
     Guid EventId,
     Guid AggregateId,
     DateOnly EffectiveDate,
+    int PositionSort,
     string? Position,         // <-- можна null щоб "очистити"
     string? Note,
     string Author,

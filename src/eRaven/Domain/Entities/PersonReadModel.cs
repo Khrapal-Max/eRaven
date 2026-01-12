@@ -29,6 +29,7 @@ public sealed class PersonReadModel
 
     // професійні дані (поточні)
     public string? Rank { get; set; }
+    public int? PositionSort { get; set; }
     public string? Position { get; set; }
 
     // військові дані (поточні)

@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonReadModelProjectorTests (updated for simplified lifecycle + text Position)
+// PersonReadModelProjectorTests (updated for PositionSort)
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain;
@@ -75,6 +75,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
         string fullName,
         string? rank,
         string? position,
+        int? positionSort,
         string? bzvp,
         string? weapon,
         string? callsign,
@@ -96,6 +97,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
 
         Assert.Equal(rank, rm.Rank);
         Assert.Equal(position, rm.Position);
+        Assert.Equal(positionSort, rm.PositionSort);
 
         Assert.Equal(bzvp, rm.Bzvp);
         Assert.Equal(weapon, rm.Weapon);
@@ -140,7 +142,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
                 rm,
                 id: id,
                 lifecycle: PersonLifecycle.Reserved,
-                enrollmentKind: null,                // ✅ empty on create
+                enrollmentKind: null,
                 enrollmentRef: null,
                 rnokpp: "1234567890",
                 lastName: "Ivanov",
@@ -149,6 +151,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
                 fullName: "Ivanov Ivan Ivanovich",
                 rank: "Сержант",
                 position: "Стрілець",
+                positionSort: null,
                 bzvp: null,
                 weapon: null,
                 callsign: null,
@@ -219,6 +222,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             EnrollDate: new DateOnly(2026, 01, 10),
             Rank: "Сержант",
             Position: "Оператор",
+            PositionSort: 9999,
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
 
@@ -234,8 +238,8 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
         await using (var ctx = _db.Factory.CreateDbContext())
         {
             await _projector.ProjectAsync(ctx, ToRecord(created, 1));
-            await _projector.ProjectAsync(ctx, ToRecord(excluded, 2, excluded.EffectiveDate)); // Reserved + ExcludedAt set
-            await _projector.ProjectAsync(ctx, ToRecord(enrolled, 3, enrolled.EnrollDate));   // Enrolled + ExcludedAt cleared
+            await _projector.ProjectAsync(ctx, ToRecord(excluded, 2, excluded.EffectiveDate));
+            await _projector.ProjectAsync(ctx, ToRecord(enrolled, 3, enrolled.EnrollDate));
             await ctx.SaveChangesAsync();
         }
 
@@ -256,11 +260,12 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
                 fullName: "Ivanov Ivan M",
                 rank: "Сержант",
                 position: "Оператор",
+                positionSort: 9999,
                 bzvp: null,
                 weapon: null,
                 callsign: null,
                 enrolledAt: new DateOnly(2026, 01, 10),
-                excludedAt: null,                 // ✅ cleared on enroll
+                excludedAt: null,
                 version: 3);
         }
     }
@@ -288,6 +293,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             EnrollDate: new DateOnly(2026, 01, 02),
             Rank: "Сержант",
             Position: "Оператор",
+            PositionSort: 9999,
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
 
@@ -308,6 +314,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             EnrollDate: new DateOnly(2026, 01, 10),
             Rank: "Сержант",
             Position: "Оператор",
+            PositionSort: 9999,
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(3));
 
@@ -331,8 +338,9 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
 
             Assert.Equal("Сержант", rm.Rank);
             Assert.Equal("Оператор", rm.Position);
+            Assert.Equal(9999, rm.PositionSort);
 
-            Assert.Null(rm.ExcludedAt);     // ✅ cleared on enroll
+            Assert.Null(rm.ExcludedAt);
             Assert.Equal(4, rm.Version);
         }
     }
@@ -360,6 +368,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             EnrollDate: new DateOnly(2026, 01, 10),
             Rank: "Солдат",
             Position: "Оператор",
+            PositionSort: 10,
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
 
@@ -421,6 +430,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             // ✅ must keep other fields
             Assert.Equal("Солдат", rm.Rank);
             Assert.Equal("Оператор", rm.Position);
+            Assert.Equal(10, rm.PositionSort);
 
             // ✅ must keep "card fields" too (exclude shouldn't clear them)
             Assert.Equal("B", rm.Bzvp);
@@ -462,6 +472,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             EnrollDate: new DateOnly(2026, 01, 10),
             Rank: "Солдат",
             Position: "Оператор",
+            PositionSort: 9999,
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(2));
 
@@ -517,10 +528,13 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Assert.Equal(EnrollmentKind.AttachedByList, after.EnrollmentKind);
             Assert.Equal("LIST-9", after.EnrollmentReference);
             Assert.Equal(new DateOnly(2026, 01, 10), after.EnrolledAt);
-            Assert.Equal("Оператор", after.Position);
 
-            Assert.Equal("Солдат", after.Rank);   // ✅ бо PersonEnrolled встановлює Rank
-            Assert.Equal(4, after.Version);       // ✅ last record version (includes void)
+            Assert.Equal("Оператор", after.Position);
+            Assert.Equal(9999, after.PositionSort);
+
+            // ✅ because PersonEnrolled sets Rank
+            Assert.Equal("Солдат", after.Rank);
+            Assert.Equal(4, after.Version); // includes void
         }
     }
 
@@ -556,6 +570,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             EnrollDate: new DateOnly(2026, 01, 10),
             Rank: "Солдат",
             Position: "Оператор",
+            PositionSort: 9999,
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(2));
 
@@ -607,9 +622,11 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             var after = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
 
             Assert.Equal(PersonLifecycle.Enrolled, after.Lifecycle);
-            Assert.Equal("Солдат", after.Rank);      // з enroll
+            Assert.Equal("Солдат", after.Rank);
             Assert.Equal("Оператор", after.Position);
-            Assert.Null(after.Callsign);             // ✅ ефект callsignChanged прибраний
+            Assert.Equal(9999, after.PositionSort);
+
+            Assert.Null(after.Callsign); // ✅ removed by rebuild
             Assert.Equal(4, after.Version);
         }
     }
@@ -637,6 +654,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             EnrollDate: new DateOnly(2026, 01, 10),
             Rank: "Солдат",
             Position: "Оператор",
+            PositionSort: 9999,
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
 
@@ -652,7 +670,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
         var voided = new PersonEventVoided(
             EventId: Guid.NewGuid(),
             AggregateId: id,
-            TargetEventId: excludedEventId,   // ✅ void excluded
+            TargetEventId: excludedEventId,
             Reason: "restore",
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(3));
@@ -698,17 +716,18 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
         {
             var after = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
 
-            Assert.Equal(PersonLifecycle.Enrolled, after.Lifecycle); // ✅ restored
-            Assert.Null(after.ExcludedAt);                            // ✅ removed by rebuild
+            Assert.Equal(PersonLifecycle.Enrolled, after.Lifecycle);
+            Assert.Null(after.ExcludedAt);
             Assert.Equal(new DateOnly(2026, 01, 10), after.EnrolledAt);
 
             Assert.Equal("Солдат", after.Rank);
             Assert.Equal("Оператор", after.Position);
+            Assert.Equal(9999, after.PositionSort);
 
             Assert.Equal(EnrollmentKind.AttachedByList, after.EnrollmentKind);
             Assert.Equal("LIST-9", after.EnrollmentReference);
 
-            Assert.Equal(4, after.Version); // ✅ last record version includes void
+            Assert.Equal(4, after.Version);
         }
     }
 
@@ -796,6 +815,8 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
                 FirstName = "Old",
                 FullName = "Old Old",
                 Rank = "WRONG",
+                Position = "WRONG",
+                PositionSort = 777,
                 Version = 999,
                 UpdatedAtUtc = NowUtc
             });
@@ -817,8 +838,9 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Assert.Equal("Ivanov", rm.LastName);
             Assert.Equal("Ivanov Ivan", rm.FullName);
 
-            Assert.Null(rm.Rank);         // ✅ rank voided
-            Assert.Equal(3, rm.Version);  // ✅ last record
+            Assert.Null(rm.Rank);          // ✅ rank voided
+            Assert.Null(rm.PositionSort);  // ✅ nothing set (created had null position)
+            Assert.Equal(3, rm.Version);   // ✅ last record
         }
     }
 }

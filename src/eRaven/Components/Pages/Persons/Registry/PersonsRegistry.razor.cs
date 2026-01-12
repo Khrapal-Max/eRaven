@@ -118,6 +118,7 @@ public partial class PersonsRegistry
              FirstName: dto.FirstName,
              MiddleName: dto.MiddleName,
              Rank: dto.Rank,
+             PositionSort: dto.PositionSort,
              Position: dto.Position,
              Author: "system", // TODO : додати авторизацію користувачів
              NowUtc: DateTime.UtcNow);
@@ -136,15 +137,16 @@ public partial class PersonsRegistry
         try
         {
             await EnrollHandler.HandleAsync(new EnrollCommand(
-                PersonId: enroll.Id,
-                Kind: enroll.Kind,
-                Reference: enroll.Reference,
-                Reason: enroll.Reason,
-                EnrollDate: enroll.EnrollDate,
-                Rank: enroll.Rank,
-                Position: enroll.Position,
-                Author: author,
-                NowUtc: nowUtc));
+                 PersonId: enroll.Id,
+                 Kind: enroll.Kind,
+                 Reference: enroll.Reference,
+                 Reason: enroll.Reason,
+                 EnrollDate: enroll.EnrollDate,
+                 Rank: enroll.Rank,
+                 Position: enroll.Position,
+                 PositionSort: enroll.PositionSort,
+                 Author: author,
+                 NowUtc: nowUtc));
 
             Toasts.Success("Зараховано в табель");
             await ReloadAsync();

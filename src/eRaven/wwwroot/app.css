@@ -393,10 +393,9 @@ body {
 
 .drawer-body {
     padding: 1rem;
-    overflow: hidden; /* ✅ прибираємо скрол з body */
-    display: flex;
-    flex-direction: column;
-    min-height: 0; /* ✅ критично для flex+overflow */
+    flex: 1 1 auto; /* ✅ займає весь простір між header/footer */
+    min-height: 0; /* ✅ must-have для overflow у flex */
+    overflow: auto; /* ✅ єдиний скрол */
 }
 
 .drawer-footer {
