@@ -214,13 +214,14 @@ public sealed class PersonAggregate
     }
 
     public void Enroll(
-        EnrollmentKind kind,
-        string? reference,
-        string reason,
-        DateOnly enrollDate,
-        string position,
-        string author,
-        DateTime nowUtc)
+    EnrollmentKind kind,
+    string? reference,
+    string reason,
+    DateOnly enrollDate,
+    string rank,
+    string position,
+    string author,
+    DateTime nowUtc)
     {
         EnsureInitialized();
 
@@ -230,7 +231,7 @@ public sealed class PersonAggregate
         if (Personal is null)
             throw new InvalidOperationException("Неможливо зарахувати без персональної інформації.");
 
-        if (string.IsNullOrWhiteSpace(Rank))
+        if (string.IsNullOrWhiteSpace(rank))
             throw new InvalidOperationException("Неможливо зарахувати без звання.");
 
         if (string.IsNullOrWhiteSpace(position))
@@ -252,7 +253,8 @@ public sealed class PersonAggregate
             Reference: Normalize(reference),
             Reason: reason.Trim(),
             EnrollDate: enrollDate,
-            Position: position.Trim(),     // важливо: в події позиція НЕ nullable
+            Rank: rank,             
+            Position: position.Trim(),       
             Author: author.Trim(),
             OccurredAtUtc: nowUtc
         ));
@@ -426,8 +428,9 @@ public sealed class PersonAggregate
                 EnrollmentKind = x.Kind;
                 EnrollmentReference = Normalize(x.Reference);
                 EnrolledAt = x.EnrollDate;
+                Rank = x.Rank;
                 Position = x.Position;
-                ExcludedAt = null; // <-- ВАЖЛИВО під твою вимогу
+                ExcludedAt = null;
                 break;
 
             case PersonExcluded x:

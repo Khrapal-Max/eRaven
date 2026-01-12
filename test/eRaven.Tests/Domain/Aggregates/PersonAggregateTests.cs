@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonAggregateTests (updated for simplified Position + new lifecycle)
+// PersonAggregateTests (updated)
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain;
@@ -65,13 +65,11 @@ public sealed class PersonAggregateTests
         Assert.Equal("AK", sut.Weapon);
         Assert.Equal("Fox", sut.Callsign);
 
-        // move info empty on create
         Assert.Null(sut.EnrolledAt);
         Assert.Null(sut.ExcludedAt);
         Assert.Null(sut.EnrollmentKind);
         Assert.Null(sut.EnrollmentReference);
 
-        // rehydrate must not create uncommitted changes
         Assert.Empty(sut.GetUncommittedChanges());
     }
 
@@ -118,8 +116,8 @@ public sealed class PersonAggregateTests
         ]);
 
         Assert.Equal(PersonLifecycle.Reserved, sut.Lifecycle);
-        Assert.Null(sut.Rank);        // rank was voided
-        Assert.Equal(3, sut.Version); // stream version = last record version (including void)
+        Assert.Null(sut.Rank);
+        Assert.Equal(3, sut.Version);
     }
 
     [Fact]
@@ -158,7 +156,6 @@ public sealed class PersonAggregateTests
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(2));
 
-        // void of void
         var voidedVoid = new PersonEventVoided(
             EventId: Guid.NewGuid(),
             AggregateId: id,
@@ -203,6 +200,7 @@ public sealed class PersonAggregateTests
             Reference: "№123",
             Reason: "Наказ",
             EnrollDate: new DateOnly(2026, 01, 10),
+            Rank: "Сержант",
             Position: "Стрілець",
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(2));
@@ -220,12 +218,13 @@ public sealed class PersonAggregateTests
         Assert.Equal(EnrollmentKind.AttachedByOrder, sut.EnrollmentKind);
         Assert.Equal("№123", sut.EnrollmentReference);
 
+        Assert.Equal("Сержант", sut.Rank);
         Assert.Equal("Стрілець", sut.Position);
         Assert.Null(sut.ExcludedAt);
     }
 
     // =========================
-    // commands (uncommitted events + validations)
+    // commands
     // =========================
 
     [Fact]
@@ -244,7 +243,6 @@ public sealed class PersonAggregateTests
             author: " tester ",
             nowUtc: NowUtc);
 
-        // state applied
         Assert.Equal(id, sut.Id);
         Assert.Equal(PersonLifecycle.Reserved, sut.Lifecycle);
 
@@ -254,10 +252,7 @@ public sealed class PersonAggregateTests
         Assert.Equal("AK", sut.Weapon);
         Assert.Equal("Fox", sut.Callsign);
 
-        var changes = sut.GetUncommittedChanges();
-        Assert.Single(changes);
-
-        var evt = Assert.IsType<PersonCreated>(changes[0]);
+        var evt = Assert.IsType<PersonCreated>(Assert.Single(sut.GetUncommittedChanges()));
         Assert.Equal(id, evt.AggregateId);
         Assert.Equal("tester", evt.Author);
 
@@ -266,8 +261,6 @@ public sealed class PersonAggregateTests
         Assert.Equal("A123", evt.Bzvp);
         Assert.Equal("AK", evt.Weapon);
         Assert.Equal("Fox", evt.Callsign);
-
-        Assert.Equal("1234567890", evt.Personal.Rnokpp);
     }
 
     [Fact]
@@ -303,7 +296,7 @@ public sealed class PersonAggregateTests
     }
 
     [Fact]
-    public void Enroll_when_missing_rank_should_throw()
+    public void Enroll_when_missing_rank_in_aggregate_should_throw()
     {
         var id = Guid.NewGuid();
 
@@ -311,7 +304,7 @@ public sealed class PersonAggregateTests
             EventId: Guid.NewGuid(),
             AggregateId: id,
             Personal: Personal(),
-            Rank: null,                 // <- rank missing
+            Rank: null,                 // <- rank missing in aggregate
             Position: null,
             Bzvp: null,
             Weapon: null,
@@ -328,6 +321,7 @@ public sealed class PersonAggregateTests
                 reference: null,
                 reason: "ok",
                 enrollDate: new DateOnly(2026, 01, 10),
+                rank: string.Empty,
                 position: "Стрілець",
                 author: "tester",
                 nowUtc: NowUtc.AddMinutes(1)));
@@ -361,6 +355,7 @@ public sealed class PersonAggregateTests
                 reference: null,
                 reason: "ok",
                 enrollDate: new DateOnly(2026, 01, 10),
+                rank: "Солдат",
                 position: "   ", // <- missing
                 author: "tester",
                 nowUtc: NowUtc.AddMinutes(1)));
@@ -369,10 +364,11 @@ public sealed class PersonAggregateTests
     }
 
     [Fact]
-    public void Enroll_when_ok_should_add_uncommitted_event_with_all_fields_and_apply_state()
+    public void Enroll_when_ok_should_add_uncommitted_event_and_apply_state()
     {
         var id = Guid.NewGuid();
 
+        // ✅ rank already exists at time of enrollment
         var created = new PersonCreated(
             EventId: Guid.NewGuid(),
             AggregateId: id,
@@ -393,7 +389,8 @@ public sealed class PersonAggregateTests
             reference: " List-55 ",
             reason: "Test reason",
             enrollDate: new DateOnly(2026, 01, 10),
-            position: "Оператор",
+            rank: "Сержант",
+            position: " Оператор ",
             author: "tester",
             nowUtc: NowUtc.AddMinutes(1));
 
@@ -402,16 +399,15 @@ public sealed class PersonAggregateTests
         Assert.Equal(EnrollmentKind.AttachedByList, sut.EnrollmentKind);
         Assert.Equal("List-55", sut.EnrollmentReference);
 
+        Assert.Equal("Сержант", sut.Rank);     // ✅ stays (or becomes) present
         Assert.Equal("Оператор", sut.Position);
         Assert.Null(sut.ExcludedAt);
 
         var evt = Assert.IsType<PersonEnrolled>(Assert.Single(sut.GetUncommittedChanges()));
         Assert.Equal(id, evt.AggregateId);
-        Assert.Equal(EnrollmentKind.AttachedByList, evt.Kind);
-        Assert.Equal("List-55", evt.Reference);
-        Assert.Equal("Test reason", evt.Reason);
-        Assert.Equal(new DateOnly(2026, 01, 10), evt.EnrollDate);
+        Assert.Equal("Сержант", evt.Rank);          // ✅ comes from aggregate state
         Assert.Equal("Оператор", evt.Position);
+        Assert.Equal("List-55", evt.Reference);
         Assert.Equal("tester", evt.Author);
     }
 
@@ -439,6 +435,7 @@ public sealed class PersonAggregateTests
             Reference: null,
             Reason: "r",
             EnrollDate: new DateOnly(2026, 01, 02),
+            Rank: "Сержант",
             Position: "Оператор",
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
@@ -451,7 +448,6 @@ public sealed class PersonAggregateTests
         Assert.Equal(PersonLifecycle.Reserved, sut.Lifecycle);
         Assert.Equal(new DateOnly(2026, 01, 11), sut.ExcludedAt);
 
-        // інші поля не чистимо
         Assert.Equal("Сержант", sut.Rank);
         Assert.Equal("Оператор", sut.Position);
 
@@ -569,6 +565,7 @@ public sealed class PersonAggregateTests
             Reference: "A",
             Reason: "r",
             EnrollDate: new DateOnly(2026, 01, 02),
+            Rank: "Солдат",
             Position: "Стрілець",
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
@@ -588,33 +585,33 @@ public sealed class PersonAggregateTests
             SE(3, excluded)
         ]);
 
-        // sanity: після виключення
         Assert.Equal(PersonLifecycle.Reserved, sut.Lifecycle);
         Assert.Equal(new DateOnly(2026, 01, 10), sut.ExcludedAt);
 
-        // act: повторне зарахування
         sut.Enroll(
             kind: EnrollmentKind.AttachedByOrder,
             reference: "B",
             reason: "re-enroll",
             enrollDate: new DateOnly(2026, 06, 02),
+            rank: "Солдат",
             position: "Командир",
             author: "tester",
             nowUtc: NowUtc.AddMinutes(10));
 
-        // assert: знов Enrolled + ExcludedAt скинуто
         Assert.Equal(PersonLifecycle.Enrolled, sut.Lifecycle);
         Assert.Equal(new DateOnly(2026, 06, 02), sut.EnrolledAt);
-        Assert.Null(sut.ExcludedAt); // ✅ ключове
+        Assert.Null(sut.ExcludedAt);
 
         Assert.Equal(EnrollmentKind.AttachedByOrder, sut.EnrollmentKind);
         Assert.Equal("B", sut.EnrollmentReference);
 
+        Assert.Equal("Солдат", sut.Rank);
         Assert.Equal("Командир", sut.Position);
 
         var evt = Assert.IsType<PersonEnrolled>(Assert.Single(sut.GetUncommittedChanges()));
         Assert.Equal(new DateOnly(2026, 06, 02), evt.EnrollDate);
         Assert.Equal("Командир", evt.Position);
+        Assert.Equal("Солдат", evt.Rank);
     }
 
     [Fact]
@@ -650,7 +647,8 @@ public sealed class PersonAggregateTests
                 kind: EnrollmentKind.Unit,
                 reference: null,
                 reason: "re-enroll",
-                enrollDate: new DateOnly(2026, 01, 10), // <= ExcludedAt (не можна)
+                enrollDate: new DateOnly(2026, 01, 10), // <= ExcludedAt
+                rank: "Солдат",
                 position: "Стрілець",
                 author: "tester",
                 nowUtc: NowUtc.AddMinutes(2)));

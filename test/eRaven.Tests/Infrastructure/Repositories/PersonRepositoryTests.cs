@@ -182,6 +182,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             Reference: "A",
             Reason: "r",
             EnrollDate: new DateOnly(2026, 01, 10),
+            Rank: "Солдат",
             Position: "Оператор",
             Author: "tester",
             NowUtc: NowUtc.AddMinutes(1)));
@@ -194,6 +195,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             Assert.Equal("A", dto.EnrollmentReference);
             Assert.Equal(new DateOnly(2026, 01, 10), dto.EnrolledAt);
             Assert.Null(dto.ExcludedAt);
+            Assert.Equal("Солдат", dto.Rank);
             Assert.Equal("Оператор", dto.Position);
         }
 
@@ -220,6 +222,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             Reference: "B",
             Reason: "re",
             EnrollDate: new DateOnly(2026, 06, 02),
+            Rank: "Сержант",
             Position: "Командир",
             Author: "tester",
             NowUtc: NowUtc.AddMinutes(3)));
@@ -232,6 +235,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             Assert.Equal("B", dto.EnrollmentReference);
             Assert.Equal(new DateOnly(2026, 06, 02), dto.EnrolledAt);
             Assert.Null(dto.ExcludedAt); // ✅ очищено на re-enroll
+            Assert.Equal("Сержант", dto.Rank);
             Assert.Equal("Командир", dto.Position);
         }
     }
@@ -294,13 +298,13 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
         // p1 active only in Jan 2026
         var p1 = Guid.NewGuid();
         await _repo.CreateReservedAsync(CreateCmd(p1, "1234567890", last: "Alpha", first: "A", rank: "R", position: "P"));
-        await _repo.EnrollAsync(new EnrollCommand(p1, EnrollmentKind.Unit, null, "r", new DateOnly(2026, 01, 10), "Pos1", "tester", NowUtc.AddMinutes(1)));
+        await _repo.EnrollAsync(new EnrollCommand(p1, EnrollmentKind.Unit, null, "r", new DateOnly(2026, 01, 10), "soldier", "Pos1", "tester", NowUtc.AddMinutes(1)));
         await _repo.ExcludeAsync(new ExcludeCommand(p1, "x", new DateOnly(2026, 01, 20), "tester", NowUtc.AddMinutes(2)));
 
         // p2 enrolled and still active
         var p2 = Guid.NewGuid();
         await _repo.CreateReservedAsync(CreateCmd(p2, "1234567891", last: "Bravo", first: "B", rank: "R", position: "P"));
-        await _repo.EnrollAsync(new EnrollCommand(p2, EnrollmentKind.AttachedByList, "REF", "r", new DateOnly(2026, 01, 05), "Pos2", "tester", NowUtc.AddMinutes(1)));
+        await _repo.EnrollAsync(new EnrollCommand(p2, EnrollmentKind.AttachedByList, "REF", "r", new DateOnly(2026, 01, 05), "soldier", "Pos2", "tester", NowUtc.AddMinutes(1)));
 
         // p3 reserved only
         var p3 = Guid.NewGuid();
@@ -372,5 +376,38 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
         Assert.Equal(nameof(PersonCreated), history[0].EventType);
         Assert.Equal(nameof(PersonPositionChanged), history[1].EventType);
         Assert.False(string.IsNullOrWhiteSpace(history[0].PayloadJson));
+    }
+
+    [Fact]
+    public async Task EnrollAsync_when_created_without_rank_should_set_rank_from_command()
+    {
+        var id = Guid.NewGuid();
+
+        // rank відсутній на створенні
+        await _repo.CreateReservedAsync(CreateCmd(
+            id: id,
+            rnokpp: "1234567890",
+            rank: null,
+            position: "P"));
+
+        await _repo.EnrollAsync(new EnrollCommand(
+            PersonId: id,
+            Kind: EnrollmentKind.Unit,
+            Reference: "A",
+            Reason: "r",
+            EnrollDate: new DateOnly(2026, 01, 10),
+            Rank: "Солдат",
+            Position: "Оператор",
+            Author: "tester",
+            NowUtc: NowUtc.AddMinutes(1)));
+
+        var dto = await _repo.GetByIdAsync(id);
+        Assert.NotNull(dto);
+
+        Assert.Equal(PersonLifecycle.Enrolled, dto!.Lifecycle);
+        Assert.Equal("Солдат", dto.Rank);        // ✅ ключове
+        Assert.Equal("Оператор", dto.Position);
+        Assert.Equal(EnrollmentKind.Unit, dto.EnrollmentKind);
+        Assert.Equal("A", dto.EnrollmentReference);
     }
 }

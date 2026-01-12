@@ -2,20 +2,9 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// EnrollCommand
+// GetPersonDetailsQuery
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+namespace eRaven.Application.Queries;
 
-namespace eRaven.Application.Commands.PersonMove;
-
-public sealed record EnrollCommand(
-    Guid PersonId,
-    EnrollmentKind Kind,
-    string? Reference,
-    string Reason,
-    DateOnly EnrollDate,
-    string Rank,
-    string Position,
-    string Author,
-    DateTime NowUtc);
+public sealed record GetPersonDetailsQuery(Guid PersonId);

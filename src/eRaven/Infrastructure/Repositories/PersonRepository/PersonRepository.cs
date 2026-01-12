@@ -188,7 +188,7 @@ public sealed class PersonRepository(
         return agg.Id;
     }
 
-    public async Task EnrollAsync(EnrollCommand cmd, CancellationToken ct = default)
+    public async Task<Guid> EnrollAsync(EnrollCommand cmd, CancellationToken ct = default)
     {
         var agg = await LoadAggregateAsync(cmd.PersonId, ct);
 
@@ -197,11 +197,14 @@ public sealed class PersonRepository(
             reference: cmd.Reference,
             reason: cmd.Reason,
             enrollDate: cmd.EnrollDate,
+            rank: cmd.Rank,
             position: cmd.Position,
             author: cmd.Author,
             nowUtc: cmd.NowUtc);
 
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
+
+        return agg.Id;
     }
 
     public async Task ExcludeAsync(ExcludeCommand cmd, CancellationToken ct = default)

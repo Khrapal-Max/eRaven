@@ -2,20 +2,19 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// EnrollCommand
+// EnrollDto
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Enums;
 
-namespace eRaven.Application.Commands.PersonMove;
+namespace eRaven.Application.DTOs;
 
-public sealed record EnrollCommand(
-    Guid PersonId,
-    EnrollmentKind Kind,
-    string? Reference,
-    string Reason,
-    DateOnly EnrollDate,
-    string Rank,
-    string Position,
-    string Author,
-    DateTime NowUtc);
+public sealed class EnrollDto
+{
+    public EnrollmentKind Kind { get; set; }
+    public string? Reference { get; set; }
+    public string Reason { get; set; } = string.Empty;
+    public DateOnly EnrollDate { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow);
+    public string Rank { get; set; } = string.Empty;
+    public string Position { get; set; } = string.Empty;
+}

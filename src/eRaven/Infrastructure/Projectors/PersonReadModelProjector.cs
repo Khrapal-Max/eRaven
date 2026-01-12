@@ -197,8 +197,9 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
                 rm.EnrollmentKind = x.Kind;
                 rm.EnrollmentReference = Normalize(x.Reference);
 
-                // посада при enroll обовʼязкова (string)
-                rm.Position = x.Position;
+                // звання та посада при enroll обовʼязкова (string)
+                rm.Rank = x.Rank.Trim();
+                rm.Position = x.Position.Trim();
 
                 // ✅ повторний enroll: очищаємо дату виключення
                 rm.ExcludedAt = null;

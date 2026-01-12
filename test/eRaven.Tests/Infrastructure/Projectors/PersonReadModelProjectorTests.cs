@@ -226,6 +226,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Reference: " 123/ORD ",
             Reason: "reason",
             EnrollDate: new DateOnly(2026, 01, 10),
+            Rank: "Сержант",
             Position: "Оператор",
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
@@ -274,6 +275,81 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Enrolled_after_excluded_sets_enrolled_and_clears_excludedAt()
+    {
+        var id = Guid.NewGuid();
+
+        var created = new PersonCreated(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Personal: Personal(middle: "M"),
+            Rank: null,
+            Position: null,
+            Bzvp: null,
+            Weapon: null,
+            Callsign: null,
+            Author: "tester",
+            OccurredAtUtc: NowUtc);
+
+        var enrolled1 = new PersonEnrolled(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Kind: EnrollmentKind.AttachedByOrder,
+            Reference: " 123/ORD ",
+            Reason: "reason",
+            EnrollDate: new DateOnly(2026, 01, 02),
+            Rank: "Сержант",
+            Position: "Оператор",
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(1));
+
+        var excluded = new PersonExcluded(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Reason: "x",
+            EffectiveDate: new DateOnly(2026, 01, 05),
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(2));
+
+        var enrolled2 = new PersonEnrolled(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Kind: EnrollmentKind.AttachedByOrder,
+            Reference: " 999/ORD ",
+            Reason: "re-enroll",
+            EnrollDate: new DateOnly(2026, 01, 10),
+            Rank: "Сержант",
+            Position: "Оператор",
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(3));
+
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            await _projector.ProjectAsync(ctx, ToRecord(created, 1));
+            await _projector.ProjectAsync(ctx, ToRecord(enrolled1, 2, enrolled1.EnrollDate));
+            await _projector.ProjectAsync(ctx, ToRecord(excluded, 3, excluded.EffectiveDate));
+            await _projector.ProjectAsync(ctx, ToRecord(enrolled2, 4, enrolled2.EnrollDate));
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            var rm = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
+
+            Assert.Equal(PersonLifecycle.Enrolled, rm.Lifecycle);
+            Assert.Equal(new DateOnly(2026, 01, 10), rm.EnrolledAt);
+            Assert.Equal(EnrollmentKind.AttachedByOrder, rm.EnrollmentKind);
+            Assert.Equal("999/ORD", rm.EnrollmentReference);
+
+            Assert.Equal("Сержант", rm.Rank);
+            Assert.Equal("Оператор", rm.Position);
+
+            Assert.Null(rm.ExcludedAt);     // ✅ cleared on enroll
+            Assert.Equal(4, rm.Version);
+        }
+    }
+
+    [Fact]
     public async Task Excluded_sets_lifecycle_reserved_and_excluded_date_and_does_not_clear_other_fields()
     {
         var id = Guid.NewGuid();
@@ -297,6 +373,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Reference: null,
             Reason: "r",
             EnrollDate: new DateOnly(2026, 01, 10),
+            Rank: "Солдат",
             Position: "Оператор",
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
@@ -368,6 +445,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Reference: "LIST-9",
             Reason: "r",
             EnrollDate: new DateOnly(2026, 01, 10),
+            Rank: "Солдат",
             Position: "Оператор",
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(2));
@@ -426,8 +504,202 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Assert.Equal(new DateOnly(2026, 01, 10), after.EnrolledAt);
             Assert.Equal("Оператор", after.Position);
 
-            Assert.Null(after.Rank);      // ✅ rank voided
-            Assert.Equal(4, after.Version); // ✅ last record version (includes void)
+            Assert.Equal("Солдат", after.Rank);   // ✅ бо PersonEnrolled встановлює Rank
+            Assert.Equal(4, after.Version);       // ✅ last record version (includes void)
+        }
+    }
+
+    [Fact]
+    public async Task Voided_callsign_change_triggers_rebuild_and_removes_effect()
+    {
+        var id = Guid.NewGuid();
+
+        var created = new PersonCreated(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Personal: Personal(),
+            Rank: null,
+            Position: null,
+            Bzvp: null,
+            Weapon: null,
+            Callsign: null,
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(0));
+
+        var callsignEventId = Guid.NewGuid();
+        var callsignChanged = new PersonCallsignChanged(
+            EventId: callsignEventId,
+            AggregateId: id,
+            EffectiveDate: new DateOnly(2026, 01, 02),
+            Callsign: "Fox",
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(1));
+
+        var enrolled = new PersonEnrolled(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Kind: EnrollmentKind.AttachedByList,
+            Reference: "LIST-9",
+            Reason: "r",
+            EnrollDate: new DateOnly(2026, 01, 10),
+            Rank: "Солдат",
+            Position: "Оператор",
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(2));
+
+        var voided = new PersonEventVoided(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            TargetEventId: callsignEventId,
+            Reason: "wrong callsign",
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(3));
+
+        // повна історія в event store (для rebuild)
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            ctx.PersonEvents.AddRange(
+                ToRecord(created, 1),
+                ToRecord(callsignChanged, 2, callsignChanged.EffectiveDate),
+                ToRecord(enrolled, 3, enrolled.EnrollDate),
+                ToRecord(voided, 4));
+
+            await ctx.SaveChangesAsync();
+        }
+
+        // інкрементальна проекція ДО void
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            await _projector.ProjectAsync(ctx, ToRecord(created, 1));
+            await _projector.ProjectAsync(ctx, ToRecord(callsignChanged, 2, callsignChanged.EffectiveDate));
+            await _projector.ProjectAsync(ctx, ToRecord(enrolled, 3, enrolled.EnrollDate));
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            var before = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
+            Assert.Equal("Fox", before.Callsign);
+            Assert.Equal(3, before.Version);
+        }
+
+        // void => rebuild
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            await _projector.ProjectAsync(ctx, ToRecord(voided, 4));
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            var after = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
+
+            Assert.Equal(PersonLifecycle.Enrolled, after.Lifecycle);
+            Assert.Equal("Солдат", after.Rank);      // з enroll
+            Assert.Equal("Оператор", after.Position);
+            Assert.Null(after.Callsign);             // ✅ ефект callsignChanged прибраний
+            Assert.Equal(4, after.Version);
+        }
+    }
+
+    [Fact]
+    public async Task Voided_excluded_triggers_rebuild_and_restores_enrolled_state()
+    {
+        var id = Guid.NewGuid();
+
+        var created = new PersonCreated(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Personal: Personal(),
+            Rank: null,
+            Position: null,
+            Bzvp: null,
+            Weapon: null,
+            Callsign: null,
+            Author: "tester",
+            OccurredAtUtc: NowUtc);
+
+        var enrolled = new PersonEnrolled(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Kind: EnrollmentKind.AttachedByList,
+            Reference: "LIST-9",
+            Reason: "r",
+            EnrollDate: new DateOnly(2026, 01, 10),
+            Rank: "Солдат",
+            Position: "Оператор",
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(1));
+
+        var excludedEventId = Guid.NewGuid();
+        var excluded = new PersonExcluded(
+            EventId: excludedEventId,
+            AggregateId: id,
+            Reason: "x",
+            EffectiveDate: new DateOnly(2026, 01, 20),
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(2));
+
+        var voided = new PersonEventVoided(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            TargetEventId: excludedEventId,   // ✅ void excluded
+            Reason: "restore",
+            Author: "tester",
+            OccurredAtUtc: NowUtc.AddMinutes(3));
+
+        // rebuild uses db.PersonEvents
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            ctx.PersonEvents.AddRange(
+                ToRecord(created, 1),
+                ToRecord(enrolled, 2, enrolled.EnrollDate),
+                ToRecord(excluded, 3, excluded.EffectiveDate),
+                ToRecord(voided, 4)
+            );
+
+            await ctx.SaveChangesAsync();
+        }
+
+        // incremental projection up to excluded
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            await _projector.ProjectAsync(ctx, ToRecord(created, 1));
+            await _projector.ProjectAsync(ctx, ToRecord(enrolled, 2, enrolled.EnrollDate));
+            await _projector.ProjectAsync(ctx, ToRecord(excluded, 3, excluded.EffectiveDate));
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            var before = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
+            Assert.Equal(PersonLifecycle.Reserved, before.Lifecycle);
+            Assert.Equal(new DateOnly(2026, 01, 20), before.ExcludedAt);
+            Assert.Equal(3, before.Version);
+        }
+
+        // void => rebuild
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            await _projector.ProjectAsync(ctx, ToRecord(voided, 4));
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = _db.Factory.CreateDbContext())
+        {
+            var after = await ctx.PersonRead.AsNoTracking().SingleAsync(x => x.Id == id);
+
+            Assert.Equal(PersonLifecycle.Enrolled, after.Lifecycle); // ✅ restored
+            Assert.Null(after.ExcludedAt);                            // ✅ removed by rebuild
+            Assert.Equal(new DateOnly(2026, 01, 10), after.EnrolledAt);
+
+            Assert.Equal("Солдат", after.Rank);
+            Assert.Equal("Оператор", after.Position);
+
+            Assert.Equal(EnrollmentKind.AttachedByList, after.EnrollmentKind);
+            Assert.Equal("LIST-9", after.EnrollmentReference);
+
+            Assert.Equal(4, after.Version); // ✅ last record version includes void
         }
     }
 

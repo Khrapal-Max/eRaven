@@ -1,0 +1,106 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@using eRaven.Application.DTOs
+@using eRaven.Application.Commands.PersonMove
+@using eRaven.Application.Queries
+@using eRaven.Components.Shared.Validation
+@using eRaven.Components.Shared.Drawer
+@using eRaven.Domain.Enums
+
+<Drawer Title="Зарахування в табель"
+        IsOpen="@IsOpen"
+        IsOpenChanged="@IsOpenChanged"
+        DisableClose="@_busy"
+        OnClosed="OnDrawerClosed">
+
+    <ChildContent>
+        @if (IsOpen)
+        {
+            @if (_loading)
+            {
+                <div class="px-2"><em>Завантаження...</em></div>
+            }
+            else if (_person is null)
+            {
+                <div class="alert alert-warning rounded-0 mb-0">
+                    Не знайдено особу або неможливо завантажити дані.
+                </div>
+            }
+            else
+            {
+                <div class="drawer-grow">
+                    <!-- header / person summary -->
+                    <div class="mb-3">
+                        <div class="fw-semibold">@_person.FullName</div>
+                        <div class="small text-muted">
+                            РНОКПП: <span class="font-monospace">@_person.Rnokpp</span>
+                            · Статус: <span class="ms-1">@_person.Lifecycle</span>
+                            @if (_person.ExcludedAt is not null)
+                            {
+                                <span>· викл.: @_person.ExcludedAt.Value.ToString("dd.MM.yyyy")</span>
+                            }
+                        </div>
+                    </div>
+
+                    <EditForm EditContext="@_editContext"
+                              OnValidSubmit="OnEnrollAsync"
+                              class="drawer-form"
+                              id="enroll-form">
+
+                        <FluentValidationValidator />
+
+                        <div class="row g-2">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label mb-1">Тип зарахування</label>
+                                <InputSelect class="form-select rounded-0" @bind-Value="Model.Kind">
+                                    @foreach (var k in _kinds)
+                                    {
+                                        <option value="@k">@KindTitle(k)</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="@(() => Model.Kind)" />
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label mb-1">Номер/посилання (опц.)</label>
+                                <InputText class="form-control rounded-0" @bind-Value="Model.Reference" />
+                                <ValidationMessage For="@(() => Model.Reference)" />
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label mb-1">Дата зарахування</label>
+                                <InputDate class="form-control rounded-0" @bind-Value="Model.EnrollDate" />
+                                <ValidationMessage For="@(() => Model.EnrollDate)" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label mb-1">Посада</label>
+                                <InputText class="form-control rounded-0" @bind-Value="Model.Position" />
+                                <ValidationMessage For="@(() => Model.Position)" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label mb-1">Підстава</label>
+                                <InputTextArea class="form-control rounded-0" @bind-Value="Model.Reason" rows="3" />
+                                <ValidationMessage For="@(() => Model.Reason)" />
+                            </div>
+                        </div>
+                    </EditForm>
+                </div>
+            }
+        }
+    </ChildContent>
+
+    <FooterContent>
+        <Button Class="btn-outline-secondary rounded-0"
+                Label="Скасувати"
+                IsDisabled="@_busy"
+                OnClickButton="OnCancel" />
+
+        <button type="submit"
+                form="enroll-form"
+                class="btn btn-primary rounded-0"
+                disabled="@(_busy || _loading || _person is null)">
+            Зарахувати
+        </button>
+    </FooterContent>
+</Drawer>

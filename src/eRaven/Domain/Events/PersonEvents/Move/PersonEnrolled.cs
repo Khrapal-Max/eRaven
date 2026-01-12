@@ -19,6 +19,7 @@ public sealed record PersonEnrolled(
     string? Reference,
     string Reason,
     DateOnly EnrollDate,
+    string Rank,
     string Position,
     string Author,
     DateTime OccurredAtUtc
