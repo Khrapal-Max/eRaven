@@ -35,6 +35,7 @@ public partial class EnrollDrawer
     private bool _busy;
     private bool _wasOpen;
     private bool _loading;
+    private bool IsUnitKind => Model.Kind == EnrollmentKind.Unit;
 
     private PersonDetailsDto? _person;
 
@@ -154,6 +155,22 @@ public partial class EnrollDrawer
         {
             _busy = false;
         }
+    }
+
+    private void OnKindAfterChanged()
+    {
+        if (Model.Kind != EnrollmentKind.Unit)
+        {
+            Model.PositionSort = 9999;
+        }
+        else
+        {
+            if (Model.PositionSort == 9999)
+                Model.PositionSort = _person?.PositionSort ?? 0;
+        }
+
+        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.Kind)));
+        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.PositionSort)));
     }
 
     private async Task OnCancel()

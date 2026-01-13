@@ -72,7 +72,9 @@
                         <div class="row g-2">
                             <div class="col-12 col-md-4">
                                 <label class="form-label mb-1">Тип зарахування</label>
-                                <InputSelect class="form-select rounded-0" @bind-Value="Model.Kind">
+                                <InputSelect class="form-select rounded-0"
+                                             @bind-Value="Model.Kind"
+                                             @bind-Value:after="OnKindAfterChanged">
                                     @foreach (var k in _kinds)
                                     {
                                         <option value="@k">@KindTitle(k)</option>
@@ -89,7 +91,7 @@
 
                             <div class="col-12 col-md-4">
                                 <label class="form-label mb-1">Дата зарахування</label>
-                                <InputDate class="form-control rounded-0" @bind-Value="Model.EnrollDate" />
+                                <InputDate class="form-control rounded-0 bg-light-subtle text-white" @bind-Value="Model.EnrollDate" />
                                 <ValidationMessage For="@(() => Model.EnrollDate)" />
                             </div>
                            
@@ -121,7 +123,18 @@
 
                             <div class="col-12 col-md-4">
                                 <label class="form-label mb-1">Порядок посади</label>
-                                <InputNumber class="form-control rounded-0" @bind-Value="Model.PositionSort" />
+
+                                <InputNumber class="form-control rounded-0"
+                                             @bind-Value="Model.PositionSort"
+                                             disabled="@(!IsUnitKind)" />
+
+                                @if (!IsUnitKind)
+                                {
+                                    <div class="small text-primary fw-bold mt-1">
+                                        Для приряджених встановлюється автоматично: <span class="font-monospace">9999</span>
+                                    </div>
+                                }
+
                                 <ValidationMessage For="@(() => Model.PositionSort)" />
                             </div>
 

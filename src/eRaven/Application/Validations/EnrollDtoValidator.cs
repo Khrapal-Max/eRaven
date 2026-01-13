@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs;
+using eRaven.Domain.Enums;
 using FluentValidation;
 
 namespace eRaven.Application.Validations;
@@ -28,11 +29,12 @@ public sealed class EnrollDtoValidator : AbstractValidator<EnrollDto>
         RuleFor(x => x.EnrollDate)
             .NotEmpty().WithMessage("Вкажіть дату зарахування.");
 
-        RuleFor(x => x.EnrollDate)
+        RuleFor(x => x.Rank)
             .NotEmpty().WithMessage("Вкажіть звання.");
 
         RuleFor(x => x.PositionSort)
-            .LessThan(1).WithMessage("Вкажіть посаду.");
+            .GreaterThanOrEqualTo(1).WithMessage("Вкажіть номер посади.")
+            .When(x => x.Kind == EnrollmentKind.Unit); 
 
         RuleFor(x => x.Position)
             .NotEmpty().WithMessage("Вкажіть посаду.")
