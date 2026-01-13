@@ -34,7 +34,7 @@ public sealed class EnrollDtoValidator : AbstractValidator<EnrollDto>
 
         RuleFor(x => x.PositionSort)
             .GreaterThanOrEqualTo(1).WithMessage("Вкажіть номер посади.")
-            .When(x => x.Kind == EnrollmentKind.Unit); 
+            .When(x => x.Kind == EnrollmentKind.Unit);
 
         RuleFor(x => x.Position)
             .NotEmpty().WithMessage("Вкажіть посаду.")

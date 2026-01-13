@@ -209,6 +209,8 @@ public sealed class PersonReadModelProjector : IPersonReadModelProjector
                 // ✅ виключення повертає у Reserved
                 rm.Lifecycle = PersonLifecycle.Reserved;
 
+                rm.EnrollmentKind = null;
+                rm.EnrollmentReference = null;
                 // ✅ зберігаємо "останнє виключення" до наступного enroll
                 rm.ExcludedAt = x.EffectiveDate;
 

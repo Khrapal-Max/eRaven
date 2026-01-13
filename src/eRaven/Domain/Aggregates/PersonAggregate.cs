@@ -437,6 +437,8 @@ public sealed class PersonAggregate
 
             case PersonExcluded x:
                 Lifecycle = PersonLifecycle.Reserved;
+                EnrollmentKind = null;
+                EnrollmentReference = null;
                 ExcludedAt = x.EffectiveDate;
                 break;
         }

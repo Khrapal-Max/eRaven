@@ -16,11 +16,17 @@ namespace eRaven.Components.Pages.Persons.Registry;
 
 public partial class PersonsRegistry
 {
-    [Inject] public ICommandHandler<CreateReservedCommand, Guid> CreateReservedHandler { get; set; } = default!;
     [Inject] public IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>> PersonsPageQuery { get; set; } = default!;
+    [Inject] public ICommandHandler<CreateReservedCommand, Guid> CreateReservedHandler { get; set; } = default!;
     [Inject] public ICommandHandler<EnrollCommand, Guid> EnrollHandler { get; set; } = default!;
+    [Inject] public ICommandHandler<ExcludeCommand, Guid> ExcludeHandler { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
+
+
+    // NEW: exclude drawer state
+    private bool _excludeOpen;
+    private Guid _excludePersonId;
 
     private bool _loading;
 
@@ -95,9 +101,11 @@ public partial class PersonsRegistry
     private Task OpenExclude(PersonListItemDto row)
     {
         _selected = row;
-        // тут згодом буде ExcludeDrawer
+        _excludePersonId = row.Id;
+        _excludeOpen = true;
         return Task.CompletedTask;
     }
+
 
     private async Task OnEnrolledAsync(Guid personId)
     {
@@ -150,6 +158,36 @@ public partial class PersonsRegistry
 
             Toasts.Success("Зараховано в табель");
             await ReloadAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Toasts.Warning("Неможливо виконати дію", ex.Message);
+        }
+        catch
+        {
+            Toasts.Error("Помилка", "Сталася неочікувана помилка. Спробуйте ще раз.");
+        }
+    }
+
+    private async Task HandleExcludeSubmitAsync(ExcludeDto dto)
+    {
+        var author = "system"; // TODO: User.Identity.Name
+        var nowUtc = DateTime.UtcNow;
+
+        try
+        {
+            await ExcludeHandler.HandleAsync(new ExcludeCommand(
+                PersonId: dto.Id,
+                Reason: dto.Reason,
+                EffectiveDate: dto.EffectiveDate,
+                Author: author,
+                NowUtc: nowUtc));
+
+            Toasts.Success("Виключено з табеля");
+            await ReloadAsync();
+
+            _selected = _pageData.Items.FirstOrDefault(x => x.Id == dto.Id) ?? _selected;
+            await InvokeAsync(StateHasChanged);
         }
         catch (InvalidOperationException ex)
         {

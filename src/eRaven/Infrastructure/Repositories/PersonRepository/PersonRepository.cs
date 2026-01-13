@@ -206,11 +206,12 @@ public sealed class PersonRepository(
         return agg.Id;
     }
 
-    public async Task ExcludeAsync(ExcludeCommand cmd, CancellationToken ct = default)
+    public async Task<Guid> ExcludeAsync(ExcludeCommand cmd, CancellationToken ct = default)
     {
         var agg = await LoadAggregateAsync(cmd.PersonId, ct);
         agg.Exclude(cmd.Reason, cmd.EffectiveDate, cmd.Author, cmd.NowUtc);
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
+        return agg.Id;
     }
 
     // =========================

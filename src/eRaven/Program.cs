@@ -39,6 +39,7 @@ builder.Services.AddScoped<IRankCatalog, DefaultRankCatalog>();
 // Validators
 builder.Services.AddScoped<IValidator<CreateReservedDto>, CreateReservedDtoValidator>();
 builder.Services.AddScoped<IValidator<EnrollDto>, EnrollDtoValidator>();
+builder.Services.AddScoped<IValidator<ExcludeDto>, ExcludeDtoValidator>();
 
 // Projector (stateless)
 builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();
@@ -49,6 +50,7 @@ builder.Services.AddScoped<IPersonRepository, PersonRepository>();
 // Command handlers
 builder.Services.AddScoped<ICommandHandler<CreateReservedCommand, Guid>, CreateReservedCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<EnrollCommand, Guid>, EnrollCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<ExcludeCommand, Guid>, ExcludeCommandHandler>();
 
 // Query handlers
 builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>, GetPersonsPageQueryHandler>();

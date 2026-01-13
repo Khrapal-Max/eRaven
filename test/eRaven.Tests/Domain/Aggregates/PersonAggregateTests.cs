@@ -461,6 +461,65 @@ public sealed class PersonAggregateTests
     }
 
     [Fact]
+    public void Exclude_should_clear_enrollment_fields_but_keep_enrolledAt()
+    {
+        var id = Guid.NewGuid();
+        var now = new DateTime(2026, 01, 07, 12, 0, 0, DateTimeKind.Utc);
+
+        static PersonAggregate.StoredEvent SE(long version, IDomainEvent evt) => new(version, evt);
+
+        var created = new PersonCreated(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Personal: new PersonalInfo("1234567890", "Ivanov", "Ivan", null),
+            Rank: "Солдат",
+            Position: "Стрілець",
+            Author: "t",
+            OccurredAtUtc: now);
+
+        var enrolled = new PersonEnrolled(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Kind: EnrollmentKind.Unit,
+            Reference: "REF",
+            Reason: "r",
+            EnrollDate: new DateOnly(2026, 01, 10),
+            Rank: "Солдат",
+            PositionSort: 1,
+            Position: "Оператор",
+            Author: "t",
+            OccurredAtUtc: now.AddMinutes(1));
+
+        var excluded = new PersonExcluded(
+            EventId: Guid.NewGuid(),
+            AggregateId: id,
+            Reason: "x",
+            EffectiveDate: new DateOnly(2026, 01, 20),
+            Author: "t",
+            OccurredAtUtc: now.AddMinutes(2));
+
+        var sut = new PersonAggregate();
+        sut.LoadFromHistory(
+        [
+            SE(1, created),
+            SE(2, enrolled),
+            SE(3, excluded),
+        ]);
+
+        Assert.Equal(PersonLifecycle.Reserved, sut.Lifecycle);
+
+        // ✅ cleared (це спрацює після твоєї правки Apply(PersonExcluded))
+        Assert.Null(sut.EnrollmentKind);
+        Assert.Null(sut.EnrollmentReference);
+
+        // ✅ keep
+        Assert.Equal(new DateOnly(2026, 01, 10), sut.EnrolledAt);
+
+        Assert.Equal(new DateOnly(2026, 01, 20), sut.ExcludedAt);
+        Assert.Equal(3, sut.Version);
+    }
+
+    [Fact]
     public void VoidEvent_should_add_uncommitted_change_and_validate_inputs()
     {
         var id = Guid.NewGuid();

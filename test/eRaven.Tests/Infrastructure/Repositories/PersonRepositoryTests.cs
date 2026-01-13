@@ -211,6 +211,9 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             Assert.Equal("Солдат", dto.Rank);
             Assert.Equal("Оператор", dto.Position);
             Assert.Equal(10, dto.PositionSort);
+
+            Assert.Null(dto.EnrollmentKind);
+            Assert.Null(dto.EnrollmentReference);
         }
 
         await _repo.EnrollAsync(new EnrollCommand(

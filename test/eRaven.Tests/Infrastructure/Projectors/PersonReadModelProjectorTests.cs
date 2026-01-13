@@ -436,6 +436,9 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             Assert.Equal("B", rm.Bzvp);
             Assert.Equal("W", rm.Weapon);
             Assert.Equal("C", rm.Callsign);
+
+            Assert.Null(rm.EnrollmentKind);        // ✅ cleared on exclude
+            Assert.Null(rm.EnrollmentReference);   // ✅ cleared on exclude
         }
     }
 
