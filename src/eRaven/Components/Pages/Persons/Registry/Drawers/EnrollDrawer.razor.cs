@@ -16,38 +16,50 @@ namespace eRaven.Components.Pages.Persons.Registry.Drawers;
 
 public partial class EnrollDrawer
 {
+    // =========================
+    // Parameters
+    // =========================
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public Guid PersonId { get; set; }
-
-    // батько виконує операцію
     [Parameter] public EventCallback<EnrollDto> OnSubmit { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
 
+    // =========================
+    // DI
+    // =========================
     [Inject] public IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?> DetailsQuery { get; set; } = default!;
     [Inject] public IRankCatalog RankCatalog { get; set; } = default!;
+
+    // =========================
+    // UI state
+    // =========================
+    private bool _busy;
+    private bool _wasOpen;
+    private bool _loading;
+
+    private PersonDetailsDto? _person;
+    private IReadOnlyList<RankOption> _ranks = [];
+
+    private EditContext _editContext = default!;
+    protected EnrollDto Model { get; set; } = new();
+
+    // коли юзер вводив PositionSort у Unit, а потім перемикав Kind
+    private int? _unitPositionSortBackup;
+
+    private static readonly EnrollmentKind[] _kinds = Enum.GetValues<EnrollmentKind>();
+    private bool IsUnitKind => Model.Kind == EnrollmentKind.Unit;
 
     private IReadOnlyDictionary<string, object>? SubmitAttrs =>
         (_busy || _loading || _person is null)
             ? new Dictionary<string, object> { ["disabled"] = "disabled" }
             : null;
-    private IReadOnlyList<RankOption> _ranks = [];
 
-    private bool _busy;
-    private bool _wasOpen;
-    private bool _loading;
-    private bool IsUnitKind => Model.Kind == EnrollmentKind.Unit;
-
-    private PersonDetailsDto? _person;
-
-    private EditContext _editContext = default!;
-    protected EnrollDto Model { get; set; } = new();
-
-    private static readonly EnrollmentKind[] _kinds = Enum.GetValues<EnrollmentKind>();
-
+    // =========================
+    // Lifecycle
+    // =========================
     protected override void OnInitialized()
     {
-        Model = new EnrollDto();
-        _editContext = new EditContext(Model);
+        Reset();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -66,6 +78,9 @@ public partial class EnrollDrawer
         }
     }
 
+    // =========================
+    // Load / Reset
+    // =========================
     private async Task LoadAsync()
     {
         Reset();
@@ -82,18 +97,20 @@ public partial class EnrollDrawer
             _ranks = RankCatalog.GetActive();
 
             _person = await DetailsQuery.HandleAsync(new GetPersonDetailsQuery(PersonId));
-            if (_person is not null)
-            {
-                Model.Id = _person.Id;
+            if (_person is null)
+                return;
 
-                Model.Kind = EnrollmentKind.Unit;
-                Model.Reference = _person.EnrollmentReference;
-                Model.EnrollDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            // дефолтна модель
+            Model.Id = _person.Id;
+            Model.Kind = EnrollmentKind.Unit;
+            Model.Reference = _person.EnrollmentReference;
+            Model.EnrollDate = DateOnly.FromDateTime(DateTime.UtcNow);
 
-                Model.Rank = _person.Rank ?? string.Empty;
-                Model.PositionSort = _person.PositionSort ?? 0;
-                Model.Position = _person.Position ?? string.Empty;
-            }
+            Model.Rank = _person.Rank ?? string.Empty;
+            Model.PositionSort = _person.PositionSort ?? 0;
+            Model.Position = _person.Position ?? string.Empty;
+
+            _unitPositionSortBackup = Model.PositionSort;
 
             _editContext = new EditContext(Model);
         }
@@ -110,8 +127,40 @@ public partial class EnrollDrawer
 
         _person = null;
         _ranks = [];
+
         Model = new EnrollDto();
+        _unitPositionSortBackup = null;
+
         _editContext = new EditContext(Model);
+    }
+
+    // =========================
+    // Actions
+    // =========================
+    private void OnKindAfterChanged()
+    {
+        // Unit -> Attached: зберегти введене і поставити 9999
+        if (Model.Kind != EnrollmentKind.Unit)
+        {
+            if (Model.PositionSort is > 0 and not 9999)
+                _unitPositionSortBackup = Model.PositionSort;
+
+            Model.PositionSort = 9999;
+        }
+        else
+        {
+            // Attached -> Unit: відновити попереднє введене
+            var restored =
+                _unitPositionSortBackup
+                ?? _person?.PositionSort
+                ?? 1;
+
+            if (restored == 9999) restored = 1;
+            Model.PositionSort = restored;
+        }
+
+        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.Kind)));
+        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.PositionSort)));
     }
 
     private async Task SubmitAsync()
@@ -125,16 +174,16 @@ public partial class EnrollDrawer
             // trim/normalize
             Model.Reference = TrimOrNull(Model.Reference);
             Model.Reason = TrimOrEmpty(Model.Reason);
-
             Model.Rank = TrimOrEmpty(Model.Rank);
             Model.Position = TrimOrEmpty(Model.Position);
 
+            // safety-net: attached always 9999
             if (Model.Kind != EnrollmentKind.Unit)
                 Model.PositionSort = 9999;
 
             if (OnSubmit.HasDelegate)
             {
-                var dto = new EnrollDto
+                await OnSubmit.InvokeAsync(new EnrollDto
                 {
                     Id = Model.Id,
                     Kind = Model.Kind,
@@ -144,9 +193,7 @@ public partial class EnrollDrawer
                     Rank = Model.Rank,
                     PositionSort = Model.PositionSort,
                     Position = Model.Position
-                };
-
-                await OnSubmit.InvokeAsync(dto);
+                });
             }
 
             await IsOpenChanged.InvokeAsync(false);
@@ -155,22 +202,6 @@ public partial class EnrollDrawer
         {
             _busy = false;
         }
-    }
-
-    private void OnKindAfterChanged()
-    {
-        if (Model.Kind != EnrollmentKind.Unit)
-        {
-            Model.PositionSort = 9999;
-        }
-        else
-        {
-            if (Model.PositionSort == 9999)
-                Model.PositionSort = _person?.PositionSort ?? 0;
-        }
-
-        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.Kind)));
-        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.PositionSort)));
     }
 
     private async Task OnCancel()
@@ -185,6 +216,9 @@ public partial class EnrollDrawer
         return Task.CompletedTask;
     }
 
+    // =========================
+    // Helpers
+    // =========================
     private static string TrimOrEmpty(string? s) => (s ?? string.Empty).Trim();
     private static string? TrimOrNull(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 

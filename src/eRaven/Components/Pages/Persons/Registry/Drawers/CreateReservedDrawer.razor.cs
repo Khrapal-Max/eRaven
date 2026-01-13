@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CreateReservedCommandHandler
+// CreateReservedDrawer
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Catalogs.Ranks;
@@ -17,12 +17,24 @@ namespace eRaven.Components.Pages.Persons.Registry.Drawers;
 
 public partial class CreateReservedDrawer
 {
+    // =========================
+    // Parameters
+    // =========================
+
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
     [Parameter] public EventCallback<CreateReservedDto> OnCreate { get; set; }
 
+    // =========================
+    // DI
+    // =========================
+
     [Inject] public ToastService Toasts { get; set; } = default!;
     [Inject] public IRankCatalog RankCatalog { get; set; } = default!;
+
+    // =========================
+    // State
+    // =========================
 
     private bool _busy;
     private bool _wasOpen;
@@ -32,58 +44,52 @@ public partial class CreateReservedDrawer
 
     protected CreateReservedDto Model { get; set; } = new();
 
+    // =========================
+    // Lifecycle
+    // =========================
+
     protected override void OnInitialized()
     {
-        Model = new CreateReservedDto();
-        _editContext = new EditContext(Model);
+        Reset(reloadRanks: false);
     }
 
     protected override Task OnParametersSetAsync()
     {
-        // open transition
+        // Open transition
         if (IsOpen && !_wasOpen)
         {
             _wasOpen = true;
-            ResetForm(reloadRanks: true);
+            Reset(reloadRanks: true);
             return Task.CompletedTask;
         }
 
-        // close transition
+        // Close transition
         if (!IsOpen && _wasOpen)
         {
             _wasOpen = false;
-            ResetForm(reloadRanks: false);
+            Reset(reloadRanks: false);
         }
 
         return Task.CompletedTask;
     }
 
-    private void ResetForm(bool reloadRanks)
-    {
-        Model = new CreateReservedDto();
-        _editContext = new EditContext(Model);
-
-        if (reloadRanks)
-            _ranks = RankCatalog.GetActive();
-    }
+    // =========================
+    // UI actions
+    // =========================
 
     private async Task OnCreateAsync()
     {
-        if (_busy) return;
+        if (_busy)
+            return;
 
         _busy = true;
+
         try
         {
-            // Trim
-            Model.Rnokpp = TrimOrEmpty(Model.Rnokpp);
-            Model.LastName = TrimOrEmpty(Model.LastName);
-            Model.FirstName = TrimOrEmpty(Model.FirstName);
-            Model.MiddleName = TrimOrNull(Model.MiddleName);
+            NormalizeModel();
 
-            Model.Rank = TrimOrNull(Model.Rank);
-            Model.Position = TrimOrNull(Model.Position);
-
-            await OnCreate.InvokeAsync(Model);
+            if (OnCreate.HasDelegate)
+                await OnCreate.InvokeAsync(Model);
 
             Toasts.Success("Картка створено");
             await IsOpenChanged.InvokeAsync(false);
@@ -108,14 +114,47 @@ public partial class CreateReservedDrawer
 
     private async Task OnCancel()
     {
-        if (_busy) return;
+        if (_busy)
+            return;
+
         await IsOpenChanged.InvokeAsync(false);
     }
 
-    private async Task OnDrawerClosed()
+    private Task OnDrawerClosed()
     {
-        ResetForm(false);
+        Reset(reloadRanks: false);
+        return Task.CompletedTask;
     }
+
+    // =========================
+    // Internals
+    // =========================
+
+    private void Reset(bool reloadRanks)
+    {
+        _busy = false;
+
+        Model = new CreateReservedDto();
+        _editContext = new EditContext(Model);
+
+        if (reloadRanks)
+            _ranks = RankCatalog.GetActive();
+    }
+
+    private void NormalizeModel()
+    {
+        Model.Rnokpp = TrimOrEmpty(Model.Rnokpp);
+        Model.LastName = TrimOrEmpty(Model.LastName);
+        Model.FirstName = TrimOrEmpty(Model.FirstName);
+        Model.MiddleName = TrimOrNull(Model.MiddleName);
+
+        Model.Rank = TrimOrNull(Model.Rank);
+        Model.Position = TrimOrNull(Model.Position);
+    }
+
+    // =========================
+    // Helpers
+    // =========================
 
     private static string TrimOrEmpty(string? s) => (s ?? string.Empty).Trim();
     private static string? TrimOrNull(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
