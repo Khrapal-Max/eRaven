@@ -270,7 +270,7 @@ public sealed class PersonAggregate
         if (Lifecycle != PersonLifecycle.Enrolled)
             throw new InvalidOperationException("Виключити можна лише зараховану особу.");
 
-        if (EnrolledAt is DateOnly enrolledAt && effectiveDate <= enrolledAt)
+        if (EnrolledAt is DateOnly enrolledAt && effectiveDate < enrolledAt)
             throw new InvalidOperationException("Дата виключення не може бути раніше дати зарахування.");
 
         if (string.IsNullOrWhiteSpace(reason))
