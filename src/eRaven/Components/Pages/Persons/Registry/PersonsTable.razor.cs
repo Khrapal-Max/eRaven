@@ -13,32 +13,55 @@ namespace eRaven.Components.Pages.Persons.Registry;
 
 public partial class PersonsTable
 {
+    // =========================
+    // Parameters
+    // =========================
+
     [Parameter] public IReadOnlyList<PersonListItemDto> Items { get; set; } = [];
+
     [Parameter] public PersonListItemDto? Selected { get; set; }
     [Parameter] public EventCallback<PersonListItemDto?> SelectedChanged { get; set; }
+
     [Parameter] public EventCallback<PersonListItemDto> OnRowClick { get; set; }
     [Parameter] public EventCallback<PersonListItemDto> OnOpenCard { get; set; }
     [Parameter] public EventCallback<PersonListItemDto> OnEnroll { get; set; }
     [Parameter] public EventCallback<PersonListItemDto> OnExclude { get; set; }
 
+    // =========================
+    // Row actions
+    // =========================
+
     private Task OpenCard(PersonListItemDto row)
-        => OnOpenCard.HasDelegate ? OnOpenCard.InvokeAsync(row)
-                                  : (OnRowClick.HasDelegate ? OnRowClick.InvokeAsync(row) : Task.CompletedTask);
+        => OnOpenCard.HasDelegate
+            ? OnOpenCard.InvokeAsync(row)
+            : InvokeOrCompleted(OnRowClick, row);
+
     private Task Enroll(PersonListItemDto row)
-      => OnEnroll.HasDelegate ? OnEnroll.InvokeAsync(row) : Task.CompletedTask;
+        => InvokeOrCompleted(OnEnroll, row);
 
     private Task Exclude(PersonListItemDto row)
-        => OnExclude.HasDelegate ? OnExclude.InvokeAsync(row) : Task.CompletedTask;
+        => InvokeOrCompleted(OnExclude, row);
 
-    private static RenderFragment LifecycleBadge(PersonLifecycle lc, DateOnly? excludedAt) => builder =>
+    private static Task InvokeOrCompleted(EventCallback<PersonListItemDto> cb, PersonListItemDto arg)
+        => cb.HasDelegate ? cb.InvokeAsync(arg) : Task.CompletedTask;
+
+    // =========================
+    // Badges
+    // =========================
+
+    private static RenderFragment LifecycleBadge(PersonLifecycle lifecycle, DateOnly? excludedAt) => builder =>
     {
-        var (cls, text) = lc switch
+        var (cls, text) = lifecycle switch
         {
             PersonLifecycle.Enrolled => ("badge bg-success", "В ТАБЕЛІ"),
-            PersonLifecycle.Reserved => excludedAt is null
-                ? ("badge bg-primary", "РЕЗЕРВ")
-                : ("badge bg-secondary", "РЕЗЕРВ (ВИКЛ)"),
-            _ => ("badge bg-light text-dark", lc.ToString())
+
+            PersonLifecycle.Reserved when excludedAt is null
+                => ("badge bg-primary", "РЕЗЕРВ"),
+
+            PersonLifecycle.Reserved
+                => ("badge bg-secondary", "РЕЗЕРВ (ВИКЛ)"),
+
+            _ => ("badge text-bg-light", lifecycle.ToString())
         };
 
         builder.OpenElement(0, "span");
@@ -49,7 +72,6 @@ public partial class PersonsTable
 
     private static RenderFragment EnrollmentKindBadge(EnrollmentKind? kind) => builder =>
     {
-        // null => тире
         if (kind is null)
         {
             builder.OpenElement(0, "span");
@@ -59,15 +81,11 @@ public partial class PersonsTable
             return;
         }
 
-        // mapping
-        // Unit = "Штат"
-        // AttachedByOrder = "БР"
-        // AttachedByList = "Наказ"
         var (text, cls) = kind.Value switch
         {
             EnrollmentKind.Unit => ("Штат", "badge bg-success"),
-            EnrollmentKind.AttachedByOrder => ("БР", "badge bg-warning"),
-            EnrollmentKind.AttachedByList => ("Наказ", "badge bg-info-subtle"),
+            EnrollmentKind.AttachedByOrder => ("БР", "badge bg-warning text-dark"),
+            EnrollmentKind.AttachedByList => ("Наказ", "badge text-bg-info"),
             _ => (kind.Value.ToString(), "badge text-bg-secondary")
         };
 

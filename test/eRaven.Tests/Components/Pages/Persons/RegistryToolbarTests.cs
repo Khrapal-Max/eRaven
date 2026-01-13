@@ -34,15 +34,20 @@ public sealed class RegistryToolbarTests : BunitContext
         var called = 0;
 
         var cut = Render<RegistryToolbar>(ps => ps
-            .Add(p => p.OnCreateReserved, EventCallback.Factory.Create(this, () => called++)));
+            .Add(p => p.OnCreateReserved,
+                EventCallback.Factory.Create(this, () => called++)));
 
-        // Act
-        // Prefer: find the first actual <button> and click it
-        cut.Find("button").Click();
+        // Act: знайти саме кнопку "Створити" (а не перший button в DOM)
+        var createBtn = cut
+            .FindAll("button")
+            .Single(b => b.TextContent.Contains("Створити", StringComparison.OrdinalIgnoreCase));
+
+        cut.InvokeAsync(() => createBtn.Click());
 
         // Assert
-        Assert.Equal(1, called);
+        cut.WaitForAssertion(() => Assert.Equal(1, called));
     }
+
 
     [Fact]
     public void Callback_can_be_empty_and_click_does_not_throw()

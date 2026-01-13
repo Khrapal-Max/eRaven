@@ -13,17 +13,12 @@ namespace eRaven.Domain.Enums;
 public enum PersonLifecycle
 {
     /// <summary>
-    /// Чорнетка картки.
+    /// Резервна картка. Не можна вести табель/планування.
     /// </summary>
     Reserved = 0,
 
     /// <summary>
     /// Принятий. Можна вести табель/планування.
     /// </summary>
-    Enrolled = 1,
-
-    /// <summary>
-    /// Виключений. Не можна вести табель/планування.
-    /// </summary>
-    Excluded = 2
+    Enrolled = 1
 }

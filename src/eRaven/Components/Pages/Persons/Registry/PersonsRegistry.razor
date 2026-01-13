@@ -4,7 +4,9 @@
 
 <div class="page-flex">
 
-    <RegistryToolbar OnCreateReserved="OpenCreateReserved" />
+    <RegistryToolbar Value="_filters"
+                     ValueChanged="OnFiltersChanged"
+                     OnCreateReserved="OpenCreateReserved" />
 
     <div class="page-content">
         @if (_loading)

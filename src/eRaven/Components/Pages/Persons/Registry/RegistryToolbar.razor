@@ -1,6 +1,51 @@
-﻿﻿<div class="px-4 d-flex align-items-center justify-content-between border border-secondary">
-    <div>
-        <h5 class="m-0">Реєстр особового складу</h5>
+﻿@using eRaven.Domain.Enums
+<div class="px-4 py-2 d-flex flex-wrap align-items-center justify-content-between gap-2 border border-secondary">
+    <div class="d-flex align-items-center gap-3">
+        <div>
+            <h5 class="m-0">Реєстр особового складу</h5>
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center gap-2">
+
+            <!-- Lifecycle filters -->
+            <div class="btn-group" role="group" aria-label="Lifecycle filter">
+                <Button Class="@BtnClass(IsLifecycle(null))"
+                        Label="Усі"
+                        OnClickButton="() => SetLifecycle(null)"/>                
+
+                <Button Class="@BtnClass(IsLifecycle(PersonLifecycle.Reserved))"
+                        Label="Резерв"
+                        OnClickButton="() => SetLifecycle(PersonLifecycle.Reserved)" />
+
+                <Button Class="@BtnClass(IsLifecycle(PersonLifecycle.Enrolled))"
+                        Label="В табелі"
+                        OnClickButton="() => SetLifecycle(PersonLifecycle.Enrolled)" />
+            </div>
+
+            <!-- EnrollmentKind filters -->
+            <div class="btn-group" role="group" aria-label="Enrollment kind filter">
+                <Button Class="@BtnClass(IsKind(null))"
+                        Label="Всі типи"
+                        OnClickButton="() => SetKind(null)" />
+
+                <Button Class="@BtnClass(IsKind(EnrollmentKind.Unit))"
+                        Label="Штат"
+                        OnClickButton="() => SetKind(EnrollmentKind.Unit)" />                
+
+                <Button Class="@BtnClass(IsKind(EnrollmentKind.AttachedByList))"
+                        Label="Наказ"
+                        OnClickButton="() => SetKind(EnrollmentKind.AttachedByList)" />
+
+                <Button Class="@BtnClass(IsKind(EnrollmentKind.AttachedByOrder))"
+                        Label="БР"
+                        OnClickButton="() => SetKind(EnrollmentKind.AttachedByOrder)" />
+            </div>
+
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="Скинути"
+                    IsDisabled="@(!HasAnyFilter)"
+                    OnClickButton="Reset"/>
+        </div>
     </div>
 
     <div class="d-flex align-items-center gap-2">

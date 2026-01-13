@@ -16,6 +16,10 @@ namespace eRaven.Components.Pages.Persons.Registry;
 
 public partial class PersonsRegistry
 {
+    // =========================
+    // DI
+    // =========================
+
     [Inject] public IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>> PersonsPageQuery { get; set; } = default!;
     [Inject] public ICommandHandler<CreateReservedCommand, Guid> CreateReservedHandler { get; set; } = default!;
     [Inject] public ICommandHandler<EnrollCommand, Guid> EnrollHandler { get; set; } = default!;
@@ -23,10 +27,9 @@ public partial class PersonsRegistry
     [Inject] public ToastService Toasts { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
 
-
-    // NEW: exclude drawer state
-    private bool _excludeOpen;
-    private Guid _excludePersonId;
+    // =========================
+    // UI state
+    // =========================
 
     private bool _loading;
 
@@ -34,23 +37,43 @@ public partial class PersonsRegistry
     private int _pageSize = 6;
     private string? _search;
 
-    private PagedResult<PersonListItemDto> _pageData = new([], 1, 25, 0);
-    private PersonListItemDto? _selected;
+    private PersonsRegistryFilters _filters = new();
 
+    private PagedResult<PersonListItemDto> _pageData = new([], 1, 6, 0);
+
+    private PersonListItemDto? _selected;
+    private PersonListItemDto? Selected
+    {
+        get => _selected;
+        set => _selected = value;
+    }
+
+    // drawers
     private bool _createReservedOpen;
 
-    // NEW: enroll drawer state
     private bool _enrollOpen;
     private Guid _enrollPersonId;
 
+    private bool _excludeOpen;
+    private Guid _excludePersonId;
+
+    // paging helpers
     private int TotalPages =>
-    _pageData.TotalCount <= 0 ? 1 : (int)Math.Ceiling(_pageData.TotalCount / (double)_pageSize);
+        _pageData.TotalCount <= 0 ? 1 : (int)Math.Ceiling(_pageData.TotalCount / (double)_pageSize);
 
     private bool IsPrevDisabled => _loading || _page <= 1;
     private bool IsNextDisabled => _loading || _page >= TotalPages;
 
+    // =========================
+    // Lifecycle
+    // =========================
+
     protected override async Task OnInitializedAsync()
         => await ReloadAsync();
+
+    // =========================
+    // Data loading
+    // =========================
 
     private async Task ReloadAsync()
     {
@@ -60,7 +83,9 @@ public partial class PersonsRegistry
             _pageData = await PersonsPageQuery.HandleAsync(new GetPersonsPageQuery(
                 Page: _page,
                 PageSize: _pageSize,
-                Search: _search
+                Search: _search,
+                Lifecycle: _filters.Lifecycle,
+                EnrollmentKind: _filters.EnrollmentKind
             ));
         }
         finally
@@ -68,6 +93,34 @@ public partial class PersonsRegistry
             _loading = false;
         }
     }
+
+    // =========================
+    // Toolbar callbacks
+    // =========================
+
+    private async Task OnFiltersChanged(PersonsRegistryFilters f)
+    {
+        _filters = f;
+        _page = 1;
+        await ReloadAsync();
+    }
+
+    private async Task OnSearchChanged(string? s)
+    {
+        _search = string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+        _page = 1;
+        await ReloadAsync();
+    }
+
+    private Task OpenCreateReserved()
+    {
+        _createReservedOpen = true;
+        return Task.CompletedTask;
+    }
+
+    // =========================
+    // Table callbacks
+    // =========================
 
     private Task OnRowClick(PersonListItemDto row)
     {
@@ -82,13 +135,6 @@ public partial class PersonsRegistry
         return Task.CompletedTask;
     }
 
-    private Task OpenCreateReserved()
-    {
-        _createReservedOpen = true;
-        return Task.CompletedTask;
-    }
-
-    // NEW: open enroll drawer from table action
     private Task OpenEnroll(PersonListItemDto row)
     {
         _selected = row;
@@ -97,7 +143,6 @@ public partial class PersonsRegistry
         return Task.CompletedTask;
     }
 
-    // NEW: placeholder for exclude drawer/command later
     private Task OpenExclude(PersonListItemDto row)
     {
         _selected = row;
@@ -106,58 +151,53 @@ public partial class PersonsRegistry
         return Task.CompletedTask;
     }
 
-
-    private async Task OnEnrolledAsync(Guid personId)
-    {
-        // щоб таблиця оновила статус/дати
-        await ReloadAsync();
-
-        // опційно: перевиставити Selected на той самий запис (якщо він на сторінці)
-        _selected = _pageData.Items.FirstOrDefault(x => x.Id == personId) ?? _selected;
-        await InvokeAsync(StateHasChanged);
-    }
+    // =========================
+    // Drawer submit handlers
+    // =========================
 
     private async Task HandleCreateReservedAsync(CreateReservedDto dto)
     {
         var cmd = new CreateReservedCommand(
-             PersonId: Guid.NewGuid(),
-             Rnokpp: dto.Rnokpp,
-             LastName: dto.LastName,
-             FirstName: dto.FirstName,
-             MiddleName: dto.MiddleName,
-             Rank: dto.Rank,
-             PositionSort: dto.PositionSort,
-             Position: dto.Position,
-             Author: "system", // TODO : додати авторизацію користувачів
-             NowUtc: DateTime.UtcNow);
+            PersonId: Guid.NewGuid(),
+            Rnokpp: dto.Rnokpp,
+            LastName: dto.LastName,
+            FirstName: dto.FirstName,
+            MiddleName: dto.MiddleName,
+            Rank: dto.Rank,
+            PositionSort: dto.PositionSort,
+            Position: dto.Position,
+            Author: "system", // TODO: auth user
+            NowUtc: DateTime.UtcNow
+        );
 
         await CreateReservedHandler.HandleAsync(cmd);
-
-        // (не обовʼязково, але логічно) після створення — оновити список
         await ReloadAsync();
     }
 
     private async Task HandleEnrollSubmitAsync(EnrollDto enroll)
     {
-        var author = "system"; // TODO: User.Identity.Name
+        var author = "system"; // TODO: auth user
         var nowUtc = DateTime.UtcNow;
 
         try
         {
             await EnrollHandler.HandleAsync(new EnrollCommand(
-                 PersonId: enroll.Id,
-                 Kind: enroll.Kind,
-                 Reference: enroll.Reference,
-                 Reason: enroll.Reason,
-                 EnrollDate: enroll.EnrollDate,
-                 Rank: enroll.Rank,
-                 Position: enroll.Position,
-                 PositionSort: enroll.PositionSort,
-                 Author: author,
-                 NowUtc: nowUtc));
+                PersonId: enroll.Id,
+                Kind: enroll.Kind,
+                Reference: enroll.Reference,
+                Reason: enroll.Reason,
+                EnrollDate: enroll.EnrollDate,
+                Rank: enroll.Rank,
+                PositionSort: enroll.PositionSort,
+                Position: enroll.Position,
+                Author: author,
+                NowUtc: nowUtc
+            ));
 
             Toasts.Success("Зараховано в табель");
             await ReloadAsync();
+
+            _selected = _pageData.Items.FirstOrDefault(x => x.Id == enroll.Id) ?? _selected;
         }
         catch (InvalidOperationException ex)
         {
@@ -171,7 +211,7 @@ public partial class PersonsRegistry
 
     private async Task HandleExcludeSubmitAsync(ExcludeDto dto)
     {
-        var author = "system"; // TODO: User.Identity.Name
+        var author = "system"; // TODO: auth user
         var nowUtc = DateTime.UtcNow;
 
         try
@@ -181,13 +221,13 @@ public partial class PersonsRegistry
                 Reason: dto.Reason,
                 EffectiveDate: dto.EffectiveDate,
                 Author: author,
-                NowUtc: nowUtc));
+                NowUtc: nowUtc
+            ));
 
             Toasts.Success("Виключено з табеля");
             await ReloadAsync();
 
             _selected = _pageData.Items.FirstOrDefault(x => x.Id == dto.Id) ?? _selected;
-            await InvokeAsync(StateHasChanged);
         }
         catch (InvalidOperationException ex)
         {
@@ -198,6 +238,10 @@ public partial class PersonsRegistry
             Toasts.Error("Помилка", "Сталася неочікувана помилка. Спробуйте ще раз.");
         }
     }
+
+    // =========================
+    // Paging
+    // =========================
 
     private async Task PrevPage()
     {
