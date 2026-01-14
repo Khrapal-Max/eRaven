@@ -8,6 +8,7 @@
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Excel;
 using eRaven.Application.Queries;
 
 namespace eRaven.Infrastructure.Repositories.PersonRepository;
@@ -34,4 +35,15 @@ public interface IPersonRepository
 
     // Void event person
     Task VoidEventAsync(VoidPersonEventCommand cmd, CancellationToken ct = default);
+
+    // Excel import helpers
+    Task<IReadOnlySet<string>> GetExistingRnokppsAsync(
+     IReadOnlyCollection<string> rnokpps,
+     CancellationToken ct = default);
+
+    Task<Guid> BootstrapCreateAndEnrollAsync(
+        PersonBootstrapRowDto row,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default);
 }

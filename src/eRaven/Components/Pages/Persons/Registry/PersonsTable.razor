@@ -19,18 +19,18 @@
     </TableHeader>
 
     <RowTemplate Context="p">
-        <td class="text-nowrap">
+        <td class="small text-nowrap p-0">
             @EnrollmentKindBadge(p.EnrollmentKind)
         </td>
-        <td class="text-truncate">@p.FullName</td>
-        <td>@p.Rnokpp</td>
+        <td class="small text-truncate p-0">@p.FullName</td>
+        <td class="small p-0">@p.Rnokpp</td>
         <td>
             @LifecycleBadge(p.Lifecycle, p.ExcludedAt)
         </td>
-        <td>@(p.Rank ?? "—")</td>
+        <td class="small p-0">@(p.Rank ?? "—")</td>
 
-        <td>
-            <div class="small">
+        <td class="p-0">
+            <div class="d-inline-block small text-truncate" title="@p.Position" style="max-width: 450px;">
                 <span>@(string.IsNullOrWhiteSpace(p.Position) ? "—" : p.Position)</span>
             </div>
 
@@ -41,16 +41,16 @@
 
             @if (p.Lifecycle == PersonLifecycle.Reserved && p.ExcludedAt is not null)
             {
-                <div class="small">викл.: @p.ExcludedAt.Value.ToString("dd.MM.yyyy")</div>
+                <div class="small p-0">викл.: @p.ExcludedAt.Value.ToString("dd.MM.yyyy")</div>
             }
         </td>
 
-        <td class="text-nowrap">@p.UpdatedAtUtc.ToLocalTime().ToString("dd-MM-yyyy HH:mm")</td>
+        <td class="small text-nowrap p-0">@p.UpdatedAtUtc.ToLocalTime().ToString("dd-MM-yyyy HH:mm")</td>
 
         <td class="text-end">
             <div class="dropdown">
                 <button type="button"
-                        class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                        class="btn btn-sm btn-outline-secondary dropdown-toggle p-0"
                         data-bs-toggle="dropdown"
                         aria-expanded="false"
                         title="Дії"

@@ -8,10 +8,12 @@
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Excel;
 using eRaven.Application.Queries;
 using eRaven.Domain;
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
+using eRaven.Domain.Enums;
 using eRaven.Domain.Events.PersonEvents.Info;
 using eRaven.Domain.Events.PersonEvents.Move;
 using eRaven.Domain.ValueObjects;
@@ -303,6 +305,91 @@ public sealed class PersonRepository(
         agg.LoadFromHistory(history);
 
         return agg;
+    }
+
+    public async Task<IReadOnlySet<string>> GetExistingRnokppsAsync(
+    IReadOnlyCollection<string> rnokpps,
+    CancellationToken ct = default)
+    {
+        var set = rnokpps?
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray() ?? [];
+
+        if (set.Length == 0)
+            return new HashSet<string>(StringComparer.Ordinal);
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+        var existing = await db.PersonRead
+            .AsNoTracking()
+            .Where(x => set.Contains(x.Rnokpp))
+            .Select(x => x.Rnokpp)
+            .ToListAsync(ct);
+
+        return new HashSet<string>(existing, StringComparer.Ordinal);
+    }
+
+    public async Task<Guid> BootstrapCreateAndEnrollAsync(
+        PersonBootstrapRowDto row,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
+    {
+        // мінімальна страховка на бекові інваріанти
+        if (string.IsNullOrWhiteSpace(row.Rnokpp)) throw new ArgumentException("Rnokpp is required.");
+        if (string.IsNullOrWhiteSpace(row.LastName)) throw new ArgumentException("LastName is required.");
+        if (string.IsNullOrWhiteSpace(row.FirstName)) throw new ArgumentException("FirstName is required.");
+        if (string.IsNullOrWhiteSpace(row.Rank)) throw new ArgumentException("Rank is required.");
+        if (string.IsNullOrWhiteSpace(row.Position)) throw new ArgumentException("Position is required.");
+        if (string.IsNullOrWhiteSpace(row.Reason)) throw new ArgumentException("Reason is required.");
+
+        // rule: non-Unit => 9999
+        var positionSort = row.Kind == EnrollmentKind.Unit
+            ? row.PositionSort
+            : 9999;
+
+        var id = Guid.NewGuid();
+
+        var personal = new PersonalInfo(
+            rnokpp: row.Rnokpp.Trim(),
+            lastName: row.LastName.Trim(),
+            firstName: row.FirstName.Trim(),
+            middleName: string.IsNullOrWhiteSpace(row.MiddleName) ? null : row.MiddleName.Trim());
+
+        // 1 агрегат = 1 PersistAsync (атомарно для картки)
+        var agg = PersonAggregate.CreateReserved(
+            id: id,
+            personal: personal,
+            rank: row.Rank.Trim(),
+            position: row.Position.Trim(),
+            author: author,
+            nowUtc: nowUtc);
+
+        agg.Enroll(
+            kind: row.Kind,
+            reference: string.IsNullOrWhiteSpace(row.Reference) ? null : row.Reference.Trim(),
+            reason: row.Reason.Trim(),
+            enrollDate: row.EnrollDate,
+            rank: row.Rank.Trim(),
+            positionSort: positionSort,
+            position: row.Position.Trim(),
+            author: author,
+            nowUtc: nowUtc);
+
+        // optional fields -> effective date = EnrollDate
+        if (!string.IsNullOrWhiteSpace(row.Bzvp))
+            agg.ChangeBzvp(row.EnrollDate, row.Bzvp.Trim(), note: null, author: author, nowUtc: nowUtc);
+
+        if (!string.IsNullOrWhiteSpace(row.Weapon))
+            agg.ChangeWeapon(row.EnrollDate, row.Weapon.Trim(), author: author, nowUtc: nowUtc);
+
+        if (!string.IsNullOrWhiteSpace(row.Callsign))
+            agg.ChangeCallsign(row.EnrollDate, row.Callsign.Trim(), author: author, nowUtc: nowUtc);
+
+        await PersistAsync(agg, expectedVersion: 0, ct);
+        return id;
     }
 
     private async Task PersistAsync(PersonAggregate agg, long expectedVersion, CancellationToken ct)

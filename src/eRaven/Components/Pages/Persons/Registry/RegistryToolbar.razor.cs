@@ -18,6 +18,8 @@ public partial class RegistryToolbar : ComponentBase, IDisposable
     // Parameters
     // ==========================
     [Parameter] public PersonsRegistryFilters Value { get; set; } = new();
+
+    [Parameter] public EventCallback OnOpenImportExport { get; set; }
     [Parameter] public EventCallback OnCreateReserved { get; set; }
     [Parameter] public EventCallback<PersonsRegistryFilters> ValueChanged { get; set; }
 

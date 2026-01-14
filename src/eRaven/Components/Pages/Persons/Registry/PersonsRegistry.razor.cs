@@ -34,7 +34,7 @@ public partial class PersonsRegistry
     private bool _loading;
 
     private int _page = 1;
-    private readonly int _pageSize = 6;
+    private readonly int _pageSize = 10;
 
     private PersonsRegistryFilters _filters = new();
 
@@ -50,6 +50,8 @@ public partial class PersonsRegistry
 
     private bool _excludeOpen;
     private Guid _excludePersonId;
+
+    private bool _importExportOpen;
 
     // paging helpers
     private int TotalPages =>
@@ -224,6 +226,18 @@ public partial class PersonsRegistry
         {
             Toasts.Error("Помилка", "Сталася неочікувана помилка. Спробуйте ще раз.");
         }
+    }
+
+    private Task OpenImportExport()
+    {
+        _importExportOpen = true;
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleImportedAsync()
+    {
+        _page = 1;
+        await ReloadAsync();
     }
 
     // =========================

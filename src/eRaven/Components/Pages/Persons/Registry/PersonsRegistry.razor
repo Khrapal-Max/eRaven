@@ -6,7 +6,13 @@
 
     <RegistryToolbar Value="_filters"
                      ValueChanged="OnFiltersChanged"
-                     OnCreateReserved="OpenCreateReserved" />
+                     OnCreateReserved="OpenCreateReserved"
+                     OnOpenImportExport="OpenImportExport" />
+
+    <RegistryImportExport IsOpen="_importExportOpen"
+                          IsOpenChanged="@(v => _importExportOpen = v)"
+                          Filters="_filters"
+                          OnImported="HandleImportedAsync" />
 
     <div class="page-content">
         @if (_loading)

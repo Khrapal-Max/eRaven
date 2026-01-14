@@ -7,6 +7,7 @@
 
 using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.Commands;
+using eRaven.Application.Commands.Excel;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs;
 using eRaven.Application.Handlers;
@@ -48,6 +49,7 @@ builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjecto
 builder.Services.AddScoped<IPersonRepository, PersonRepository>();
 
 // Command handlers
+builder.Services.AddScoped<ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult>, BootstrapPersonsCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<CreateReservedCommand, Guid>, CreateReservedCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<EnrollCommand, Guid>, EnrollCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ExcludeCommand, Guid>, ExcludeCommandHandler>();
