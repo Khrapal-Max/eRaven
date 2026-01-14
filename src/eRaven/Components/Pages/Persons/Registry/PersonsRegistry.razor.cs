@@ -34,19 +34,13 @@ public partial class PersonsRegistry
     private bool _loading;
 
     private int _page = 1;
-    private int _pageSize = 6;
-    private string? _search;
+    private readonly int _pageSize = 6;
 
     private PersonsRegistryFilters _filters = new();
 
     private PagedResult<PersonListItemDto> _pageData = new([], 1, 6, 0);
 
     private PersonListItemDto? _selected;
-    private PersonListItemDto? Selected
-    {
-        get => _selected;
-        set => _selected = value;
-    }
 
     // drawers
     private bool _createReservedOpen;
@@ -124,7 +118,7 @@ public partial class PersonsRegistry
     private Task OpenCard(PersonListItemDto row)
     {
         _selected = row;
-        // Nav.NavigateTo($"/persons/{row.Id}");
+        Nav.NavigateTo($"/persons/{row.Id}");
         return Task.CompletedTask;
     }
 
