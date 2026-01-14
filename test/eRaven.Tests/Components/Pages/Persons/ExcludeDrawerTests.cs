@@ -79,10 +79,11 @@ public sealed class ExcludeDrawerTests : BunitContext
         cut.Markup.Contains("Виключення з табеля");
 
         // shows person summary
-        cut.Markup.Contains("Ivanov Ivan M");
-        cut.Markup.Contains("1234567890");
-        cut.Markup.Contains("Солдат");
-        cut.Markup.Contains("Оператор");
+        Assert.Contains("Виключення з табеля", cut.Markup);
+        Assert.Contains("Ivanov Ivan M", cut.Markup);
+        Assert.Contains("1234567890", cut.Markup);
+        Assert.Contains("Солдат", cut.Markup);
+        Assert.Contains("Оператор", cut.Markup);
     }
 
     [Fact]

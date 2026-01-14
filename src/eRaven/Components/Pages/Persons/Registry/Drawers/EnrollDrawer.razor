@@ -37,10 +37,13 @@
 
                                 <div class="small">
                                     РНОКПП: <span class="font-monospace">@_person.Rnokpp</span>
-                                    · Статус: <span class="ms-1">@_person.Lifecycle</span>
+                                    @if (_person.EnrolledAt is not null)
+                                    {
+                                        <span>· В табелі з: @_person.EnrolledAt.Value.ToString("dd.MM.yyyy")</span>
+                                    }
                                     @if (_person.ExcludedAt is not null)
                                     {
-                                        <span>· викл.: @_person.ExcludedAt.Value.ToString("dd.MM.yyyy")</span>
+                                        <span>· по: @_person.ExcludedAt.Value.ToString("dd.MM.yyyy")</span>
                                     }
                                 </div>
                             </div>

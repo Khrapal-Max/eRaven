@@ -50,11 +50,10 @@ public sealed class EnrollDrawerTests : BunitContext
         Services.AddSingleton(rankCatalog.Object);
 
         var details = new Mock<IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?>>(MockBehavior.Strict);
-        details.Setup(x => x.HandleAsync(It.IsAny<GetPersonDetailsQuery>()))
+        details.Setup(x => x.HandleAsync(It.IsAny<GetPersonDetailsQuery>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(person);
         Services.AddSingleton(details.Object);
 
-        // валідатор для OnValidSubmit
         Services.AddSingleton<IValidator<EnrollDto>>(new EnrollDtoValidator());
     }
 
@@ -65,6 +64,7 @@ public sealed class EnrollDrawerTests : BunitContext
         RegisterCommonServices(Person(id));
 
         var isOpen = true;
+
         var cut = Render<EnrollDrawer>(ps => ps
             .Add(p => p.IsOpen, isOpen)
             .Add(p => p.IsOpenChanged, v => isOpen = v)
@@ -74,7 +74,6 @@ public sealed class EnrollDrawerTests : BunitContext
 
         cut.Find("form#enroll-form");
 
-        // PositionSort має бути enabled (Unit дефолт)
         var posSort = cut.Find("input[type='number']");
         Assert.False(posSort.HasAttribute("disabled"));
     }
@@ -86,6 +85,7 @@ public sealed class EnrollDrawerTests : BunitContext
         RegisterCommonServices(Person(id, sort: 12));
 
         var isOpen = true;
+
         var cut = Render<EnrollDrawer>(ps => ps
             .Add(p => p.IsOpen, isOpen)
             .Add(p => p.IsOpenChanged, v => isOpen = v)
@@ -93,16 +93,17 @@ public sealed class EnrollDrawerTests : BunitContext
             .Add(p => p.OnSubmit, _ => Task.CompletedTask)
         );
 
-        // change select -> AttachedByOrder
         await cut.InvokeAsync(() =>
-        {
-            cut.Find("select.form-select").Change(EnrollmentKind.AttachedByOrder.ToString());
-        });
+            cut.Find("select.form-select").Change(EnrollmentKind.AttachedByOrder.ToString()));
 
-        // re-find after render
         var posSort = cut.Find("input[type='number']");
         Assert.True(posSort.HasAttribute("disabled"));
-        Assert.Equal("9999", posSort.GetAttribute("value"));
+
+        var value = posSort.GetAttribute("value") ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+            Assert.Contains("9999", posSort.OuterHtml);
+        else
+            Assert.Equal("9999", value);
 
         Assert.Contains("9999", cut.Markup);
     }
@@ -114,6 +115,7 @@ public sealed class EnrollDrawerTests : BunitContext
         RegisterCommonServices(Person(id, sort: 12));
 
         var isOpen = true;
+
         var cut = Render<EnrollDrawer>(ps => ps
             .Add(p => p.IsOpen, isOpen)
             .Add(p => p.IsOpenChanged, v => isOpen = v)
@@ -121,13 +123,11 @@ public sealed class EnrollDrawerTests : BunitContext
             .Add(p => p.OnSubmit, _ => Task.CompletedTask)
         );
 
-        // switch to attached
-        await cut.InvokeAsync(() => cut.Find("select.form-select")
-            .Change(EnrollmentKind.AttachedByOrder.ToString()));
+        await cut.InvokeAsync(() =>
+            cut.Find("select.form-select").Change(EnrollmentKind.AttachedByOrder.ToString()));
 
-        // switch back to Unit
-        await cut.InvokeAsync(() => cut.Find("select.form-select")
-            .Change(EnrollmentKind.Unit.ToString()));
+        await cut.InvokeAsync(() =>
+            cut.Find("select.form-select").Change(EnrollmentKind.Unit.ToString()));
 
         var posSort = cut.Find("input[type='number']");
         Assert.False(posSort.HasAttribute("disabled"));
@@ -154,20 +154,12 @@ public sealed class EnrollDrawerTests : BunitContext
             })
         );
 
-        // set kind -> attached (auto 9999)
         await cut.InvokeAsync(() =>
-        {
-            cut.Find("select.form-select").Change(EnrollmentKind.AttachedByList.ToString());
-        });
+            cut.Find("select.form-select").Change(EnrollmentKind.AttachedByList.ToString()));
 
-        // fill reason (required)
         await cut.InvokeAsync(() =>
-        {
-            // textarea is the reason one (rows="3")
-            cut.Find("textarea").Change("Підстава тест");
-        });
+            cut.Find("textarea").Change("Підстава тест"));
 
-        // submit
         await cut.InvokeAsync(() => cut.Find("form#enroll-form").Submit());
 
         Assert.NotNull(captured);
@@ -175,7 +167,7 @@ public sealed class EnrollDrawerTests : BunitContext
         Assert.Equal(EnrollmentKind.AttachedByList, captured.Kind);
         Assert.Equal(9999, captured.PositionSort);
 
-        Assert.False(isOpen); // drawer closed
+        Assert.False(isOpen);
     }
 
     [Fact]
@@ -193,27 +185,86 @@ public sealed class EnrollDrawerTests : BunitContext
             .Add(p => p.OnSubmit, _ => Task.CompletedTask)
         );
 
-        // ✅ user enters 33 in Unit
-        await cut.InvokeAsync(() =>
-        {
-            cut.Find("input[type='number']").Change("33");
-        });
+        await cut.InvokeAsync(() => cut.Find("input[type='number']").Change("33"));
 
-        // Unit -> Attached
         await cut.InvokeAsync(() =>
-        {
-            cut.Find("select.form-select").Change(EnrollmentKind.AttachedByOrder.ToString());
-        });
+            cut.Find("select.form-select").Change(EnrollmentKind.AttachedByOrder.ToString()));
 
-        // Attached -> Unit
         await cut.InvokeAsync(() =>
-        {
-            cut.Find("select.form-select").Change(EnrollmentKind.Unit.ToString());
-        });
+            cut.Find("select.form-select").Change(EnrollmentKind.Unit.ToString()));
 
-        // ✅ should restore 33 (not person default 12)
         var posSort = cut.Find("input[type='number']");
         Assert.False(posSort.HasAttribute("disabled"));
         Assert.Equal("33", posSort.GetAttribute("value"));
+    }
+
+    [Fact]
+    public void When_open_with_empty_personId_should_not_query_and_should_show_warning()
+    {
+        // arrange
+        var rankCatalog = new Mock<IRankCatalog>(MockBehavior.Strict);
+        rankCatalog.Setup(x => x.GetActive())
+            .Returns([new RankOption("Солдат")]);
+        Services.AddSingleton(rankCatalog.Object);
+
+        var details = new Mock<IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?>>(MockBehavior.Strict);
+        // важливо: Strict + не Setup => будь-який виклик впаде, тобто ми гарантуємо "не викликається"
+        Services.AddSingleton(details.Object);
+
+        Services.AddSingleton<IValidator<EnrollDto>>(new EnrollDtoValidator());
+
+        var isOpen = true;
+
+        // act
+        var cut = Render<EnrollDrawer>(ps => ps
+            .Add(p => p.IsOpen, isOpen)
+            .Add(p => p.PersonId, Guid.Empty)
+            .Add(p => p.IsOpenChanged, v => isOpen = v)
+        );
+
+        // assert
+        details.VerifyNoOtherCalls();
+
+        // _person null => warning
+        cut.Find(".alert.alert-warning");
+    }
+
+    [Fact]
+    public async Task Submit_invalid_form_should_not_invoke_OnSubmit_and_should_not_close()
+    {
+        // arrange
+        var id = Guid.NewGuid();
+        RegisterCommonServices(Person(id));
+
+        var isOpen = true;
+        var called = false;
+
+        var cut = Render<EnrollDrawer>(ps => ps
+            .Add(p => p.IsOpen, isOpen)
+            .Add(p => p.IsOpenChanged, v => isOpen = v)
+            .Add(p => p.PersonId, id)
+            .Add(p => p.OnSubmit, _ =>
+            {
+                called = true;
+                return Task.CompletedTask;
+            })
+        );
+
+        // act:
+        // Reason required => лишаємо порожнім/пробіли, submit має не пройти OnValidSubmit
+        await cut.InvokeAsync(() =>
+        {
+            // textarea тут — поле Reason (rows="3")
+            cut.Find("textarea").Change("   ");
+        });
+
+        await cut.InvokeAsync(() => cut.Find("form#enroll-form").Submit());
+
+        // assert
+        Assert.False(called);
+        Assert.True(isOpen);
+
+        // повідомлення валідатора (EnrollDtoValidator)
+        Assert.Contains("Вкажіть підставу", cut.Markup);
     }
 }

@@ -57,10 +57,7 @@ public partial class EnrollDrawer
     // =========================
     // Lifecycle
     // =========================
-    protected override void OnInitialized()
-    {
-        Reset();
-    }
+    protected override void OnInitialized() => Reset();
 
     protected override async Task OnParametersSetAsync()
     {
@@ -100,11 +97,10 @@ public partial class EnrollDrawer
             if (_person is null)
                 return;
 
-            // дефолтна модель
             Model.Id = _person.Id;
             Model.Kind = EnrollmentKind.Unit;
             Model.Reference = _person.EnrollmentReference;
-            Model.EnrollDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            Model.EnrollDate = DateOnly.FromDateTime(DateTime.Now);
 
             Model.Rank = _person.Rank ?? string.Empty;
             Model.PositionSort = _person.PositionSort ?? 0;
@@ -139,7 +135,6 @@ public partial class EnrollDrawer
     // =========================
     private void OnKindAfterChanged()
     {
-        // Unit -> Attached: зберегти введене і поставити 9999
         if (Model.Kind != EnrollmentKind.Unit)
         {
             if (Model.PositionSort is > 0 and not 9999)
@@ -149,7 +144,6 @@ public partial class EnrollDrawer
         }
         else
         {
-            // Attached -> Unit: відновити попереднє введене
             var restored =
                 _unitPositionSortBackup
                 ?? _person?.PositionSort
@@ -171,13 +165,11 @@ public partial class EnrollDrawer
         _busy = true;
         try
         {
-            // trim/normalize
             Model.Reference = TrimOrNull(Model.Reference);
             Model.Reason = TrimOrEmpty(Model.Reason);
             Model.Rank = TrimOrEmpty(Model.Rank);
             Model.Position = TrimOrEmpty(Model.Position);
 
-            // safety-net: attached always 9999
             if (Model.Kind != EnrollmentKind.Unit)
                 Model.PositionSort = 9999;
 

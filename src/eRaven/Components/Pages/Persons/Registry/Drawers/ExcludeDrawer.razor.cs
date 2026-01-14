@@ -97,7 +97,7 @@ public partial class ExcludeDrawer
                 Model.Id = _person.Id;
 
                 // дефолт: сьогодні; можна теж поставити сьогодні локально
-                Model.EffectiveDate = DateOnly.FromDateTime(DateTime.UtcNow);
+                Model.EffectiveDate = DateOnly.FromDateTime(DateTime.Now);
 
                 // пусто — обовʼязкове валідацією
                 Model.Reason = string.Empty;
