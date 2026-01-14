@@ -1,7 +1,60 @@
-﻿@page "/persons/{id:guid}"
+﻿@page "/persons/{PersonId:guid}"
+@using eRaven.Application.DTOs
+@using eRaven.Application.Queries
 
-<h3>Card</h3>
+<div class="page-content">
+    @if (_loading)
+    {
+        <p class="px-3"><em>Завантаження...</em></p>
+    }
+    else if (_person is null)
+    {
+        <div class="alert alert-warning rounded-0 m-3">
+            Особа не знайдена.
+        </div>
+    }
+    else
+    {
+        <PersonSnapshotHeader Person="_person" PersonId="PersonId" />
 
-<div>
-    person ID @Id
+        <div class="mt-2 px-2 ">
+            <ul class="nav nav-tabs px-2 person-tabs">
+                @foreach (var t in Tabs)
+                {
+                    <li class="nav-item">
+                        <Button Class="@TabClass(t.Key)"
+                                Label="@t.Label"
+                                OnClickButton="@(() => SetTab(t.Key))" />
+                    </li>
+                }
+            </ul>
+
+            <div class="border border-top-0 p-2 p-md-3">
+                @if (Tab == CardTab.Current)
+                {
+                    <div class="row g-3">
+                        <div class="col-12 col-lg-10">
+                            <PersonSnapshotPanel Person="_person" />
+                        </div>
+
+                        <div class="col-12 col-lg-2">
+                            <PersonActionsPanel Person="_person" />
+                        </div>
+                    </div>
+
+                    @* Модалки, що логічно відносяться до “Поточний” *@
+                  
+                    @* інші модалки редагування — пізніше *@
+                }
+                else if (Tab == CardTab.Career)
+                {
+                    <CareerTimelineTab PersonId="PersonId" />
+                }
+                else
+                {
+                    <TimesheetTab PersonId="PersonId" />
+                }
+            </div>
+        </div>
+    }
 </div>

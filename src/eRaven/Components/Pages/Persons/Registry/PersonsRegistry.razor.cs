@@ -77,9 +77,9 @@ public partial class PersonsRegistry
             _pageData = await PersonsPageQuery.HandleAsync(new GetPersonsPageQuery(
                 Page: _page,
                 PageSize: _pageSize,
-                Search: _filters.Search,                 
-                Lifecycle: _filters.Lifecycle,           
-                EnrollmentKind: _filters.EnrollmentKind  
+                Search: _filters.Search,
+                Lifecycle: _filters.Lifecycle,
+                EnrollmentKind: _filters.EnrollmentKind
             ));
         }
         finally
