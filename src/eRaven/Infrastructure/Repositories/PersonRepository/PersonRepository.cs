@@ -65,11 +65,15 @@ public sealed class PersonRepository(
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var s = query.Search.Trim();
+            var sLower = s.ToLowerInvariant();
+            var patternLower = $"%{sLower}%";
+            var pattern = $"%{s}%";
 
-            // простий пошук по FullName/Rnokpp
             q = q.Where(x =>
-                EF.Functions.Like(x.FullName, $"%{s}%") ||
-                EF.Functions.Like(x.Rnokpp, $"%{s}%"));
+                // FullName: case-insensitive через LOWER(...)
+                EF.Functions.Like(x.FullName.ToLower(), patternLower) ||
+                // Rnokpp: цифри, можна без lower
+                EF.Functions.Like(x.Rnokpp, pattern));
         }
 
         if (query.Lifecycle is not null)

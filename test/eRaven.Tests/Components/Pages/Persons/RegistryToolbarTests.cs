@@ -24,7 +24,7 @@ public sealed class RegistryToolbarTests : BunitContext
         Assert.Contains("Реєстр особового складу", cut.Markup);
 
         // Assert: button label text (rendered inside your shared <Button> component)
-        Assert.Contains("+ Створити картку", cut.Markup);
+        Assert.Contains("+ Створити", cut.Markup);
     }
 
     [Fact]

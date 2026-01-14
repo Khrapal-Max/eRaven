@@ -83,9 +83,9 @@ public partial class PersonsRegistry
             _pageData = await PersonsPageQuery.HandleAsync(new GetPersonsPageQuery(
                 Page: _page,
                 PageSize: _pageSize,
-                Search: _search,
-                Lifecycle: _filters.Lifecycle,
-                EnrollmentKind: _filters.EnrollmentKind
+                Search: _filters.Search,                 
+                Lifecycle: _filters.Lifecycle,           
+                EnrollmentKind: _filters.EnrollmentKind  
             ));
         }
         finally
@@ -101,13 +101,6 @@ public partial class PersonsRegistry
     private async Task OnFiltersChanged(PersonsRegistryFilters f)
     {
         _filters = f;
-        _page = 1;
-        await ReloadAsync();
-    }
-
-    private async Task OnSearchChanged(string? s)
-    {
-        _search = string.IsNullOrWhiteSpace(s) ? null : s.Trim();
         _page = 1;
         await ReloadAsync();
     }

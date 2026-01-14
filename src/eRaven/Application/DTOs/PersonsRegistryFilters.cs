@@ -10,6 +10,7 @@ using eRaven.Domain.Enums;
 namespace eRaven.Application.DTOs;
 
 public sealed record PersonsRegistryFilters(
-PersonLifecycle? Lifecycle = null,
-EnrollmentKind? EnrollmentKind = null
+    PersonLifecycle? Lifecycle = null,
+    EnrollmentKind? EnrollmentKind = null,
+    string? Search = null
 );
