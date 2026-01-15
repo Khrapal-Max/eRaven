@@ -5,6 +5,8 @@
 // PersonCard
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Commands;
+using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.DTOs;
 using eRaven.Application.Queries;
 using Microsoft.AspNetCore.Components;
@@ -17,10 +19,25 @@ public partial class Card
 
     [Inject] public IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?> GetPersonCard { get; set; } = default!;
 
+    [Inject] public ICommandHandler<ChangeRankCommand, Guid> ChangeRankCommandHandler { get; set; } = default!;
+
     private bool _loading;
     private PersonDetailsDto? _person;
 
+    private bool _rankOpen;
+
     protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private Task OpenRank(PersonDetailsDto dto)
+    {
+        _rankOpen = true;
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadAsync()
     {
         _loading = true;
         try
@@ -31,6 +48,21 @@ public partial class Card
         {
             _loading = false;
         }
+    }
+
+    private async Task HandleRankSubmitAsync(ChangeRankDto dto)
+    {
+        var cmd = new ChangeRankCommand(
+           PersonId: dto.PersonId,
+           EffectiveDate: dto.EffectiveDate,
+           Rank: dto.Rank,
+           Note: dto.Note,
+           Author: "system", // TODO: auth user
+           NowUtc: DateTime.UtcNow
+        );
+
+        await ChangeRankCommandHandler.HandleAsync(cmd);
+        await LoadAsync();
     }
 
     private enum CardTab { Current, Career, TimeSheet }

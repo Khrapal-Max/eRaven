@@ -38,13 +38,17 @@
                         </div>
 
                         <div class="col-12 col-lg-2">
-                            <PersonActionsPanel Person="_person" />
+                            <PersonActionsPanel Person="_person!"
+                                                OnOpenRank="OpenRank" />
                         </div>
                     </div>
 
                     @* Модалки, що логічно відносяться до “Поточний” *@
                   
-                    @* інші модалки редагування — пізніше *@
+                    <ChangeRankDrawer IsOpen="_rankOpen"
+                                      IsOpenChanged="@(v => _rankOpen = v)"
+                                      Person="_person"
+                                      OnChangeRank="HandleRankSubmitAsync" />
                 }
                 else if (Tab == CardTab.Career)
                 {

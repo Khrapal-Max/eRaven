@@ -13,4 +13,10 @@ namespace eRaven.Components.Pages.Persons.Card;
 public partial class PersonActionsPanel
 {
     [Parameter, EditorRequired] public PersonDetailsDto Person { get; set; } = default!;
+    [Parameter] public EventCallback<PersonDetailsDto> OnOpenRank { get; set; }
+
+    private Task OpenRank()
+        => OnOpenRank.HasDelegate
+            ? OnOpenRank.InvokeAsync(Person)   // ✅ передаємо Person
+            : Task.CompletedTask;
 }

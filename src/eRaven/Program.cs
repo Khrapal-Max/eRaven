@@ -8,6 +8,7 @@
 using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
+using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs;
 using eRaven.Application.Handlers;
@@ -53,6 +54,9 @@ builder.Services.AddScoped<ICommandHandler<BootstrapPersonsCommand, BootstrapPer
 builder.Services.AddScoped<ICommandHandler<CreateReservedCommand, Guid>, CreateReservedCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<EnrollCommand, Guid>, EnrollCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ExcludeCommand, Guid>, ExcludeCommandHandler>();
+
+builder.Services.AddScoped<ICommandHandler<ChangeRankCommand, Guid>, ChangeRankCommandHandler>();
+
 
 // Query handlers
 builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>, GetPersonsPageQueryHandler>();

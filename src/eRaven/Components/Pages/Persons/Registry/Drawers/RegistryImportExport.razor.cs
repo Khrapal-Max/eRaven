@@ -18,7 +18,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 using System.Globalization;
 
-namespace eRaven.Components.Pages.Persons.Registry;
+namespace eRaven.Components.Pages.Persons.Registry.Drawers;
 
 public partial class RegistryImportExport
 {
