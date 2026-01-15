@@ -7,6 +7,7 @@
 
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
+using eRaven.Application.DTOs.Excel;
 using eRaven.Application.Queries;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Events.PersonEvents.Info;
@@ -436,5 +437,197 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
 
         Assert.Equal(EnrollmentKind.Unit, dto.EnrollmentKind);
         Assert.Equal("A", dto.EnrollmentReference);
+    }
+
+    // =========================
+    // GetExistingRnokppsAsync
+    // =========================
+
+    [Fact]
+    public async Task GetExistingRnokppsAsync_should_return_only_existing_trimmed_and_distinct_values()
+    {
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+
+        await _repo.CreateReservedAsync(new CreateReservedCommand(
+            PersonId: id1,
+            Rnokpp: "1234567890",
+            LastName: "Ivanov",
+            FirstName: "Ivan",
+            MiddleName: null,
+            Rank: null,
+            PositionSort: null,
+            Position: null,
+            Author: "tester",
+            NowUtc: NowUtc));
+
+        await _repo.CreateReservedAsync(new CreateReservedCommand(
+            PersonId: id2,
+            Rnokpp: "0987654321",
+            LastName: "Petrov",
+            FirstName: "Petr",
+            MiddleName: null,
+            Rank: null,
+            PositionSort: null,
+            Position: null,
+            Author: "tester",
+            NowUtc: NowUtc));
+
+        var input = new[]
+        {
+            " 1234567890 ",
+            "0987654321",
+            "0000000000",   // not existing
+            "0987654321",   // duplicate
+            "",             // ignored
+            "   "           // ignored
+        };
+
+        var existing = await _repo.GetExistingRnokppsAsync(input);
+
+        Assert.Equal(2, existing.Count);
+        Assert.Contains("1234567890", existing);
+        Assert.Contains("0987654321", existing);
+        Assert.DoesNotContain("0000000000", existing);
+    }
+
+    [Fact]
+    public async Task GetExistingRnokppsAsync_when_input_is_null_or_empty_should_return_empty_set()
+    {
+        var empty1 = await _repo.GetExistingRnokppsAsync(null!);
+        Assert.Empty(empty1);
+
+        var empty2 = await _repo.GetExistingRnokppsAsync([]);
+        Assert.Empty(empty2);
+    }
+
+    // =========================
+    // BootstrapCreateAndEnrollAsync
+    // =========================
+
+    [Fact]
+    public async Task BootstrapCreateAndEnrollAsync_unit_should_create_enrolled_person_with_optional_fields_and_effective_dates()
+    {
+        var enrollDate = new DateOnly(2026, 01, 10);
+
+        var row = new PersonBootstrapRowDto(
+            RowNumber: 1,
+            Rnokpp: "1234567890",
+            LastName: "  Ivanov ",
+            FirstName: " Ivan ",
+            MiddleName: "  Ivanovich ",
+            Kind: EnrollmentKind.Unit,
+            Reference: "  REF-1  ",
+            EnrollDate: enrollDate,
+            Reason: "  import  ",
+            Rank: "  Soldier  ",
+            PositionSort: 10,
+            Position: "  Operator  ",
+            Bzvp: "  BZVP  ",
+            Weapon: "  AK  ",
+            Callsign: "  Fox  ");
+
+        var id = await _repo.BootstrapCreateAndEnrollAsync(row, author: "importer", nowUtc: NowUtc);
+
+        var dto = await _repo.GetByIdAsync(id);
+        Assert.NotNull(dto);
+
+        Assert.Equal(PersonLifecycle.Enrolled, dto!.Lifecycle);
+        Assert.Equal(EnrollmentKind.Unit, dto.EnrollmentKind);
+        Assert.Equal("REF-1", dto.EnrollmentReference);
+        Assert.Equal(enrollDate, dto.EnrolledAt);
+        Assert.Null(dto.ExcludedAt);
+
+        Assert.Equal("1234567890", dto.Rnokpp);
+        Assert.Equal("Ivanov", dto.LastName);
+        Assert.Equal("Ivan", dto.FirstName);
+        Assert.Equal("Ivanovich", dto.MiddleName);
+        Assert.Equal("Ivanov Ivan Ivanovich", dto.FullName);
+
+        Assert.Equal("Soldier", dto.Rank);
+        Assert.Equal(10, dto.PositionSort);
+        Assert.Equal("Operator", dto.Position);
+
+        Assert.Equal("BZVP", dto.Bzvp);
+        Assert.Equal("AK", dto.Weapon);
+        Assert.Equal("Fox", dto.Callsign);
+
+        // events + effective dates in event store
+        await using var ctx = _db.Factory.CreateDbContext();
+        var events = await ctx.PersonEvents
+            .AsNoTracking()
+            .Where(x => x.AggregateId == id)
+            .OrderBy(x => x.Version)
+            .ToListAsync();
+
+        Assert.Equal(5, events.Count);
+        Assert.Equal(nameof(PersonCreated), events[0].EventType);
+        Assert.Null(events[0].EffectiveDate);
+
+        Assert.Equal(nameof(PersonEnrolled), events[1].EventType);
+        Assert.Equal(enrollDate, events[1].EffectiveDate);
+
+        Assert.Equal(nameof(PersonBzvpChanged), events[2].EventType);
+        Assert.Equal(enrollDate, events[2].EffectiveDate);
+
+        Assert.Equal(nameof(PersonWeaponChanged), events[3].EventType);
+        Assert.Equal(enrollDate, events[3].EffectiveDate);
+
+        Assert.Equal(nameof(PersonCallsignChanged), events[4].EventType);
+        Assert.Equal(enrollDate, events[4].EffectiveDate);
+    }
+
+    [Fact]
+    public async Task BootstrapCreateAndEnrollAsync_non_unit_should_force_position_sort_9999()
+    {
+        var row = new PersonBootstrapRowDto(
+            RowNumber: 2,
+            Rnokpp: "1234567890",
+            LastName: "Ivanov",
+            FirstName: "Ivan",
+            MiddleName: null,
+            Kind: EnrollmentKind.AttachedByOrder,
+            Reference: "X",
+            EnrollDate: new DateOnly(2026, 02, 01),
+            Reason: "r",
+            Rank: "S",
+            PositionSort: 1,   // should be ignored
+            Position: "P",
+            Bzvp: null,
+            Weapon: null,
+            Callsign: null);
+
+        var id = await _repo.BootstrapCreateAndEnrollAsync(row, author: "importer", nowUtc: NowUtc);
+
+        var dto = await _repo.GetByIdAsync(id);
+        Assert.NotNull(dto);
+
+        Assert.Equal(PersonLifecycle.Enrolled, dto!.Lifecycle);
+        Assert.Equal(EnrollmentKind.AttachedByOrder, dto.EnrollmentKind);
+        Assert.Equal(9999, dto.PositionSort);
+    }
+
+    [Fact]
+    public async Task BootstrapCreateAndEnrollAsync_should_throw_when_required_fields_are_missing()
+    {
+        var bad = new PersonBootstrapRowDto(
+            RowNumber: 3,
+            Rnokpp: "1234567890",
+            LastName: "Ivanov",
+            FirstName: "Ivan",
+            MiddleName: null,
+            Kind: EnrollmentKind.Unit,
+            Reference: null,
+            EnrollDate: new DateOnly(2026, 01, 10),
+            Reason: "r",
+            Rank: " ", // required
+            PositionSort: 10,
+            Position: "P",
+            Bzvp: null,
+            Weapon: null,
+            Callsign: null);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            _repo.BootstrapCreateAndEnrollAsync(bad, author: "importer", nowUtc: NowUtc));
     }
 }
