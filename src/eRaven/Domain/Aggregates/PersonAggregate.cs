@@ -139,8 +139,10 @@ public sealed class PersonAggregate
     {
         EnsureInitialized();
 
-        if (positionSort <= 0)
-            throw new ArgumentException("PositionSort must be > 0", nameof(positionSort));
+        var pos = (position ?? string.Empty).Trim();
+
+        if (pos.Length > 0 && positionSort <= 0)
+            throw new ArgumentException("PositionSort must be > 0 when Position is provided.", nameof(positionSort));
 
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
@@ -150,7 +152,7 @@ public sealed class PersonAggregate
             AggregateId: Id,
             EffectiveDate: effectiveDate,
             PositionSort: positionSort,
-            Position: position.Trim(),
+            Position: pos,
             Note: string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
             Author: author.Trim(),
             OccurredAtUtc: nowUtc);

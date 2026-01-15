@@ -43,6 +43,9 @@ builder.Services.AddScoped<IValidator<CreateReservedDto>, CreateReservedDtoValid
 builder.Services.AddScoped<IValidator<EnrollDto>, EnrollDtoValidator>();
 builder.Services.AddScoped<IValidator<ExcludeDto>, ExcludeDtoValidator>();
 
+builder.Services.AddScoped<IValidator<ChangeRankDto>, ChangeRankDtoValidator>();
+builder.Services.AddScoped<IValidator<ChangePositionDto>, ChangePositionDtoValidator>();
+
 // Projector (stateless)
 builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();
 
