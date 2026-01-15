@@ -12,13 +12,10 @@ using eRaven.Infrastructure.Repositories.PersonRepository;
 namespace eRaven.Application.Handlers;
 
 public sealed class ChangeRankCommandHandler(IPersonRepository repo)
-    : ICommandHandler<ChangeRankCommand, Guid>
+    : ICommandHandler<ChangeRankCommand>
 {
     private readonly IPersonRepository _repo = repo;
 
-    public async Task<Guid> HandleAsync(ChangeRankCommand command, CancellationToken ct = default)
-    {
-        await _repo.ChangeRankAsync(cmd: command, ct: ct);
-        return command.PersonId;
-    }
+    public async Task HandleAsync(ChangeRankCommand command, CancellationToken ct = default)
+        => await _repo.ChangeRankAsync(cmd: command, ct: ct);
 }

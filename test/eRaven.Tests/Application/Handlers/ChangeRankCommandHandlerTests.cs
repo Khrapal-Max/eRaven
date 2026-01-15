@@ -35,9 +35,7 @@ public sealed class ChangeRankCommandHandlerTests
             NowUtc: DateTime.UtcNow
         );
 
-        var res = await h.HandleAsync(cmd);
-
-        Assert.Equal(personId, res);
+        await h.HandleAsync(cmd);
 
         repo.Verify(x => x.ChangeRankAsync(It.Is<ChangeRankCommand>(c =>
             c.PersonId == personId &&

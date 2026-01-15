@@ -35,15 +35,12 @@ public sealed class EnrollCommandHandlerTests
 
         var expectedId = cmd.PersonId;
 
-        repo.Setup(x => x.EnrollAsync(cmd, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedId);
+        repo.Setup(x => x.EnrollAsync(cmd, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         // act
-        var result = await sut.HandleAsync(cmd);
+        await sut.HandleAsync(cmd);
 
         // assert
-        Assert.Equal(expectedId, result);
-
         repo.Verify(x => x.EnrollAsync(cmd, It.IsAny<CancellationToken>()), Times.Once);
         repo.VerifyNoOtherCalls();
     }
@@ -70,15 +67,12 @@ public sealed class EnrollCommandHandlerTests
         using var cts = new CancellationTokenSource();
         var ct = cts.Token;
 
-        repo.Setup(x => x.EnrollAsync(cmd, ct))
-            .ReturnsAsync(cmd.PersonId);
+        repo.Setup(x => x.EnrollAsync(cmd, ct)).Returns(Task.CompletedTask);
 
         // act
-        var result = await sut.HandleAsync(cmd, ct);
+        await sut.HandleAsync(cmd, ct);
 
         // assert
-        Assert.Equal(cmd.PersonId, result);
-
         repo.Verify(x => x.EnrollAsync(cmd, ct), Times.Once);
         repo.VerifyNoOtherCalls();
     }

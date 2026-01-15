@@ -22,8 +22,8 @@ public interface IPersonRepository
 
     // Commands aggregate (load aggregate -> execute -> append events -> project)
     Task<Guid> CreateReservedAsync(CreateReservedCommand cmd, CancellationToken ct = default);
-    Task<Guid> EnrollAsync(EnrollCommand cmd, CancellationToken ct = default);
-    Task<Guid> ExcludeAsync(ExcludeCommand cmd, CancellationToken ct = default);
+    Task EnrollAsync(EnrollCommand cmd, CancellationToken ct = default);
+    Task ExcludeAsync(ExcludeCommand cmd, CancellationToken ct = default);
 
     // Person info changes
     Task UpdatePersonalInfoAsync(UpdatePersonalInfoCommand cmd, CancellationToken ct = default);

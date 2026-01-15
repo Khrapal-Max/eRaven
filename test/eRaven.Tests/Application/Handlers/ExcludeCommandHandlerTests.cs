@@ -28,16 +28,14 @@ public sealed class ExcludeCommandHandlerTests
             Author: "tester",
             NowUtc: new DateTime(2026, 01, 07, 12, 0, 0, DateTimeKind.Utc));
 
-        repo.Setup(r => r.ExcludeAsync(cmd, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(id);
+        repo.Setup(r => r.ExcludeAsync(cmd, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var handler = new ExcludeCommandHandler(repo.Object);
 
         // act
-        var result = await handler.HandleAsync(cmd, CancellationToken.None);
+        await handler.HandleAsync(cmd, CancellationToken.None);
 
         // assert
-        Assert.Equal(id, result);
         repo.Verify(r => r.ExcludeAsync(cmd, It.IsAny<CancellationToken>()), Times.Once);
         repo.VerifyNoOtherCalls();
     }
@@ -59,16 +57,14 @@ public sealed class ExcludeCommandHandlerTests
         using var cts = new CancellationTokenSource();
         var ct = cts.Token;
 
-        repo.Setup(r => r.ExcludeAsync(cmd, ct))
-            .ReturnsAsync(id);
+        repo.Setup(r => r.ExcludeAsync(cmd, ct)).Returns(Task.CompletedTask);
 
         var handler = new ExcludeCommandHandler(repo.Object);
 
         // act
-        var result = await handler.HandleAsync(cmd, ct);
+        await handler.HandleAsync(cmd, ct);
 
         // assert
-        Assert.Equal(id, result);
         repo.Verify(r => r.ExcludeAsync(cmd, ct), Times.Once);
         repo.VerifyNoOtherCalls();
     }

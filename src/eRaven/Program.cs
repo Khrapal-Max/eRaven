@@ -52,10 +52,10 @@ builder.Services.AddScoped<IPersonRepository, PersonRepository>();
 // Command handlers
 builder.Services.AddScoped<ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult>, BootstrapPersonsCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<CreateReservedCommand, Guid>, CreateReservedCommandHandler>();
-builder.Services.AddScoped<ICommandHandler<EnrollCommand, Guid>, EnrollCommandHandler>();
-builder.Services.AddScoped<ICommandHandler<ExcludeCommand, Guid>, ExcludeCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<EnrollCommand>, EnrollCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<ExcludeCommand>, ExcludeCommandHandler>();
 
-builder.Services.AddScoped<ICommandHandler<ChangeRankCommand, Guid>, ChangeRankCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<ChangeRankCommand>, ChangeRankCommandHandler>();
 
 
 // Query handlers

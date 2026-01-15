@@ -12,10 +12,10 @@ using eRaven.Infrastructure.Repositories.PersonRepository;
 namespace eRaven.Application.Handlers;
 
 public sealed class ExcludeCommandHandler(IPersonRepository repo)
-    : ICommandHandler<ExcludeCommand, Guid>
+    : ICommandHandler<ExcludeCommand>
 {
     private readonly IPersonRepository _repo = repo;
 
-    public async Task<Guid> HandleAsync(ExcludeCommand command, CancellationToken ct = default)
+    public async Task HandleAsync(ExcludeCommand command, CancellationToken ct = default)
         => await _repo.ExcludeAsync(command, ct);
 }
