@@ -158,6 +158,20 @@ public sealed class PersonsRegistryTests : BunitContext
 
         Assert.True(back.HasAttribute("disabled"));
         Assert.True(next.HasAttribute("disabled"));
+
+
+        Assert.Contains("+ Створити", cut.Markup);
+        Assert.Contains("Імпорт/Експорт", cut.Markup);
+
+        Assert.DoesNotContain("Відкрити картку", cut.Markup);
+        Assert.DoesNotContain("Зарахувати в табель", cut.Markup);
+        Assert.DoesNotContain("Виключити з табеля", cut.Markup);
+        Assert.NotNull(cut.Instance.PersonsPageQuery);
+        Assert.NotNull(cut.Instance.CreateReservedHandler);
+        Assert.NotNull(cut.Instance.EnrollHandler);
+        Assert.NotNull(cut.Instance.ExcludeHandler);
+        Assert.NotNull(cut.Instance.Toasts);
+        Assert.NotNull(cut.Instance.Nav);
     }
 
     [Fact]
