@@ -56,6 +56,7 @@ builder.Services.AddScoped<ICommandHandler<EnrollCommand>, EnrollCommandHandler>
 builder.Services.AddScoped<ICommandHandler<ExcludeCommand>, ExcludeCommandHandler>();
 
 builder.Services.AddScoped<ICommandHandler<ChangeRankCommand>, ChangeRankCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<ChangePositionCommand>, ChangePositionCommandHandler>();
 
 
 // Query handlers
@@ -77,7 +78,6 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 
 app.UseAntiforgery();
 

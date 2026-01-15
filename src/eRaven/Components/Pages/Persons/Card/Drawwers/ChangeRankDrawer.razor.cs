@@ -17,19 +17,17 @@ public partial class ChangeRankDrawer
 {
     // =========================
     // Parameters
-    // =========================
-
+    // =========================  
+    [Parameter, EditorRequired] public PersonDetailsDto Person { get; set; } = default!;
     [Parameter] public bool IsOpen { get; set; }
-
-    [Parameter] public PersonDetailsDto Person { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
     [Parameter] public EventCallback<ChangeRankDto> OnChangeRank { get; set; }
 
     // =========================
     // DI
     // =========================
-    [Inject] public ToastService Toasts { get; set; } = default!;
     [Inject] public IRankCatalog RankCatalog { get; set; } = default!;
+    [Inject] public ToastService Toasts { get; set; } = default!;
 
     // =========================
     // State
@@ -127,6 +125,8 @@ public partial class ChangeRankDrawer
 
     private void Reset(bool reloadRanks)
     {
+        if (Person is null) return;
+
         _busy = false;
 
         Model = new ChangeRankDto
@@ -141,6 +141,12 @@ public partial class ChangeRankDrawer
 
         if (reloadRanks)
             _ranks = RankCatalog.GetActive();
+    }
+
+    private void SelectRank(string rank)
+    {
+        Model.Rank = rank;
+        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.Rank)));
     }
 
     private void NormalizeModel()

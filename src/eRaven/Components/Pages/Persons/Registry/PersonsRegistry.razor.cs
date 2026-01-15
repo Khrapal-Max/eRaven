@@ -22,8 +22,8 @@ public partial class PersonsRegistry
 
     [Inject] public IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>> PersonsPageQuery { get; set; } = default!;
     [Inject] public ICommandHandler<CreateReservedCommand, Guid> CreateReservedHandler { get; set; } = default!;
-    [Inject] public ICommandHandler<EnrollCommand, Guid> EnrollHandler { get; set; } = default!;
-    [Inject] public ICommandHandler<ExcludeCommand, Guid> ExcludeHandler { get; set; } = default!;
+    [Inject] public ICommandHandler<EnrollCommand> EnrollHandler { get; set; } = default!;
+    [Inject] public ICommandHandler<ExcludeCommand> ExcludeHandler { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
 

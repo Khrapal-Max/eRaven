@@ -65,8 +65,8 @@ public sealed class PersonsRegistryTests : BunitContext
         Mock<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>> PersonsPageQuery,
         Mock<IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?>> DetailsQuery,
         Mock<ICommandHandler<CreateReservedCommand, Guid>> CreateReservedHandler,
-        Mock<ICommandHandler<EnrollCommand, Guid>> EnrollHandler,
-        Mock<ICommandHandler<ExcludeCommand, Guid>> ExcludeHandler,
+        Mock<ICommandHandler<EnrollCommand>> EnrollHandler,
+        Mock<ICommandHandler<ExcludeCommand>> ExcludeHandler,
         Mock<ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult>> BootstrapHandler,
         Mock<IRankCatalog> RankCatalog,
         ToastService Toasts);
@@ -96,16 +96,16 @@ public sealed class PersonsRegistryTests : BunitContext
             .ReturnsAsync(Guid.NewGuid());
         Services.AddSingleton(create.Object);
 
-        var enroll = new Mock<ICommandHandler<EnrollCommand, Guid>>(MockBehavior.Strict);
+        var enroll = new Mock<ICommandHandler<EnrollCommand>>(MockBehavior.Strict);
         enroll
             .Setup(x => x.HandleAsync(It.IsAny<EnrollCommand>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Guid.NewGuid());
+            .Returns(Task.CompletedTask);
         Services.AddSingleton(enroll.Object);
 
-        var exclude = new Mock<ICommandHandler<ExcludeCommand, Guid>>(MockBehavior.Strict);
+        var exclude = new Mock<ICommandHandler<ExcludeCommand>>(MockBehavior.Strict);
         exclude
             .Setup(x => x.HandleAsync(It.IsAny<ExcludeCommand>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Guid.NewGuid());
+            .Returns(Task.CompletedTask);
         Services.AddSingleton(exclude.Object);
 
         var bootstrap = new Mock<ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult>>(MockBehavior.Strict);

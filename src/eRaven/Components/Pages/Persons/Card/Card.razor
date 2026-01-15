@@ -39,7 +39,8 @@
 
                         <div class="col-12 col-lg-2">
                             <PersonActionsPanel Person="_person!"
-                                                OnOpenRank="OpenRank" />
+                                                OnOpenRank="OpenRank" 
+                                                OnOpenPosition="OpenPosition"/>
                         </div>
                     </div>
 
@@ -49,6 +50,11 @@
                                       IsOpenChanged="@(v => _rankOpen = v)"
                                       Person="_person"
                                       OnChangeRank="HandleRankSubmitAsync" />
+
+                    <ChangePositionDrawer IsOpen="_positionOpen"
+                                          IsOpenChanged="@(v => _positionOpen = v)"
+                                          Person="_person"
+                                          OnChangePosition="HandlePositionSubmitAsync" />
                 }
                 else if (Tab == CardTab.Career)
                 {

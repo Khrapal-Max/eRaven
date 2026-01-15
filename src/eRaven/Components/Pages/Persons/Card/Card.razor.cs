@@ -19,21 +19,28 @@ public partial class Card
 
     [Inject] public IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?> GetPersonCard { get; set; } = default!;
 
-    [Inject] public ICommandHandler<ChangeRankCommand, Guid> ChangeRankCommandHandler { get; set; } = default!;
+    [Inject] public ICommandHandler<ChangeRankCommand> ChangeRankCommandHandler { get; set; } = default!;
+    [Inject] public ICommandHandler<ChangePositionCommand> ChangePositionCommandHandler { get; set; } = default!;
 
     private bool _loading;
     private PersonDetailsDto? _person;
 
     private bool _rankOpen;
-
+    private bool _positionOpen;
     protected override async Task OnParametersSetAsync()
     {
         await LoadAsync();
     }
 
-    private Task OpenRank(PersonDetailsDto dto)
+    private Task OpenRank()
     {
         _rankOpen = true;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenPosition()
+    {
+        _positionOpen = true;
         return Task.CompletedTask;
     }
 
@@ -62,6 +69,22 @@ public partial class Card
         );
 
         await ChangeRankCommandHandler.HandleAsync(cmd);
+        await LoadAsync();
+    }
+
+    private async Task HandlePositionSubmitAsync(ChangePositionDto dto)
+    {
+        var cmd = new ChangePositionCommand(
+           PersonId: dto.PersonId,
+           EffectiveDate: dto.EffectiveDate,
+           PositionSort: dto.PositionSort,
+           Position: dto.Position,
+           Note: dto.Note,
+           Author: "system", // TODO: auth user
+           NowUtc: DateTime.UtcNow
+        );
+
+        await ChangePositionCommandHandler.HandleAsync(cmd);
         await LoadAsync();
     }
 

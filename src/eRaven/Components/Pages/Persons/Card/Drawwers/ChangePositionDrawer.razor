@@ -3,7 +3,7 @@
 @using eRaven.Components.Shared.Validation
 @using eRaven.Components.Shared.Drawer
 
-<Drawer Title="Зміна звання"
+<Drawer Title="Зміна посади"
         IsOpen="@IsOpen"
         IsOpenChanged="@IsOpenChanged"
         DisableClose="@_busy"
@@ -14,7 +14,7 @@
         {
             <EditForm EditContext="@_editContext"
                       OnValidSubmit="OnChangeAsync"
-                      id="change-rank-form">
+                      id="change-position-form">
 
                 <FluentValidationValidator />
 
@@ -23,30 +23,16 @@
                     <h6 class="mb-3">Професійні / військові дані</h6>
 
                     <div class="row g-2">
-                        <div class="col-12 col-md-4">
-                            <label class="form-label">Звання</label>
+                        <div class="col-12 col-md-2">
+                            <label class="form-label mb-1">Порядок посади</label>
+                            <InputNumber class="form-control rounded-0" @bind-Value="Model.PositionSort" />
+                            <ValidationMessage For="@(() => Model.PositionSort)" />
+                        </div>
 
-                            <div class="dropdown w-100">
-                                <button class="btn btn-outline-secondary dropdown-toggle w-100 text-truncate"
-                                        type="button"
-                                        data-bs-toggle="dropdown"
-                                        aria-expanded="false">
-                                    @(string.IsNullOrWhiteSpace(Model.Rank) ? "— оберіть звання —" : Model.Rank)
-                                </button>
-
-                                <ul class="dropdown-menu border w-100 overflow-auto" style="max-height: 30vh;">
-                                    @foreach (var title in _ranks)
-                                    {
-                                        <li>
-                                            <Button Class="dropdown-item"
-                                                    Label="@title.Title"
-                                                    OnClickButton="() => SelectRank(title.Title)" />
-                                        </li>
-                                    }
-                                </ul>
-                            </div>
-
-                            <ValidationMessage For="@(() => Model.Rank)" />
+                        <div class="col-12 col-md-10">
+                            <label class="form-label mb-1">Посада (опц.)</label>
+                            <InputText class="form-control rounded-0" @bind-Value="Model.Position" />
+                            <ValidationMessage For="@(() => Model.Position)" />
                         </div>
 
                         <div class="col-12 col-md-4">
@@ -60,7 +46,7 @@
                             <InputText class="form-control rounded-0" @bind-Value="Model.Note" />
                             <ValidationMessage For="@(() => Model.Note)" />
                         </div>
-                      
+
                     </div>
                 </div>
             </EditForm>
@@ -75,7 +61,7 @@
 
         <!-- ✅ тільки submit, без @onclick -->
         <button type="submit"
-                form="change-rank-form"
+                form="change-position-form"
                 class="btn btn-primary rounded-0"
                 disabled="@_busy">
             Змінити

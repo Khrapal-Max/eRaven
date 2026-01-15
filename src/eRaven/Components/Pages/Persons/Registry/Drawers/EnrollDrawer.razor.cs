@@ -196,6 +196,12 @@ public partial class EnrollDrawer
         }
     }
 
+    private void SelectRank(string rank)
+    {
+        Model.Rank = rank;
+        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.Rank)));
+    }
+
     private async Task OnCancel()
     {
         if (_busy) return;

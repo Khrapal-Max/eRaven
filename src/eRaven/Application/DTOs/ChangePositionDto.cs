@@ -2,17 +2,16 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ICommandHandler
+// ChangePositionDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Commands;
+namespace eRaven.Application.DTOs;
 
-public interface ICommandHandler<in TCommand>
+public class ChangePositionDto
 {
-    Task HandleAsync(TCommand command, CancellationToken ct = default);
-}
-
-public interface ICommandHandler<in TCommand, TResult>
-{
-    Task<TResult> HandleAsync(TCommand command, CancellationToken ct = default);
+    public Guid PersonId { get; set; }
+    public DateOnly EffectiveDate { get; set; }
+    public int? PositionSort { get; set; }
+    public string? Position { get; set; }
+    public string? Note { get; set; }
 }

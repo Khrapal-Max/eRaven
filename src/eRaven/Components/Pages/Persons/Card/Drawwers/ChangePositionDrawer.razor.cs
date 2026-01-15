@@ -2,35 +2,30 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CreateReservedDrawer
+// ChangePositionDrawer
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.DTOs;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
-using Microsoft.EntityFrameworkCore;
-using Npgsql;
 
-namespace eRaven.Components.Pages.Persons.Registry.Drawers;
+namespace eRaven.Components.Pages.Persons.Card.Drawwers;
 
-public partial class CreateReservedDrawer
+public partial class ChangePositionDrawer
 {
     // =========================
     // Parameters
-    // =========================
-
+    // =========================  
+    [Parameter, EditorRequired] public PersonDetailsDto Person { get; set; } = default!;
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
-    [Parameter] public EventCallback<CreateReservedDto> OnCreate { get; set; }
+    [Parameter] public EventCallback<ChangePositionDto> OnChangePosition { get; set; }
 
     // =========================
     // DI
     // =========================
-
     [Inject] public ToastService Toasts { get; set; } = default!;
-    [Inject] public IRankCatalog RankCatalog { get; set; } = default!;
 
     // =========================
     // State
@@ -40,9 +35,8 @@ public partial class CreateReservedDrawer
     private bool _wasOpen;
 
     private EditContext _editContext = default!;
-    private IReadOnlyList<RankOption> _ranks = [];
 
-    protected CreateReservedDto Model { get; set; } = new();
+    protected ChangePositionDto Model { get; set; } = new();
 
     // =========================
     // Lifecycle
@@ -50,7 +44,7 @@ public partial class CreateReservedDrawer
 
     protected override void OnInitialized()
     {
-        Reset(reloadRanks: false);
+        Reset();
     }
 
     protected override Task OnParametersSetAsync()
@@ -59,7 +53,7 @@ public partial class CreateReservedDrawer
         if (IsOpen && !_wasOpen)
         {
             _wasOpen = true;
-            Reset(reloadRanks: true);
+            Reset();
             return Task.CompletedTask;
         }
 
@@ -67,7 +61,7 @@ public partial class CreateReservedDrawer
         if (!IsOpen && _wasOpen)
         {
             _wasOpen = false;
-            Reset(reloadRanks: false);
+            Reset();
         }
 
         return Task.CompletedTask;
@@ -77,7 +71,7 @@ public partial class CreateReservedDrawer
     // UI actions
     // =========================
 
-    private async Task OnCreateAsync()
+    private async Task OnChangeAsync()
     {
         if (_busy)
             return;
@@ -88,19 +82,15 @@ public partial class CreateReservedDrawer
         {
             NormalizeModel();
 
-            if (OnCreate.HasDelegate)
-                await OnCreate.InvokeAsync(Model);
+            if (OnChangePosition.HasDelegate)
+                await OnChangePosition.InvokeAsync(Model);
 
-            Toasts.Success("Картка створено");
+            Toasts.Success("Посада змінена");
             await IsOpenChanged.InvokeAsync(false);
         }
         catch (InvalidOperationException ex)
         {
             Toasts.Warning("Неможливо виконати дію", ex.Message);
-        }
-        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
-        {
-            Toasts.Warning("Дубль", "Особа з таким РНОКПП вже існує.");
         }
         catch
         {
@@ -110,12 +100,6 @@ public partial class CreateReservedDrawer
         {
             _busy = false;
         }
-    }
-
-    private void SelectRank(string rank)
-    {
-        Model.Rank = rank;
-        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.Rank)));
     }
 
     private async Task OnCancel()
@@ -128,7 +112,7 @@ public partial class CreateReservedDrawer
 
     private Task OnDrawerClosed()
     {
-        Reset(reloadRanks: false);
+        Reset();
         return Task.CompletedTask;
     }
 
@@ -136,26 +120,28 @@ public partial class CreateReservedDrawer
     // Internals
     // =========================
 
-    private void Reset(bool reloadRanks)
+    private void Reset()
     {
+        if (Person is null) return;
+
         _busy = false;
 
-        Model = new CreateReservedDto();
-        _editContext = new EditContext(Model);
+        Model = new ChangePositionDto
+        {
+            PersonId = Person.Id,                               // ✅ критично
+            EffectiveDate = DateOnly.FromDateTime(DateTime.Now),// ✅ дефолт
+            PositionSort = Person.PositionSort,               // (можеш лишити null, якщо хочеш примусово обирати)
+            Position = Person.Position ?? string.Empty,                 // (можеш лишити пусто, якщо хочеш примусово обирати)
+            Note = null
+        };
 
-        if (reloadRanks)
-            _ranks = RankCatalog.GetActive();
+        _editContext = new EditContext(Model);
     }
 
     private void NormalizeModel()
     {
-        Model.Rnokpp = TrimOrEmpty(Model.Rnokpp);
-        Model.LastName = TrimOrEmpty(Model.LastName);
-        Model.FirstName = TrimOrEmpty(Model.FirstName);
-        Model.MiddleName = TrimOrNull(Model.MiddleName);
-
-        Model.Rank = TrimOrNull(Model.Rank);
-        Model.Position = TrimOrNull(Model.Position);
+        Model.Position = TrimOrEmpty(Model.Position);
+        Model.Note = string.IsNullOrWhiteSpace(Model.Note) ? null : Model.Note.Trim();
     }
 
     // =========================
@@ -163,8 +149,4 @@ public partial class CreateReservedDrawer
     // =========================
 
     private static string TrimOrEmpty(string? s) => (s ?? string.Empty).Trim();
-    private static string? TrimOrNull(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
-
-    private static bool IsUniqueViolation(DbUpdateException ex)
-        => ex.InnerException is PostgresException pg && pg.SqlState == PostgresErrorCodes.UniqueViolation;
 }
