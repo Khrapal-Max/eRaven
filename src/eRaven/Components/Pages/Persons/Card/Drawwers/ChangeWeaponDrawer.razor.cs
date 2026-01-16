@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ChangeBzvpDrawer
+// ChangeWeaponDrawer
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs;
@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Components.Forms;
 
 namespace eRaven.Components.Pages.Persons.Card.Drawwers;
 
-public partial class ChangeBzvpDrawer
+public partial class ChangeWeaponDrawer
 {
     // =========================
     // Parameters
@@ -20,7 +20,7 @@ public partial class ChangeBzvpDrawer
     [Parameter, EditorRequired] public PersonDetailsDto Person { get; set; } = default!;
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
-    [Parameter] public EventCallback<ChangeBzvpDto> OnChangeBzvp { get; set; }
+    [Parameter] public EventCallback<ChangeWeaponDto> OnChangeWeapon { get; set; }
 
     // =========================
     // DI
@@ -36,7 +36,7 @@ public partial class ChangeBzvpDrawer
 
     private EditContext _editContext = default!;
 
-    protected ChangeBzvpDto Model { get; set; } = new();
+    protected ChangeWeaponDto Model { get; set; } = new();
 
     // =========================
     // Lifecycle
@@ -82,8 +82,8 @@ public partial class ChangeBzvpDrawer
         {
             NormalizeModel();
 
-            if (OnChangeBzvp.HasDelegate)
-                await OnChangeBzvp.InvokeAsync(Model);
+            if (OnChangeWeapon.HasDelegate)
+                await OnChangeWeapon.InvokeAsync(Model);
 
             Toasts.Success("Запис змінено");
             await IsOpenChanged.InvokeAsync(false);
@@ -126,12 +126,11 @@ public partial class ChangeBzvpDrawer
 
         _busy = false;
 
-        Model = new ChangeBzvpDto
+        Model = new ChangeWeaponDto
         {
             PersonId = Person.Id,                               // ✅ критично
             EffectiveDate = DateOnly.FromDateTime(DateTime.Now),// ✅ дефолт
-            Bzvp = Person.Bzvp ?? string.Empty,
-            Note = null
+            Weapon = Person.Weapon ?? string.Empty
         };
 
         _editContext = new EditContext(Model);
@@ -139,13 +138,6 @@ public partial class ChangeBzvpDrawer
 
     private void NormalizeModel()
     {
-        Model.Bzvp = TrimOrEmpty(Model.Bzvp);
-        Model.Note = string.IsNullOrWhiteSpace(Model.Note) ? null : Model.Note.Trim();
+        Model.Weapon = string.IsNullOrWhiteSpace(Model.Weapon) ? null : Model.Weapon.Trim();
     }
-
-    // =========================
-    // Helpers
-    // =========================
-
-    private static string TrimOrEmpty(string? s) => (s ?? string.Empty).Trim();
 }

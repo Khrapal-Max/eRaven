@@ -24,6 +24,7 @@ public partial class Card
     [Inject] public ICommandHandler<ChangeRankCommand> ChangeRankCommandHandler { get; set; } = default!;
     [Inject] public ICommandHandler<ChangePositionCommand> ChangePositionCommandHandler { get; set; } = default!;
     [Inject] public ICommandHandler<ChangeBzvpCommand> ChangeBzvpCommandHandler { get; set; } = default!;
+    [Inject] public ICommandHandler<ChangeWeaponCommand> ChangeWeaponCommandHandler { get; set; } = default!;
 
     private bool _loading;
     private PersonDetailsDto? _person;
@@ -32,6 +33,7 @@ public partial class Card
     private bool _rankOpen;
     private bool _positionOpen;
     private bool _bzvpOpen;
+    private bool _weaponOpen;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -59,6 +61,12 @@ public partial class Card
     private Task OpenBzvp()
     {
         _bzvpOpen = true;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenWeapon()
+    {
+        _weaponOpen = true;
         return Task.CompletedTask;
     }
 
@@ -135,6 +143,20 @@ public partial class Card
         );
 
         await ChangeBzvpCommandHandler.HandleAsync(cmd);
+        await LoadAsync();
+    }
+
+    private async Task HandleWeaponSubmitAsync(ChangeWeaponDto dto)
+    {
+        var cmd = new ChangeWeaponCommand(
+           PersonId: dto.PersonId,
+           EffectiveDate: dto.EffectiveDate,
+           Weapon: dto.Weapon,
+           Author: "system", // TODO: auth user
+           NowUtc: DateTime.UtcNow
+        );
+
+        await ChangeWeaponCommandHandler.HandleAsync(cmd);
         await LoadAsync();
     }
 

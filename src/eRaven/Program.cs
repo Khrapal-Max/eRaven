@@ -48,6 +48,7 @@ builder.Services.AddScoped<IValidator<UpdatePersonalInfoDto>, UpdatePersonalInfo
 builder.Services.AddScoped<IValidator<ChangeRankDto>, ChangeRankDtoValidator>();
 builder.Services.AddScoped<IValidator<ChangePositionDto>, ChangePositionDtoValidator>();
 builder.Services.AddScoped<IValidator<ChangeBzvpDto>, ChangeBzvpDtoValidator>();
+builder.Services.AddScoped<IValidator<ChangeWeaponDto>, ChangeWeaponDtoValidator>();
 
 // Projector (stateless)
 builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();
@@ -65,6 +66,7 @@ builder.Services.AddScoped<ICommandHandler<UpdatePersonalInfoCommand>, UpdatePer
 builder.Services.AddScoped<ICommandHandler<ChangeRankCommand>, ChangeRankCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ChangePositionCommand>, ChangePositionCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ChangeBzvpCommand>, ChangeBzvpCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<ChangeWeaponCommand>, ChangeWeaponCommandHandler>();
 
 // Query handlers
 builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>, GetPersonsPageQueryHandler>();
