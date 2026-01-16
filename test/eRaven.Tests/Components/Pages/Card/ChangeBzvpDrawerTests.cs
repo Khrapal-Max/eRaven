@@ -8,7 +8,7 @@
 using AngleSharp.Dom;
 using Bunit;
 using eRaven.Application.DTOs;
-using eRaven.Application.Validations;
+using eRaven.Application.Validations.Personal;
 using eRaven.Components.Pages.Persons.Card.Drawwers;
 using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;

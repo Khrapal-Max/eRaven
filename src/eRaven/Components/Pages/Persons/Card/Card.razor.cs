@@ -25,6 +25,7 @@ public partial class Card
     [Inject] public ICommandHandler<ChangePositionCommand> ChangePositionCommandHandler { get; set; } = default!;
     [Inject] public ICommandHandler<ChangeBzvpCommand> ChangeBzvpCommandHandler { get; set; } = default!;
     [Inject] public ICommandHandler<ChangeWeaponCommand> ChangeWeaponCommandHandler { get; set; } = default!;
+    [Inject] public ICommandHandler<ChangeCallsignCommand> ChangeCallsignCommandHandler { get; set; } = default!;
 
     private bool _loading;
     private PersonDetailsDto? _person;
@@ -34,6 +35,7 @@ public partial class Card
     private bool _positionOpen;
     private bool _bzvpOpen;
     private bool _weaponOpen;
+    private bool _callsingOpen;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -67,6 +69,12 @@ public partial class Card
     private Task OpenWeapon()
     {
         _weaponOpen = true;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenCallsing()
+    {
+        _callsingOpen = true;
         return Task.CompletedTask;
     }
 
@@ -157,6 +165,20 @@ public partial class Card
         );
 
         await ChangeWeaponCommandHandler.HandleAsync(cmd);
+        await LoadAsync();
+    }
+
+    private async Task HandleCallsingSubmitAsync(ChangeCallsingDto dto)
+    {
+        var cmd = new ChangeCallsignCommand(
+           PersonId: dto.PersonId,
+           EffectiveDate: dto.EffectiveDate,
+           Callsign: dto.Callsign,
+           Author: "system", // TODO: auth user
+           NowUtc: DateTime.UtcNow
+        );
+
+        await ChangeCallsignCommandHandler.HandleAsync(cmd);
         await LoadAsync();
     }
 

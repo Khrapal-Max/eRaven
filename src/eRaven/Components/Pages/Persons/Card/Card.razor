@@ -43,7 +43,8 @@
                                                 OnOpenRank="OpenRank" 
                                                 OnOpenPosition="OpenPosition"
                                                 OnOpenBZVP="OpenBzvp" 
-                                                OnOpenWeapon="OpenWeapon" />
+                                                OnOpenWeapon="OpenWeapon" 
+                                                OnOpenCallsing="OpenCallsing" />
                         </div>
                     </div>
 
@@ -71,8 +72,13 @@
 
                     <ChangeWeaponDrawer IsOpen="_weaponOpen"
                                         IsOpenChanged="@(v => _weaponOpen = v)"
-                                      Person="_person"
-                                      OnChangeWeapon="HandleWeaponSubmitAsync" />
+                                        Person="_person"
+                                        OnChangeWeapon="HandleWeaponSubmitAsync" />
+
+                    <ChangeCallsingDrawer IsOpen="_callsingOpen"
+                                          IsOpenChanged="@(v => _callsingOpen = v)"
+                                          Person="_person"
+                                          OnChangeCallsing="HandleCallsingSubmitAsync" />
                 }
                 else if (Tab == CardTab.Career)
                 {

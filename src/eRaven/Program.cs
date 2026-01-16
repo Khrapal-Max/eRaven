@@ -14,7 +14,7 @@ using eRaven.Application.DTOs;
 using eRaven.Application.Handlers.Personal;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
-using eRaven.Application.Validations;
+using eRaven.Application.Validations.Personal;
 using eRaven.Components;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
@@ -49,6 +49,7 @@ builder.Services.AddScoped<IValidator<ChangeRankDto>, ChangeRankDtoValidator>();
 builder.Services.AddScoped<IValidator<ChangePositionDto>, ChangePositionDtoValidator>();
 builder.Services.AddScoped<IValidator<ChangeBzvpDto>, ChangeBzvpDtoValidator>();
 builder.Services.AddScoped<IValidator<ChangeWeaponDto>, ChangeWeaponDtoValidator>();
+builder.Services.AddScoped<IValidator<ChangeCallsingDto>, ChangeCallsingDtoValidator>();
 
 // Projector (stateless)
 builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();
@@ -67,6 +68,7 @@ builder.Services.AddScoped<ICommandHandler<ChangeRankCommand>, ChangeRankCommand
 builder.Services.AddScoped<ICommandHandler<ChangePositionCommand>, ChangePositionCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ChangeBzvpCommand>, ChangeBzvpCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ChangeWeaponCommand>, ChangeWeaponCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<ChangeCallsignCommand>, ChangeCallsignCommandHandler>();
 
 // Query handlers
 builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>, GetPersonsPageQueryHandler>();
