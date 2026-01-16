@@ -179,6 +179,7 @@ public sealed class PersonReadModelProjectorTests : IAsyncLifetime
             EventId: Guid.NewGuid(),
             AggregateId: id,
             Personal: Personal(lastName: "NEW"),
+            Note: null,
             Author: "tester",
             OccurredAtUtc: NowUtc.AddMinutes(1));
 

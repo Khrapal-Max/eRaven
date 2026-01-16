@@ -43,6 +43,7 @@ builder.Services.AddScoped<IValidator<CreateReservedDto>, CreateReservedDtoValid
 builder.Services.AddScoped<IValidator<EnrollDto>, EnrollDtoValidator>();
 builder.Services.AddScoped<IValidator<ExcludeDto>, ExcludeDtoValidator>();
 
+builder.Services.AddScoped<IValidator<UpdatePersonalInfoDto>, UpdatePersonalInfoValidator>();
 builder.Services.AddScoped<IValidator<ChangeRankDto>, ChangeRankDtoValidator>();
 builder.Services.AddScoped<IValidator<ChangePositionDto>, ChangePositionDtoValidator>();
 
@@ -58,6 +59,7 @@ builder.Services.AddScoped<ICommandHandler<CreateReservedCommand, Guid>, CreateR
 builder.Services.AddScoped<ICommandHandler<EnrollCommand>, EnrollCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ExcludeCommand>, ExcludeCommandHandler>();
 
+builder.Services.AddScoped<ICommandHandler<UpdatePersonalInfoCommand>, UpdatePersonalInfoCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ChangeRankCommand>, ChangeRankCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ChangePositionCommand>, ChangePositionCommandHandler>();
 

@@ -39,6 +39,7 @@
 
                         <div class="col-12 col-lg-2">
                             <PersonActionsPanel Person="_person!"
+                                                OnOpenPersonal="OpenPersonalInfo"
                                                 OnOpenRank="OpenRank" 
                                                 OnOpenPosition="OpenPosition"/>
                         </div>
@@ -46,6 +47,11 @@
 
                     @* Модалки, що логічно відносяться до “Поточний” *@
                   
+                    <UpdatePersonalInfoDrawer IsOpen="_personalOpen"
+                                              IsOpenChanged="@(v => _personalOpen = v)"
+                                              Person="_person"
+                                              OnUpdatePersonal="HandlePersonalInfoSubmitAsync" />
+
                     <ChangeRankDrawer IsOpen="_rankOpen"
                                       IsOpenChanged="@(v => _rankOpen = v)"
                                       Person="_person"

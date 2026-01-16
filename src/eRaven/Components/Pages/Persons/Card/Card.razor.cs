@@ -19,17 +19,25 @@ public partial class Card
 
     [Inject] public IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?> GetPersonCard { get; set; } = default!;
 
+    [Inject] public ICommandHandler<UpdatePersonalInfoCommand> UpdatePersonalInfoCommandHandler { get; set; } = default!;
     [Inject] public ICommandHandler<ChangeRankCommand> ChangeRankCommandHandler { get; set; } = default!;
     [Inject] public ICommandHandler<ChangePositionCommand> ChangePositionCommandHandler { get; set; } = default!;
 
     private bool _loading;
     private PersonDetailsDto? _person;
 
+    private bool _personalOpen;
     private bool _rankOpen;
     private bool _positionOpen;
     protected override async Task OnParametersSetAsync()
     {
         await LoadAsync();
+    }
+
+    private Task OpenPersonalInfo()
+    {
+        _personalOpen = true;
+        return Task.CompletedTask;
     }
 
     private Task OpenRank()
@@ -55,6 +63,23 @@ public partial class Card
         {
             _loading = false;
         }
+    }
+
+    private async Task HandlePersonalInfoSubmitAsync(UpdatePersonalInfoDto dto)
+    {
+        var cmd = new UpdatePersonalInfoCommand(
+           PersonId: dto.PersonId,
+           Rnokpp: dto.Rnokpp,
+           LastName: dto.LastName,
+           FirstName: dto.FirstName,
+           MiddleName: dto.MiddleName,
+           Note: dto.Note,
+           Author: "system", // TODO: auth user
+           NowUtc: DateTime.UtcNow
+        );
+
+        await UpdatePersonalInfoCommandHandler.HandleAsync(cmd);
+        await LoadAsync();
     }
 
     private async Task HandleRankSubmitAsync(ChangeRankDto dto)

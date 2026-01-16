@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CreateReservedCommandValidator
+// ChangePersonalInfoValidator
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs;
@@ -10,9 +10,9 @@ using FluentValidation;
 
 namespace eRaven.Application.Validations;
 
-public sealed class CreateReservedDtoValidator : AbstractValidator<CreateReservedDto>
+public sealed class UpdatePersonalInfoValidator : AbstractValidator<UpdatePersonalInfoDto>
 {
-    public CreateReservedDtoValidator()
+    public UpdatePersonalInfoValidator()
     {
         RuleFor(x => x.Rnokpp)
             .Cascade(CascadeMode.Stop)
@@ -34,12 +34,8 @@ public sealed class CreateReservedDtoValidator : AbstractValidator<CreateReserve
             .MaximumLength(128).WithMessage("По батькові занадто довге (макс. 128).")
             .When(x => !string.IsNullOrWhiteSpace(x.MiddleName));
 
-        RuleFor(x => x.Rank)
-            .MaximumLength(128).WithMessage("Звання занадто довге (макс. 128).")
-            .When(x => !string.IsNullOrWhiteSpace(x.Rank));
-
-        RuleFor(x => x.Position)
-            .MaximumLength(512).WithMessage("Посада занадто довга (макс. 512).")
-            .When(x => !string.IsNullOrWhiteSpace(x.Position));
+        RuleFor(x => x.Note)
+            .MaximumLength(512).WithMessage("Замітка занадто довга (макс. 512).")
+            .When(x => !string.IsNullOrWhiteSpace(x.Note));
     }
 }

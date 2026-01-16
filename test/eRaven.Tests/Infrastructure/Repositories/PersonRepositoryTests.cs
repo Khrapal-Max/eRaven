@@ -63,13 +63,14 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             Author: "tester",
             NowUtc: NowUtc);
 
-    private static UpdatePersonalInfoCommand UpdatePersonalCmd(Guid id, string rnokpp, string last, string first, string? middle = null)
+    private static UpdatePersonalInfoCommand UpdatePersonalCmd(Guid id, string rnokpp, string last, string first, string? middle = null, string? note = null)
         => new(
             PersonId: id,
             Rnokpp: rnokpp,
             LastName: last,
             FirstName: first,
             MiddleName: middle,
+            Note: note,
             Author: "tester",
             NowUtc: NowUtc.AddMinutes(1));
 

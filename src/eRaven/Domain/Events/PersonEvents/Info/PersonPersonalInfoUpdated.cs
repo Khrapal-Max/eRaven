@@ -16,6 +16,7 @@ public sealed record PersonPersonalInfoUpdated(
     Guid EventId,
     Guid AggregateId,
     PersonalInfo Personal,
+    string? Note,
     string Author,
     DateTime OccurredAtUtc
 ) : IDomainEvent;

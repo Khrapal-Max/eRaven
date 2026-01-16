@@ -18,6 +18,7 @@ public sealed class ExcludeDtoValidator : AbstractValidator<ExcludeDto>
             .NotEmpty().WithMessage("Вкажіть дату виключення.");
 
         RuleFor(x => x.Reason)
+            .Cascade(CascadeMode.Stop)
             .NotEmpty().WithMessage("Вкажіть підставу.")
             .MaximumLength(512).WithMessage("Підстава занадто довга (макс. 512).");
     }

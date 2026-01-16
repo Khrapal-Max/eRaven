@@ -226,7 +226,7 @@ public sealed class PersonRepository(
         var personal = new PersonalInfo(cmd.Rnokpp, cmd.LastName, cmd.FirstName, cmd.MiddleName);
 
         var agg = await LoadAggregateAsync(cmd.PersonId, ct);
-        agg.UpdatePersonalInfo(personal, cmd.Author, cmd.NowUtc);
+        agg.UpdatePersonalInfo(personal, cmd.Note, cmd.Author, cmd.NowUtc);
 
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }

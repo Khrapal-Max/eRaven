@@ -23,6 +23,7 @@ public sealed class EnrollDtoValidator : AbstractValidator<EnrollDto>
             .When(x => !string.IsNullOrWhiteSpace(x.Reference));
 
         RuleFor(x => x.Reason)
+            .Cascade(CascadeMode.Stop)
             .NotEmpty().WithMessage("Вкажіть підставу.")
             .MaximumLength(512).WithMessage("Підстава занадто довга (макс. 512).");
 
@@ -37,6 +38,7 @@ public sealed class EnrollDtoValidator : AbstractValidator<EnrollDto>
             .When(x => x.Kind == EnrollmentKind.Unit);
 
         RuleFor(x => x.Position)
+            .Cascade(CascadeMode.Stop)
             .NotEmpty().WithMessage("Вкажіть посаду.")
             .MaximumLength(512).WithMessage("Посада занадто довга (макс. 512).");
     }

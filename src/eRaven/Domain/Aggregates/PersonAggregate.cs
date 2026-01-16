@@ -97,7 +97,7 @@ public sealed class PersonAggregate
         return a;
     }
 
-    public void UpdatePersonalInfo(PersonalInfo personal, string author, DateTime nowUtc)
+    public void UpdatePersonalInfo(PersonalInfo personal, string? note, string author, DateTime nowUtc)
     {
         EnsureInitialized();
         ArgumentNullException.ThrowIfNull(personal);
@@ -109,6 +109,7 @@ public sealed class PersonAggregate
             EventId: Guid.NewGuid(),
             AggregateId: Id,
             Personal: personal,
+            Note: Normalize(note),
             Author: author.Trim(),
             OccurredAtUtc: nowUtc
         ));
