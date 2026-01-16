@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// UpdatePersonalInfoDrawer
+// ChangeCallsingDrawer
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs;
@@ -10,9 +10,9 @@ using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 
-namespace eRaven.Components.Pages.Persons.Card.Drawwers;
+namespace eRaven.Components.Pages.Persons.Card.Drawers;
 
-public partial class UpdatePersonalInfoDrawer
+public partial class ChangeCallsingDrawer
 {
     // =========================
     // Parameters
@@ -20,7 +20,7 @@ public partial class UpdatePersonalInfoDrawer
     [Parameter, EditorRequired] public PersonDetailsDto Person { get; set; } = default!;
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
-    [Parameter] public EventCallback<UpdatePersonalInfoDto> OnUpdatePersonal { get; set; }
+    [Parameter] public EventCallback<ChangeCallsingDto> OnChangeCallsing { get; set; }
 
     // =========================
     // DI
@@ -36,7 +36,7 @@ public partial class UpdatePersonalInfoDrawer
 
     private EditContext _editContext = default!;
 
-    protected UpdatePersonalInfoDto Model { get; set; } = new();
+    protected ChangeCallsingDto Model { get; set; } = new();
 
     // =========================
     // Lifecycle
@@ -71,7 +71,7 @@ public partial class UpdatePersonalInfoDrawer
     // UI actions
     // =========================
 
-    private async Task OnUpdateAsync()
+    private async Task OnChangeAsync()
     {
         if (_busy)
             return;
@@ -82,10 +82,10 @@ public partial class UpdatePersonalInfoDrawer
         {
             NormalizeModel();
 
-            if (OnUpdatePersonal.HasDelegate)
-                await OnUpdatePersonal.InvokeAsync(Model);
+            if (OnChangeCallsing.HasDelegate)
+                await OnChangeCallsing.InvokeAsync(Model);
 
-            Toasts.Success("Персональна інфо оновлена");
+            Toasts.Success("Запис змінено");
             await IsOpenChanged.InvokeAsync(false);
         }
         catch (InvalidOperationException ex)
@@ -126,14 +126,11 @@ public partial class UpdatePersonalInfoDrawer
 
         _busy = false;
 
-        Model = new UpdatePersonalInfoDto
+        Model = new ChangeCallsingDto
         {
             PersonId = Person.Id,                               // ✅ критично
-            Rnokpp = Person.Rnokpp,                             // ✅ критично
-            LastName = Person.LastName,
-            FirstName = Person.FirstName,
-            MiddleName = Person.MiddleName ?? string.Empty,
-            Note = null
+            EffectiveDate = DateOnly.FromDateTime(DateTime.Now),// ✅ дефолт
+            Callsign = Person.Callsign ?? string.Empty
         };
 
         _editContext = new EditContext(Model);
@@ -141,16 +138,6 @@ public partial class UpdatePersonalInfoDrawer
 
     private void NormalizeModel()
     {
-        Model.Rnokpp = TrimOrEmpty(Model.Rnokpp);
-        Model.LastName = TrimOrEmpty(Model.LastName);
-        Model.FirstName = TrimOrEmpty(Model.FirstName);
-        Model.MiddleName = string.IsNullOrWhiteSpace(Model.MiddleName) ? null : TrimOrEmpty(Model.MiddleName);
-        Model.Note = string.IsNullOrWhiteSpace(Model.Note) ? null : Model.Note.Trim();
+        Model.Callsign = string.IsNullOrWhiteSpace(Model.Callsign) ? null : Model.Callsign.Trim();
     }
-
-    // =========================
-    // Helpers
-    // =========================
-
-    private static string TrimOrEmpty(string? s) => (s ?? string.Empty).Trim();
 }

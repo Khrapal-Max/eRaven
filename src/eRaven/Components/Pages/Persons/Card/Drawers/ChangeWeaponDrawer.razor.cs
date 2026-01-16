@@ -2,18 +2,17 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CreateReservedDrawer
+// ChangeWeaponDrawer
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.DTOs;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 
-namespace eRaven.Components.Pages.Persons.Card.Drawwers;
+namespace eRaven.Components.Pages.Persons.Card.Drawers;
 
-public partial class ChangeRankDrawer
+public partial class ChangeWeaponDrawer
 {
     // =========================
     // Parameters
@@ -21,12 +20,11 @@ public partial class ChangeRankDrawer
     [Parameter, EditorRequired] public PersonDetailsDto Person { get; set; } = default!;
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
-    [Parameter] public EventCallback<ChangeRankDto> OnChangeRank { get; set; }
+    [Parameter] public EventCallback<ChangeWeaponDto> OnChangeWeapon { get; set; }
 
     // =========================
     // DI
     // =========================
-    [Inject] public IRankCatalog RankCatalog { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
 
     // =========================
@@ -37,9 +35,8 @@ public partial class ChangeRankDrawer
     private bool _wasOpen;
 
     private EditContext _editContext = default!;
-    private IReadOnlyList<RankOption> _ranks = [];
 
-    protected ChangeRankDto Model { get; set; } = new();
+    protected ChangeWeaponDto Model { get; set; } = new();
 
     // =========================
     // Lifecycle
@@ -47,7 +44,7 @@ public partial class ChangeRankDrawer
 
     protected override void OnInitialized()
     {
-        Reset(reloadRanks: false);
+        Reset();
     }
 
     protected override Task OnParametersSetAsync()
@@ -56,7 +53,7 @@ public partial class ChangeRankDrawer
         if (IsOpen && !_wasOpen)
         {
             _wasOpen = true;
-            Reset(reloadRanks: true);
+            Reset();
             return Task.CompletedTask;
         }
 
@@ -64,7 +61,7 @@ public partial class ChangeRankDrawer
         if (!IsOpen && _wasOpen)
         {
             _wasOpen = false;
-            Reset(reloadRanks: false);
+            Reset();
         }
 
         return Task.CompletedTask;
@@ -85,10 +82,10 @@ public partial class ChangeRankDrawer
         {
             NormalizeModel();
 
-            if (OnChangeRank.HasDelegate)
-                await OnChangeRank.InvokeAsync(Model);
+            if (OnChangeWeapon.HasDelegate)
+                await OnChangeWeapon.InvokeAsync(Model);
 
-            Toasts.Success("Звання змінено");
+            Toasts.Success("Запис змінено");
             await IsOpenChanged.InvokeAsync(false);
         }
         catch (InvalidOperationException ex)
@@ -115,7 +112,7 @@ public partial class ChangeRankDrawer
 
     private Task OnDrawerClosed()
     {
-        Reset(reloadRanks: false);
+        Reset();
         return Task.CompletedTask;
     }
 
@@ -123,41 +120,24 @@ public partial class ChangeRankDrawer
     // Internals
     // =========================
 
-    private void Reset(bool reloadRanks)
+    private void Reset()
     {
         if (Person is null) return;
 
         _busy = false;
 
-        Model = new ChangeRankDto
+        Model = new ChangeWeaponDto
         {
             PersonId = Person.Id,                               // ✅ критично
             EffectiveDate = DateOnly.FromDateTime(DateTime.Now),// ✅ дефолт
-            Rank = Person.Rank ?? string.Empty,                 // (можеш лишити пусто, якщо хочеш примусово обирати)
-            Note = null
+            Weapon = Person.Weapon ?? string.Empty
         };
 
         _editContext = new EditContext(Model);
-
-        if (reloadRanks)
-            _ranks = RankCatalog.GetActive();
-    }
-
-    private void SelectRank(string rank)
-    {
-        Model.Rank = rank;
-        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.Rank)));
     }
 
     private void NormalizeModel()
     {
-        Model.Rank = TrimOrEmpty(Model.Rank);
-        Model.Note = string.IsNullOrWhiteSpace(Model.Note) ? null : Model.Note.Trim();
+        Model.Weapon = string.IsNullOrWhiteSpace(Model.Weapon) ? null : Model.Weapon.Trim();
     }
-
-    // =========================
-    // Helpers
-    // =========================
-
-    private static string TrimOrEmpty(string? s) => (s ?? string.Empty).Trim();
 }

@@ -2,17 +2,18 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ChangePositionDrawer
+// CreateReservedDrawer
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.DTOs;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 
-namespace eRaven.Components.Pages.Persons.Card.Drawwers;
+namespace eRaven.Components.Pages.Persons.Card.Drawers;
 
-public partial class ChangePositionDrawer
+public partial class ChangeRankDrawer
 {
     // =========================
     // Parameters
@@ -20,11 +21,12 @@ public partial class ChangePositionDrawer
     [Parameter, EditorRequired] public PersonDetailsDto Person { get; set; } = default!;
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
-    [Parameter] public EventCallback<ChangePositionDto> OnChangePosition { get; set; }
+    [Parameter] public EventCallback<ChangeRankDto> OnChangeRank { get; set; }
 
     // =========================
     // DI
     // =========================
+    [Inject] public IRankCatalog RankCatalog { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
 
     // =========================
@@ -35,8 +37,9 @@ public partial class ChangePositionDrawer
     private bool _wasOpen;
 
     private EditContext _editContext = default!;
+    private IReadOnlyList<RankOption> _ranks = [];
 
-    protected ChangePositionDto Model { get; set; } = new();
+    protected ChangeRankDto Model { get; set; } = new();
 
     // =========================
     // Lifecycle
@@ -44,7 +47,7 @@ public partial class ChangePositionDrawer
 
     protected override void OnInitialized()
     {
-        Reset();
+        Reset(reloadRanks: false);
     }
 
     protected override Task OnParametersSetAsync()
@@ -53,7 +56,7 @@ public partial class ChangePositionDrawer
         if (IsOpen && !_wasOpen)
         {
             _wasOpen = true;
-            Reset();
+            Reset(reloadRanks: true);
             return Task.CompletedTask;
         }
 
@@ -61,7 +64,7 @@ public partial class ChangePositionDrawer
         if (!IsOpen && _wasOpen)
         {
             _wasOpen = false;
-            Reset();
+            Reset(reloadRanks: false);
         }
 
         return Task.CompletedTask;
@@ -82,10 +85,10 @@ public partial class ChangePositionDrawer
         {
             NormalizeModel();
 
-            if (OnChangePosition.HasDelegate)
-                await OnChangePosition.InvokeAsync(Model);
+            if (OnChangeRank.HasDelegate)
+                await OnChangeRank.InvokeAsync(Model);
 
-            Toasts.Success("Посада змінена");
+            Toasts.Success("Звання змінено");
             await IsOpenChanged.InvokeAsync(false);
         }
         catch (InvalidOperationException ex)
@@ -112,7 +115,7 @@ public partial class ChangePositionDrawer
 
     private Task OnDrawerClosed()
     {
-        Reset();
+        Reset(reloadRanks: false);
         return Task.CompletedTask;
     }
 
@@ -120,27 +123,35 @@ public partial class ChangePositionDrawer
     // Internals
     // =========================
 
-    private void Reset()
+    private void Reset(bool reloadRanks)
     {
         if (Person is null) return;
 
         _busy = false;
 
-        Model = new ChangePositionDto
+        Model = new ChangeRankDto
         {
             PersonId = Person.Id,                               // ✅ критично
             EffectiveDate = DateOnly.FromDateTime(DateTime.Now),// ✅ дефолт
-            PositionSort = Person.PositionSort,               // (можеш лишити null, якщо хочеш примусово обирати)
-            Position = Person.Position ?? string.Empty,                 // (можеш лишити пусто, якщо хочеш примусово обирати)
+            Rank = Person.Rank ?? string.Empty,                 // (можеш лишити пусто, якщо хочеш примусово обирати)
             Note = null
         };
 
         _editContext = new EditContext(Model);
+
+        if (reloadRanks)
+            _ranks = RankCatalog.GetActive();
+    }
+
+    private void SelectRank(string rank)
+    {
+        Model.Rank = rank;
+        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.Rank)));
     }
 
     private void NormalizeModel()
     {
-        Model.Position = TrimOrEmpty(Model.Position);
+        Model.Rank = TrimOrEmpty(Model.Rank);
         Model.Note = string.IsNullOrWhiteSpace(Model.Note) ? null : Model.Note.Trim();
     }
 

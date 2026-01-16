@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ChangeWeaponDrawer
+// ChangePositionDrawer
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs;
@@ -10,9 +10,9 @@ using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 
-namespace eRaven.Components.Pages.Persons.Card.Drawwers;
+namespace eRaven.Components.Pages.Persons.Card.Drawers;
 
-public partial class ChangeWeaponDrawer
+public partial class ChangePositionDrawer
 {
     // =========================
     // Parameters
@@ -20,7 +20,7 @@ public partial class ChangeWeaponDrawer
     [Parameter, EditorRequired] public PersonDetailsDto Person { get; set; } = default!;
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
-    [Parameter] public EventCallback<ChangeWeaponDto> OnChangeWeapon { get; set; }
+    [Parameter] public EventCallback<ChangePositionDto> OnChangePosition { get; set; }
 
     // =========================
     // DI
@@ -36,7 +36,7 @@ public partial class ChangeWeaponDrawer
 
     private EditContext _editContext = default!;
 
-    protected ChangeWeaponDto Model { get; set; } = new();
+    protected ChangePositionDto Model { get; set; } = new();
 
     // =========================
     // Lifecycle
@@ -82,10 +82,10 @@ public partial class ChangeWeaponDrawer
         {
             NormalizeModel();
 
-            if (OnChangeWeapon.HasDelegate)
-                await OnChangeWeapon.InvokeAsync(Model);
+            if (OnChangePosition.HasDelegate)
+                await OnChangePosition.InvokeAsync(Model);
 
-            Toasts.Success("Запис змінено");
+            Toasts.Success("Посада змінена");
             await IsOpenChanged.InvokeAsync(false);
         }
         catch (InvalidOperationException ex)
@@ -126,11 +126,13 @@ public partial class ChangeWeaponDrawer
 
         _busy = false;
 
-        Model = new ChangeWeaponDto
+        Model = new ChangePositionDto
         {
             PersonId = Person.Id,                               // ✅ критично
             EffectiveDate = DateOnly.FromDateTime(DateTime.Now),// ✅ дефолт
-            Weapon = Person.Weapon ?? string.Empty
+            PositionSort = Person.PositionSort,               // (можеш лишити null, якщо хочеш примусово обирати)
+            Position = Person.Position ?? string.Empty,                 // (можеш лишити пусто, якщо хочеш примусово обирати)
+            Note = null
         };
 
         _editContext = new EditContext(Model);
@@ -138,6 +140,13 @@ public partial class ChangeWeaponDrawer
 
     private void NormalizeModel()
     {
-        Model.Weapon = string.IsNullOrWhiteSpace(Model.Weapon) ? null : Model.Weapon.Trim();
+        Model.Position = TrimOrEmpty(Model.Position);
+        Model.Note = string.IsNullOrWhiteSpace(Model.Note) ? null : Model.Note.Trim();
     }
+
+    // =========================
+    // Helpers
+    // =========================
+
+    private static string TrimOrEmpty(string? s) => (s ?? string.Empty).Trim();
 }

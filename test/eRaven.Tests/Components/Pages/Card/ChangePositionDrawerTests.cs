@@ -7,7 +7,7 @@
 
 using Bunit;
 using eRaven.Application.DTOs;
-using eRaven.Components.Pages.Persons.Card.Drawwers;
+using eRaven.Components.Pages.Persons.Card.Drawers;
 using eRaven.Presentation.Toasts;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;

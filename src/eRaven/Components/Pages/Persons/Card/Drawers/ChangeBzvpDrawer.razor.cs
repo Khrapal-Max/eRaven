@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ChangeCallsingDrawer
+// ChangeBzvpDrawer
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs;
@@ -10,9 +10,9 @@ using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 
-namespace eRaven.Components.Pages.Persons.Card.Drawwers;
+namespace eRaven.Components.Pages.Persons.Card.Drawers;
 
-public partial class ChangeCallsingDrawer
+public partial class ChangeBzvpDrawer
 {
     // =========================
     // Parameters
@@ -20,7 +20,7 @@ public partial class ChangeCallsingDrawer
     [Parameter, EditorRequired] public PersonDetailsDto Person { get; set; } = default!;
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
-    [Parameter] public EventCallback<ChangeCallsingDto> OnChangeCallsing { get; set; }
+    [Parameter] public EventCallback<ChangeBzvpDto> OnChangeBzvp { get; set; }
 
     // =========================
     // DI
@@ -36,7 +36,7 @@ public partial class ChangeCallsingDrawer
 
     private EditContext _editContext = default!;
 
-    protected ChangeCallsingDto Model { get; set; } = new();
+    protected ChangeBzvpDto Model { get; set; } = new();
 
     // =========================
     // Lifecycle
@@ -82,8 +82,8 @@ public partial class ChangeCallsingDrawer
         {
             NormalizeModel();
 
-            if (OnChangeCallsing.HasDelegate)
-                await OnChangeCallsing.InvokeAsync(Model);
+            if (OnChangeBzvp.HasDelegate)
+                await OnChangeBzvp.InvokeAsync(Model);
 
             Toasts.Success("Запис змінено");
             await IsOpenChanged.InvokeAsync(false);
@@ -126,11 +126,12 @@ public partial class ChangeCallsingDrawer
 
         _busy = false;
 
-        Model = new ChangeCallsingDto
+        Model = new ChangeBzvpDto
         {
             PersonId = Person.Id,                               // ✅ критично
             EffectiveDate = DateOnly.FromDateTime(DateTime.Now),// ✅ дефолт
-            Callsign = Person.Callsign ?? string.Empty
+            Bzvp = Person.Bzvp ?? string.Empty,
+            Note = null
         };
 
         _editContext = new EditContext(Model);
@@ -138,6 +139,13 @@ public partial class ChangeCallsingDrawer
 
     private void NormalizeModel()
     {
-        Model.Callsign = string.IsNullOrWhiteSpace(Model.Callsign) ? null : Model.Callsign.Trim();
+        Model.Bzvp = TrimOrEmpty(Model.Bzvp);
+        Model.Note = string.IsNullOrWhiteSpace(Model.Note) ? null : Model.Note.Trim();
     }
+
+    // =========================
+    // Helpers
+    // =========================
+
+    private static string TrimOrEmpty(string? s) => (s ?? string.Empty).Trim();
 }

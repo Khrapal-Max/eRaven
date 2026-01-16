@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ChangeBzvpDrawer
+// UpdatePersonalInfoDrawer
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs;
@@ -10,9 +10,9 @@ using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 
-namespace eRaven.Components.Pages.Persons.Card.Drawwers;
+namespace eRaven.Components.Pages.Persons.Card.Drawers;
 
-public partial class ChangeBzvpDrawer
+public partial class UpdatePersonalInfoDrawer
 {
     // =========================
     // Parameters
@@ -20,7 +20,7 @@ public partial class ChangeBzvpDrawer
     [Parameter, EditorRequired] public PersonDetailsDto Person { get; set; } = default!;
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
-    [Parameter] public EventCallback<ChangeBzvpDto> OnChangeBzvp { get; set; }
+    [Parameter] public EventCallback<UpdatePersonalInfoDto> OnUpdatePersonal { get; set; }
 
     // =========================
     // DI
@@ -36,7 +36,7 @@ public partial class ChangeBzvpDrawer
 
     private EditContext _editContext = default!;
 
-    protected ChangeBzvpDto Model { get; set; } = new();
+    protected UpdatePersonalInfoDto Model { get; set; } = new();
 
     // =========================
     // Lifecycle
@@ -71,7 +71,7 @@ public partial class ChangeBzvpDrawer
     // UI actions
     // =========================
 
-    private async Task OnChangeAsync()
+    private async Task OnUpdateAsync()
     {
         if (_busy)
             return;
@@ -82,10 +82,10 @@ public partial class ChangeBzvpDrawer
         {
             NormalizeModel();
 
-            if (OnChangeBzvp.HasDelegate)
-                await OnChangeBzvp.InvokeAsync(Model);
+            if (OnUpdatePersonal.HasDelegate)
+                await OnUpdatePersonal.InvokeAsync(Model);
 
-            Toasts.Success("Запис змінено");
+            Toasts.Success("Персональна інфо оновлена");
             await IsOpenChanged.InvokeAsync(false);
         }
         catch (InvalidOperationException ex)
@@ -126,11 +126,13 @@ public partial class ChangeBzvpDrawer
 
         _busy = false;
 
-        Model = new ChangeBzvpDto
+        Model = new UpdatePersonalInfoDto
         {
             PersonId = Person.Id,                               // ✅ критично
-            EffectiveDate = DateOnly.FromDateTime(DateTime.Now),// ✅ дефолт
-            Bzvp = Person.Bzvp ?? string.Empty,
+            Rnokpp = Person.Rnokpp,                             // ✅ критично
+            LastName = Person.LastName,
+            FirstName = Person.FirstName,
+            MiddleName = Person.MiddleName ?? string.Empty,
             Note = null
         };
 
@@ -139,7 +141,10 @@ public partial class ChangeBzvpDrawer
 
     private void NormalizeModel()
     {
-        Model.Bzvp = TrimOrEmpty(Model.Bzvp);
+        Model.Rnokpp = TrimOrEmpty(Model.Rnokpp);
+        Model.LastName = TrimOrEmpty(Model.LastName);
+        Model.FirstName = TrimOrEmpty(Model.FirstName);
+        Model.MiddleName = string.IsNullOrWhiteSpace(Model.MiddleName) ? null : TrimOrEmpty(Model.MiddleName);
         Model.Note = string.IsNullOrWhiteSpace(Model.Note) ? null : Model.Note.Trim();
     }
 
