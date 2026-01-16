@@ -14,7 +14,7 @@ using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
-namespace eRaven.Tests.Components.Pages.Card;
+namespace eRaven.Tests.Components.Pages.Card.Drawers;
 
 public sealed class ChangeRankDrawerTests : BunitContext
 {

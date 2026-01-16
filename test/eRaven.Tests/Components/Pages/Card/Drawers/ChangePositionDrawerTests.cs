@@ -12,7 +12,7 @@ using eRaven.Presentation.Toasts;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace eRaven.Tests.Components.Pages.Persons;
+namespace eRaven.Tests.Components.Pages.Card.Drawers;
 
 public sealed class ChangePositionDrawerTests : BunitContext
 {

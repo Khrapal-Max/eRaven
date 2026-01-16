@@ -14,7 +14,7 @@ using eRaven.Presentation.Toasts;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace eRaven.Tests.Components.Pages.Card;
+namespace eRaven.Tests.Components.Pages.Card.Drawers;
 
 public sealed class UpdatePersonalInfoDrawerTests : BunitContext
 {

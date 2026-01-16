@@ -17,7 +17,7 @@
     {
         <PersonSnapshotHeader Person="_person" PersonId="PersonId" />
 
-        <div class="mt-2 px-2 ">
+        <div class="mt-2 px-2">
             <ul class="nav nav-tabs px-2 person-tabs">
                 @foreach (var t in Tabs)
                 {
@@ -32,53 +32,8 @@
             <div class="border border-top-0 p-2 p-md-3">
                 @if (Tab == CardTab.Current)
                 {
-                    <div class="row g-3">
-                        <div class="col-12 col-lg-10">
-                            <PersonSnapshotPanel Person="_person" />
-                        </div>
-
-                        <div class="col-12 col-lg-2">
-                            <PersonActionsPanel Person="_person!"
-                                                OnOpenPersonal="OpenPersonalInfo"
-                                                OnOpenRank="OpenRank" 
-                                                OnOpenPosition="OpenPosition"
-                                                OnOpenBZVP="OpenBzvp" 
-                                                OnOpenWeapon="OpenWeapon" 
-                                                OnOpenCallsing="OpenCallsing" />
-                        </div>
-                    </div>
-
-                    @* Модалки, що логічно відносяться до “Поточний” *@
-                  
-                    <UpdatePersonalInfoDrawer IsOpen="_personalOpen"
-                                              IsOpenChanged="@(v => _personalOpen = v)"
-                                              Person="_person"
-                                              OnUpdatePersonal="HandlePersonalInfoSubmitAsync" />
-
-                    <ChangeRankDrawer IsOpen="_rankOpen"
-                                      IsOpenChanged="@(v => _rankOpen = v)"
-                                      Person="_person"
-                                      OnChangeRank="HandleRankSubmitAsync" />
-
-                    <ChangePositionDrawer IsOpen="_positionOpen"
-                                          IsOpenChanged="@(v => _positionOpen = v)"
-                                          Person="_person"
-                                          OnChangePosition="HandlePositionSubmitAsync" />
-
-                    <ChangeBzvpDrawer IsOpen="_bzvpOpen"
-                                      IsOpenChanged="@(v => _bzvpOpen = v)"
-                                      Person="_person"
-                                      OnChangeBzvp="HandleBzvpSubmitAsync" />
-
-                    <ChangeWeaponDrawer IsOpen="_weaponOpen"
-                                        IsOpenChanged="@(v => _weaponOpen = v)"
-                                        Person="_person"
-                                        OnChangeWeapon="HandleWeaponSubmitAsync" />
-
-                    <ChangeCallsingDrawer IsOpen="_callsingOpen"
-                                          IsOpenChanged="@(v => _callsingOpen = v)"
-                                          Person="_person"
-                                          OnChangeCallsing="HandleCallsingSubmitAsync" />
+                    <CardCurrentTab Person="_person"
+                                    OnReload="LoadAsync" />
                 }
                 else if (Tab == CardTab.Career)
                 {

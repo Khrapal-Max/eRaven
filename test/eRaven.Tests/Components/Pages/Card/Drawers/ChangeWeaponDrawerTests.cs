@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ChangeCallsingDrawerTests
+// ChangeWeaponDrawerTests
 //-----------------------------------------------------------------------------
 
 using AngleSharp.Dom;
@@ -15,14 +15,14 @@ using eRaven.Presentation.Toasts;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace eRaven.Tests.Components.Pages.Card;
+namespace eRaven.Tests.Components.Pages.Card.Drawers;
 
-public sealed class ChangeCallsingDrawerTests : BunitContext
+public sealed class ChangeWeaponDrawerTests : BunitContext
 {
     private void RegisterCommon(ToastService? toasts = null)
     {
         Services.AddSingleton(toasts ?? new ToastService());
-        Services.AddSingleton<IValidator<ChangeCallsingDto>>(new ChangeCallsingDtoValidator());
+        Services.AddSingleton<IValidator<ChangeWeaponDto>>(new ChangeWeaponDtoValidator());
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
 
@@ -40,8 +40,8 @@ public sealed class ChangeCallsingDrawerTests : BunitContext
         PositionSort: 10,
         Position: "Оператор",
         Bzvp: null,
-        Weapon: null,
-        Callsign: "Дніпро",
+        Weapon: "АК-74 №001",
+        Callsign: null,
         EnrolledAt: new DateOnly(2026, 01, 10),
         ExcludedAt: null,
         Version: 1,
@@ -55,23 +55,23 @@ public sealed class ChangeCallsingDrawerTests : BunitContext
         var id = Guid.NewGuid();
 
         // act
-        var cut = Render<ChangeCallsingDrawer>(ps => ps
+        var cut = Render<ChangeWeaponDrawer>(ps => ps
             .Add(p => p.Person, Person(id))
             .Add(p => p.IsOpen, true)
             .Add(p => p.IsOpenChanged, _ => Task.CompletedTask)
-            .Add(p => p.OnChangeCallsing, _ => Task.CompletedTask)
+            .Add(p => p.OnChangeWeapon, _ => Task.CompletedTask)
         );
 
         // assert
-        cut.Find("form#change-callsing-form");
+        cut.Find("form#change-weapon-form");
 
         var submit = cut.Find("button[type='submit']");
-        Assert.Equal("change-callsing-form", submit.GetAttribute("form"));
+        Assert.Equal("change-weapon-form", submit.GetAttribute("form"));
         Assert.Contains("Змінити", submit.TextContent);
     }
 
     [Fact]
-    public async Task Cancel_should_close_drawer_and_not_invoke_OnChangeCallsing()
+    public async Task Cancel_should_close_drawer_and_not_invoke_OnChangeWeapon()
     {
         // arrange
         RegisterCommon();
@@ -80,11 +80,11 @@ public sealed class ChangeCallsingDrawerTests : BunitContext
         var isOpen = true;
         var called = false;
 
-        var cut = Render<ChangeCallsingDrawer>(ps => ps
+        var cut = Render<ChangeWeaponDrawer>(ps => ps
             .Add(p => p.Person, Person(id))
             .Add(p => p.IsOpen, isOpen)
             .Add(p => p.IsOpenChanged, v => isOpen = v)
-            .Add(p => p.OnChangeCallsing, _ => { called = true; return Task.CompletedTask; })
+            .Add(p => p.OnChangeWeapon, _ => { called = true; return Task.CompletedTask; })
         );
 
         // act
@@ -97,7 +97,7 @@ public sealed class ChangeCallsingDrawerTests : BunitContext
     }
 
     [Fact]
-    public async Task Submit_valid_form_should_invoke_OnChangeCallsing_normalize_callsign_show_success_toast_and_close()
+    public async Task Submit_valid_form_should_invoke_OnChangeWeapon_normalize_weapon_show_success_toast_and_close()
     {
         // arrange
         var toasts = new ToastService();
@@ -108,28 +108,28 @@ public sealed class ChangeCallsingDrawerTests : BunitContext
 
         var id = Guid.NewGuid();
         var isOpen = true;
-        ChangeCallsingDto? captured = null;
+        ChangeWeaponDto? captured = null;
 
-        var cut = Render<ChangeCallsingDrawer>(ps => ps
+        var cut = Render<ChangeWeaponDrawer>(ps => ps
             .Add(p => p.Person, Person(id))
             .Add(p => p.IsOpen, isOpen)
             .Add(p => p.IsOpenChanged, v => isOpen = v)
-            .Add(p => p.OnChangeCallsing, dto => { captured = dto; return Task.CompletedTask; })
+            .Add(p => p.OnChangeWeapon, dto => { captured = dto; return Task.CompletedTask; })
         );
 
         // act
         await cut.InvokeAsync(() =>
         {
-            FindInputByLabel(cut, "Позивний").Change("  Блискавка  ");
-            // дата має дефолтний валідний DateOnly в Reset()
+            FindInputByLabel(cut, "Назва та номер зброї").Change("  АК-74 №777  ");
+            // EffectiveDate має дефолт в Reset() => валідно
         });
 
-        await cut.InvokeAsync(() => cut.Find("form#change-callsing-form").Submit());
+        await cut.InvokeAsync(() => cut.Find("form#change-weapon-form").Submit());
 
         // assert
         Assert.NotNull(captured);
         Assert.Equal(id, captured!.PersonId);
-        Assert.Equal("Блискавка", captured.Callsign); // trim
+        Assert.Equal("АК-74 №777", captured.Weapon); // trim
         Assert.False(isOpen);
 
         Assert.Contains(shown, m =>
@@ -138,7 +138,7 @@ public sealed class ChangeCallsingDrawerTests : BunitContext
     }
 
     [Fact]
-    public async Task Submit_invalid_form_should_not_invoke_OnChangeCallsing_and_should_not_close()
+    public async Task Submit_invalid_form_should_not_invoke_OnChangeWeapon_and_should_not_close()
     {
         // arrange
         RegisterCommon();
@@ -147,18 +147,21 @@ public sealed class ChangeCallsingDrawerTests : BunitContext
         var isOpen = true;
         var called = false;
 
-        var cut = Render<ChangeCallsingDrawer>(ps => ps
+        var cut = Render<ChangeWeaponDrawer>(ps => ps
             .Add(p => p.Person, Person(id))
             .Add(p => p.IsOpen, isOpen)
             .Add(p => p.IsOpenChanged, v => isOpen = v)
-            .Add(p => p.OnChangeCallsing, _ => { called = true; return Task.CompletedTask; })
+            .Add(p => p.OnChangeWeapon, _ => { called = true; return Task.CompletedTask; })
         );
 
-        // invalid: Callsign > 128 (валідація спрацює, OnValidSubmit не викличеться)
-        await cut.InvokeAsync(() => FindInputByLabel(cut, "Позивний").Change(new string('C', 129)));
+        // invalid: дата = default
+        await cut.InvokeAsync(() =>
+        {
+            FindInputByLabel(cut, "Дата зміни").Change(""); // InputDate -> default(DateOnly) фактично
+        });
 
         // act
-        await cut.InvokeAsync(() => cut.Find("form#change-callsing-form").Submit());
+        await cut.InvokeAsync(() => cut.Find("form#change-weapon-form").Submit());
 
         // assert
         Assert.True(isOpen);
@@ -166,7 +169,7 @@ public sealed class ChangeCallsingDrawerTests : BunitContext
     }
 
     [Fact]
-    public async Task When_OnChangeCallsing_throws_InvalidOperationException_should_show_warning_and_keep_open()
+    public async Task When_OnChangeWeapon_throws_InvalidOperationException_should_show_warning_and_keep_open()
     {
         // arrange
         var toasts = new ToastService();
@@ -178,17 +181,17 @@ public sealed class ChangeCallsingDrawerTests : BunitContext
         var id = Guid.NewGuid();
         var isOpen = true;
 
-        var cut = Render<ChangeCallsingDrawer>(ps => ps
+        var cut = Render<ChangeWeaponDrawer>(ps => ps
             .Add(p => p.Person, Person(id))
             .Add(p => p.IsOpen, isOpen)
             .Add(p => p.IsOpenChanged, v => isOpen = v)
-            .Add(p => p.OnChangeCallsing, _ => throw new InvalidOperationException("boom"))
+            .Add(p => p.OnChangeWeapon, _ => throw new InvalidOperationException("boom"))
         );
 
-        await cut.InvokeAsync(() => FindInputByLabel(cut, "Позивний").Change("Дніпро"));
+        await cut.InvokeAsync(() => FindInputByLabel(cut, "Назва та номер зброї").Change("АК-74"));
 
         // act
-        await cut.InvokeAsync(() => cut.Find("form#change-callsing-form").Submit());
+        await cut.InvokeAsync(() => cut.Find("form#change-weapon-form").Submit());
 
         // assert
         Assert.True(isOpen);
@@ -202,7 +205,7 @@ public sealed class ChangeCallsingDrawerTests : BunitContext
     // -------------------------
     // Helpers: input by label
     // -------------------------
-    private static IElement FindInputByLabel(IRenderedComponent<ChangeCallsingDrawer> cut, string labelText)
+    private static IElement FindInputByLabel(IRenderedComponent<ChangeWeaponDrawer> cut, string labelText)
     {
         var label = cut.FindAll("label")
             .First(l => l.TextContent.Trim().Equals(labelText, StringComparison.Ordinal));

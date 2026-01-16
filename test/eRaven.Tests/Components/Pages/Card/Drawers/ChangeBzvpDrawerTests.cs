@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ChangeWeaponDrawerTests
+// ChangeBzvpDrawerTests
 //-----------------------------------------------------------------------------
 
 using AngleSharp.Dom;
@@ -15,14 +15,16 @@ using eRaven.Presentation.Toasts;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace eRaven.Tests.Components.Pages.Card;
+namespace eRaven.Tests.Components.Pages.Card.Drawers;
 
-public sealed class ChangeWeaponDrawerTests : BunitContext
+public sealed class ChangeBzvpDrawerTests : BunitContext
 {
     private void RegisterCommon(ToastService? toasts = null)
     {
         Services.AddSingleton(toasts ?? new ToastService());
-        Services.AddSingleton<IValidator<ChangeWeaponDto>>(new ChangeWeaponDtoValidator());
+        Services.AddSingleton<IValidator<ChangeBzvpDto>>(new ChangeBzvpDtoValidator());
+
+        // Drawer може викликати JS всередині — робимо Loose
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
 
@@ -39,8 +41,8 @@ public sealed class ChangeWeaponDrawerTests : BunitContext
         Rank: "Солдат",
         PositionSort: 10,
         Position: "Оператор",
-        Bzvp: null,
-        Weapon: "АК-74 №001",
+        Bzvp: "ВОС-1",
+        Weapon: null,
         Callsign: null,
         EnrolledAt: new DateOnly(2026, 01, 10),
         ExcludedAt: null,
@@ -55,23 +57,23 @@ public sealed class ChangeWeaponDrawerTests : BunitContext
         var id = Guid.NewGuid();
 
         // act
-        var cut = Render<ChangeWeaponDrawer>(ps => ps
+        var cut = Render<ChangeBzvpDrawer>(ps => ps
             .Add(p => p.Person, Person(id))
             .Add(p => p.IsOpen, true)
             .Add(p => p.IsOpenChanged, _ => Task.CompletedTask)
-            .Add(p => p.OnChangeWeapon, _ => Task.CompletedTask)
+            .Add(p => p.OnChangeBzvp, _ => Task.CompletedTask)
         );
 
         // assert
-        cut.Find("form#change-weapon-form");
+        cut.Find("form#change-bzvp-form");
 
         var submit = cut.Find("button[type='submit']");
-        Assert.Equal("change-weapon-form", submit.GetAttribute("form"));
+        Assert.Equal("change-bzvp-form", submit.GetAttribute("form"));
         Assert.Contains("Змінити", submit.TextContent);
     }
 
     [Fact]
-    public async Task Cancel_should_close_drawer_and_not_invoke_OnChangeWeapon()
+    public async Task Cancel_should_close_drawer_and_not_invoke_OnChangeBzvp()
     {
         // arrange
         RegisterCommon();
@@ -80,11 +82,11 @@ public sealed class ChangeWeaponDrawerTests : BunitContext
         var isOpen = true;
         var called = false;
 
-        var cut = Render<ChangeWeaponDrawer>(ps => ps
+        var cut = Render<ChangeBzvpDrawer>(ps => ps
             .Add(p => p.Person, Person(id))
             .Add(p => p.IsOpen, isOpen)
             .Add(p => p.IsOpenChanged, v => isOpen = v)
-            .Add(p => p.OnChangeWeapon, _ => { called = true; return Task.CompletedTask; })
+            .Add(p => p.OnChangeBzvp, _ => { called = true; return Task.CompletedTask; })
         );
 
         // act
@@ -97,7 +99,7 @@ public sealed class ChangeWeaponDrawerTests : BunitContext
     }
 
     [Fact]
-    public async Task Submit_valid_form_should_invoke_OnChangeWeapon_normalize_weapon_show_success_toast_and_close()
+    public async Task Submit_valid_form_should_invoke_OnChangeBzvp_normalize_fields_show_success_toast_and_close()
     {
         // arrange
         var toasts = new ToastService();
@@ -108,28 +110,30 @@ public sealed class ChangeWeaponDrawerTests : BunitContext
 
         var id = Guid.NewGuid();
         var isOpen = true;
-        ChangeWeaponDto? captured = null;
+        ChangeBzvpDto? captured = null;
 
-        var cut = Render<ChangeWeaponDrawer>(ps => ps
+        var cut = Render<ChangeBzvpDrawer>(ps => ps
             .Add(p => p.Person, Person(id))
             .Add(p => p.IsOpen, isOpen)
             .Add(p => p.IsOpenChanged, v => isOpen = v)
-            .Add(p => p.OnChangeWeapon, dto => { captured = dto; return Task.CompletedTask; })
+            .Add(p => p.OnChangeBzvp, dto => { captured = dto; return Task.CompletedTask; })
         );
 
         // act
         await cut.InvokeAsync(() =>
         {
-            FindInputByLabel(cut, "Назва та номер зброї").Change("  АК-74 №777  ");
-            // EffectiveDate має дефолт в Reset() => валідно
+            FindInputByLabel(cut, "БЗВП (ВОС/УБД)").Change("  ВОС-777  "); // валідно, і дозволяє перевірити Trim
+            FindInputByLabel(cut, "Замітка (опц.)").Change("  note  ");
+            // EffectiveDate вже має дефолт у Reset() -> валідно
         });
 
-        await cut.InvokeAsync(() => cut.Find("form#change-weapon-form").Submit());
+        await cut.InvokeAsync(() => cut.Find("form#change-bzvp-form").Submit());
 
         // assert
         Assert.NotNull(captured);
         Assert.Equal(id, captured!.PersonId);
-        Assert.Equal("АК-74 №777", captured.Weapon); // trim
+        Assert.Equal("ВОС-777", captured.Bzvp);     // trim
+        Assert.Equal("note", captured.Note);        // trim
         Assert.False(isOpen);
 
         Assert.Contains(shown, m =>
@@ -138,7 +142,7 @@ public sealed class ChangeWeaponDrawerTests : BunitContext
     }
 
     [Fact]
-    public async Task Submit_invalid_form_should_not_invoke_OnChangeWeapon_and_should_not_close()
+    public async Task Submit_invalid_form_should_not_invoke_OnChangeBzvp_and_should_not_close()
     {
         // arrange
         RegisterCommon();
@@ -147,21 +151,18 @@ public sealed class ChangeWeaponDrawerTests : BunitContext
         var isOpen = true;
         var called = false;
 
-        var cut = Render<ChangeWeaponDrawer>(ps => ps
+        var cut = Render<ChangeBzvpDrawer>(ps => ps
             .Add(p => p.Person, Person(id))
             .Add(p => p.IsOpen, isOpen)
             .Add(p => p.IsOpenChanged, v => isOpen = v)
-            .Add(p => p.OnChangeWeapon, _ => { called = true; return Task.CompletedTask; })
+            .Add(p => p.OnChangeBzvp, _ => { called = true; return Task.CompletedTask; })
         );
 
-        // invalid: дата = default
-        await cut.InvokeAsync(() =>
-        {
-            FindInputByLabel(cut, "Дата зміни").Change(""); // InputDate -> default(DateOnly) фактично
-        });
+        // invalid: Bzvp empty
+        await cut.InvokeAsync(() => FindInputByLabel(cut, "БЗВП (ВОС/УБД)").Change(""));
 
         // act
-        await cut.InvokeAsync(() => cut.Find("form#change-weapon-form").Submit());
+        await cut.InvokeAsync(() => cut.Find("form#change-bzvp-form").Submit());
 
         // assert
         Assert.True(isOpen);
@@ -169,7 +170,7 @@ public sealed class ChangeWeaponDrawerTests : BunitContext
     }
 
     [Fact]
-    public async Task When_OnChangeWeapon_throws_InvalidOperationException_should_show_warning_and_keep_open()
+    public async Task When_OnChangeBzvp_throws_InvalidOperationException_should_show_warning_and_keep_open()
     {
         // arrange
         var toasts = new ToastService();
@@ -181,17 +182,17 @@ public sealed class ChangeWeaponDrawerTests : BunitContext
         var id = Guid.NewGuid();
         var isOpen = true;
 
-        var cut = Render<ChangeWeaponDrawer>(ps => ps
+        var cut = Render<ChangeBzvpDrawer>(ps => ps
             .Add(p => p.Person, Person(id))
             .Add(p => p.IsOpen, isOpen)
             .Add(p => p.IsOpenChanged, v => isOpen = v)
-            .Add(p => p.OnChangeWeapon, _ => throw new InvalidOperationException("boom"))
+            .Add(p => p.OnChangeBzvp, _ => throw new InvalidOperationException("boom"))
         );
 
-        await cut.InvokeAsync(() => FindInputByLabel(cut, "Назва та номер зброї").Change("АК-74"));
+        await cut.InvokeAsync(() => FindInputByLabel(cut, "БЗВП (ВОС/УБД)").Change("ВОС-OK"));
 
         // act
-        await cut.InvokeAsync(() => cut.Find("form#change-weapon-form").Submit());
+        await cut.InvokeAsync(() => cut.Find("form#change-bzvp-form").Submit());
 
         // assert
         Assert.True(isOpen);
@@ -205,7 +206,7 @@ public sealed class ChangeWeaponDrawerTests : BunitContext
     // -------------------------
     // Helpers: input by label
     // -------------------------
-    private static IElement FindInputByLabel(IRenderedComponent<ChangeWeaponDrawer> cut, string labelText)
+    private static IElement FindInputByLabel(IRenderedComponent<ChangeBzvpDrawer> cut, string labelText)
     {
         var label = cut.FindAll("label")
             .First(l => l.TextContent.Trim().Equals(labelText, StringComparison.Ordinal));
