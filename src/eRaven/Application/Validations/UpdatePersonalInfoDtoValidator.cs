@@ -10,9 +10,9 @@ using FluentValidation;
 
 namespace eRaven.Application.Validations;
 
-public sealed class UpdatePersonalInfoValidator : AbstractValidator<UpdatePersonalInfoDto>
+public sealed class UpdatePersonalInfoDtoValidator : AbstractValidator<UpdatePersonalInfoDto>
 {
-    public UpdatePersonalInfoValidator()
+    public UpdatePersonalInfoDtoValidator()
     {
         RuleFor(x => x.Rnokpp)
             .Cascade(CascadeMode.Stop)

@@ -6,8 +6,8 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs;
-using eRaven.Application.Handlers;
-using eRaven.Application.Queries;
+using eRaven.Application.Handlers.Personal;
+using eRaven.Application.Queries.Personal;
 using eRaven.Domain.Enums;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 using Moq;

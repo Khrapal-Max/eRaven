@@ -7,6 +7,7 @@
 
 using eRaven.Application.DTOs;
 using eRaven.Application.Queries;
+using eRaven.Application.Queries.Personal;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 

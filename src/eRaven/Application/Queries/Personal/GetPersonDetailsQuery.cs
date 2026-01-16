@@ -5,6 +5,6 @@
 // GetPersonDetailsQuery
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Queries;
+namespace eRaven.Application.Queries.Personal;
 
 public sealed record GetPersonDetailsQuery(Guid PersonId);

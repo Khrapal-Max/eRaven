@@ -15,7 +15,7 @@ public sealed class ChangePositionDtoValidator : AbstractValidator<ChangePositio
     public ChangePositionDtoValidator()
     {
         RuleFor(x => x.EffectiveDate)
-           .NotEmpty().WithMessage("Вкажіть дату зарахування.");
+           .NotEmpty().WithMessage("Вкажіть дату.");
 
         RuleFor(x => x.PositionSort)
            .GreaterThanOrEqualTo(1).WithMessage("Вкажіть номер посади.")

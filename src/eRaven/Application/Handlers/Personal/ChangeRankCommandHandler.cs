@@ -9,7 +9,7 @@ using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 
-namespace eRaven.Application.Handlers;
+namespace eRaven.Application.Handlers.Personal;
 
 public sealed class ChangeRankCommandHandler(IPersonRepository repo)
     : ICommandHandler<ChangeRankCommand>

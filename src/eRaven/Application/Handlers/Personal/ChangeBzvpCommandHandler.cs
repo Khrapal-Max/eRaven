@@ -2,20 +2,20 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// GetPersonDetailsQueryHandler
+// ChangeBZVPCommandHandler
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs;
-using eRaven.Application.Queries;
+using eRaven.Application.Commands;
+using eRaven.Application.Commands.PersonInfo;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 
-namespace eRaven.Application.Handlers;
+namespace eRaven.Application.Handlers.Personal;
 
-public sealed class GetPersonDetailsQueryHandler(IPersonRepository repo)
-    : IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?>
+public class ChangeBzvpCommandHandler(IPersonRepository repo)
+    : ICommandHandler<ChangeBzvpCommand>
 {
     private readonly IPersonRepository _repo = repo;
 
-    public async Task<PersonDetailsDto?> HandleAsync(GetPersonDetailsQuery query, CancellationToken ct = default)
-        => await _repo.GetByIdAsync(query.PersonId, ct);
+    public async Task HandleAsync(ChangeBzvpCommand command, CancellationToken ct = default)
+        => await _repo.ChangeBzvpAsync(cmd: command, ct: ct);
 }

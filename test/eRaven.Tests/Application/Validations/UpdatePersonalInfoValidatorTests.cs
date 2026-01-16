@@ -13,7 +13,7 @@ namespace eRaven.Tests.Application.Validations;
 
 public sealed class UpdatePersonalInfoValidatorTests
 {
-    private readonly UpdatePersonalInfoValidator _sut = new();
+    private readonly UpdatePersonalInfoDtoValidator _sut = new();
 
     [Fact]
     public void Rnokpp_should_be_required_and_stop_on_first_error()

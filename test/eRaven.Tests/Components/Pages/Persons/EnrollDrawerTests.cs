@@ -9,6 +9,7 @@ using Bunit;
 using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.DTOs;
 using eRaven.Application.Queries;
+using eRaven.Application.Queries.Personal;
 using eRaven.Application.Validations;
 using eRaven.Components.Pages.Persons.Registry.Drawers;
 using eRaven.Domain.Enums;

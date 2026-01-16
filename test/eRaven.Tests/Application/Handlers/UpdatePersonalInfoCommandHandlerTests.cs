@@ -6,7 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Commands.PersonInfo;
-using eRaven.Application.Handlers;
+using eRaven.Application.Handlers.Personal;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 using Moq;
 

@@ -9,7 +9,7 @@ using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs;
 using eRaven.Application.DTOs.Excel;
-using eRaven.Application.Queries;
+using eRaven.Application.Queries.Personal;
 
 namespace eRaven.Infrastructure.Repositories.PersonRepository;
 

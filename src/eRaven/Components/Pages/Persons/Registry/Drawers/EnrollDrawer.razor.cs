@@ -8,6 +8,7 @@
 using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.DTOs;
 using eRaven.Application.Queries;
+using eRaven.Application.Queries.Personal;
 using eRaven.Domain.Enums;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;

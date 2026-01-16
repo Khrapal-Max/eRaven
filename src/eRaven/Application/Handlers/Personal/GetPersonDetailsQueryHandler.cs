@@ -2,20 +2,21 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonCard
+// GetPersonDetailsQueryHandler
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Commands;
-using eRaven.Application.Commands.PersonInfo;
+using eRaven.Application.DTOs;
+using eRaven.Application.Queries;
+using eRaven.Application.Queries.Personal;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 
-namespace eRaven.Application.Handlers;
+namespace eRaven.Application.Handlers.Personal;
 
-public sealed class ChangePositionCommandHandler(IPersonRepository repo)
-    : ICommandHandler<ChangePositionCommand>
+public sealed class GetPersonDetailsQueryHandler(IPersonRepository repo)
+    : IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?>
 {
     private readonly IPersonRepository _repo = repo;
 
-    public async Task HandleAsync(ChangePositionCommand command, CancellationToken ct = default)
-        => await _repo.ChangePositionAsync(cmd: command, ct: ct);
+    public async Task<PersonDetailsDto?> HandleAsync(GetPersonDetailsQuery query, CancellationToken ct = default)
+        => await _repo.GetByIdAsync(query.PersonId, ct);
 }

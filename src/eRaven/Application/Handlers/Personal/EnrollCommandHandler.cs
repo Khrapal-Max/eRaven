@@ -9,7 +9,7 @@ using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 
-namespace eRaven.Application.Handlers;
+namespace eRaven.Application.Handlers.Personal;
 
 public sealed class EnrollCommandHandler(IPersonRepository repo)
     : ICommandHandler<EnrollCommand>

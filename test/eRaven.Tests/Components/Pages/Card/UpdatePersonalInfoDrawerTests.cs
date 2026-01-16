@@ -42,7 +42,7 @@ public sealed class UpdatePersonalInfoDrawerTests : BunitContext
     private void RegisterCommon(ToastService? toasts = null)
     {
         Services.AddSingleton(toasts ?? new ToastService());
-        Services.AddSingleton<IValidator<UpdatePersonalInfoDto>>(new UpdatePersonalInfoValidator());
+        Services.AddSingleton<IValidator<UpdatePersonalInfoDto>>(new UpdatePersonalInfoDtoValidator());
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
 

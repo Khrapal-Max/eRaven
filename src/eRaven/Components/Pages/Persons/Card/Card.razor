@@ -41,7 +41,8 @@
                             <PersonActionsPanel Person="_person!"
                                                 OnOpenPersonal="OpenPersonalInfo"
                                                 OnOpenRank="OpenRank" 
-                                                OnOpenPosition="OpenPosition"/>
+                                                OnOpenPosition="OpenPosition"
+                                                OnOpenBZVP="OpenBzvp" />
                         </div>
                     </div>
 
@@ -61,6 +62,11 @@
                                           IsOpenChanged="@(v => _positionOpen = v)"
                                           Person="_person"
                                           OnChangePosition="HandlePositionSubmitAsync" />
+
+                    <ChangeBzvpDrawer IsOpen="_bzvpOpen"
+                                      IsOpenChanged="@(v => _bzvpOpen = v)"
+                                      Person="_person"
+                                      OnChangeBzvp="HandleBzvpSubmitAsync" />
                 }
                 else if (Tab == CardTab.Career)
                 {

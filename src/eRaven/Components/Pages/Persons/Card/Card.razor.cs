@@ -9,6 +9,7 @@ using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.DTOs;
 using eRaven.Application.Queries;
+using eRaven.Application.Queries.Personal;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Persons.Card;
@@ -22,6 +23,7 @@ public partial class Card
     [Inject] public ICommandHandler<UpdatePersonalInfoCommand> UpdatePersonalInfoCommandHandler { get; set; } = default!;
     [Inject] public ICommandHandler<ChangeRankCommand> ChangeRankCommandHandler { get; set; } = default!;
     [Inject] public ICommandHandler<ChangePositionCommand> ChangePositionCommandHandler { get; set; } = default!;
+    [Inject] public ICommandHandler<ChangeBzvpCommand> ChangeBzvpCommandHandler { get; set; } = default!;
 
     private bool _loading;
     private PersonDetailsDto? _person;
@@ -29,6 +31,8 @@ public partial class Card
     private bool _personalOpen;
     private bool _rankOpen;
     private bool _positionOpen;
+    private bool _bzvpOpen;
+
     protected override async Task OnParametersSetAsync()
     {
         await LoadAsync();
@@ -49,6 +53,12 @@ public partial class Card
     private Task OpenPosition()
     {
         _positionOpen = true;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenBzvp()
+    {
+        _bzvpOpen = true;
         return Task.CompletedTask;
     }
 
@@ -110,6 +120,21 @@ public partial class Card
         );
 
         await ChangePositionCommandHandler.HandleAsync(cmd);
+        await LoadAsync();
+    }
+
+    private async Task HandleBzvpSubmitAsync(ChangeBzvpDto dto)
+    {
+        var cmd = new ChangeBzvpCommand(
+           PersonId: dto.PersonId,
+           EffectiveDate: dto.EffectiveDate,
+           Bzvp: dto.Bzvp,
+           Note: dto.Note,
+           Author: "system", // TODO: auth user
+           NowUtc: DateTime.UtcNow
+        );
+
+        await ChangeBzvpCommandHandler.HandleAsync(cmd);
         await LoadAsync();
     }
 

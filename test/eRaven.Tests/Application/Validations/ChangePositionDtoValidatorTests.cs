@@ -30,7 +30,7 @@ public sealed class ChangePositionDtoValidatorTests
         var result = _sut.TestValidate(dto);
 
         result.ShouldHaveValidationErrorFor(x => x.EffectiveDate)
-              .WithErrorMessage("Вкажіть дату зарахування.");
+              .WithErrorMessage("Вкажіть дату.");
     }
 
     [Fact]

@@ -10,7 +10,7 @@ using eRaven.Application.Commands.Excel;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 using Microsoft.EntityFrameworkCore;
 
-namespace eRaven.Application.Handlers;
+namespace eRaven.Application.Handlers.Personal;
 
 public sealed class BootstrapPersonsCommandHandler(
     IPersonRepository repo,

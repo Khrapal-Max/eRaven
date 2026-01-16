@@ -2,17 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// GetPersonsPageQuery
+// ChangeBzvpDto
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+namespace eRaven.Application.DTOs;
 
-namespace eRaven.Application.Queries;
-
-public sealed record GetPersonsPageQuery(
-    int Page = 1,
-    int PageSize = 25,
-    string? Search = null,
-    DateOnly? AsOfDate = null,
-    PersonLifecycle? Lifecycle = null,
-    EnrollmentKind? EnrollmentKind = null);
+public class ChangeBzvpDto
+{
+    public Guid PersonId { get; set; }
+    public DateOnly EffectiveDate { get; set; }
+    public string Bzvp { get; set; } = string.Empty;
+    public string? Note { get; set; }
+}

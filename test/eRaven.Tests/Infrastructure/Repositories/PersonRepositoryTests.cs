@@ -9,6 +9,7 @@ using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs.Excel;
 using eRaven.Application.Queries;
+using eRaven.Application.Queries.Personal;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Events.PersonEvents.Info;
 using eRaven.Domain.Events.PersonEvents.Move;

@@ -2,20 +2,21 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// UpdatePersonalInfoCommandHandler
+// GetPersonsPageQueryHandler
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Commands;
-using eRaven.Application.Commands.PersonInfo;
+using eRaven.Application.DTOs;
+using eRaven.Application.Queries;
+using eRaven.Application.Queries.Personal;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 
-namespace eRaven.Application.Handlers;
+namespace eRaven.Application.Handlers.Personal;
 
-public class UpdatePersonalInfoCommandHandler(IPersonRepository repo)
-    : ICommandHandler<UpdatePersonalInfoCommand>
+public sealed class GetPersonsPageQueryHandler(IPersonRepository repo)
+    : IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>
 {
     private readonly IPersonRepository _repo = repo;
 
-    public async Task HandleAsync(UpdatePersonalInfoCommand command, CancellationToken ct = default)
-        => await _repo.UpdatePersonalInfoAsync(cmd: command, ct: ct);
+    public async Task<PagedResult<PersonListItemDto>> HandleAsync(GetPersonsPageQuery query, CancellationToken ct = default)
+        => await _repo.GetPageAsync(query, ct);
 }

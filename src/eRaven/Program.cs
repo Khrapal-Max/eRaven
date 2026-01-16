@@ -11,8 +11,9 @@ using eRaven.Application.Commands.Excel;
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs;
-using eRaven.Application.Handlers;
+using eRaven.Application.Handlers.Personal;
 using eRaven.Application.Queries;
+using eRaven.Application.Queries.Personal;
 using eRaven.Application.Validations;
 using eRaven.Components;
 using eRaven.Extensions;
@@ -43,9 +44,10 @@ builder.Services.AddScoped<IValidator<CreateReservedDto>, CreateReservedDtoValid
 builder.Services.AddScoped<IValidator<EnrollDto>, EnrollDtoValidator>();
 builder.Services.AddScoped<IValidator<ExcludeDto>, ExcludeDtoValidator>();
 
-builder.Services.AddScoped<IValidator<UpdatePersonalInfoDto>, UpdatePersonalInfoValidator>();
+builder.Services.AddScoped<IValidator<UpdatePersonalInfoDto>, UpdatePersonalInfoDtoValidator>();
 builder.Services.AddScoped<IValidator<ChangeRankDto>, ChangeRankDtoValidator>();
 builder.Services.AddScoped<IValidator<ChangePositionDto>, ChangePositionDtoValidator>();
+builder.Services.AddScoped<IValidator<ChangeBzvpDto>, ChangeBzvpDtoValidator>();
 
 // Projector (stateless)
 builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();
@@ -62,7 +64,7 @@ builder.Services.AddScoped<ICommandHandler<ExcludeCommand>, ExcludeCommandHandle
 builder.Services.AddScoped<ICommandHandler<UpdatePersonalInfoCommand>, UpdatePersonalInfoCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ChangeRankCommand>, ChangeRankCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ChangePositionCommand>, ChangePositionCommandHandler>();
-
+builder.Services.AddScoped<ICommandHandler<ChangeBzvpCommand>, ChangeBzvpCommandHandler>();
 
 // Query handlers
 builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>, GetPersonsPageQueryHandler>();

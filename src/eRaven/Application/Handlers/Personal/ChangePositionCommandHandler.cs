@@ -2,20 +2,20 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ExcludeCommandHandler
+// PersonCard
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Commands;
-using eRaven.Application.Commands.PersonMove;
+using eRaven.Application.Commands.PersonInfo;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 
-namespace eRaven.Application.Handlers;
+namespace eRaven.Application.Handlers.Personal;
 
-public sealed class ExcludeCommandHandler(IPersonRepository repo)
-    : ICommandHandler<ExcludeCommand>
+public sealed class ChangePositionCommandHandler(IPersonRepository repo)
+    : ICommandHandler<ChangePositionCommand>
 {
     private readonly IPersonRepository _repo = repo;
 
-    public async Task HandleAsync(ExcludeCommand command, CancellationToken ct = default)
-        => await _repo.ExcludeAsync(command, ct);
+    public async Task HandleAsync(ChangePositionCommand command, CancellationToken ct = default)
+        => await _repo.ChangePositionAsync(cmd: command, ct: ct);
 }

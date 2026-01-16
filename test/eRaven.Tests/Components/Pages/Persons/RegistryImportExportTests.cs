@@ -11,6 +11,7 @@ using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
 using eRaven.Application.DTOs;
 using eRaven.Application.Queries;
+using eRaven.Application.Queries.Personal;
 using eRaven.Components.Pages.Persons.Registry.Drawers;
 using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
