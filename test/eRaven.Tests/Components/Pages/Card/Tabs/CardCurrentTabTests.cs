@@ -47,6 +47,57 @@ public sealed class CardCurrentTabTests : BunitContext
         Assert.Contains("Змінити позивний", actions.TextContent);
     }
 
+    [Fact]
+    public async Task Render_should_have_handlers_and_submit_should_invoke_OnReload()
+    {
+        // arrange
+        var person = CreatePerson();
+
+        var weaponHandler = new Mock<ICommandHandler<ChangeWeaponCommand>>(MockBehavior.Strict);
+        weaponHandler
+            .Setup(x => x.HandleAsync(It.IsAny<ChangeWeaponCommand>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var reloadCount = 0;
+        var onReload = EventCallback.Factory.Create(new object(), () => reloadCount++);
+
+        var cut = RenderSut(
+            person,
+            onReload: onReload,
+            changeWeapon: weaponHandler);
+
+        // ✅ smoke: DI handlers exist on component instance
+        Assert.NotNull(cut.Instance.UpdatePersonalInfoCommandHandler);
+        Assert.NotNull(cut.Instance.ChangeRankCommandHandler);
+        Assert.NotNull(cut.Instance.ChangePositionCommandHandler);
+        Assert.NotNull(cut.Instance.ChangeBzvpCommandHandler);
+        Assert.NotNull(cut.Instance.ChangeWeaponCommandHandler);
+        Assert.NotNull(cut.Instance.ChangeCallsignCommandHandler);
+
+        // ✅ callback parameter is реально підключений
+        Assert.True(cut.Instance.OnReload.HasDelegate);
+
+        Assert.NotNull(cut.Instance.Person);
+
+        // act: викликаємо callback drawer-а (це тригерить handler + ReloadParentAsync)
+        var dto = new ChangeWeaponDto
+        {
+            PersonId = person.Id,
+            EffectiveDate = new DateOnly(2026, 1, 13),
+            Weapon = "АК-74 №12345"
+        };
+
+        await cut.InvokeAsync(() =>
+            cut.FindComponent<ChangeWeaponDrawer>().Instance.OnChangeWeapon.InvokeAsync(dto));
+
+        // assert
+        weaponHandler.Verify(
+            x => x.HandleAsync(It.IsAny<ChangeWeaponCommand>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        Assert.Equal(1, reloadCount);
+    }
+
     // -------------------------
     // Click -> open drawer
     // -------------------------
