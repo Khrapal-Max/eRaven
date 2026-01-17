@@ -12,7 +12,6 @@ using eRaven.Application.DTOs;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
 using eRaven.Application.Validations.Personal;
-using eRaven.Components.Pages.Persons.Cards.Drawers;
 using eRaven.Components.Pages.Persons.Cards.Tabs;
 using eRaven.Presentation.Toasts;
 using FluentValidation;
