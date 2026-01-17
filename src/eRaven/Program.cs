@@ -5,7 +5,6 @@
 // Program
 //-----------------------------------------------------------------------------
 
-using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
@@ -23,7 +22,6 @@ using eRaven.Extensions;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Projectors;
 using eRaven.Infrastructure.Repositories.PersonRepository;
-using eRaven.Presentation;
 using eRaven.Presentation.Errors;
 using eRaven.Presentation.Toasts;
 using FluentValidation;

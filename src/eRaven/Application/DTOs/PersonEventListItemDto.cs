@@ -14,5 +14,6 @@ public sealed record PersonEventListItemDto(
     string Title,
     string? Details,
     string Author,
-    DateTime OccurredAtUtc
+    DateTime OccurredAtUtc,
+    bool IsVoided
 );

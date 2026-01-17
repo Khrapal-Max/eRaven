@@ -105,7 +105,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        if(Personal == personal)
+        if (Personal == personal)
             return;
 
         Raise(new PersonPersonalInfoUpdated(
@@ -128,7 +128,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        if(Rank == rank.Trim())
+        if (Rank == rank.Trim())
             return;
 
         Raise(new PersonRankChanged(
@@ -154,7 +154,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        if(Position == pos.Trim() && PositionSort == positionSort)
+        if (Position == pos.Trim() && PositionSort == positionSort)
             return;
 
         var evt = new PersonPositionChanged(
@@ -180,7 +180,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        if(BZVP == bzvp.Trim())
+        if (BZVP == bzvp.Trim())
             return;
 
         Raise(new PersonBzvpChanged(
@@ -201,7 +201,7 @@ public sealed class PersonAggregate
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("Author is required.", nameof(author));
 
-        if(Weapon == Normalize(weapon))
+        if (Weapon == Normalize(weapon))
             return;
 
         Raise(new PersonWeaponChanged(

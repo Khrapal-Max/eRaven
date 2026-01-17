@@ -18,6 +18,9 @@ public sealed class PersonEventPresenter(IEventJson eventJson) : IPersonEventPre
 
     private readonly IEventJson _eventJson = eventJson;
 
+    private readonly bool _isVoided = false;
+
+
     public PersonEventListItemDto ToListItem(PersonEventDto e)
     {
         var type = e.EventType ?? string.Empty;
@@ -30,7 +33,8 @@ public sealed class PersonEventPresenter(IEventJson eventJson) : IPersonEventPre
                 $"ПІБ: {ev.Personal.FullName}. " +
                 $"Звання: {ev.Rank}. " +
                 $"Планова посада: {ev.Position}.";
-            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc);
+            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc,
+            _isVoided);
         }
 
         if (type.EndsWith(nameof(PersonEnrolled), StringComparison.Ordinal))
@@ -43,7 +47,8 @@ public sealed class PersonEventPresenter(IEventJson eventJson) : IPersonEventPre
                 $"Підстава: {ev.Reason}. " +
                 $"Звання: {ev.Rank}. " +
                 $"Посада:: #{ev.PositionSort} {ev.Position}.";
-            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc);
+            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc,
+            _isVoided);
         }
 
         if (type.EndsWith(nameof(PersonExcluded), StringComparison.Ordinal))
@@ -52,7 +57,8 @@ public sealed class PersonEventPresenter(IEventJson eventJson) : IPersonEventPre
             var title = "Виключений з табеля";
             var details = ev is null ? "" :
                 $"Підстава: {ev.Reason}.";
-            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc);
+            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc,
+            _isVoided);
         }
 
         if (type.EndsWith(nameof(PersonPersonalInfoUpdated), StringComparison.Ordinal))
@@ -61,7 +67,8 @@ public sealed class PersonEventPresenter(IEventJson eventJson) : IPersonEventPre
             var title = "Оновлення персональної інфо";
             var details = ev is null ? "" : $"Оновлено на: {ev.Personal.Rnokpp} " +
                 $"{ev.Personal.FullName}" + (string.IsNullOrWhiteSpace(ev.Note) ? "" : $". {ev.Note}");
-            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc);
+            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc,
+            _isVoided);
         }
 
         if (type.EndsWith(nameof(PersonRankChanged), StringComparison.Ordinal))
@@ -69,7 +76,8 @@ public sealed class PersonEventPresenter(IEventJson eventJson) : IPersonEventPre
             var ev = _eventJson.TryDeserialize<PersonRankChanged>(e.PayloadJson);
             var title = "Зміна звання";
             var details = ev is null ? "" : $"На: {ev.Rank}" + (string.IsNullOrWhiteSpace(ev.Note) ? "" : $". {ev.Note}");
-            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc);
+            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc,
+            _isVoided);
         }
 
         if (type.EndsWith(nameof(PersonPositionChanged), StringComparison.Ordinal))
@@ -77,7 +85,8 @@ public sealed class PersonEventPresenter(IEventJson eventJson) : IPersonEventPre
             var ev = _eventJson.TryDeserialize<PersonPositionChanged>(e.PayloadJson);
             var title = "Зміна посади";
             var details = ev is null ? "" : $"На: #{ev.PositionSort}. {(ev.Position ?? "—")}" + (string.IsNullOrWhiteSpace(ev.Note) ? "" : $". {ev.Note}");
-            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc);
+            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc,
+            _isVoided);
         }
 
         if (type.EndsWith(nameof(PersonBzvpChanged), StringComparison.Ordinal))
@@ -85,7 +94,8 @@ public sealed class PersonEventPresenter(IEventJson eventJson) : IPersonEventPre
             var ev = _eventJson.TryDeserialize<PersonBzvpChanged>(e.PayloadJson);
             var title = "Оновлення БЗВП (ВОС/УБД)";
             var details = ev is null ? "" : $"{ev.Bzvp}" + (string.IsNullOrWhiteSpace(ev.Note) ? "" : $". {ev.Note}");
-            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc);
+            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc,
+            _isVoided);
         }
 
         if (type.EndsWith(nameof(PersonWeaponChanged), StringComparison.Ordinal))
@@ -93,7 +103,8 @@ public sealed class PersonEventPresenter(IEventJson eventJson) : IPersonEventPre
             var ev = _eventJson.TryDeserialize<PersonWeaponChanged>(e.PayloadJson);
             var title = "Оновлення зброї";
             var details = ev is null ? "" : (string.IsNullOrWhiteSpace(ev.Weapon) ? "Очищено" : $"Видано: {ev.Weapon}");
-            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc);
+            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc,
+            _isVoided);
         }
 
         if (type.EndsWith(nameof(PersonCallsignChanged), StringComparison.Ordinal))
@@ -101,15 +112,8 @@ public sealed class PersonEventPresenter(IEventJson eventJson) : IPersonEventPre
             var ev = _eventJson.TryDeserialize<PersonCallsignChanged>(e.PayloadJson);
             var title = "Зміна позивного";
             var details = ev is null ? "" : (string.IsNullOrWhiteSpace(ev.Callsign) ? "Очищено" : $"Новий позивний: {ev.Callsign}");
-            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc);
-        }
-
-        if (type.EndsWith(nameof(PersonEventVoided), StringComparison.Ordinal))
-        {
-            var ev = _eventJson.TryDeserialize<PersonEventVoided>(e.PayloadJson);
-            var title = "Відміна події";
-            var details = ev is null ? "" : $"ИД події: {ev.TargetEventId}. Причина: {ev.Reason}";
-            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc);
+            return new PersonEventListItemDto(e.Version, e.EventId, e.EffectiveDate, title, details, e.Author, e.OccurredAtUtc,
+            _isVoided);
         }
 
         // fallback
@@ -117,7 +121,9 @@ public sealed class PersonEventPresenter(IEventJson eventJson) : IPersonEventPre
             e.Version, e.EventId, e.EffectiveDate,
             Title: "Подія",
             Details: type,
-            e.Author, e.OccurredAtUtc);
+            e.Author,
+            e.OccurredAtUtc,
+            _isVoided);
     }
 
     private static string EnrollmentKindLabel(EnrollmentKind kind) => kind switch
