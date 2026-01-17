@@ -5,13 +5,16 @@
 // Program
 //-----------------------------------------------------------------------------
 
+using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs;
+using eRaven.Application.EventJson;
 using eRaven.Application.Handlers.Personal;
+using eRaven.Application.Presenter;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
 using eRaven.Application.Validations.Personal;
@@ -20,6 +23,7 @@ using eRaven.Extensions;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Projectors;
 using eRaven.Infrastructure.Repositories.PersonRepository;
+using eRaven.Presentation;
 using eRaven.Presentation.Errors;
 using eRaven.Presentation.Toasts;
 using FluentValidation;
@@ -39,6 +43,11 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 // Catalogs
 builder.Services.AddScoped<IRankCatalog, DefaultRankCatalog>();
 
+// Projector (stateless)
+builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();
+builder.Services.AddSingleton<IEventJson, EventJson>();
+builder.Services.AddScoped<IPersonEventPresenter, PersonEventPresenter>();
+
 // Validators
 builder.Services.AddScoped<IValidator<CreateReservedDto>, CreateReservedDtoValidator>();
 builder.Services.AddScoped<IValidator<EnrollDto>, EnrollDtoValidator>();
@@ -51,8 +60,7 @@ builder.Services.AddScoped<IValidator<ChangeBzvpDto>, ChangeBzvpDtoValidator>();
 builder.Services.AddScoped<IValidator<ChangeWeaponDto>, ChangeWeaponDtoValidator>();
 builder.Services.AddScoped<IValidator<ChangeCallsingDto>, ChangeCallsingDtoValidator>();
 
-// Projector (stateless)
-builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();
+builder.Services.AddSingleton<IValidator<VoidPersonEventDto>, VoidPersonEventDtoValidator>();
 
 // Repository
 builder.Services.AddScoped<IPersonRepository, PersonRepository>();
@@ -69,10 +77,12 @@ builder.Services.AddScoped<ICommandHandler<ChangePositionCommand>, ChangePositio
 builder.Services.AddScoped<ICommandHandler<ChangeBzvpCommand>, ChangeBzvpCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ChangeWeaponCommand>, ChangeWeaponCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ChangeCallsignCommand>, ChangeCallsignCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<VoidPersonEventCommand>, VoidPersonEventCommandHandler>();
 
 // Query handlers
 builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>, GetPersonsPageQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?>, GetPersonDetailsQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetPersonHistoryQuery, IReadOnlyList<PersonEventListItemDto>>, GetPersonHistoryQueryHandler>();
 
 // services
 builder.Services.AddScoped<ToastService>();
