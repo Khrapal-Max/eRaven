@@ -381,6 +381,9 @@ public sealed class PersonAggregate
 
     private void ResetStateForReplay()
     {
+        _changes.Clear();
+        _voidedEventIds.Clear();
+
         Id = Guid.Empty;
         Version = 0;
 
@@ -389,6 +392,7 @@ public sealed class PersonAggregate
 
         Rank = null;
         PositionSort = 0;
+        PositionSort = null;
         Position = null;
 
         BZVP = null;

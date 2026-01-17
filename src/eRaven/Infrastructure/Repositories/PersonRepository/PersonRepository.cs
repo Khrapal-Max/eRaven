@@ -287,6 +287,7 @@ public sealed class PersonRepository(
             .AsNoTracking()
             .Where(x => x.AggregateId == id)
             .OrderBy(x => x.Version)
+            .ThenBy(x => x.EventId)
             .ToListAsync(ct);
 
         if (records.Count == 0)
