@@ -9,7 +9,7 @@ using Bunit;
 using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonInfo;
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Application.Validations.Personal;
 using eRaven.Components.Pages.Persons.Cards;
 using eRaven.Components.Pages.Persons.Cards.Drawers;

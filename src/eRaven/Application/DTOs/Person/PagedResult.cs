@@ -2,16 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonEventDto
+// PagedResult
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs;
+namespace eRaven.Application.DTOs.Person;
 
-public sealed record PersonEventDto(
-    long Version,
-    Guid EventId,
-    string EventType,
-    string PayloadJson,
-    string Author,
-    DateTime OccurredAtUtc,
-    DateOnly? EffectiveDate);
+// ====== Paging ======
+
+public sealed record PagedResult<T>(
+    IReadOnlyList<T> Items,
+    int Page,
+    int PageSize,
+    int TotalCount);

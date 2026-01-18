@@ -5,7 +5,7 @@
 // VoidEventDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs;
+namespace eRaven.Application.DTOs.Person;
 
 public sealed class VoidPersonEventDto
 {

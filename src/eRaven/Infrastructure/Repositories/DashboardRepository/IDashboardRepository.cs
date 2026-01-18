@@ -2,14 +2,14 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ChangeWeaponDto
+// IDashboardRepository
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Dashboard;
 
-public class ChangeWeaponDto
+namespace eRaven.Infrastructure.Repositories.DashboardRepository;
+
+public interface IDashboardRepository
 {
-    public Guid PersonId { get; set; }
-    public DateOnly EffectiveDate { get; set; }
-    public string? Weapon { get; set; }
+    Task<PersonnelDashboardSnapshot> GetPersonnelDashboardAsync(CancellationToken ct = default);
 }

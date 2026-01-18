@@ -2,19 +2,16 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CreateReservedDto
+// ChangePositionDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs;
+namespace eRaven.Application.DTOs.Person;
 
-public sealed class CreateReservedDto
+public class ChangePositionDto
 {
-    public string Rnokpp { get; set; } = string.Empty;
-    public string LastName { get; set; } = string.Empty;
-    public string FirstName { get; set; } = string.Empty;
-    public string? MiddleName { get; set; }
-
-    public string? Rank { get; set; }
-    public int PositionSort { get; set; } = 0;
+    public Guid PersonId { get; set; }
+    public DateOnly EffectiveDate { get; set; }
+    public int? PositionSort { get; set; }
     public string? Position { get; set; }
+    public string? Note { get; set; }
 }

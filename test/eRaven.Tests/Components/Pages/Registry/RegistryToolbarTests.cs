@@ -6,7 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using Bunit;
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Components.Pages.Persons.Registry;
 using eRaven.Domain.Enums;
 using Microsoft.AspNetCore.Components;

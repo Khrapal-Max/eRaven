@@ -6,7 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using Bunit;
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Components.Pages.Persons.Cards;
 using eRaven.Domain.Enums;
 

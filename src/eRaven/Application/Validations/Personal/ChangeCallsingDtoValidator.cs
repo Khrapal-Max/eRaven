@@ -5,7 +5,7 @@
 // ChangeCallsingDtoValidator
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using FluentValidation;
 
 namespace eRaven.Application.Validations.Personal;

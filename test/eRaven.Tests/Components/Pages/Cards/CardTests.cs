@@ -7,7 +7,7 @@
 
 using Bunit;
 using Bunit.TestDoubles;
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
 using eRaven.Components.Pages.Persons.Cards;

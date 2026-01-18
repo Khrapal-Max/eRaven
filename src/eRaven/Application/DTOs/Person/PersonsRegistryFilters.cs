@@ -2,16 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ChangePositionDto
+// PersonsRegistryFilters
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs;
+using eRaven.Domain.Enums;
 
-public class ChangePositionDto
-{
-    public Guid PersonId { get; set; }
-    public DateOnly EffectiveDate { get; set; }
-    public int? PositionSort { get; set; }
-    public string? Position { get; set; }
-    public string? Note { get; set; }
-}
+namespace eRaven.Application.DTOs.Person;
+
+public sealed record PersonsRegistryFilters(
+    PersonLifecycle? Lifecycle = null,
+    EnrollmentKind? EnrollmentKind = null,
+    string? Search = null
+);

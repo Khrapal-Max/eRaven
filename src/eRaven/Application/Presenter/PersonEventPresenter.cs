@@ -5,7 +5,7 @@
 // PersonEventPresenter
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Application.EventJson;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Events.PersonEvents.Info;

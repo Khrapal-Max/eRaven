@@ -2,14 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ChangeCallsingDto
+// PersonnelDashboardDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs;
+namespace eRaven.Application.DTOs.Dashboard;
 
-public class ChangeCallsingDto
-{
-    public Guid PersonId { get; set; }
-    public DateOnly EffectiveDate { get; set; }
-    public string? Callsign { get; set; }
-}
+public sealed record PersonnelDashboardDto(
+    int TotalInTimesheet,
+    int TimesheetUnit,
+    int TimesheetOrder,
+    int TimesheetBr,
+    DateTime GeneratedAtUtc
+);

@@ -8,8 +8,8 @@
 using ClosedXML.Excel;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
-using eRaven.Application.DTOs;
 using eRaven.Application.DTOs.Excel;
+using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
 using eRaven.Domain.Enums;

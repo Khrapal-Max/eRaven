@@ -8,7 +8,7 @@
 using Bunit;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonMove;
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
 using eRaven.Application.Validations.Personal;

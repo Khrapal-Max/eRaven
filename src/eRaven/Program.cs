@@ -10,17 +10,21 @@ using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Dashboard;
+using eRaven.Application.DTOs.Person;
 using eRaven.Application.EventJson;
+using eRaven.Application.Handlers.Dashboard;
 using eRaven.Application.Handlers.Personal;
 using eRaven.Application.Presenter;
 using eRaven.Application.Queries;
+using eRaven.Application.Queries.Dashboard;
 using eRaven.Application.Queries.Personal;
 using eRaven.Application.Validations.Personal;
 using eRaven.Components;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Projectors;
+using eRaven.Infrastructure.Repositories.DashboardRepository;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 using eRaven.Presentation.Errors;
 using eRaven.Presentation.Toasts;
@@ -62,6 +66,7 @@ builder.Services.AddSingleton<IValidator<VoidPersonEventDto>, VoidPersonEventDto
 
 // Repository
 builder.Services.AddScoped<IPersonRepository, PersonRepository>();
+builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 
 // Command handlers
 builder.Services.AddScoped<ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult>, BootstrapPersonsCommandHandler>();
@@ -81,6 +86,7 @@ builder.Services.AddScoped<ICommandHandler<VoidPersonEventCommand>, VoidPersonEv
 builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>, GetPersonsPageQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?>, GetPersonDetailsQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<GetPersonHistoryQuery, IReadOnlyList<PersonEventListItemDto>>, GetPersonHistoryQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetPersonnelDashboardQuery, PersonnelDashboardDto>, GetPersonnelDashboardQueryHandler>();
 
 // services
 builder.Services.AddScoped<ToastService>();

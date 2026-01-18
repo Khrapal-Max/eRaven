@@ -5,7 +5,7 @@
 // PersonEventListItemDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs;
+namespace eRaven.Application.DTOs.Person;
 
 public sealed record PersonEventListItemDto(
     long Version,

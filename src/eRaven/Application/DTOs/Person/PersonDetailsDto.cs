@@ -7,7 +7,7 @@
 
 using eRaven.Domain.Enums;
 
-namespace eRaven.Application.DTOs;
+namespace eRaven.Application.DTOs.Person;
 
 public sealed record PersonDetailsDto(
     Guid Id,

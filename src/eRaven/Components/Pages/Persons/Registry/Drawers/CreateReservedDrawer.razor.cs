@@ -6,7 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Catalogs.Ranks;
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;

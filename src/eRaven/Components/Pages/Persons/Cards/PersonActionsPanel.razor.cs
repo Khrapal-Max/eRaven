@@ -5,7 +5,7 @@
 // PersonSnapshotPanel
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Persons.Cards;

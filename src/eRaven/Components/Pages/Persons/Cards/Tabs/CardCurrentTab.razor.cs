@@ -7,7 +7,7 @@
 
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonInfo;
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Persons.Cards.Tabs;

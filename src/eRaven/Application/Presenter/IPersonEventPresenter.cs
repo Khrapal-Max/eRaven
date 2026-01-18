@@ -5,7 +5,7 @@
 // IPersonEventPresenter
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 
 namespace eRaven.Application.Presenter;
 

@@ -5,7 +5,7 @@
 // RegistryToolbar
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Domain.Enums;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;

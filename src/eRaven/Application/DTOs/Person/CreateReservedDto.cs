@@ -1,0 +1,20 @@
+﻿//-----------------------------------------------------------------------------
+// All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+// CreateReservedDto
+//-----------------------------------------------------------------------------
+
+namespace eRaven.Application.DTOs.Person;
+
+public sealed class CreateReservedDto
+{
+    public string Rnokpp { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string FirstName { get; set; } = string.Empty;
+    public string? MiddleName { get; set; }
+
+    public string? Rank { get; set; }
+    public int PositionSort { get; set; } = 0;
+    public string? Position { get; set; }
+}

@@ -5,7 +5,7 @@
 // GetPersonalHistoriesQueryHandlers
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Application.EventJson;
 using eRaven.Application.Presenter;
 using eRaven.Application.Queries;

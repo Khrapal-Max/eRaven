@@ -6,7 +6,7 @@
 //-----------------------------------------------------------------------------
 
 
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Application.Handlers.Personal;
 using eRaven.Application.Queries.Personal;
 using eRaven.Domain.Enums;

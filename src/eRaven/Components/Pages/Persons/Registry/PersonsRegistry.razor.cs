@@ -7,11 +7,13 @@
 
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonMove;
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
+using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace eRaven.Components.Pages.Persons.Registry;
 
@@ -61,12 +63,25 @@ public partial class PersonsRegistry
     private bool IsPrevDisabled => _loading || _page <= 1;
     private bool IsNextDisabled => _loading || _page >= TotalPages;
 
+    // track uri changes for query-string filters
+    private string _lastUri = "";
+
     // =========================
     // Lifecycle
     // =========================
 
-    protected override async Task OnInitializedAsync()
-        => await ReloadAsync();
+    protected override async Task OnParametersSetAsync()
+    {
+        // якщо Uri не змінився — нічого не робимо, щоб не було зайвих перезавантажень
+        if (string.Equals(_lastUri, Nav.Uri, StringComparison.Ordinal))
+            return;
+
+        _lastUri = Nav.Uri;
+
+        ApplyFiltersFromQueryString();
+        _page = 1;
+        await ReloadAsync();
+    }
 
     // =========================
     // Data loading
@@ -99,6 +114,9 @@ public partial class PersonsRegistry
     {
         _filters = f;
         _page = 1;
+
+        // (опційно) якщо хочеш синхронізувати фільтри з URL — тут можна робити NavigateTo з query-string,
+        // але зараз не чіпаємо, щоб не ускладнювати.
         await ReloadAsync();
     }
 
@@ -257,5 +275,24 @@ public partial class PersonsRegistry
         if (IsNextDisabled) return;
         _page++;
         await ReloadAsync();
+    }
+
+    private void ApplyFiltersFromQueryString()
+    {
+        // Важливо: стартуємо з чистого state, щоб “старі” фільтри не прилипали
+        var f = new PersonsRegistryFilters();
+
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var qs = QueryHelpers.ParseQuery(uri.Query);
+
+        if (qs.TryGetValue("lifecycle", out var lifecycleStr) &&
+            Enum.TryParse<PersonLifecycle>(lifecycleStr, ignoreCase: true, out var lifecycle))
+            f = f with { Lifecycle = lifecycle };
+
+        if (qs.TryGetValue("enrollmentKind", out var kindStr) &&
+            Enum.TryParse<EnrollmentKind>(kindStr, ignoreCase: true, out var kind))
+            f = f with { EnrollmentKind = kind };
+
+        _filters = f;
     }
 }

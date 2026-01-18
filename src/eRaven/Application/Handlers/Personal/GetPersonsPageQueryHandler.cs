@@ -5,7 +5,7 @@
 // GetPersonsPageQueryHandler
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
 using eRaven.Infrastructure.Repositories.PersonRepository;

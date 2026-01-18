@@ -2,21 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonListItemDto
+// ChangeBzvpDto
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+namespace eRaven.Application.DTOs.Person;
 
-namespace eRaven.Application.DTOs;
-
-public sealed record PersonListItemDto(
-    Guid Id,
-    string FullName,
-    string Rnokpp,
-    PersonLifecycle Lifecycle,
-    string? Rank,
-    string? Position,
-    EnrollmentKind? EnrollmentKind,
-    DateOnly? EnrolledAt,
-    DateOnly? ExcludedAt,
-    DateTime UpdatedAtUtc);
+public class ChangeBzvpDto
+{
+    public Guid PersonId { get; set; }
+    public DateOnly EffectiveDate { get; set; }
+    public string Bzvp { get; set; } = string.Empty;
+    public string? Note { get; set; }
+}

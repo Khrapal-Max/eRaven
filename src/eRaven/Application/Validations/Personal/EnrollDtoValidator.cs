@@ -5,7 +5,7 @@
 // EnrollCommandValidator
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Domain.Enums;
 using FluentValidation;
 

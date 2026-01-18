@@ -2,15 +2,14 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonsRegistryFilters
+// ExcludeDto
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+namespace eRaven.Application.DTOs.Person;
 
-namespace eRaven.Application.DTOs;
-
-public sealed record PersonsRegistryFilters(
-    PersonLifecycle? Lifecycle = null,
-    EnrollmentKind? EnrollmentKind = null,
-    string? Search = null
-);
+public sealed class ExcludeDto
+{
+    public Guid Id { get; set; }
+    public DateOnly EffectiveDate { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow);
+    public string Reason { get; set; } = string.Empty;
+}

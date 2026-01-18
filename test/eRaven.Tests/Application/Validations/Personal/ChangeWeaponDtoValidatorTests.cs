@@ -5,7 +5,7 @@
 // ChangeWeaponDtoValidatorTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Application.Validations.Personal;
 using FluentValidation.TestHelper;
 

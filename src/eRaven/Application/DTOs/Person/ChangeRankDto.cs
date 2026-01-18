@@ -2,15 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PagedResult
+// ChangeRankDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs;
+namespace eRaven.Application.DTOs.Person;
 
-// ====== Paging ======
-
-public sealed record PagedResult<T>(
-    IReadOnlyList<T> Items,
-    int Page,
-    int PageSize,
-    int TotalCount);
+public class ChangeRankDto
+{
+    public Guid PersonId { get; set; }
+    public DateOnly EffectiveDate { get; set; }
+    public string Rank { get; set; } = string.Empty;
+    public string? Note { get; set; }
+}

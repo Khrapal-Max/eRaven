@@ -2,14 +2,17 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ExcludeDto
+// ChangePersonalInfoDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs;
+namespace eRaven.Application.DTOs.Person;
 
-public sealed class ExcludeDto
+public class UpdatePersonalInfoDto
 {
-    public Guid Id { get; set; }
-    public DateOnly EffectiveDate { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow);
-    public string Reason { get; set; } = string.Empty;
+    public Guid PersonId { get; set; }
+    public string Rnokpp { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string FirstName { get; set; } = string.Empty;
+    public string? MiddleName { get; set; }
+    public string? Note { get; set; }
 }

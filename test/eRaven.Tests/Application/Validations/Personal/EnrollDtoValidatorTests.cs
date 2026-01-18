@@ -5,7 +5,7 @@
 // EnrollDtoValidatorTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Application.Validations.Personal;
 using eRaven.Domain.Enums;
 using FluentValidation.TestHelper;

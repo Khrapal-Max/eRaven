@@ -6,7 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using Bunit;
-using eRaven.Application.DTOs;
+using eRaven.Application.DTOs.Person;
 using eRaven.Components.Pages.Persons.Cards.Drawers;
 using eRaven.Presentation.Toasts;
 using FluentValidation;
