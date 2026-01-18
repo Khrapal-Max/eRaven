@@ -1,0 +1,29 @@
+﻿@using eRaven.Application.DTOs
+
+<div class="border px-3 py-2 d-flex flex-wrap align-items-center gap-2">
+
+    <!-- Left: name + rnokpp + lifecycle -->
+    <div class="d-flex flex-wrap align-items-center gap-2 me-auto min-w-0">
+        <div class="fw-semibold text-truncate">
+            @Person.FullName
+        </div>
+
+        <div class="small text-nowrap">
+            РНОКПП: <span class="font-monospace">@Person.Rnokpp</span>
+        </div>
+
+        <div class="text-nowrap">
+            @LifecycleBadge(Person.Lifecycle)
+        </div>
+    </div>
+
+    <!-- Right: id + back -->
+    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+        <span class="small">ID:</span>
+        <span class="font-monospace small">@PersonId</span>
+
+        <Button Class="btn-sm btn-primary rounded-0"
+                Label="← Назад"
+                OnClickButton="Back" />
+    </div>
+</div>

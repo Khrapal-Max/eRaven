@@ -1,0 +1,100 @@
+﻿@using eRaven.Application.DTOs
+@using eRaven.Application.DTOs.Person
+@using eRaven.Components.Shared.Table
+@using eRaven.Domain.Enums
+
+<Table TItem="PersonListItemDto"
+       Items="Items"
+       KeySelector="x => x.Id"
+       @bind-SelectedItem="Selected"
+       OnClick="OnRowClick">
+    <TableHeader>
+        <th>СТ.</th>
+        <th>ПІБ</th>
+        <th>РНОКПП</th>
+        <th>Статус</th>
+        <th>Звання</th>
+        <th>Посада</th>
+        <th>Оновлено</th>
+        <th class="text-end" style="width:1%"></th>
+    </TableHeader>
+
+    <RowTemplate Context="p">
+        <td class="small text-nowrap p-0">
+            @EnrollmentKindBadge(p.EnrollmentKind)
+        </td>
+        <td class="small text-truncate p-0">@p.FullName</td>
+        <td class="small p-0">@p.Rnokpp</td>
+        <td>
+            @LifecycleBadge(p.Lifecycle, p.ExcludedAt)
+        </td>
+        <td class="small p-0">@(p.Rank ?? "—")</td>
+
+        <td class="p-0">
+            <div class="d-inline-block small text-truncate" title="@p.Position" style="max-width: 450px;">
+                <span>@(string.IsNullOrWhiteSpace(p.Position) ? "—" : p.Position)</span>
+            </div>
+
+            @if (p.Lifecycle == PersonLifecycle.Enrolled && p.EnrolledAt is not null)
+            {
+                <div class="small">зарах.: @p.EnrolledAt.Value.ToString("dd.MM.yyyy")</div>
+            }
+
+            @if (p.Lifecycle == PersonLifecycle.Reserved && p.ExcludedAt is not null)
+            {
+                <div class="small p-0">викл.: @p.ExcludedAt.Value.ToString("dd.MM.yyyy")</div>
+            }
+        </td>
+
+        <td class="small text-nowrap p-0">@p.UpdatedAtUtc.ToLocalTime().ToString("dd-MM-yyyy HH:mm")</td>
+
+        <td class="text-end">
+            <div class="dropdown">
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary dropdown-toggle p-0"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                        title="Дії"
+                        @onclick:stopPropagation="true">
+                    ⋯
+                </button>
+
+                <ul class="dropdown-menu dropdown-menu-end border border-secondary">
+                    <li>
+                        <div @onclick:stopPropagation="true">
+                            <Button Class="dropdown-item d-flex justify-content-between align-items-center action-card"
+                                    OnClickButton="() => OpenCard(p)">
+                                <span class="fw-semibold">Відкрити картку</span>
+                                <span class="badge bg-dark mx-1">C</span>
+                            </Button>
+                        </div>
+                    </li>
+
+                    <li><hr class="dropdown-divider border border-secondary" /></li>
+
+                    <li>
+                        <div @onclick:stopPropagation="true">
+                            <Button Class="dropdown-item d-flex justify-content-between align-items-center action-enroll"
+                                    IsDisabled="@(p.Lifecycle == PersonLifecycle.Enrolled)"
+                                    OnClickButton="() => Enroll(p)">
+                                <span class="fw-semibold">Зарахувати в табель</span>
+                                <span class="badge bg-success mx-1">T</span>
+                            </Button>
+                        </div>
+                    </li>
+
+                    <li>
+                        <div @onclick:stopPropagation="true">
+                            <Button Class="dropdown-item d-flex justify-content-between align-items-center action-exclude"
+                                    IsDisabled="@(p.Lifecycle != PersonLifecycle.Enrolled)"
+                                    OnClickButton="() => Exclude(p)">
+                                <span class="fw-semibold">Виключити з табеля</span>
+                                <span class="badge bg-danger mx-1">T</span>
+                            </Button>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </td>
+    </RowTemplate>
+</Table>

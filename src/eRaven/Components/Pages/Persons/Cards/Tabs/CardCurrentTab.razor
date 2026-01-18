@@ -1,0 +1,47 @@
+﻿@using eRaven.Application.DTOs
+
+<div class="row g-3">
+    <div class="col-12 col-lg-10">
+        <PersonSnapshotPanel Person="Person" />
+    </div>
+
+    <div class="col-12 col-lg-2">
+        <PersonActionsPanel Person="Person"
+                            OnOpenPersonal="OpenPersonalInfo"
+                            OnOpenRank="OpenRank"
+                            OnOpenPosition="OpenPosition"
+                            OnOpenBZVP="OpenBzvp"
+                            OnOpenWeapon="OpenWeapon"
+                            OnOpenCallsing="OpenCallsing" />
+    </div>
+</div>
+
+<UpdatePersonalInfoDrawer IsOpen="_personalOpen"
+                          IsOpenChanged="@(v => _personalOpen = v)"
+                          Person="Person"
+                          OnUpdatePersonal="HandlePersonalInfoSubmitAsync" />
+
+<ChangeRankDrawer IsOpen="_rankOpen"
+                  IsOpenChanged="@(v => _rankOpen = v)"
+                  Person="Person"
+                  OnChangeRank="HandleRankSubmitAsync" />
+
+<ChangePositionDrawer IsOpen="_positionOpen"
+                      IsOpenChanged="@(v => _positionOpen = v)"
+                      Person="Person"
+                      OnChangePosition="HandlePositionSubmitAsync" />
+
+<ChangeBzvpDrawer IsOpen="_bzvpOpen"
+                  IsOpenChanged="@(v => _bzvpOpen = v)"
+                  Person="Person"
+                  OnChangeBzvp="HandleBzvpSubmitAsync" />
+
+<ChangeWeaponDrawer IsOpen="_weaponOpen"
+                    IsOpenChanged="@(v => _weaponOpen = v)"
+                    Person="Person"
+                    OnChangeWeapon="HandleWeaponSubmitAsync" />
+
+<ChangeCallsingDrawer IsOpen="_callsingOpen"
+                      IsOpenChanged="@(v => _callsingOpen = v)"
+                      Person="Person"
+                      OnChangeCallsing="HandleCallsingSubmitAsync" />

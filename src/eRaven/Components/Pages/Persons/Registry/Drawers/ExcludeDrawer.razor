@@ -1,0 +1,104 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@using eRaven.Application.DTOs
+@using eRaven.Application.Queries
+@using eRaven.Components.Shared.Validation
+@using eRaven.Components.Shared.Drawer
+
+<Drawer Title="Виключення з табеля"
+        IsOpen="@IsOpen"
+        IsOpenChanged="@IsOpenChanged"
+        DisableClose="@_busy"
+        OnClosed="OnDrawerClosed">
+
+    <ChildContent>
+        @if (IsOpen)
+        {
+            @if (_loading)
+            {
+                <div class="px-2"><em>Завантаження...</em></div>
+            }
+            else if (_person is null)
+            {
+                <div class="alert alert-warning rounded-0 mb-0">
+                    Не знайдено особу або неможливо завантажити дані.
+                </div>
+            }
+            else
+            {
+                <div class="drawer-grow">
+
+                    <!-- коротка картка -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-start w-100 gap-3">
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="fw-semibold text-truncate">@_person.FullName</div>
+
+                                <div class="small">
+                                    РНОКПП: <span class="font-monospace">@_person.Rnokpp</span>
+                                    @if (_person.EnrolledAt is not null)
+                                    {
+                                        <span>· В табелі з: @_person.EnrolledAt.Value.ToString("dd.MM.yyyy")</span>
+                                    }
+                                    @if (_person.ExcludedAt is not null)
+                                    {
+                                        <span>· по: @_person.ExcludedAt.Value.ToString("dd.MM.yyyy")</span>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="small text-end text-nowrap">
+                                <div>ID: <span class="font-monospace">@_person.Id</span></div>
+                                <div>Оновлено: @_person.UpdatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                            </div>
+                        </div>
+
+                        <div class="small">
+                            Поточні дані:
+                            звання: <span class="ms-1">@(_person.Rank ?? "—")</span> ·
+                            посада: <span class="ms-1">@(_person.Position ?? "—")</span>
+                        </div>
+                    </div>
+
+                    <EditForm EditContext="@_editContext"
+                              OnValidSubmit="SubmitAsync"
+                              id="exclude-form">
+
+                        <FluentValidationValidator />
+
+                        <div class="row g-2">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label mb-1">Дата виключення</label>
+                                <InputDate class="form-control rounded-0 bg-light-subtle text-white"
+                                           @bind-Value="Model.EffectiveDate" />
+                                <ValidationMessage For="@(() => Model.EffectiveDate)" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label mb-1">Підстава</label>
+                                <InputTextArea class="form-control rounded-0"
+                                               @bind-Value="Model.Reason"
+                                               rows="4" />
+                                <ValidationMessage For="@(() => Model.Reason)" />
+                            </div>
+                        </div>
+                    </EditForm>
+                </div>
+            }
+        }
+    </ChildContent>
+
+    <FooterContent>
+        <Button Class="btn-outline-secondary rounded-0"
+                Label="Скасувати"
+                IsDisabled="@_busy"
+                OnClickButton="OnCancel" />
+
+        <button type="submit"
+                form="exclude-form"
+                class="btn btn-danger rounded-0"
+                @attributes="SubmitAttrs">
+            Виключити
+        </button>
+    </FooterContent>
+
+</Drawer>

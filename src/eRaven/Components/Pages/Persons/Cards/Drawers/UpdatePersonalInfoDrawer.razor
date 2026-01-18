@@ -1,0 +1,78 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@using eRaven.Application.DTOs
+@using eRaven.Components.Shared.Validation
+@using eRaven.Components.Shared.Drawer
+
+<Drawer Title="Оновлення персональних даних"
+        IsOpen="@IsOpen"
+        IsOpenChanged="@IsOpenChanged"
+        DisableClose="@_busy"
+        OnClosed="OnDrawerClosed">
+
+    <ChildContent>
+        @if (IsOpen)
+        {
+            <EditForm EditContext="@_editContext"
+                      OnValidSubmit="OnUpdateAsync"
+                      id="update-personal-form">
+
+                <FluentValidationValidator />
+
+                <div class="drawer-grow">
+                    <h6 class="mb-3">Основні дані</h6>
+
+                    <div class="row g-2">
+                        <div class="col-12 col-md-4">
+                            <label class="form-label mb-1">РНОКПП (10 цифр)</label>
+                            <InputText class="form-control rounded-0" @bind-Value="Model.Rnokpp" />
+                            <ValidationMessage For="@(() => Model.Rnokpp)" />
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label class="form-label mb-1">Прізвище</label>
+                            <InputText class="form-control rounded-0" @bind-Value="Model.LastName" />
+                            <ValidationMessage For="@(() => Model.LastName)" />
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label class="form-label mb-1">Ім’я</label>
+                            <InputText class="form-control rounded-0" @bind-Value="Model.FirstName" />
+                            <ValidationMessage For="@(() => Model.FirstName)" />
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label class="form-label mb-1">По батькові (опц.)</label>
+                            <InputText class="form-control rounded-0" @bind-Value="Model.MiddleName" />
+                            <ValidationMessage For="@(() => Model.MiddleName)" />
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+
+                <div class="row g-2">
+                    <div class="col-12">
+                        <label class="form-label mb-1">Замітка (опц.)</label>
+                        <InputText class="form-control rounded-0" @bind-Value="Model.Note" />
+                        <ValidationMessage For="@(() => Model.Note)" />
+                    </div>
+                </div>
+            </EditForm>
+        }
+    </ChildContent>
+
+    <FooterContent>
+        <Button Class="btn-outline-secondary rounded-0"
+                Label="Скасувати"
+                IsDisabled="@_busy"
+                OnClickButton="OnCancel" />
+
+        <!-- ✅ тільки submit, без @onclick -->
+        <button type="submit"
+                form="update-personal-form"
+                class="btn btn-primary rounded-0"
+                disabled="@_busy">
+            Оновити
+        </button>
+    </FooterContent>
+</Drawer>

@@ -1,0 +1,175 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@using eRaven.Application.DTOs
+@using eRaven.Application.Queries
+@using eRaven.Components.Shared.Validation
+@using eRaven.Components.Shared.Drawer
+@using eRaven.Domain.Enums
+
+<Drawer Title="Зарахування в табель"
+        IsOpen="@IsOpen"
+        IsOpenChanged="@IsOpenChanged"
+        DisableClose="@_busy"
+        OnClosed="OnDrawerClosed">
+
+    <ChildContent>
+        @if (IsOpen)
+        {
+            @if (_loading)
+            {
+                <div class="px-2"><em>Завантаження...</em></div>
+            }
+            else if (_person is null)
+            {
+                <div class="alert alert-warning rounded-0 mb-0">
+                    Не знайдено особу або неможливо завантажити дані.
+                </div>
+            }
+            else
+            {
+                <div class="drawer-grow">
+                    <!-- поточна "картка" Reserved -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-start w-100 gap-3">
+
+                            <!-- Left -->
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="fw-semibold text-truncate">@_person.FullName</div>
+
+                                <div class="small">
+                                    РНОКПП: <span class="font-monospace">@_person.Rnokpp</span>
+                                    @if (_person.EnrolledAt is not null)
+                                    {
+                                        <span>· В табелі з: @_person.EnrolledAt.Value.ToString("dd.MM.yyyy")</span>
+                                    }
+                                    @if (_person.ExcludedAt is not null)
+                                    {
+                                        <span>· по: @_person.ExcludedAt.Value.ToString("dd.MM.yyyy")</span>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Right -->
+                            <div class="small text-end text-nowrap">
+                                <div>ID: <span class="font-monospace">@_person.Id</span></div>
+                                <div>Оновлено: @_person.UpdatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                            </div>
+
+                        </div>
+
+                        <div class="small">
+                            Поточні дані:
+                            звання: <span class="ms-1">@(_person.Rank ?? "—")</span> ·
+                            посада: <span class="ms-1">@(_person.Position ?? "—")</span> ·
+                            БЗВП: <span class="ms-1">@(_person.Bzvp ?? "—")</span> ·
+                            зброя: <span class="ms-1">@(_person.Weapon ?? "—")</span> ·
+                            позивний: <span class="ms-1">@(_person.Callsign ?? "—")</span>
+                        </div>
+                    </div>
+
+                    <EditForm EditContext="@_editContext"
+                              OnValidSubmit="SubmitAsync"
+                              id="enroll-form">
+
+                        <FluentValidationValidator />
+
+                        <div class="row g-2">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label mb-1">Тип зарахування</label>
+                                <InputSelect class="form-select rounded-0"
+                                             @bind-Value="Model.Kind"
+                                             @bind-Value:after="OnKindAfterChanged">
+                                    @foreach (var k in _kinds)
+                                    {
+                                        <option value="@k">@KindTitle(k)</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="@(() => Model.Kind)" />
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label mb-1">Номер/посилання (опц.)</label>
+                                <InputText class="form-control rounded-0" @bind-Value="Model.Reference" />
+                                <ValidationMessage For="@(() => Model.Reference)" />
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label mb-1">Дата зарахування</label>
+                                <InputDate class="form-control rounded-0 bg-light-subtle text-white" @bind-Value="Model.EnrollDate" />
+                                <ValidationMessage For="@(() => Model.EnrollDate)" />
+                            </div>
+                           
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">Звання</label>
+
+                                <div class="dropdown w-100">
+                                    <button class="btn btn-outline-secondary dropdown-toggle w-100 text-truncate"
+                                            type="button"
+                                            data-bs-toggle="dropdown"
+                                            aria-expanded="false">
+                                        @(string.IsNullOrWhiteSpace(Model.Rank) ? "— оберіть звання —" : Model.Rank)
+                                    </button>
+
+                                    <ul class="dropdown-menu border w-100 overflow-auto" style="max-height: 30vh;">
+                                        @foreach (var title in _ranks)
+                                        {
+                                            <li>
+                                                <Button Class="dropdown-item"
+                                                        Label="@title.Title"
+                                                        OnClickButton="() => SelectRank(title.Title)" />
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+
+                                <ValidationMessage For="@(() => Model.Rank)" />
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label mb-1">Порядок посади</label>
+
+                                <InputNumber class="form-control rounded-0"
+                                             @bind-Value="Model.PositionSort"
+                                             disabled="@(!IsUnitKind)" />
+
+                                @if (!IsUnitKind)
+                                {
+                                    <div class="small text-primary fw-bold mt-1">
+                                        Для приряджених встановлюється автоматично: <span class="font-monospace">9999</span>
+                                    </div>
+                                }
+
+                                <ValidationMessage For="@(() => Model.PositionSort)" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label mb-1">Посада</label>
+                                <InputText class="form-control rounded-0" @bind-Value="Model.Position" />
+                                <ValidationMessage For="@(() => Model.Position)" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label mb-1">Підстава</label>
+                                <InputTextArea class="form-control rounded-0" @bind-Value="Model.Reason" rows="3" />
+                                <ValidationMessage For="@(() => Model.Reason)" />
+                            </div>
+                        </div>
+                    </EditForm>
+                </div>
+            }
+        }
+    </ChildContent>
+
+    <FooterContent>
+        <Button Class="btn-outline-secondary rounded-0"
+                Label="Скасувати"
+                IsDisabled="@_busy"
+                OnClickButton="OnCancel" />
+
+        <button type="submit"
+                form="enroll-form"
+                class="btn btn-primary rounded-0"
+                @attributes="SubmitAttrs">
+            Зарахувати
+        </button>
+    </FooterContent>
+</Drawer>

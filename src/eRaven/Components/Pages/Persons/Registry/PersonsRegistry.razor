@@ -1,0 +1,71 @@
+﻿@page "/persons"
+@using eRaven.Application.DTOs
+@using eRaven.Components.Pages.Persons.Registry.Drawers
+
+<div class="page-flex">
+
+    <RegistryToolbar Value="_filters"
+                     ValueChanged="OnFiltersChanged"
+                     OnCreateReserved="OpenCreateReserved"
+                     OnOpenImportExport="OpenImportExport" />
+
+    <RegistryImportExport IsOpen="_importExportOpen"
+                          IsOpenChanged="@(v => _importExportOpen = v)"
+                          Filters="_filters"
+                          OnImported="HandleImportedAsync" />
+
+    <div class="page-content">
+        @if (_loading)
+        {
+            <p class="px-3"><em>Завантаження...</em></p>
+        }
+        else if (_pageData.Items.Count == 0)
+        {
+            <p class="px-3"><em>Записів немає.</em></p>
+        }
+        else
+        {
+            <PersonsTable Items="_pageData.Items"
+                          Selected="@_selected"
+                          SelectedChanged="@(v => _selected = v)"
+                          OnRowClick="OnRowClick"
+                          OnOpenCard="OpenCard"
+                          OnEnroll="OpenEnroll"
+                          OnExclude="OpenExclude" />
+        }
+    </div>
+
+    <CreateReservedDrawer IsOpen="@_createReservedOpen"
+                          IsOpenChanged="@(v => _createReservedOpen = v)"
+                          OnCreate="HandleCreateReservedAsync" />
+
+    <EnrollDrawer IsOpen="_enrollOpen"
+                  IsOpenChanged="@(v => _enrollOpen = v)"
+                  PersonId="_enrollPersonId"
+                  OnSubmit="HandleEnrollSubmitAsync" />
+
+    <ExcludeDrawer IsOpen="_excludeOpen"
+                   IsOpenChanged="@(v => _excludeOpen = v)"
+                   PersonId="_excludePersonId"
+                   OnSubmit="HandleExcludeSubmitAsync" />
+
+    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+
+        <div class="small text-center">
+            Сторінка <span class="fw-semibold">@_page</span> із <span class="fw-semibold">@TotalPages</span>
+            <span class="ms-2">·</span>
+            <span class="ms-2">Всього: <span class="fw-semibold">@_pageData.TotalCount</span></span>
+        </div>
+        <div class="px-3 py-2 border-top d-flex justify-content-end gap-2">
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="← Назад"
+                    OnClickButton="PrevPage"
+                    IsDisabled="@IsPrevDisabled" />
+
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="Далі →"
+                    OnClickButton="NextPage"
+                    IsDisabled="@IsNextDisabled" />
+        </div>
+    </div>
+</div>      

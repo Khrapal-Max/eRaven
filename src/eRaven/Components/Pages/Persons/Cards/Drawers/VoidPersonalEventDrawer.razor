@@ -1,0 +1,61 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@using eRaven.Application.DTOs
+@using eRaven.Components.Shared.Validation
+@using eRaven.Components.Shared.Drawer
+
+<Drawer Title="Відміна події (Void)"
+        IsOpen="@IsOpen"
+        IsOpenChanged="@IsOpenChanged"
+        DisableClose="@_busy"
+        OnClosed="OnDrawerClosed">
+
+    <ChildContent>
+        @if (IsOpen)
+        {
+            <div class="alert alert-warning rounded-0">
+                Void не видаляє історію. Подія лишається в аудиті, але її ефект ігнорується в projection/replay.
+            </div>
+
+            <div class="mb-2">
+                <div class="small text-body-secondary">Цільова подія</div>
+                <div class="font-monospace small">@TargetEventIdText</div>
+
+                @if (!string.IsNullOrWhiteSpace(TargetTitle))
+                {
+                    <div class="fw-semibold mt-1">@TargetTitle</div>
+                }
+                @if (!string.IsNullOrWhiteSpace(TargetDetails))
+                {
+                    <div class="small text-body-secondary">@TargetDetails</div>
+                }
+            </div>
+
+            <EditForm EditContext="@_editContext"
+                      OnValidSubmit="OnVoidAsync"
+                      id="void-event-form">
+
+                <FluentValidationValidator />
+
+                <div class="col-12">
+                    <label class="form-label mb-1">Причина (помилка в посаді / корекція наказу). Рекомендавно ваказати номер події.</label>
+                    <InputText class="form-control rounded-0" @bind-Value="Model.Reason" />
+                    <ValidationMessage For="@(() => Model.Reason)" />
+                </div>
+            </EditForm>
+        }
+    </ChildContent>
+
+    <FooterContent>
+        <Button Class="btn-outline-secondary rounded-0"
+                Label="Скасувати"
+                IsDisabled="@_busy"
+                OnClickButton="OnCancel" />
+
+        <button type="submit"
+                form="void-event-form"
+                class="btn btn-danger rounded-0"
+                disabled="@IsSubmitDisabled">
+            Відмінити
+        </button>
+    </FooterContent>
+</Drawer>

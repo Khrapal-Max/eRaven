@@ -1,0 +1,56 @@
+﻿@page "/dashboard"
+
+@using eRaven.Domain.Enums
+
+<PageTitle>Доска обліку</PageTitle>
+
+<div class="page-content text-black">
+    <div class="border bg-secondary-subtle">
+        <div class="py-2 px-4 text-dark">
+            Доска обліку.
+        </div>
+    </div>
+
+    <div class="container-fluid px-3 py-3">
+        @if (_loading)
+        {
+            <p class="px-1"><em>Завантаження...</em></p>
+        }
+        else if (_error is not null)
+        {
+            <div class="alert alert-danger rounded-0">@_error</div>
+        }
+        else if (_data is not null)
+        {
+            <div class="row g-2">
+                <div class="col-12 col-md-6 col-xl-3">
+                    <StatusSliceCard Count="_data.TotalInTimesheet"
+                                     Hint="В табелі (всього)"
+                                     BadgeClass="text-bg-success"
+                                     OnClick="GoToRegistryTimesheetTotal" />
+                </div>
+
+                <div class="col-12 col-md-6 col-xl-3">
+                    <StatusSliceCard Count="_data.TimesheetUnit"
+                                     Hint="В табелі: штат"
+                                     BadgeClass="text-bg-success"
+                                     OnClick="@(() => GoToRegistryTimesheetKind(EnrollmentKind.Unit))" />
+                </div>
+
+                <div class="col-12 col-md-6 col-xl-3">
+                    <StatusSliceCard Count="_data.TimesheetOrder"
+                                     Hint="В табелі: по наказу"
+                                     BadgeClass="text-bg-warning"
+                                     OnClick="@(() => GoToRegistryTimesheetKind(EnrollmentKind.AttachedByList))" />
+                </div>
+
+                <div class="col-12 col-md-6 col-xl-3">
+                    <StatusSliceCard Count="_data.TimesheetBr"
+                                     Hint="В табелі: по БР"
+                                     BadgeClass="text-bg-warning"
+                                     OnClick="@(() => GoToRegistryTimesheetKind(EnrollmentKind.AttachedByOrder))" />
+                </div>
+            </div>
+        }
+    </div>
+</div>

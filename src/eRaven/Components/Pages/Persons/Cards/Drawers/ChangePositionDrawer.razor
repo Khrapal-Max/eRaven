@@ -1,0 +1,70 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@using eRaven.Application.DTOs
+@using eRaven.Components.Shared.Validation
+@using eRaven.Components.Shared.Drawer
+
+<Drawer Title="Зміна посади"
+        IsOpen="@IsOpen"
+        IsOpenChanged="@IsOpenChanged"
+        DisableClose="@_busy"
+        OnClosed="OnDrawerClosed">
+
+    <ChildContent>
+        @if (IsOpen)
+        {
+            <EditForm EditContext="@_editContext"
+                      OnValidSubmit="OnChangeAsync"
+                      id="change-position-form">
+
+                <FluentValidationValidator />
+
+                <div class="drawer-grow">
+
+                    <h6 class="mb-3">Професійні / військові дані</h6>
+
+                    <div class="row g-2">
+                        <div class="col-12 col-md-2">
+                            <label class="form-label mb-1">Порядок посади</label>
+                            <InputNumber class="form-control rounded-0" @bind-Value="Model.PositionSort" />
+                            <ValidationMessage For="@(() => Model.PositionSort)" />
+                        </div>
+
+                        <div class="col-12 col-md-10">
+                            <label class="form-label mb-1">Посада (опц.)</label>
+                            <InputText class="form-control rounded-0" @bind-Value="Model.Position" />
+                            <ValidationMessage For="@(() => Model.Position)" />
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label class="form-label mb-1">Дата зміни</label>
+                            <InputDate class="form-control rounded-0 bg-light-subtle text-white" @bind-Value="Model.EffectiveDate" />
+                            <ValidationMessage For="@(() => Model.EffectiveDate)" />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label mb-1">Замітка (опц.)</label>
+                            <InputText class="form-control rounded-0" @bind-Value="Model.Note" />
+                            <ValidationMessage For="@(() => Model.Note)" />
+                        </div>
+
+                    </div>
+                </div>
+            </EditForm>
+        }
+    </ChildContent>
+
+    <FooterContent>
+        <Button Class="btn-outline-secondary rounded-0"
+                Label="Скасувати"
+                IsDisabled="@_busy"
+                OnClickButton="OnCancel" />
+
+        <!-- ✅ тільки submit, без @onclick -->
+        <button type="submit"
+                form="change-position-form"
+                class="btn btn-primary rounded-0"
+                disabled="@_busy">
+            Змінити
+        </button>
+    </FooterContent>
+</Drawer>

@@ -1,0 +1,157 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@using eRaven.Components.Shared.Drawer
+
+<Drawer Title="Імпорт / Експорт"
+        IsOpen="@IsOpen"
+        IsOpenChanged="@IsOpenChanged"
+        DisableClose="@_busy"
+        OnClosed="OnDrawerClosed">
+
+    <ChildContent>
+        @if (IsOpen)
+        {
+            <div class="drawer-grow">
+
+                <div class="d-flex gap-2 mb-3">
+                    <button type="button"
+                            class="btn btn-sm rounded-0 @(_tab == Tab.Import ? "btn-primary" : "btn-outline-secondary")"
+                            @onclick="() => _tab = Tab.Import"
+                            disabled="@_busy">
+                        Імпорт
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-sm rounded-0 @(_tab == Tab.Export ? "btn-primary" : "btn-outline-secondary")"
+                            @onclick="() => _tab = Tab.Export"
+                            disabled="@_busy">
+                        Експорт
+                    </button>
+                </div>
+
+                @if (_tab == Tab.Import)
+                {
+                    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                        <InputFile OnChange="OnFileSelected"
+                                   accept=".xlsx"
+                                   disabled="@_busy" />
+
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary rounded-0"
+                                @onclick="DownloadImportTemplateXlsxAsync"
+                                disabled="@_busy">
+                            <i class="bi bi-download me-1"></i> Завантажити шаблон Excel
+                        </button>
+                    </div>
+
+                    <div class="small mb-3">
+                        Використовуй тільки шаблон. Колонки/порядок не змінювати.
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(_fileName))
+                    {
+                        <div class="small mb-2">
+                            Файл: <span class="fw-semibold">@_fileName</span>
+                            · Рядків: <span class="fw-semibold">@_importTotalRows</span>
+                            · Валідних: <span class="fw-semibold text-success">@_importValidRows</span>
+                            · З помилками: <span class="fw-semibold text-danger">@_importErrorRows</span>
+                        </div>
+                    }
+
+                    @if (_globalErrors.Count > 0)
+                    {
+                        <div class="alert alert-danger rounded-0">
+                            <ul class="mb-0">
+                                @foreach (var e in _globalErrors)
+                                {
+                                    <li>@e</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    @if (_importErrorRows > 0 && ErrorStats().Any())
+                    {
+                        <div class="alert alert-warning rounded-0">
+                            <div class="fw-semibold mb-2">Помилки по полях:</div>
+                            <ul class="mb-0">
+                                @foreach (var s in ErrorStats().OrderByDescending(x => x.Count))
+                                {
+                                    <li>
+                                        <span class="fw-semibold">@s.Field</span>: @s.Count
+                                        @if (s.Samples.Count > 0)
+                                        {
+                                            <span> (рядки: @string.Join(", ", s.Samples))</span>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                            <div class="small mt-2">
+                                Виправ помилки у файлі й завантаж ще раз.
+                            </div>
+                        </div>
+                    }
+
+                    @if (_importResult is not null)
+                    {
+                        <div class="alert @( _importResult.Errors.Count == 0 ? "alert-success" : "alert-danger") rounded-0">
+                            <div class="fw-semibold mb-1">Результат імпорту:</div>
+                            <div>
+                                Всього: <span class="fw-semibold">@_importResult.TotalRows</span>,
+                                створено: <span class="fw-semibold text-success">@_importResult.CreatedCount</span>,
+                                пропущено: <span class="fw-semibold">@_importResult.SkippedCount</span>,
+                                помилок: <span class="fw-semibold text-danger">@_importResult.Errors.Count</span>
+                            </div>
+
+                            @if (_importResult.Errors.Count > 0)
+                            {
+                                <div class="small mt-2">
+                                    <div class="fw-semibold mb-1">Помилки (згруповано):</div>
+                                    <ul class="mb-0">
+                                        @foreach (var g in ImportErrorStats())
+                                        {
+                                            <li>
+                                                @g.Message
+                                                <span class="text-muted">
+                                                    (к-ть: @g.Count; рядки: @string.Join(", ", g.Rows))
+                                                </span>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="d-flex flex-wrap gap-2">
+                        <Button Class="btn-sm btn-outline-secondary rounded-0"
+                                Label="Експорт Excel (.xlsx)"
+                                IsDisabled="@_busy"
+                                OnClickButton="ExportAllByFiltersXlsxAsync" />
+                    </div>
+
+                    <div class="small mt-2">
+                        Експорт формується по поточних фільтрах (Тип/Пошук).
+                    </div>
+                }
+
+            </div>
+        }
+    </ChildContent>
+
+    <FooterContent>
+        <Button Class="btn-outline-secondary rounded-0"
+                Label="Закрити"
+                IsDisabled="@_busy"
+                OnClickButton="Close" />
+
+        @if (_tab == Tab.Import)
+        {
+            <Button Class="btn-primary rounded-0"
+                    Label="Імпортувати"
+                    IsDisabled="@IsImportDisabled"
+                    OnClickButton="ImportAsync" />
+        }
+    </FooterContent>
+</Drawer>
