@@ -17,6 +17,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PersonReadModel> PersonRead { get; set; }
     public DbSet<PersonEventRecord> PersonEvents { get; set; }
 
+    // NEW:
+    public DbSet<TimesheetEntry> TimesheetEntries { get; set; }
+    public DbSet<MonthlyTimesheetReadModel> MonthlyTimesheet { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Postgres розширення для темпоральних обмежень

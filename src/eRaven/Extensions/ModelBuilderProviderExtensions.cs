@@ -17,7 +17,12 @@ public static class ModelBuilderProviderExtensions
         // PersonEventRecord.PayloadJson
         var personEvents = modelBuilder.Entity<PersonEventRecord>();
 
+        var timesheets = modelBuilder.Entity<MonthlyTimesheetReadModel>();
+
         personEvents.Property(x => x.PayloadJson)
+                    .HasColumnType(db.Database.IsNpgsql() ? "jsonb" : "TEXT");
+
+        timesheets.Property(x => x.DaysJson)
                     .HasColumnType(db.Database.IsNpgsql() ? "jsonb" : "TEXT");
     }
 }
