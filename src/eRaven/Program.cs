@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Catalogs.Ranks;
+using eRaven.Application.Catalogs.Timesheet;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
 using eRaven.Application.Commands.PersonInfo;
@@ -44,6 +45,7 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 
 // Catalogs
 builder.Services.AddScoped<IRankCatalog, DefaultRankCatalog>();
+builder.Services.AddSingleton<ITimesheetStatusCatalog, DefaultTimesheetStatusCatalog>();
 
 // Projector (stateless)
 builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();
