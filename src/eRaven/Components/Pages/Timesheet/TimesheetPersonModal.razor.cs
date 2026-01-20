@@ -6,7 +6,6 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs.Timesheet;
-using eRaven.Domain.Enums;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Timesheet;
