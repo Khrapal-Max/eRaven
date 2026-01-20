@@ -10,6 +10,7 @@ using eRaven.Application.DTOs.Excel;
 using eRaven.Application.Handlers.Personal;
 using eRaven.Domain.Enums;
 using eRaven.Infrastructure.Repositories.PersonRepository;
+using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -42,12 +43,14 @@ public sealed class BootstrapPersonsCommandHandlerTests
             Callsign: null);
 
     [Fact]
-    public async Task HandleAsync_when_rows_empty_should_return_zero_and_not_call_repo()
+    public async Task HandleAsync_when_rows_empty_should_return_zero_and_not_call_repo_or_timesheet()
     {
         // arrange
         var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
+        var timesheet = new Mock<ITimesheetRepository>(MockBehavior.Strict);
         var log = new Mock<ILogger<BootstrapPersonsCommandHandler>>(MockBehavior.Loose);
-        var sut = new BootstrapPersonsCommandHandler(repo.Object, log.Object);
+
+        var sut = new BootstrapPersonsCommandHandler(repo.Object, timesheet.Object, log.Object);
 
         var cmd = new BootstrapPersonsCommand(
             Rows: [],
@@ -64,15 +67,18 @@ public sealed class BootstrapPersonsCommandHandlerTests
         Assert.Empty(result.Errors);
 
         repo.VerifyNoOtherCalls();
+        timesheet.VerifyNoOtherCalls();
     }
 
     [Fact]
-    public async Task HandleAsync_when_author_blank_should_throw_argument_exception()
+    public async Task HandleAsync_when_author_blank_should_throw_argument_exception_and_not_call_anything()
     {
         // arrange
         var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
+        var timesheet = new Mock<ITimesheetRepository>(MockBehavior.Strict);
         var log = new Mock<ILogger<BootstrapPersonsCommandHandler>>(MockBehavior.Loose);
-        var sut = new BootstrapPersonsCommandHandler(repo.Object, log.Object);
+
+        var sut = new BootstrapPersonsCommandHandler(repo.Object, timesheet.Object, log.Object);
 
         var cmd = new BootstrapPersonsCommand(
             Rows: [Row(1, "123")],
@@ -84,7 +90,9 @@ public sealed class BootstrapPersonsCommandHandlerTests
 
         // assert
         Assert.Contains("Author is required", ex.Message);
+
         repo.VerifyNoOtherCalls();
+        timesheet.VerifyNoOtherCalls();
     }
 
     [Fact]
@@ -92,14 +100,16 @@ public sealed class BootstrapPersonsCommandHandlerTests
     {
         // arrange
         var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
+        var timesheet = new Mock<ITimesheetRepository>(MockBehavior.Strict);
         var log = new Mock<ILogger<BootstrapPersonsCommandHandler>>(MockBehavior.Loose);
-        var sut = new BootstrapPersonsCommandHandler(repo.Object, log.Object);
+
+        var sut = new BootstrapPersonsCommandHandler(repo.Object, timesheet.Object, log.Object);
 
         // two rows with same rnokpp after trim => both skipped as duplicates
         var r1 = Row(1, " 1234567890 ");
         var r2 = Row(2, "1234567890");
 
-        // candidates list will be empty => handler still calls GetExistingRnokppsAsync with empty array
+        // candidates list will be empty => handler calls GetExistingRnokppsAsync with empty array
         repo.Setup(x => x.GetExistingRnokppsAsync(
                 It.Is<IReadOnlyCollection<string>>(s => s.Count == 0),
                 It.IsAny<CancellationToken>()))
@@ -125,15 +135,18 @@ public sealed class BootstrapPersonsCommandHandlerTests
             It.IsAny<CancellationToken>()), Times.Once);
 
         repo.VerifyNoOtherCalls();
+        timesheet.VerifyNoOtherCalls();
     }
 
     [Fact]
-    public async Task HandleAsync_should_skip_rows_that_already_exist_in_system()
+    public async Task HandleAsync_should_skip_rows_that_already_exist_in_system_and_not_call_timesheet()
     {
         // arrange
         var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
+        var timesheet = new Mock<ITimesheetRepository>(MockBehavior.Strict);
         var log = new Mock<ILogger<BootstrapPersonsCommandHandler>>(MockBehavior.Loose);
-        var sut = new BootstrapPersonsCommandHandler(repo.Object, log.Object);
+
+        var sut = new BootstrapPersonsCommandHandler(repo.Object, timesheet.Object, log.Object);
 
         var r1 = Row(1, " 1234567890 ");
 
@@ -162,15 +175,18 @@ public sealed class BootstrapPersonsCommandHandlerTests
             It.IsAny<CancellationToken>()), Times.Once);
 
         repo.VerifyNoOtherCalls();
+        timesheet.VerifyNoOtherCalls();
     }
 
     [Fact]
-    public async Task HandleAsync_should_create_rows_and_collect_db_and_generic_errors()
+    public async Task HandleAsync_should_create_rows_call_timesheet_for_created_and_collect_db_and_generic_errors()
     {
         // arrange
         var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
+        var timesheet = new Mock<ITimesheetRepository>(MockBehavior.Strict);
         var log = new Mock<ILogger<BootstrapPersonsCommandHandler>>(MockBehavior.Loose);
-        var sut = new BootstrapPersonsCommandHandler(repo.Object, log.Object);
+
+        var sut = new BootstrapPersonsCommandHandler(repo.Object, timesheet.Object, log.Object);
 
         var ok = Row(1, "111");
         var dbFail = Row(2, "222");
@@ -183,8 +199,17 @@ public sealed class BootstrapPersonsCommandHandlerTests
             .ReturnsAsync(new HashSet<string>(StringComparer.Ordinal));
 
         // success
+        var okPersonId = Guid.NewGuid();
         repo.Setup(x => x.BootstrapCreateAndEnrollAsync(ok, "tester", NowUtc, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Guid.NewGuid());
+            .ReturnsAsync(okPersonId);
+
+        timesheet.Setup(x => x.EnsureOpenedOnEnrollAsync(
+                okPersonId,
+                ok.EnrollDate,
+                "tester",
+                NowUtc,
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         // DbUpdateException
         repo.Setup(x => x.BootstrapCreateAndEnrollAsync(dbFail, "tester", NowUtc, It.IsAny<CancellationToken>()))
@@ -196,7 +221,7 @@ public sealed class BootstrapPersonsCommandHandlerTests
 
         var cmd = new BootstrapPersonsCommand(
             Rows: [ok, dbFail, fail],
-            Author: "  tester ", // trimmed
+            Author: "  tester ", // trimmed => "tester"
             NowUtc: NowUtc);
 
         // act
@@ -227,10 +252,70 @@ public sealed class BootstrapPersonsCommandHandlerTests
         repo.Verify(x => x.BootstrapCreateAndEnrollAsync(dbFail, "tester", NowUtc, It.IsAny<CancellationToken>()), Times.Once);
         repo.Verify(x => x.BootstrapCreateAndEnrollAsync(fail, "tester", NowUtc, It.IsAny<CancellationToken>()), Times.Once);
 
+        timesheet.Verify(x => x.EnsureOpenedOnEnrollAsync(
+            okPersonId,
+            ok.EnrollDate,
+            "tester",
+            NowUtc,
+            It.IsAny<CancellationToken>()), Times.Once);
+
         repo.VerifyNoOtherCalls();
+        timesheet.VerifyNoOtherCalls();
 
         // optional: verify we logged warnings for the two failures
         VerifyWarningLogCalled(log, Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task HandleAsync_should_pass_cancellation_token_to_repo_and_timesheet()
+    {
+        // arrange
+        var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
+        var timesheet = new Mock<ITimesheetRepository>(MockBehavior.Strict);
+        var log = new Mock<ILogger<BootstrapPersonsCommandHandler>>(MockBehavior.Loose);
+
+        var sut = new BootstrapPersonsCommandHandler(repo.Object, timesheet.Object, log.Object);
+
+        var r1 = Row(1, "111");
+        var personId = Guid.NewGuid();
+
+        using var cts = new CancellationTokenSource();
+        var ct = cts.Token;
+
+        repo.Setup(x => x.GetExistingRnokppsAsync(
+                It.Is<IReadOnlyCollection<string>>(s => s.Count == 1 && s.Contains("111")),
+                ct))
+            .ReturnsAsync(new HashSet<string>(StringComparer.Ordinal));
+
+        repo.Setup(x => x.BootstrapCreateAndEnrollAsync(r1, "tester", NowUtc, ct))
+            .ReturnsAsync(personId);
+
+        timesheet.Setup(x => x.EnsureOpenedOnEnrollAsync(personId, r1.EnrollDate, "tester", NowUtc, ct))
+            .Returns(Task.CompletedTask);
+
+        var cmd = new BootstrapPersonsCommand(
+            Rows: [r1],
+            Author: "tester",
+            NowUtc: NowUtc);
+
+        // act
+        var result = await sut.HandleAsync(cmd, ct);
+
+        // assert
+        Assert.Equal(1, result.TotalRows);
+        Assert.Equal(1, result.CreatedCount);
+        Assert.Equal(0, result.SkippedCount);
+        Assert.Empty(result.Errors);
+
+        repo.Verify(x => x.GetExistingRnokppsAsync(
+            It.Is<IReadOnlyCollection<string>>(s => s.Count == 1 && s.Contains("111")), ct), Times.Once);
+
+        repo.Verify(x => x.BootstrapCreateAndEnrollAsync(r1, "tester", NowUtc, ct), Times.Once);
+
+        timesheet.Verify(x => x.EnsureOpenedOnEnrollAsync(personId, r1.EnrollDate, "tester", NowUtc, ct), Times.Once);
+
+        repo.VerifyNoOtherCalls();
+        timesheet.VerifyNoOtherCalls();
     }
 
     private static void VerifyWarningLogCalled(

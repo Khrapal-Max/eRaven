@@ -460,3 +460,113 @@ body {
     .dropdown-menu .dropdown-item.action-exclude:focus::before {
         background: var(--bs-danger);
     }
+
+/* =========================
+   Timesheet table (stable cell colors)
+   ========================= */
+
+.timesheet-wrap .table-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 65vh;
+}
+
+.timesheet-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+    .timesheet-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--bs-table-head-bg, #f8f9fa);
+    }
+
+    /* Вузькі тільки day-колонки (де є коди) */
+    .timesheet-table td.ts-cell {
+        padding: 1px 2px;
+        vertical-align: middle;
+        width: 34px;
+        min-width: 34px;
+        max-width: 34px;
+        border-color: var(--bs-border-color);
+    }
+
+/* content */
+.ts-main {
+    font-size: 11px;
+    line-height: 1.05;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ts-task {
+    margin-top: 2px;
+    font-size: 10px;
+    line-height: 1.0;
+    opacity: .9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* індикатор: є task */
+.ts-cell--has-task {
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.10);
+}
+
+/* --- КОЛЬОРИ (пастельні, читабельні) --- */
+/* empty */
+.timesheet-table td.ts-cell--empty {
+    background: #ffffff !important;
+    color: var(--bs-body-color) !important;
+}
+
+/* НБ */
+.timesheet-table td.ts-cell--nb {
+    background: #e7f5ff !important; /* м’який блакитний */
+    color: #1864ab !important; /* темно-синій */
+}
+
+/* 30 (в районі) */
+.timesheet-table td.ts-cell--30 {
+    background: #fff !important;
+    color: #495057 !important;
+}
+
+/* ВП (відпустка) */
+.timesheet-table td.ts-cell--vac {
+    background: #e6fcf5 !important; /* м’ятний */
+    color: #0b7285 !important; /* бірюзовий */
+}
+
+/* alert (100/F100 тощо) */
+.timesheet-table td.ts-cell--alert {
+    background: #fff5f5 !important; /* рожевий */
+    color: #c92a2a !important; /* червоний */
+}
+
+/* task lane (якщо main пустий, але є task) */
+.timesheet-table td.ts-cell--task {
+    background: #f3f0ff !important; /* лавандовий */
+    color: #5f3dc4 !important; /* фіолетовий */
+}
+
+/* інші коди */
+.timesheet-table td.ts-cell--other {
+    background: #fff9db !important; /* жовта пастель */
+    color: #5c4c00 !important; /* коричневий */
+}
+
+/* --- ВАЖЛИВО: прибираємо bootstrap hover на day-td --- */
+.timesheet-table.table-hover > :not(caption) > tbody > tr:hover > td.ts-cell {
+    filter: none !important;
+}
+
+/* Якщо хочеш легенький hover, але без зламу кольору — затемнити трохи */
+.timesheet-table.table-hover > :not(caption) > tbody > tr:hover > td.ts-cell {
+    box-shadow: inset 0 0 0 9999px rgba(0,0,0,.03) !important;
+}

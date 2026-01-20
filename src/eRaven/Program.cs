@@ -12,14 +12,18 @@ using eRaven.Application.Commands.Excel;
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs.Dashboard;
+using eRaven.Application.DTOs.Excel;
 using eRaven.Application.DTOs.Person;
+using eRaven.Application.DTOs.Timesheet;
 using eRaven.Application.EventJson;
 using eRaven.Application.Handlers.Dashboard;
 using eRaven.Application.Handlers.Personal;
+using eRaven.Application.Handlers.Timesheet;
 using eRaven.Application.Presenter;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Dashboard;
 using eRaven.Application.Queries.Personal;
+using eRaven.Application.Queries.Timesheet;
 using eRaven.Application.Validations.Personal;
 using eRaven.Components;
 using eRaven.Extensions;
@@ -27,6 +31,7 @@ using eRaven.Infrastructure;
 using eRaven.Infrastructure.Projectors;
 using eRaven.Infrastructure.Repositories.DashboardRepository;
 using eRaven.Infrastructure.Repositories.PersonRepository;
+using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using eRaven.Presentation.Errors;
 using eRaven.Presentation.Toasts;
 using FluentValidation;
@@ -69,6 +74,7 @@ builder.Services.AddSingleton<IValidator<VoidPersonEventDto>, VoidPersonEventDto
 // Repository
 builder.Services.AddScoped<IPersonRepository, PersonRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+builder.Services.AddScoped<ITimesheetRepository, TimesheetRepository>();
 
 // Command handlers
 builder.Services.AddScoped<ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult>, BootstrapPersonsCommandHandler>();
@@ -85,10 +91,12 @@ builder.Services.AddScoped<ICommandHandler<ChangeCallsignCommand>, ChangeCallsig
 builder.Services.AddScoped<ICommandHandler<VoidPersonEventCommand>, VoidPersonEventCommandHandler>();
 
 // Query handlers
+builder.Services.AddScoped<IQueryHandler<GetPersonnelDashboardQuery, PersonnelDashboardDto>, GetPersonnelDashboardQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetPersonHistoryQuery, IReadOnlyList<PersonEventListItemDto>>, GetPersonHistoryQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>, GetPersonsPageQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?>, GetPersonDetailsQueryHandler>();
-builder.Services.AddScoped<IQueryHandler<GetPersonHistoryQuery, IReadOnlyList<PersonEventListItemDto>>, GetPersonHistoryQueryHandler>();
-builder.Services.AddScoped<IQueryHandler<GetPersonnelDashboardQuery, PersonnelDashboardDto>, GetPersonnelDashboardQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetMonthPerPersonDto>>, GetTimesheetMonthQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<ExportTimesheetMonthQuery, DownloadFileDto>, ExportTimesheetMonthQueryHandler>();
 
 // services
 builder.Services.AddScoped<ToastService>();

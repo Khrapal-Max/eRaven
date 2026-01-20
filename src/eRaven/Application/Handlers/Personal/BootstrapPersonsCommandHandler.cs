@@ -8,16 +8,19 @@
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
 using eRaven.Infrastructure.Repositories.PersonRepository;
+using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Application.Handlers.Personal;
 
 public sealed class BootstrapPersonsCommandHandler(
     IPersonRepository repo,
+    ITimesheetRepository timesheet,
     ILogger<BootstrapPersonsCommandHandler> log)
         : ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult>
 {
     private readonly IPersonRepository _repo = repo;
+    private readonly ITimesheetRepository _timesheet = timesheet;
     private readonly ILogger<BootstrapPersonsCommandHandler> _log = log;
 
     public async Task<BootstrapPersonsResult> HandleAsync(
@@ -78,7 +81,17 @@ public sealed class BootstrapPersonsCommandHandler(
 
             try
             {
-                await _repo.BootstrapCreateAndEnrollAsync(row, author, command.NowUtc, ct);
+                // 1) створили і зарахували персону
+                var personId = await _repo.BootstrapCreateAndEnrollAsync(row, author, command.NowUtc, ct);
+
+                // 2) “відкрили табель”: створили дефолтний Main=30 з дати зарахування
+                await _timesheet.EnsureOpenedOnEnrollAsync(
+                    personId: personId,
+                    enrollDate: row.EnrollDate,
+                    author: author,
+                    nowUtc: command.NowUtc,
+                    ct: ct);
+
                 created++;
             }
             catch (DbUpdateException ex)

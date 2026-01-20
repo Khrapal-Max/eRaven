@@ -15,11 +15,10 @@ namespace eRaven.Domain.Entities;
 public sealed class MonthlyTimesheetReadModel
 {
     public Guid PersonId { get; set; }
+    public long Version { get; set; }
     public int Year { get; set; }
     public int Month { get; set; }
-
-    public string DaysJson { get; set; } = "[]";
-
-    public long Version { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
+    // замість DaysJson
+    public List<MonthlyTimesheetDay> Days { get; set; } = [];
 }

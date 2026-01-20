@@ -266,8 +266,6 @@ public sealed class PersonRepository(
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
-
-
     public async Task VoidEventAsync(VoidPersonEventCommand cmd, CancellationToken ct = default)
     {
         var agg = await LoadAggregateAsync(cmd.PersonId, ct);

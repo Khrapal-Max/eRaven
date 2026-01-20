@@ -16,11 +16,14 @@ public sealed class DefaultTimesheetStatusCatalog : ITimesheetStatusCatalog
         // ----------------------------
         // Main lane (основний таймлайн)
         // ----------------------------
+        // Статуси наявності
         // служба
+        new("Рекрут", TimesheetLane.Main, "0"), // в районі, але не готовий до отримання завдання
         new("В районі", TimesheetLane.Main, "30"), // готовий до отримання завдання
         new("В БР", TimesheetLane.Main, "100"),    // виконує завдання отримане після планування
         new("ПБД", TimesheetLane.Main, "Номер ПБД", IsCodeTemplate: true), // виокнує завдання отримане без планування
 
+        // Статуси відсутності
         // відрядження
         new("Відрядження", TimesheetLane.Main, "ВДР"), // сюди відносимо і БТГр, БТГр це бойове відрядження.
 
