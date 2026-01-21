@@ -106,8 +106,6 @@ public sealed class ExportTimesheetMonthQueryHandler(
         {
             var c = 1;
 
-            // ВАЖНО: эти поля должны быть в TimesheetMonthPerPersonDto:
-            // EnrollmentKind, Rnokpp. (у тебя они уже используются в UI)
             ws.Cell(rIdx, c++).Value = GetSign(r.EnrollmentKind);
             ws.Cell(rIdx, c++).Value = r.Position ?? "";
             ws.Cell(rIdx, c++).Value = r.Rank ?? "";
@@ -125,19 +123,142 @@ public sealed class ExportTimesheetMonthQueryHandler(
                     ? main
                     : string.IsNullOrWhiteSpace(main) ? task : $"{main}\n{task}";
 
-                ws.Cell(rIdx, c++).Value = cellText ?? "";
+                var cell = ws.Cell(rIdx, c++);
+                cell.Value = cellText ?? "";
+
+                ApplyDayCellStyle(cell, main, task);
             }
 
             rIdx++;
         }
 
-        // borders
+        // borders (краще і outside, і inside)
         var used = ws.RangeUsed();
-        used?.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        if (used is not null)
+        {
+            used.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            used.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+        }
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
         return ms.ToArray();
+    }
+
+    // -------------------------
+    // Colors for codes
+    // -------------------------
+
+    private static readonly XLColor BgEmpty = XLColor.White;
+    private static readonly XLColor FgEmpty = XLColor.FromHtml("#1f2937");
+
+    private static readonly XLColor BgNb = XLColor.FromHtml("#f1f3f5");
+    private static readonly XLColor FgNb = XLColor.FromHtml("#495057");
+
+    private static readonly XLColor Bg30 = XLColor.FromHtml("#e6fcf5");
+    private static readonly XLColor Fg30 = XLColor.FromHtml("#0b7285");
+
+    private static readonly XLColor BgVac = XLColor.FromHtml("#e7f5ff");
+    private static readonly XLColor FgVac = XLColor.FromHtml("#1864ab");
+
+    private static readonly XLColor BgAlert = XLColor.FromHtml("#fff5f5");
+    private static readonly XLColor FgAlert = XLColor.FromHtml("#c92a2a");
+
+    private static readonly XLColor BgTask = XLColor.FromHtml("#f8f0fc");
+    private static readonly XLColor FgTask = XLColor.FromHtml("#862e9c");
+
+    private static readonly XLColor BgOther = XLColor.FromHtml("#fff9db");
+    private static readonly XLColor FgOther = XLColor.FromHtml("#5f3dc4");
+
+    private static void ApplyDayCellStyle(IXLCell cell, string? main, string? task)
+    {
+        var m = NormalizeCode(main);
+        var t = NormalizeCode(task);
+
+        var hasMain = !string.IsNullOrWhiteSpace(m);
+        var hasTask = !string.IsNullOrWhiteSpace(t);
+
+        cell.Style.Font.Bold = true;
+        cell.Style.Font.FontSize = 10;
+
+        // empty
+        if (!hasMain && !hasTask)
+        {
+            SetCellColors(cell, BgEmpty, FgEmpty);
+            return;
+        }
+
+        // alert has highest priority (either lane)
+        if (IsAlert(m) || IsAlert(t))
+        {
+            SetCellColors(cell, BgAlert, FgAlert);
+            return;
+        }
+
+        // NB/30/VAC by MAIN lane first (як у UI)
+        if (string.Equals(m, "НБ", StringComparison.OrdinalIgnoreCase))
+        {
+            SetCellColors(cell, BgNb, FgNb);
+            cell.Style.Font.Bold = false;
+            cell.Style.Font.FontSize = 8;
+            return;
+        }
+
+        if (string.Equals(m, "30", StringComparison.OrdinalIgnoreCase))
+        {
+            SetCellColors(cell, Bg30, Fg30);            
+            return;
+        }
+
+        if (string.Equals(m, "ВП", StringComparison.OrdinalIgnoreCase))
+        {
+            SetCellColors(cell, BgVac, FgVac);
+            return;
+        }
+
+        // якщо main пустий, але є task — фарбуємо як task
+        if (!hasMain && hasTask)
+        {
+            SetCellColors(cell, BgTask, FgTask);
+            return;
+        }
+
+        // все інше
+        SetCellColors(cell, BgOther, FgOther);
+
+        // (опційно) якщо є task разом з main — легенько підкреслити низ
+        if (hasMain && hasTask)
+        {
+            cell.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
+            cell.Style.Border.BottomBorderColor = XLColor.FromHtml("#adb5bd");
+        }
+    }
+
+    private static void SetCellColors(IXLCell cell, XLColor bg, XLColor fg)
+    {
+        cell.Style.Fill.BackgroundColor = bg;
+        cell.Style.Font.FontColor = fg;
+    }
+
+    private static bool IsAlert(string? code)
+        => string.Equals(code, "100", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(code, "F100", StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeCode(string? code)
+    {
+        var s = (code ?? "").Trim();
+
+        if (s.Length == 0) return "";
+
+        // якщо раптом в коді є пробіли/службовий текст — беремо перший токен
+        var sp = s.IndexOf(' ');
+        if (sp > 0) s = s[..sp];
+
+        // якщо раптом є переноси (на всяк)
+        var nl = s.IndexOfAny(['\n', '\r']);
+        if (nl > 0) s = s[..nl];
+
+        return s.Trim().ToUpperInvariant();
     }
 
     private static Dictionary<(int Day, TimesheetLane Lane), string> BuildDayMap(IReadOnlyList<MonthlyTimesheetDayDto>? days)

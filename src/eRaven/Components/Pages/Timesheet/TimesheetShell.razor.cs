@@ -5,6 +5,7 @@
 // TimesheetShell
 //-----------------------------------------------------------------------------
 
+using DocumentFormat.OpenXml.Spreadsheet;
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheet;
@@ -13,29 +14,36 @@ using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Timesheet;
 
-public partial class TimesheetShell
+public partial class TimesheetShell : IDisposable
 {
-    [Inject]
-    public IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetMonthPerPersonDto>> Query { get; set; } = default!;
+    // ====================================
+    // DI
+    // ====================================
+    [Inject] public IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetMonthPerPersonDto>> Query { get; set; } = default!;
 
+    // ====================================
+    // UI
+    // ====================================
     private bool _loading;
     private string? _error;
+    private bool _personModalOpen;
 
     private int _year;
     private int _month;
     private int _daysInMonth;
 
     private string? _search;
-    private IReadOnlyList<TimesheetMonthPerPersonDto>? _rows;
 
     private TimesheetMonthPerPersonDto? _selected;
-
-    private bool _personModalOpen;
     private TimesheetMonthPerPersonDto? _personModalPerson;
+    private IReadOnlyList<TimesheetMonthPerPersonDto>? _rows;
 
     // O(1) lookup по клітинках: PersonId -> ((day,lane) -> code)
     private readonly Dictionary<Guid, Dictionary<(int Day, TimesheetLane Lane), string>> _cellIndex = [];
 
+    // ===============================
+    // Lifecycle
+    // ===============================
     protected override async Task OnInitializedAsync()
     {
         var today = DateTime.Today;
@@ -73,6 +81,9 @@ public partial class TimesheetShell
         }
     }
 
+    // ===============================
+    // Actions
+    // ===============================
     private async Task OnYearChanged(ChangeEventArgs e)
     {
         if (int.TryParse(Convert.ToString(e.Value), out var y))
@@ -198,5 +209,11 @@ public partial class TimesheetShell
 
         if (hasTask) return "ts-cell ts-cell--task";
         return "ts-cell ts-cell--other";
+    }
+
+    public void Dispose()
+    {
+        _rows = [];
+        GC.SuppressFinalize(this);
     }
 }
