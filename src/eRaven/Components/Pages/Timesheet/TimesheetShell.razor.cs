@@ -5,7 +5,6 @@
 // TimesheetShell
 //-----------------------------------------------------------------------------
 
-using DocumentFormat.OpenXml.Spreadsheet;
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheet;
