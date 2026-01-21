@@ -1077,4 +1077,343 @@ public sealed class TimesheetRepositoryTests : IAsyncLifetime
         Assert.Equal("НБ", Cell(ts, 20, TimesheetLane.Main).Code);
         Assert.Equal("", Cell(ts, 10, TimesheetLane.Task).Code);
     }
+
+    // =========================
+    // Daily timesheet (day screen)
+    // =========================
+
+    [Fact]
+    public async Task GetDailyTimesheetAsync_when_activeOnly_true_should_return_only_currently_enrolled_and_default_codes()
+    {
+        // arrange
+        await using var db = await _db.Factory.CreateDbContextAsync();
+
+        var date = new DateOnly(2025, 12, 15);
+
+        var enrolledId = Guid.NewGuid();
+        var reservedId = Guid.NewGuid();
+
+        db.PersonRead.AddRange(
+            new PersonReadModel
+            {
+                Id = enrolledId,
+                Lifecycle = PersonLifecycle.Enrolled,
+                EnrollmentKind = EnrollmentKind.Unit,
+                PositionSort = 1,
+                FullName = "Ivanov Ivan",
+                Rnokpp = "AAA111",
+                Rank = "Солдат",
+                Position = "Стрілець",
+                EnrolledAt = new DateOnly(2025, 12, 01),
+                ExcludedAt = null,
+                Version = 1,
+                UpdatedAtUtc = NowUtc
+            },
+            // людина зараз Reserved, але на дату "в табелі" (історично) — перевіряємо що activeOnly=true її прибере
+            new PersonReadModel
+            {
+                Id = reservedId,
+                Lifecycle = PersonLifecycle.Reserved,
+                EnrollmentKind = EnrollmentKind.Unit,
+                PositionSort = 2,
+                FullName = "Petrov Petr",
+                Rnokpp = "BBB222",
+                Rank = "Солдат",
+                Position = "Водій",
+                EnrolledAt = new DateOnly(2025, 12, 01),
+                ExcludedAt = new DateOnly(2025, 12, 20),
+                Version = 1,
+                UpdatedAtUtc = NowUtc
+            }
+        );
+
+        await db.SaveChangesAsync();
+
+        // act
+        var rows = await _repo.GetDailyTimesheetAsync(
+            date: date,
+            search: null,
+            enrollmentKind: null,
+            activeOnly: true);
+
+        // assert
+        Assert.Single(rows);
+
+        var r = rows[0];
+        Assert.Equal(enrolledId, r.PersonId);
+
+        // default codes when no entries
+        Assert.Null(r.MainEntryId);
+        Assert.Equal("НБ", r.MainCode);
+
+        Assert.Null(r.TaskEntryId);
+        Assert.Equal("", r.TaskCode);
+    }
+
+    [Fact]
+    public async Task GetDailyTimesheetAsync_when_activeOnly_false_should_include_reserved_if_they_were_active_on_date()
+    {
+        // arrange
+        await using var db = await _db.Factory.CreateDbContextAsync();
+
+        var date = new DateOnly(2025, 12, 15);
+
+        var enrolledId = Guid.NewGuid();
+        var reservedId = Guid.NewGuid();
+
+        db.PersonRead.AddRange(
+            new PersonReadModel
+            {
+                Id = enrolledId,
+                Lifecycle = PersonLifecycle.Enrolled,
+                EnrollmentKind = EnrollmentKind.Unit,
+                PositionSort = 1,
+                FullName = "Ivanov Ivan",
+                Rnokpp = "AAA111",
+                EnrolledAt = new DateOnly(2025, 12, 01),
+                ExcludedAt = null,
+                Version = 1,
+                UpdatedAtUtc = NowUtc
+            },
+            new PersonReadModel
+            {
+                Id = reservedId,
+                Lifecycle = PersonLifecycle.Reserved,
+                EnrollmentKind = EnrollmentKind.Unit,
+                PositionSort = 2,
+                FullName = "Petrov Petr",
+                Rnokpp = "BBB222",
+                EnrolledAt = new DateOnly(2025, 12, 01),
+                ExcludedAt = new DateOnly(2025, 12, 20),
+                Version = 1,
+                UpdatedAtUtc = NowUtc
+            }
+        );
+
+        await db.SaveChangesAsync();
+
+        // act
+        var rows = await _repo.GetDailyTimesheetAsync(
+            date: date,
+            search: null,
+            enrollmentKind: null,
+            activeOnly: false);
+
+        // assert
+        Assert.Equal(2, rows.Count);
+
+        var ids = rows.Select(x => x.PersonId).ToHashSet();
+        Assert.Contains(enrolledId, ids);
+        Assert.Contains(reservedId, ids);
+    }
+
+    [Fact]
+    public async Task GetDailyTimesheetAsync_should_apply_case_insensitive_search_on_fullname_and_rnokpp()
+    {
+        // arrange
+        await using var db = await _db.Factory.CreateDbContextAsync();
+
+        var date = new DateOnly(2025, 12, 15);
+        var personId = Guid.NewGuid();
+
+        db.PersonRead.Add(new PersonReadModel
+        {
+            Id = personId,
+            Lifecycle = PersonLifecycle.Enrolled,
+            EnrollmentKind = EnrollmentKind.Unit,
+            PositionSort = 1,
+            FullName = "Ivanov Ivan",
+            Rnokpp = "aBc123",
+            EnrolledAt = new DateOnly(2025, 12, 01),
+            ExcludedAt = null,
+            Version = 1,
+            UpdatedAtUtc = NowUtc
+        });
+
+        await db.SaveChangesAsync();
+
+        // act + assert (fullname)
+        var byNameLower = await _repo.GetDailyTimesheetAsync(date, search: "  ivanov  ");
+        Assert.Single(byNameLower);
+        Assert.Equal(personId, byNameLower[0].PersonId);
+
+        var byNameUpper = await _repo.GetDailyTimesheetAsync(date, search: "IVANOV");
+        Assert.Single(byNameUpper);
+        Assert.Equal(personId, byNameUpper[0].PersonId);
+
+        // act + assert (rnokpp)
+        var byRnokppUpper = await _repo.GetDailyTimesheetAsync(date, search: "ABC");
+        Assert.Single(byRnokppUpper);
+        Assert.Equal(personId, byRnokppUpper[0].PersonId);
+    }
+
+    [Fact]
+    public async Task GetDailyTimesheetAsync_should_map_entries_and_pick_latest_active_entry_per_lane()
+    {
+        // arrange
+        await using var db = await _db.Factory.CreateDbContextAsync();
+
+        var date = new DateOnly(2025, 12, 15);
+        var personId = Guid.NewGuid();
+
+        db.PersonRead.Add(new PersonReadModel
+        {
+            Id = personId,
+            Lifecycle = PersonLifecycle.Enrolled,
+            EnrollmentKind = EnrollmentKind.Unit,
+            PositionSort = 1,
+            FullName = "Ivanov Ivan",
+            Rnokpp = "AAA111",
+            EnrolledAt = new DateOnly(2025, 12, 01),
+            ExcludedAt = null,
+            Version = 1,
+            UpdatedAtUtc = NowUtc
+        });
+
+        var mainOldId = Guid.NewGuid();
+        var mainNewId = Guid.NewGuid();
+        var taskId = Guid.NewGuid();
+
+        // дві Main-ентрі активні на date -> має обрати з більшим From (mainNew)
+        db.TimesheetEntries.AddRange(
+            new TimesheetEntry
+            {
+                Id = mainOldId,
+                PersonId = personId,
+                Lane = TimesheetLane.Main,
+                Code = "30",
+                From = new DateOnly(2025, 12, 01),
+                To = null,
+                CreatedBy = "seed",
+                CreatedAtUtc = NowUtc,
+                IsDeleted = false
+            },
+            new TimesheetEntry
+            {
+                Id = mainNewId,
+                PersonId = personId,
+                Lane = TimesheetLane.Main,
+                Code = "100",
+                From = new DateOnly(2025, 12, 14),
+                To = null,
+                CreatedBy = "seed",
+                CreatedAtUtc = NowUtc,
+                IsDeleted = false
+            },
+            new TimesheetEntry
+            {
+                Id = taskId,
+                PersonId = personId,
+                Lane = TimesheetLane.Task,
+                Code = "BT",
+                From = new DateOnly(2025, 12, 10),
+                To = new DateOnly(2025, 12, 20),
+                CreatedBy = "seed",
+                CreatedAtUtc = NowUtc,
+                IsDeleted = false
+            }
+        );
+
+        await db.SaveChangesAsync();
+
+        // act
+        var rows = await _repo.GetDailyTimesheetAsync(date, search: null);
+
+        // assert
+        Assert.Single(rows);
+        var r = rows[0];
+
+        Assert.Equal(mainNewId, r.MainEntryId);
+        Assert.Equal("100", r.MainCode);
+
+        Assert.Equal(taskId, r.TaskEntryId);
+        Assert.Equal("BT", r.TaskCode);
+    }
+
+    [Fact]
+    public async Task GetDailyTimesheetAsync_should_apply_enrollmentKind_filter_and_sort_by_positionSort_then_fullname()
+    {
+        // arrange
+        await using var db = await _db.Factory.CreateDbContextAsync();
+
+        var date = new DateOnly(2025, 12, 15);
+
+        var p1 = Guid.NewGuid(); // Unit, pos 10, name B
+        var p2 = Guid.NewGuid(); // Unit, pos 10, name A  -> should come before p1
+        var p3 = Guid.NewGuid(); // Unit, pos 20
+        var pOther = Guid.NewGuid(); // another kind, should be filtered out
+
+        db.PersonRead.AddRange(
+            new PersonReadModel
+            {
+                Id = p1,
+                Lifecycle = PersonLifecycle.Enrolled,
+                EnrollmentKind = EnrollmentKind.Unit,
+                PositionSort = 10,
+                FullName = "B Person",
+                Rnokpp = "U1",
+                EnrolledAt = new DateOnly(2025, 12, 01),
+                ExcludedAt = null,
+                Version = 1,
+                UpdatedAtUtc = NowUtc
+            },
+            new PersonReadModel
+            {
+                Id = p2,
+                Lifecycle = PersonLifecycle.Enrolled,
+                EnrollmentKind = EnrollmentKind.Unit,
+                PositionSort = 10,
+                FullName = "A Person",
+                Rnokpp = "U2",
+                EnrolledAt = new DateOnly(2025, 12, 01),
+                ExcludedAt = null,
+                Version = 1,
+                UpdatedAtUtc = NowUtc
+            },
+            new PersonReadModel
+            {
+                Id = p3,
+                Lifecycle = PersonLifecycle.Enrolled,
+                EnrollmentKind = EnrollmentKind.Unit,
+                PositionSort = 20,
+                FullName = "A Person",
+                Rnokpp = "U3",
+                EnrolledAt = new DateOnly(2025, 12, 01),
+                ExcludedAt = null,
+                Version = 1,
+                UpdatedAtUtc = NowUtc
+            },
+            new PersonReadModel
+            {
+                Id = pOther,
+                Lifecycle = PersonLifecycle.Enrolled,
+                EnrollmentKind = EnrollmentKind.AttachedByOrder,
+                PositionSort = 1,
+                FullName = "Z Other",
+                Rnokpp = "X1",
+                EnrolledAt = new DateOnly(2025, 12, 01),
+                ExcludedAt = null,
+                Version = 1,
+                UpdatedAtUtc = NowUtc
+            }
+        );
+
+        await db.SaveChangesAsync();
+
+        // act (filter only Unit)
+        var rows = await _repo.GetDailyTimesheetAsync(
+            date: date,
+            search: null,
+            enrollmentKind: EnrollmentKind.Unit,
+            activeOnly: true);
+
+        // assert (only p1,p2,p3)
+        Assert.Equal(3, rows.Count);
+        Assert.DoesNotContain(rows, x => x.PersonId == pOther);
+
+        // sort: EnrollmentKind (same) -> PositionSort -> FullName
+        Assert.Equal(p2, rows[0].PersonId); // pos10 + "A Person"
+        Assert.Equal(p1, rows[1].PersonId); // pos10 + "B Person"
+        Assert.Equal(p3, rows[2].PersonId); // pos20
+    }
 }

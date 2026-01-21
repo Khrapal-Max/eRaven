@@ -13,7 +13,16 @@ namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 public interface ITimesheetRepository
 {
+    // Отримати місячний табель
     Task<IReadOnlyList<TimesheetMonthPerPersonDto>> GetMonthlyTimesheetAsync(int year, int month, string? search, CancellationToken ct = default);
+
+    // Отримати денний табель
+    Task<IReadOnlyList<TimesheetDayPerPersonCurrentStateDto>> GetDailyTimesheetAsync(
+       DateOnly date,
+       string? search,
+       EnrollmentKind? enrollmentKind = null,
+       bool activeOnly = true,
+       CancellationToken ct = default);
 
     // Отримати всі записи табеля певної особи за період
     Task<IReadOnlyList<TimesheetEntry>> GetPersonEntriesAsync(Guid personId, DateOnly from, DateOnly to, CancellationToken ct = default);

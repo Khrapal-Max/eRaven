@@ -38,8 +38,11 @@ public sealed class TimesheetRepository(IDbContextFactory<AppDbContext> dbFactor
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim();
-            personsQ = personsQ.Where(p => p.FullName.Contains(s) || p.Rnokpp.Contains(s));
+            var s = search.Trim().ToUpper();
+
+            personsQ = personsQ.Where(p =>
+                (p.FullName ?? "").ToUpper().Contains(s) ||
+                (p.Rnokpp ?? "").ToUpper().Contains(s));
         }
 
         var persons = await personsQ
@@ -114,6 +117,103 @@ public sealed class TimesheetRepository(IDbContextFactory<AppDbContext> dbFactor
                     Days: days,
                     UpdatedAtUtc: rm?.UpdatedAtUtc ?? DateTime.MinValue
                 )));
+        }
+
+        return result;
+    }
+
+    // “Стан на дату” для всіх осіб, які були в табелі на цю дату
+    public async Task<IReadOnlyList<TimesheetDayPerPersonCurrentStateDto>> GetDailyTimesheetAsync(
+    DateOnly date,
+    string? search,
+    EnrollmentKind? enrollmentKind = null,
+    bool activeOnly = true,
+    CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var personsQ = db.PersonRead.AsNoTracking().AsQueryable();
+
+        if (activeOnly)
+            personsQ = personsQ.Where(p => p.Lifecycle == PersonLifecycle.Enrolled);
+
+        // “активний на дату” (та сама логіка, що в GetActiveEntriesForTimesheetOnDateAsync)
+        personsQ = personsQ.Where(p =>
+            p.EnrolledAt.HasValue &&
+            p.EnrolledAt.Value <= date &&
+            (!p.ExcludedAt.HasValue || p.ExcludedAt.Value >= date));
+
+        if (enrollmentKind is not null)
+            personsQ = personsQ.Where(p => p.EnrollmentKind == enrollmentKind);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToUpper();
+
+            personsQ = personsQ.Where(p =>
+                (p.FullName ?? "").ToUpper().Contains(s) ||
+                (p.Rnokpp ?? "").ToUpper().Contains(s));
+        }
+
+        var persons = await personsQ
+            .OrderBy(p => p.EnrollmentKind)
+            .ThenBy(p => p.PositionSort)
+            .ThenBy(p => p.FullName)
+            .Select(p => new
+            {
+                p.Id,
+                p.FullName,
+                p.Rnokpp,
+                p.Rank,
+                p.Position,
+                p.EnrollmentKind,
+                p.EnrolledAt,
+                p.ExcludedAt
+            })
+            .ToListAsync(ct);
+
+        if (persons.Count == 0)
+            return [];
+
+        var personIds = persons.Select(x => x.Id).ToArray();
+
+        // активні записи на дату для вибраних осіб (2 лейни)
+        var entries = await db.TimesheetEntries.AsNoTracking()
+            .Where(e => !e.IsDeleted
+                && personIds.Contains(e.PersonId)
+                && e.From <= date
+                && (!e.To.HasValue || e.To.Value >= date))
+            .ToListAsync(ct);
+
+        // через інваріант “без перетинів в lane” тут максимум 1 запис на (PersonId,Lane),
+        // але підстрахуємось
+        var map = entries
+            .GroupBy(e => (e.PersonId, e.Lane))
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(x => x.From).ThenByDescending(x => x.Id).First());
+
+        var result = new List<TimesheetDayPerPersonCurrentStateDto>(persons.Count);
+
+        foreach (var p in persons)
+        {
+            map.TryGetValue((p.Id, TimesheetLane.Main), out var main);
+            map.TryGetValue((p.Id, TimesheetLane.Task), out var task);
+
+            result.Add(new TimesheetDayPerPersonCurrentStateDto(
+                PersonId: p.Id,
+                FullName: p.FullName ?? "",
+                RNOKPP: p.Rnokpp ?? "",
+                Rank: p.Rank,
+                Position: p.Position,
+                EnrollmentKind: p.EnrollmentKind,
+                EnrolledAt: p.EnrolledAt,
+                ExcludedAt: p.ExcludedAt,
+                MainEntryId: main?.Id,
+                MainCode: main?.Code ?? "НБ",
+                TaskEntryId: task?.Id,
+                TaskCode: task?.Code ?? ""
+            ));
         }
 
         return result;
