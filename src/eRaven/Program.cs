@@ -25,7 +25,6 @@ using eRaven.Application.Queries.Dashboard;
 using eRaven.Application.Queries.Personal;
 using eRaven.Application.Queries.Timesheet;
 using eRaven.Application.Validations.Personal;
-using eRaven.Application.Validations.Timesheet;
 using eRaven.Components;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
@@ -52,6 +51,7 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 // Catalogs
 builder.Services.AddScoped<IRankCatalog, DefaultRankCatalog>();
 builder.Services.AddSingleton<ITimesheetStatusCatalog, DefaultTimesheetStatusCatalog>();
+builder.Services.AddSingleton<ITimesheetTransitionRules, DefaultTimesheetTransitionRules>();
 
 // Projector (stateless)
 builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();
@@ -62,7 +62,6 @@ builder.Services.AddScoped<IPersonEventPresenter, PersonEventPresenter>();
 builder.Services.AddScoped<IValidator<CreateReservedDto>, CreateReservedDtoValidator>();
 builder.Services.AddScoped<IValidator<EnrollDto>, EnrollDtoValidator>();
 builder.Services.AddScoped<IValidator<ExcludeDto>, ExcludeDtoValidator>();
-builder.Services.AddScoped<IValidator<CreateTimesheetMainEntryDto>, CreateTimesheetMainEntryDtoValidator>();
 
 builder.Services.AddScoped<IValidator<UpdatePersonalInfoDto>, UpdatePersonalInfoDtoValidator>();
 builder.Services.AddScoped<IValidator<ChangeRankDto>, ChangeRankDtoValidator>();
@@ -97,8 +96,9 @@ builder.Services.AddScoped<IQueryHandler<GetPersonnelDashboardQuery, PersonnelDa
 builder.Services.AddScoped<IQueryHandler<GetPersonHistoryQuery, IReadOnlyList<PersonEventListItemDto>>, GetPersonHistoryQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>, GetPersonsPageQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto?>, GetPersonDetailsQueryHandler>();
-builder.Services.AddScoped<IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetMonthPerPersonDto>>, GetTimesheetMonthQueryHandler>();
+
 builder.Services.AddScoped<IQueryHandler<ExportTimesheetMonthQuery, DownloadFileDto>, ExportTimesheetMonthQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetMonthPerPersonDto>>, GetTimesheetMonthQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<GetTimesheetDayQuery, IReadOnlyList<TimesheetDayPerPersonCurrentStateDto>>, GetTimesheetDayQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<GetTimesheetPersonMonthQuery, TimesheetPersonMonthDto>, GetTimesheetPersonMonthQueryHandler>();
 
