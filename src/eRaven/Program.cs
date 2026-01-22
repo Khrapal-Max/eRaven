@@ -25,6 +25,7 @@ using eRaven.Application.Queries.Dashboard;
 using eRaven.Application.Queries.Personal;
 using eRaven.Application.Queries.Timesheet;
 using eRaven.Application.Validations.Personal;
+using eRaven.Application.Validations.Timesheet;
 using eRaven.Components;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
@@ -61,6 +62,7 @@ builder.Services.AddScoped<IPersonEventPresenter, PersonEventPresenter>();
 builder.Services.AddScoped<IValidator<CreateReservedDto>, CreateReservedDtoValidator>();
 builder.Services.AddScoped<IValidator<EnrollDto>, EnrollDtoValidator>();
 builder.Services.AddScoped<IValidator<ExcludeDto>, ExcludeDtoValidator>();
+builder.Services.AddScoped<IValidator<CreateTimesheetMainEntryDto>, CreateTimesheetMainEntryDtoValidator>();
 
 builder.Services.AddScoped<IValidator<UpdatePersonalInfoDto>, UpdatePersonalInfoDtoValidator>();
 builder.Services.AddScoped<IValidator<ChangeRankDto>, ChangeRankDtoValidator>();

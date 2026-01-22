@@ -1,0 +1,146 @@
+﻿@using eRaven.Application.Catalogs.Timesheet
+@using eRaven.Application.DTOs.Timesheet
+@using eRaven.Components.Shared.Drawer
+@using eRaven.Components.Shared.Validation
+@using Microsoft.AspNetCore.Components.Forms
+
+<Drawer @ref="_drawer"
+        IsOpen="IsOpen"
+        IsOpenChanged="IsOpenChanged"
+        Title="Подія (Main)"
+        OnClosed="HandleClosed">
+
+    <ChildContent>
+        @if (Person is null)
+        {
+            <div class="small"><em>Оберіть особу.</em></div>
+        }
+        else
+        {
+            <EditForm EditContext="_editContext" OnValidSubmit="SubmitAsync" id="@FormId">
+                <FluentValidationValidator />
+
+                @if (!string.IsNullOrWhiteSpace(_error))
+                {
+                    <div class="alert alert-danger rounded-0 py-2 mb-2">@_error</div>
+                }
+
+                <div class="border p-2 bg-white mb-2">
+                    <div class="fw-semibold">@Person.FullName</div>
+                    <div class="small text-nowrap">
+                        РНОКПП: <span class="font-monospace">@Person.RNOKPP</span>
+                    </div>
+                    <div class="small">
+                        @(Person.Rank ?? "-") · @(Person.Position ?? "-")
+                    </div>
+                </div>
+
+                <div class="row g-2">
+
+                    <div class="col-12">
+                        <label class="form-label mb-1">Подія (Main)</label>
+                        <select class="form-select form-select-sm rounded-0"
+                                value="@Model.OptionKey"
+                                @onchange="OnCodeOptionChanged">
+                            <option value="">— оберіть —</option>
+
+                            @foreach (var o in _mainOptions)
+                            {
+                                <option value="@o.Code">
+                                    @o.Title (@o.Code)
+                                </option>
+                            }
+
+                            <option value="@CustomKey">Інше (ввести код вручну)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label mb-1">Код</label>
+
+                        @if (_codeMode == CodeMode.ReadOnly)
+                        {
+                            <input class="form-control form-control-sm rounded-0 bg-light"
+                                   value="@Model.Code"
+                                   readonly />
+                        }
+                        else
+                        {
+                            <InputText class="form-control form-control-sm rounded-0"
+                                       @bind-Value="Model.Code"
+                                       placeholder="@_codePlaceholder" />
+                        }
+
+                        <ValidationMessage For="@(() => Model.Code)" />
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label class="form-label mb-1">Дата (З)</label>
+                        <InputDate class="form-control form-control-sm rounded-0"
+                                   @bind-Value="Model.From" />
+                    </div>
+
+                    <div class="col-12 col-md-6 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="Model.UsePeriod" />
+                            <label class="form-check-label">Період</label>
+                        </div>
+                    </div>
+
+                    @if (Model.UsePeriod)
+                    {
+                        <div class="col-12 col-md-6">
+                            <label class="form-label mb-1">Дата (По)</label>
+                            <InputDate class="form-control form-control-sm rounded-0"
+                                       @bind-Value="Model.To"
+                                       disabled="@Model.OpenEnded" />
+                            <ValidationMessage For="@(() => Model.To)" />
+                        </div>
+
+                        <div class="col-12 col-md-6 d-flex align-items-end">
+                            <div class="form-check">
+                                <InputCheckbox class="form-check-input"
+                                               @bind-Value="Model.OpenEnded"
+                                               @onchange="OnOpenEndedChanged" />
+                                <label class="form-check-label">Без кінця (∞)</label>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="col-12">
+                        <label class="form-label mb-1">Підстава (Reference)</label>
+                        <InputText class="form-control form-control-sm rounded-0"
+                                   @bind-Value="Model.Reference"
+                                   placeholder="Напр: наказ №..., рапорт..." />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label mb-1">Примітка</label>
+                        <InputTextArea class="form-control form-control-sm rounded-0"
+                                       rows="3"
+                                       @bind-Value="Model.Note"
+                                       placeholder="Коротко, що і чому..." />
+                    </div>
+
+                </div>
+            </EditForm>
+        }
+    </ChildContent>
+
+    <FooterContent>
+        <div class="d-flex gap-2 justify-content-end">
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="Скасувати"
+                    IsDisabled="@_busy"
+                    OnClickButton="CloseAsync" />
+
+            <button class="btn btn-sm btn-primary rounded-0"
+                    type="submit"
+                    form="@FormId"
+                    @attributes="SubmitAttrs">
+                Застосувати
+            </button>
+        </div>
+    </FooterContent>
+
+</Drawer>
