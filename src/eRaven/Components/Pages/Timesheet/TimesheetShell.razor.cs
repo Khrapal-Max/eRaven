@@ -25,7 +25,7 @@ public partial class TimesheetShell : IDisposable
     // ====================================
     private bool _loading;
     private string? _error;
-    private bool _personModalOpen;
+    private bool _personDrawerOpen;
 
     private int _year;
     private int _month;
@@ -34,7 +34,7 @@ public partial class TimesheetShell : IDisposable
     private string? _search;
 
     private TimesheetMonthPerPersonDto? _selected;
-    private TimesheetMonthPerPersonDto? _personModalPerson;
+    private TimesheetMonthPerPersonDto? _personDrawerPerson;
     private IReadOnlyList<TimesheetMonthPerPersonDto>? _rows;
 
     // O(1) lookup по клітинках: PersonId -> ((day,lane) -> code)
@@ -110,16 +110,16 @@ public partial class TimesheetShell : IDisposable
             await ReloadAsync();
     }
 
-    private void OpenPersonModal(TimesheetMonthPerPersonDto r)
+    private void OpenPersonDrawer(TimesheetMonthPerPersonDto r)
     {
-        _personModalPerson = r;
-        _personModalOpen = true;
+        _personDrawerPerson = r;
+        _personDrawerOpen = true;
     }
 
-    private void ClosePersonModal()
+    private void ClosePersonDrawer()
     {
-        _personModalOpen = false;
-        _personModalPerson = null;
+        _personDrawerOpen = false;
+        _personDrawerPerson = null;
     }
 
     private string GetCode(TimesheetMonthPerPersonDto r, int day, TimesheetLane lane)

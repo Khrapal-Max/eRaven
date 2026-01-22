@@ -112,7 +112,7 @@
                             <Button Class="btn-sm btn-secondary rounded-2"
                                     Label="..."
                                     StopPropagation="true"
-                                    OnClickButton="@(() => OpenPersonModal(r))" />
+                                    OnClickButton="@(() => OpenPersonDrawer(r))" />
                         </td>
 
                         @for (var day = 1; day <= _daysInMonth; day++)
@@ -142,6 +142,7 @@
     </div>
 </div>
 
-<TimesheetPersonModal IsOpen="@_personModalOpen"
-                      Person="@_personModalPerson"
-                      OnClose="ClosePersonModal" />
+<TimesheetPersonDrawer IsOpen="@_personDrawerOpen"
+                       IsOpenChanged="@(v => _personDrawerOpen = v)"
+                       Person="@_personDrawerPerson"
+                       OnClosed="ClosePersonDrawer" />

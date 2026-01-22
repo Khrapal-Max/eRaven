@@ -206,7 +206,7 @@ public sealed class ExportTimesheetMonthQueryHandler(
 
         if (string.Equals(m, "30", StringComparison.OrdinalIgnoreCase))
         {
-            SetCellColors(cell, Bg30, Fg30);            
+            SetCellColors(cell, Bg30, Fg30);
             return;
         }
 

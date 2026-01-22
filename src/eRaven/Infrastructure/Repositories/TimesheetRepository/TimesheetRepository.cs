@@ -5,6 +5,7 @@
 // TimesheetRepository
 //-----------------------------------------------------------------------------
 
+using DocumentFormat.OpenXml.Spreadsheet;
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
@@ -18,8 +19,8 @@ public sealed class TimesheetRepository(IDbContextFactory<AppDbContext> dbFactor
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
     // повертає місячні табелі для всіх осіб, які були в табелі в цей місяць
-    public async Task<IReadOnlyList<TimesheetMonthPerPersonDto>> GetMonthlyTimesheetAsync(
-     int year, int month, string? search, CancellationToken ct = default)
+    public async Task<IReadOnlyList<TimesheetMonthPerPersonDto>> GetMonthlyTimesheetAsync(int year, int month, string? search,
+        CancellationToken ct = default)
     {
         if (year < 2000 || year > 2100) throw new ArgumentOutOfRangeException(nameof(year));
         if (month < 1 || month > 12) throw new ArgumentOutOfRangeException(nameof(month));
@@ -123,12 +124,8 @@ public sealed class TimesheetRepository(IDbContextFactory<AppDbContext> dbFactor
     }
 
     // “Стан на дату” для всіх осіб, які були в табелі на цю дату
-    public async Task<IReadOnlyList<TimesheetDayPerPersonCurrentStateDto>> GetDailyTimesheetAsync(
-    DateOnly date,
-    string? search,
-    EnrollmentKind? enrollmentKind = null,
-    bool activeOnly = true,
-    CancellationToken ct = default)
+    public async Task<IReadOnlyList<TimesheetDayPerPersonCurrentStateDto>> GetDailyTimesheetAsync(DateOnly date, string? search,
+    EnrollmentKind? enrollmentKind = null, bool activeOnly = true, CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
@@ -265,6 +262,85 @@ public sealed class TimesheetRepository(IDbContextFactory<AppDbContext> dbFactor
             .ThenBy(x => x.From)
             .ThenBy(x => x.Id)
             .ToListAsync(ct);
+    }
+
+    // Отримати місячний табель певної особи
+    public async Task<TimesheetPersonMonthDto?> GetPersonTimesheetMonthAsync(Guid personId, int year, int month, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var p = await db.PersonRead
+            .AsNoTracking()
+            .Where(x => x.Id == personId)
+            .Select(x => new
+            {
+                x.Id,
+                x.FullName,
+                x.Rnokpp,
+                x.Rank,
+                x.Position,
+                x.EnrollmentKind
+            })
+            .SingleOrDefaultAsync(ct);
+
+        if (p is null)
+            return null;
+
+        var daysInMonth = DateTime.DaysInMonth(year, month);
+        var monthStart = new DateOnly(year, month, 1);
+        var monthEnd = new DateOnly(year, month, daysInMonth);
+
+        // UpdatedAtUtc з MonthlyTimesheetReadModel (як у місячному табелі)
+        var rmUpdatedAt = await db.Set<MonthlyTimesheetReadModel>()
+            .AsNoTracking()
+            .Where(x => x.PersonId == personId && x.Year == year && x.Month == month)
+            .Select(x => (DateTime?)x.UpdatedAtUtc)
+            .SingleOrDefaultAsync(ct);
+
+        // Беремо записи, що перетинають місяць
+        var entries = await db.TimesheetEntries
+            .AsNoTracking()
+            .Where(e => !e.IsDeleted
+                && e.PersonId == personId
+                && e.From <= monthEnd
+                && (!e.To.HasValue || e.To.Value >= monthStart))
+            .OrderBy(e => e.Lane)
+            .ThenBy(e => e.From)
+            .ThenBy(e => e.Id)
+            .ToListAsync(ct);
+
+        var dayDtos = BuildDaysForMonth(year, month, monthStart, monthEnd, entries);
+
+        var timesheet = new MonthlyTimesheetReadModelDto(
+            PersonId: personId,
+            Year: year,
+            Month: month,
+            UpdatedAtUtc: rmUpdatedAt ?? DateTime.MinValue,
+            Days: dayDtos);
+
+        var entryDtos = entries.Select(e => new TimesheetEntryDto(
+            Id: e.Id,
+            Lane: e.Lane,
+            Code: e.Code ?? "",
+            From: e.From,
+            To: e.To,
+            Reference: e.Reference,
+            Note: e.Note
+        )).ToList();
+
+        return new TimesheetPersonMonthDto(
+            PersonId: p.Id,
+            FullName: p.FullName ?? "",
+            RNOKPP: p.Rnokpp ?? "",
+            Rank: p.Rank,
+            Position: p.Position,
+            EnrollmentKind: p.EnrollmentKind,
+            Year: year,
+            Month: month,
+            DaysInMonth: daysInMonth,
+            Timesheet: timesheet,
+            Entries: entryDtos
+        );
     }
 
     // Отримати запис табеля за Id
@@ -531,11 +607,7 @@ public sealed class TimesheetRepository(IDbContextFactory<AppDbContext> dbFactor
             throw new InvalidOperationException("Запис перетинається з існуючим записом у цій lane. Спочатку відредагуйте/закрийте попередній запис.");
     }
 
-    private static List<MonthlyTimesheetDayDto> BuildDaysForMonth(
-      int year,
-      int month,
-      DateOnly monthStart,
-      DateOnly monthEnd,
+    private static List<MonthlyTimesheetDayDto> BuildDaysForMonth(int year, int month, DateOnly monthStart, DateOnly monthEnd,
       List<TimesheetEntry>? entries)
     {
         const string NotInTimesheet = "НБ";
@@ -600,7 +672,6 @@ public sealed class TimesheetRepository(IDbContextFactory<AppDbContext> dbFactor
 
         return res;
     }
-
 
     private static void EnsureAuthor(string author)
     {

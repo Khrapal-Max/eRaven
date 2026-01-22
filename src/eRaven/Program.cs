@@ -98,6 +98,7 @@ builder.Services.AddScoped<IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto
 builder.Services.AddScoped<IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetMonthPerPersonDto>>, GetTimesheetMonthQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<ExportTimesheetMonthQuery, DownloadFileDto>, ExportTimesheetMonthQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<GetTimesheetDayQuery, IReadOnlyList<TimesheetDayPerPersonCurrentStateDto>>, GetTimesheetDayQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetTimesheetPersonMonthQuery, TimesheetPersonMonthDto>, GetTimesheetPersonMonthQueryHandler>();
 
 // services
 builder.Services.AddScoped<ToastService>();

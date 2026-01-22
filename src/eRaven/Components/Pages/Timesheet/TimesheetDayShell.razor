@@ -104,11 +104,11 @@
                             <span class="text-nowrap">@r.FullName</span>
                         </td>
 
-                        <td class="text-center @GetCellClassForCode(r.MainCode, TimesheetLane.Main)">
+                        <td class="text-center">
                             <div class="ts-main" title="@r.MainCode">@ShortCode(r.MainCode)</div>
                         </td>
 
-                        <td class="text-center @GetCellClassForCode(r.TaskCode, TimesheetLane.Task)">
+                        <td class="text-center">
                             @if (!string.IsNullOrWhiteSpace(r.TaskCode))
                             {
                                 <div class="ts-task" title="@r.TaskCode">@ShortCode(r.TaskCode)</div>
@@ -117,9 +117,9 @@
 
                         <td class="text-center">
                             <Button Class="btn-sm btn-secondary rounded-2"
-                                    Label="Змінити…"
+                                    Label="..."
                                     StopPropagation="true"
-                                    OnClickButton="@(() => OpenModal(r))" />
+                                    OnClickButton="@(() => OpenPerson(r.PersonId))" />
                         </td>
                     </RowTemplate>
 
@@ -128,8 +128,3 @@
         }
     </div>
 </div>
-
-<TimesheetDayPersonModal IsOpen="@_modalOpen"
-                         Date="@_date"
-                         Row="@_modalRow"
-                         OnClose="CloseModal" />

@@ -11,6 +11,7 @@ using eRaven.Application.DTOs.Timesheet;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheet;
 using eRaven.Components.Pages.Timesheet;
+using eRaven.Components.Pages.Timesheet.Drawers;
 using eRaven.Domain.Enums;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -23,7 +24,7 @@ public sealed class TimesheetShellTests : BunitContext
     {
         // Щоб тестувати саме Shell, а не експорт/модалку (JS/DI).
         ComponentFactories.AddStub<TimesheetExport>();
-        ComponentFactories.AddStub<TimesheetPersonModal>();
+        ComponentFactories.AddStub<TimesheetPersonDrawer>();
     }
 
     private static TimesheetMonthPerPersonDto BuildOneRow(int year, int month)
@@ -202,7 +203,7 @@ public sealed class TimesheetShellTests : BunitContext
         Services.AddSingleton(mock.Object);
 
         // потрібен контроль параметрів модала
-        ComponentFactories.AddStub<TimesheetPersonModal>();
+        ComponentFactories.AddStub<TimesheetPersonDrawer>();
 
         // act
         var cut = Render<TimesheetShell>();
@@ -211,7 +212,7 @@ public sealed class TimesheetShellTests : BunitContext
         cut.WaitForElement("tbody tr");
 
         // modal initially closed
-        var modal0 = cut.FindComponent<Stub<TimesheetPersonModal>>();
+        var modal0 = cut.FindComponent<Stub<TimesheetPersonDrawer>>();
 
         // IsOpen завжди передається (булевий), тому можна так:
         Assert.False((bool)modal0.Instance.Parameters["IsOpen"]!);
@@ -223,7 +224,7 @@ public sealed class TimesheetShellTests : BunitContext
 
         cut.WaitForAssertion(() =>
         {
-            var modal = cut.FindComponent<Stub<TimesheetPersonModal>>();
+            var modal = cut.FindComponent<Stub<TimesheetPersonDrawer>>();
             Assert.True((bool)modal.Instance.Parameters["IsOpen"]!);
 
             var p = (TimesheetMonthPerPersonDto?)modal.Instance.Parameters["Person"];

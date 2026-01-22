@@ -16,6 +16,7 @@ namespace eRaven.Components.Pages.Timesheet;
 public partial class TimesheetDayShell
 {
     [Inject] public IQueryHandler<GetTimesheetDayQuery, IReadOnlyList<TimesheetDayPerPersonCurrentStateDto>> Query { get; set; } = default!;
+    [Inject] public NavigationManager Nav { get; set; } = default!;
 
     private bool _loading;
     private string? _error;
@@ -27,9 +28,6 @@ public partial class TimesheetDayShell
 
     private IReadOnlyList<TimesheetDayPerPersonCurrentStateDto>? _rows;
     private TimesheetDayPerPersonCurrentStateDto? _selected;
-
-    private bool _modalOpen;
-    private TimesheetDayPerPersonCurrentStateDto? _modalRow;
 
     protected override async Task OnInitializedAsync()
     {
@@ -99,16 +97,10 @@ public partial class TimesheetDayShell
             await ReloadAsync();
     }
 
-    private void OpenModal(TimesheetDayPerPersonCurrentStateDto r)
+    private void OpenPerson(Guid personId)
     {
-        _modalRow = r;
-        _modalOpen = true;
-    }
-
-    private void CloseModal()
-    {
-        _modalOpen = false;
-        _modalRow = null;
+        var url = $"/timesheet/person/{personId}?year={_date.Year}&month={_date.Month}";
+        Nav.NavigateTo(url);
     }
 
     private static string ShortCode(string? code)
@@ -128,20 +120,6 @@ public partial class TimesheetDayShell
             EnrollmentKind.Unit => "ШТ",
             EnrollmentKind.AttachedByList => "НК",
             EnrollmentKind.AttachedByOrder => "БР",
-            _ => "ВИКЛ"
+            _ => "ВКЛ"
         };
-
-    private static string GetCellClassForCode(string? code, TimesheetLane lane)
-    {
-        var c = (code ?? "").Trim().ToUpperInvariant();
-
-        if (c.Length == 0) return "ts-cell ts-cell--empty";
-        if (c == "НБ") return "ts-cell ts-cell--nb";
-        if (c == "30") return "ts-cell ts-cell--30";
-        if (c == "ВП") return "ts-cell ts-cell--vac";
-        if (c is "100" or "F100") return "ts-cell ts-cell--alert";
-
-        if (lane == TimesheetLane.Task) return "ts-cell ts-cell--task";
-        return "ts-cell ts-cell--other";
-    }
 }
