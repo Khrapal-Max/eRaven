@@ -9,13 +9,12 @@ using eRaven.Application.DTOs.Timesheet;
 using eRaven.Components.Shared.Drawer;
 using eRaven.Domain.Enums;
 using Microsoft.AspNetCore.Components;
+using System.Threading.Tasks;
 
 namespace eRaven.Components.Pages.Timesheet.Drawers;
 
 public partial class TimesheetPersonDrawer
 {
-    private Drawer? _drawer;
-
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
 
@@ -23,6 +22,8 @@ public partial class TimesheetPersonDrawer
 
     /// <summary>Щоб батько міг обнулити Person після закриття.</summary>
     [Parameter] public EventCallback OnClosed { get; set; }
+
+    private Drawer? _drawer;
 
     private async Task CloseAsync()
     {

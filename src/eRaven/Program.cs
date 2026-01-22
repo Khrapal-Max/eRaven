@@ -51,7 +51,6 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 // Catalogs
 builder.Services.AddScoped<IRankCatalog, DefaultRankCatalog>();
 builder.Services.AddSingleton<ITimesheetStatusCatalog, DefaultTimesheetStatusCatalog>();
-builder.Services.AddSingleton<ITimesheetTransitionRules, DefaultTimesheetTransitionRules>();
 
 // Projector (stateless)
 builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();

@@ -23,7 +23,7 @@
                             РНОКПП: <span class="font-monospace">@Person.RNOKPP</span>
                         </div>
                         <div class="small font-monospace">Id: @Person.PersonId</div>
-                    </div>
+                    </div>                    
                 </div>
 
                 <div class="col-12 col-md-6">
@@ -38,7 +38,7 @@
                         <div class="small">Тип обліку</div>
                         <div>@(GetSign(Person.EnrollmentKind))</div>
                     </div>
-                </div>
+                </div>               
 
                 <div class="col-12">
                     <div class="border p-2 bg-white">
@@ -67,7 +67,6 @@
                         <div>@(Person.Timesheet is null ? "-" : Person.Timesheet.UpdatedAtUtc.ToString("u"))</div>
                     </div>
                 </div>
-
             </div>
         }
     </ChildContent>
