@@ -27,6 +27,9 @@ namespace eRaven.Components.Pages.Timesheet;
 
 public partial class TimesheetPolicyConfigurator
 {
+    // ---------------------------
+    // DI
+    // ---------------------------
     [Inject] public ITimesheetPolicyRepository PolicyRepo { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
 

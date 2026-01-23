@@ -68,6 +68,9 @@ public sealed class TimesheetPolicyConfiguratorTests : BunitContext
         // assert: selected code info shows 30 (not NB)
         Assert.Contains("30", cut.Markup);
         Assert.DoesNotContain("Lane: Main, Код: НБ", cut.Markup); // defensive check
+
+        Assert.NotNull(cut.Instance.PolicyRepo);
+        Assert.NotNull(cut.Instance.Toasts);
     }
 
     [Fact]
