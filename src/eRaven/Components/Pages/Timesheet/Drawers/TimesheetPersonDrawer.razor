@@ -1,0 +1,78 @@
+﻿@* @using eRaven.Components.Shared.Drawer
+
+<Drawer @ref="_drawer"
+        IsOpen="IsOpen"
+        IsOpenChanged="IsOpenChanged"
+        Title="Картка в табелі"
+        OnClosed="HandleClosed">
+
+    <ChildContent>
+        @if (Person is null)
+        {
+            <div class="small"><em>Немає даних.</em></div>
+        }
+        else
+        {
+            <div class="row g-2">
+
+                <div class="col-12">
+                    <div class="border p-2 bg-white">
+                        <div class="fw-semibold">@Person.FullName</div>
+                        <div class="small text-nowrap">
+                            РНОКПП: <span class="font-monospace">@Person.RNOKPP</span>
+                        </div>
+                        <div class="small font-monospace">Id: @Person.PersonId</div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <div class="border p-2 bg-white">
+                        <div class="small">Звання</div>
+                        <div>@(Person.Rank ?? "-")</div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <div class="border p-2 bg-white">
+                        <div class="small">Тип обліку</div>
+                        <div>@(GetSign(Person.EnrollmentKind))</div>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="border p-2 bg-white">
+                        <div class="small">Посада</div>
+                        <div>@(Person.Position ?? "-")</div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <div class="border p-2 bg-white">
+                        <div class="small">Зараховано</div>
+                        <div>@(Person.EnrolledAt?.ToString("dd.MM.yyyy") ?? "-")</div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <div class="border p-2 bg-white">
+                        <div class="small">Виключено</div>
+                        <div>@(Person.ExcludedAt?.ToString("dd.MM.yyyy") ?? "-")</div>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="border p-2 bg-white">
+                        <div class="small">Оновлено табель</div>
+                        <div>@(Person.Timesheet is null ? "-" : Person.Timesheet.UpdatedAtUtc.ToString("u"))</div>
+                    </div>
+                </div>
+            </div>
+        }
+    </ChildContent>
+
+    <FooterContent>
+        <Button Class="btn-sm btn-outline-secondary rounded-0"
+                Label="Закрити"
+                OnClickButton="CloseAsync" />
+    </FooterContent>
+</Drawer> *@

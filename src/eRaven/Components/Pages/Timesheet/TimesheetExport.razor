@@ -1,0 +1,16 @@
+﻿@* @using eRaven.Application.DTOs.Timesheet
+@using eRaven.Components.Shared.Button
+
+<Button Class="btn-sm btn-outline-success rounded-0"
+        IsDisabled="@(_busy)"
+        OnClickButton="ExportAsync">
+    <span class="d-inline-flex align-items-center gap-1">
+        <span aria-hidden="true">⬇</span>
+        Експорт XLSX
+    </span>
+</Button>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="text-danger small mt-1">@_error</div>
+} *@
