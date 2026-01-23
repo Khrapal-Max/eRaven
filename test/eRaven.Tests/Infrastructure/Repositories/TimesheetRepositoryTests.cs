@@ -407,4 +407,77 @@ public sealed class TimesheetRepositoryTests
 
         Assert.False(anyActiveAfter);
     }
+
+    [Fact]
+    public async Task EnsureClosedOnExcludeAsync_disallows_exclude_when_main_code_not_allowed()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetRepository(tdb.Factory);
+
+        var personId = Guid.NewGuid();
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetEntries.Add(new TimesheetEntry
+            {
+                Id = Guid.NewGuid(),
+                PersonId = personId,
+                Lane = TimesheetLane.Main,
+                Code = "ВП",
+                From = new DateOnly(2026, 1, 1),
+                To = null,
+                CreatedBy = "t",
+                CreatedAtUtc = DateTime.UtcNow
+            });
+
+            await db.SaveChangesAsync();
+        }
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repo.EnsureClosedOnExcludeAsync(
+                personId: personId,
+                closeTo: new DateOnly(2026, 1, 10),
+                reason: "test",
+                author: "ui",
+                nowUtc: DateTime.UtcNow));
+
+        Assert.Contains("30", ex.Message);
+        Assert.Contains("РОЗПОР", ex.Message);
+        Assert.Contains("ВП", ex.Message);
+    }
+
+    [Fact]
+    public async Task EnsureClosedOnExcludeAsync_allows_exclude_when_main_code_30()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetRepository(tdb.Factory);
+
+        var personId = Guid.NewGuid();
+        var closeTo = new DateOnly(2026, 1, 10);
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetEntries.Add(new TimesheetEntry
+            {
+                Id = Guid.NewGuid(),
+                PersonId = personId,
+                Lane = TimesheetLane.Main,
+                Code = "30",
+                From = new DateOnly(2026, 1, 1),
+                To = null,
+                CreatedBy = "t",
+                CreatedAtUtc = DateTime.UtcNow
+            });
+
+            await db.SaveChangesAsync();
+        }
+
+        await repo.EnsureClosedOnExcludeAsync(personId, closeTo, "test", "ui", DateTime.UtcNow);
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            var main = db.TimesheetEntries.Single(x => x.PersonId == personId && x.Lane == TimesheetLane.Main);
+            Assert.Equal(closeTo, main.To);
+        }
+    }
 }

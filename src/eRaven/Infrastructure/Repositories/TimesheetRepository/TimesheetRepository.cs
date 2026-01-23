@@ -439,6 +439,27 @@ public sealed class TimesheetRepository(IDbContextFactory<AppDbContext> dbFactor
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
+        // 0) Validate allowed predecessor state for "leaving timesheet" (NB)
+        // NB is not a code; it appears only when there is no active Main entry.
+        // We allow closing only if current Main code is 30 or ROZПОР.
+        var mainOnDate = await db.TimesheetEntries
+            .Where(x => x.PersonId == personId
+                        && x.Lane == TimesheetLane.Main
+                        && !x.IsDeleted
+                        && x.From <= closeTo
+                        && (!x.To.HasValue || x.To.Value >= closeTo))
+            .OrderByDescending(x => x.From)
+            .ThenByDescending(x => x.Id)
+            .FirstOrDefaultAsync(ct) ?? throw new InvalidOperationException(
+                $"Неможливо виключити з табелю: на дату {closeTo:yyyy-MM-dd} немає активного запису Main (особа вже поза табелем).");
+
+        var code = (mainOnDate.Code ?? "").Trim();
+
+        if (code != "30" && code != "РОЗПОР")
+            throw new InvalidOperationException(
+                $"Неможливо виключити з табелю зі стану '{code}'. Дозволено тільки з '30' або 'РОЗПОР'. " +
+                $"Спочатку приведіть Main до дозволеного стану на {closeTo:yyyy-MM-dd}.");
+
         // 1) Обрізати всі записи, які “залізли” за дату виключення (або були open-ended)
         var toClamp = await db.TimesheetEntries
             .Where(x => x.PersonId == personId && !x.IsDeleted)
