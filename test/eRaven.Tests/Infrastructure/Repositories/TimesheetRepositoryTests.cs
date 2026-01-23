@@ -291,4 +291,120 @@ public sealed class TimesheetRepositoryTests
         Assert.Contains(list, x => x.Id == e2.Id);
         Assert.Contains(list, x => x.Id == e3.Id);
     }
+
+    [Fact]
+    public async Task CreateEntryAsync_disallows_setting_NB_code()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetRepository(tdb.Factory);
+
+        var personId = Guid.NewGuid();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await repo.CreateEntryAsync(
+                personId: personId,
+                lane: TimesheetLane.Main,
+                code: "НБ",
+                from: new DateOnly(2026, 1, 1),
+                to: null,
+                reference: null,
+                note: null,
+                author: "ui",
+                nowUtc: DateTime.UtcNow));
+
+        Assert.Contains("НБ", ex.Message);
+        Assert.Contains("системним", ex.Message);
+    }
+
+    [Fact]
+    public async Task UpdateEntryAsync_disallows_setting_NB_code()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetRepository(tdb.Factory);
+
+        var personId = Guid.NewGuid();
+        var entry = NewEntry(personId, TimesheetLane.Main, "30", new DateOnly(2026, 1, 1), null);
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetEntries.Add(entry);
+            await db.SaveChangesAsync();
+        }
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await repo.UpdateEntryAsync(
+                entryId: entry.Id,
+                lane: TimesheetLane.Main,
+                code: "НБ",
+                from: new DateOnly(2026, 1, 1),
+                to: null,
+                reference: null,
+                note: null,
+                author: "ui",
+                nowUtc: DateTime.UtcNow));
+
+        Assert.Contains("НБ", ex.Message);
+    }
+
+    [Fact]
+    public async Task EnsureOpenedOnEnrollAsync_creates_Main_30_entry()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetRepository(tdb.Factory);
+
+        var personId = Guid.NewGuid();
+        var enrollDate = new DateOnly(2026, 1, 10);
+        var now = DateTime.UtcNow;
+
+        await repo.EnsureOpenedOnEnrollAsync(personId, enrollDate, "ui", now);
+
+        using var db = tdb.Factory.CreateDbContext();
+        var e = await db.TimesheetEntries
+            .Where(x => x.PersonId == personId && x.Lane == TimesheetLane.Main && !x.IsDeleted)
+            .SingleAsync();
+
+        Assert.Equal("30", e.Code);
+        Assert.Equal(enrollDate, e.From);
+        Assert.Null(e.To);
+    }
+
+    [Fact]
+    public async Task EnsureClosedOnExcludeAsync_results_in_no_future_main_entries_after_close_date()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetRepository(tdb.Factory);
+
+        var personId = Guid.NewGuid();
+        var closeTo = new DateOnly(2026, 1, 10);
+        var now = DateTime.UtcNow;
+
+        var open = NewEntry(personId, TimesheetLane.Main, "30", new DateOnly(2026, 1, 1), null);
+        var future = NewEntry(personId, TimesheetLane.Main, "ВП", new DateOnly(2026, 1, 20), null);
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetEntries.AddRange(open, future);
+            await db.SaveChangesAsync();
+        }
+
+        await repo.EnsureClosedOnExcludeAsync(personId, closeTo, "excluded", "ui", now);
+
+        using var db2 = tdb.Factory.CreateDbContext();
+
+        var openAfter = await db2.TimesheetEntries.SingleAsync(x => x.Id == open.Id);
+        Assert.Equal(closeTo, openAfter.To);
+
+        var futureAfter = await db2.TimesheetEntries.SingleAsync(x => x.Id == future.Id);
+        Assert.True(futureAfter.IsDeleted);
+
+        // ключова перевірка: після closeTo НЕ має бути активних Main entry
+        var anyActiveAfter = await db2.TimesheetEntries
+            .AsNoTracking()
+            .AnyAsync(x => x.PersonId == personId
+                           && x.Lane == TimesheetLane.Main
+                           && !x.IsDeleted
+                           && x.From > closeTo);
+
+        Assert.False(anyActiveAfter);
+    }
 }

@@ -15,7 +15,7 @@ public sealed class TimesheetPolicySeed
 {
     public static async Task EnsureSeededAsync(AppDbContext db, CancellationToken ct)
     {
-        // 1) Codes
+        // 1) Codes (НБ НЕ є кодом події табеля, тому НЕ сідаємо його в довідник)
         if (!await db.TimesheetCodes.AnyAsync(ct))
         {
             var now = DateTime.UtcNow;
@@ -26,6 +26,8 @@ public sealed class TimesheetPolicySeed
                 // ----------------------------
                 // MAIN (факт)
                 // ----------------------------
+
+                // базовий факт-стан
                 CodeMain("30", "В районі", 10, TimesheetEndDateMeaning.LastDayOfThisCode),
 
                 // “день повернення це ще подія”
@@ -35,28 +37,27 @@ public sealed class TimesheetPolicySeed
                 CodeMain("ЛХ", "Лікування по хворобі", 50, TimesheetEndDateMeaning.LastDayOfThisCode),
                 CodeMain("ЛП", "Лікування по пораненню", 51, TimesheetEndDateMeaning.LastDayOfThisCode),
 
-                // “день повернення це наступна подія”
+                // “день повернення це наступна подія” (30 з цієї дати)
                 CodeMain("ВП", "Відпустка", 30, TimesheetEndDateMeaning.FirstDayOfNextCode, nextCodeOnEnd: "30"),
                 CodeMain("ВПХ", "Відпустка по хворобі", 31, TimesheetEndDateMeaning.FirstDayOfNextCode, nextCodeOnEnd: "30"),
                 CodeMain("ВПП", "Відпустка по пораненню", 32, TimesheetEndDateMeaning.FirstDayOfNextCode, nextCodeOnEnd: "30"),
 
+                // інцидентні (вихід потім у 30/РОЗПОР, але НЕ в НБ)
                 CodeMain("БВ", "Безвісти", 60, TimesheetEndDateMeaning.FirstDayOfNextCode),
                 CodeMain("П", "Полон", 61, TimesheetEndDateMeaning.FirstDayOfNextCode),
                 CodeMain("А", "Арешт", 62, TimesheetEndDateMeaning.FirstDayOfNextCode),
                 CodeMain("БВ (СЗЧ)", "Безпідставно відсутній", 63, TimesheetEndDateMeaning.FirstDayOfNextCode),
                 CodeMain("СЗЧ", "СЗЧ", 64, TimesheetEndDateMeaning.FirstDayOfNextCode),
 
+                // адмін/фінальні
                 CodeMain("РОЗПОР", "Розпорядження", 80, TimesheetEndDateMeaning.FirstDayOfNextCode, isTerminal: true),
-                CodeMain("НБ", "Звільнення/Переміщення", 90, TimesheetEndDateMeaning.LastDayOfThisCode, isTerminal: true),
                 CodeMain("200", "Загибель", 99, TimesheetEndDateMeaning.LastDayOfThisCode, isTerminal: true),
 
                 // ----------------------------
                 // MAIN: завдання/факти, що впливають на план
                 // ----------------------------
-                // “день закінчення = ще 100”
                 CodeMain("100", "Затверджене завдання (факт)", 110, TimesheetEndDateMeaning.LastDayOfThisCode),
 
-                // Ф100/ПБД — факти + planning cutoff (D -> cutoff до D-1)
                 CodeMain("Ф100", "Ф100 (факт поранення)", 120, TimesheetEndDateMeaning.LastDayOfThisCode,
                     isPlanningCutoff: true, cutoffShiftDays: 1),
 
@@ -74,7 +75,7 @@ public sealed class TimesheetPolicySeed
                     SortOrder = 10,
                     RequiresReference = true,
                     EndDateMeaning = TimesheetEndDateMeaning.LastDayOfThisCode
-                }// TODO Особливості по TASK?
+                } // TODO додати інші коди плану за потреби
             };
 
             foreach (var c in codes)
@@ -88,7 +89,7 @@ public sealed class TimesheetPolicySeed
             await db.SaveChangesAsync(ct);
         }
 
-        // 2) Transitions
+        // 2) Transitions (без НБ, без -> НБ)
         if (!await db.TimesheetCodeTransitions.AnyAsync(ct))
         {
             var now = DateTime.UtcNow;
@@ -105,18 +106,17 @@ public sealed class TimesheetPolicySeed
             var mainByCode = main.ToDictionary(x => x.Code, x => x.Id);
             var taskByCode = task.ToDictionary(x => x.Code, x => x.Id);
 
-            // helper: add transitions by codes
             void AddMain(string fromCode, params string[] toCodes)
                 => AddAll(db, TimesheetLane.Main, mainByCode[fromCode], toCodes.Select(c => mainByCode[c]), author, now);
 
-            // 30 -> all (крім себе)
+            // 30 -> все (крім себе)
             var id30 = mainByCode["30"];
             AddAll(db, TimesheetLane.Main, id30, main.Select(x => x.Id).Where(x => x != id30), author, now);
 
             // ВДР дозволені: 30, ЛХ, СЗЧ, 200, А, БВ (СЗЧ)
             AddMain("ВДР", "30", "ЛХ", "СЗЧ", "200", "А", "БВ (СЗЧ)");
 
-            // ВП дозволені: 30, ЛХ, СЗЧ, 200, А, БВ (СЗЧ)
+            // ВП: 30, ЛХ, СЗЧ, 200, А, БВ (СЗЧ)
             AddMain("ВП", "30", "ЛХ", "СЗЧ", "200", "А", "БВ (СЗЧ)");
 
             // ВПХ: 30, ЛХ, СЗЧ, 200, А, БВ (СЗЧ), ВЛК
@@ -152,14 +152,10 @@ public sealed class TimesheetPolicySeed
             // СЗЧ: 30, РОЗПОР
             AddMain("СЗЧ", "30", "РОЗПОР");
 
-            // РОЗПОР: 30, НБ
-            AddMain("РОЗПОР", "30", "НБ");
+            // РОЗПОР: 30
+            AddMain("РОЗПОР", "30");
 
-            // НБ: 30
-            AddMain("НБ", "30");
-
-            // 200: НБ (як у файлі)
-            AddMain("200", "НБ");
+            // 200: переходів немає (термінальний факт), НБ НЕ використовуємо
 
             // 100: 30, БВ, ПБД, 200, БВ (СЗЧ), П, Ф100
             AddMain("100", "30", "БВ", "ПБД", "200", "БВ (СЗЧ)", "П", "Ф100");
@@ -170,8 +166,7 @@ public sealed class TimesheetPolicySeed
             // ПБД: 30, 100
             AddMain("ПБД", "30", "100");
 
-            // TASK transitions: поки один код, тому нічого
-            // якщо буде більше — дозволите між ними
+            // TASK: якщо колись буде >1 коду — дозволимо між ними
             foreach (var from in taskByCode.Values)
                 AddAll(db, TimesheetLane.Task, from, taskByCode.Values.Where(x => x != from), author, now);
 

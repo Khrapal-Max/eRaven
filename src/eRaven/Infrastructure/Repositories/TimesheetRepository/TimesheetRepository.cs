@@ -16,6 +16,7 @@ public sealed class TimesheetRepository(IDbContextFactory<AppDbContext> dbFactor
     : ITimesheetRepository
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
+    private const string NotInTimesheetCode = "НБ";
 
     // повертає місячні табелі для всіх осіб, які були в табелі в цей місяць
     public async Task<IReadOnlyList<TimesheetMonthPerPersonDto>> GetMonthlyTimesheetAsync(int year, int month, string? search,
@@ -682,6 +683,14 @@ public sealed class TimesheetRepository(IDbContextFactory<AppDbContext> dbFactor
     {
         if (string.IsNullOrWhiteSpace(code))
             throw new ArgumentException("Code is required.", nameof(code));
+
+        var c = code.Trim();
+
+        // NB is system-only (virtual), cannot be stored as an entry code
+        if (string.Equals(c, NotInTimesheetCode, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "Код 'НБ' є системним і не може бути встановлений вручну. " +
+                "Він визначається автоматично (відсутність запису / виключення з табеля).");
     }
 
     private static string? Normalize(string? s)
