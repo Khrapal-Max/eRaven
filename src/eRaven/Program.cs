@@ -6,7 +6,6 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Catalogs.Ranks;
-using eRaven.Application.Catalogs.Timesheet;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
 using eRaven.Application.Commands.PersonInfo;
@@ -31,6 +30,7 @@ using eRaven.Infrastructure;
 using eRaven.Infrastructure.Projectors;
 using eRaven.Infrastructure.Repositories.DashboardRepository;
 using eRaven.Infrastructure.Repositories.PersonRepository;
+using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
 using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using eRaven.Presentation.Errors;
 using eRaven.Presentation.Toasts;
@@ -50,7 +50,7 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 
 // Catalogs
 builder.Services.AddScoped<IRankCatalog, DefaultRankCatalog>();
-builder.Services.AddSingleton<ITimesheetStatusCatalog, DefaultTimesheetStatusCatalog>();
+builder.Services.AddScoped<ITimesheetPolicyRepository, TimesheetPolicyRepository>();
 
 // Projector (stateless)
 builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();

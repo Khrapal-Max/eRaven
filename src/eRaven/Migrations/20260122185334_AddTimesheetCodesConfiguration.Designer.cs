@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using eRaven.Infrastructure;
@@ -11,9 +12,11 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260122185334_AddTimesheetCodesConfiguration")]
+    partial class AddTimesheetCodesConfiguration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -234,10 +237,6 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("created_by");
 
-                    b.Property<int>("EndDateMeaning")
-                        .HasColumnType("integer")
-                        .HasColumnName("end_date_meaning");
-
                     b.Property<int>("EndMode")
                         .HasColumnType("integer")
                         .HasColumnName("end_mode");
@@ -246,10 +245,6 @@ namespace eRaven.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
 
-                    b.Property<bool>("IsPlanningCutoff")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_planning_cutoff");
-
                     b.Property<bool>("IsTerminal")
                         .HasColumnType("boolean")
                         .HasColumnName("is_terminal");
@@ -257,15 +252,6 @@ namespace eRaven.Migrations
                     b.Property<int>("Lane")
                         .HasColumnType("integer")
                         .HasColumnName("lane");
-
-                    b.Property<string>("NextCodeOnEnd")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("next_code_on_end");
-
-                    b.Property<int>("PlanningCutoffShiftDays")
-                        .HasColumnType("integer")
-                        .HasColumnName("planning_cutoff_shift_days");
 
                     b.Property<bool>("RequiresNote")
                         .HasColumnType("boolean")

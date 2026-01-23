@@ -2,15 +2,23 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ITimesheetStatusCatalog
+// TimesheetEndMode
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+namespace eRaven.Domain.Enums;
 
-namespace eRaven.Application.Catalogs.Timesheet;
-
-public interface ITimesheetStatusCatalog
+public enum TimesheetEndMode
 {
-    IReadOnlyList<TimesheetStatusOption> GetAll();
-    IReadOnlyList<TimesheetStatusOption> GetByLane(TimesheetLane lane);
+    /// <summary>
+    /// може бути open-ended або [From..To]
+    /// </summary>
+    PeriodOptional = 0,
+    /// <summary>
+    /// To обов'язковий
+    /// </summary>
+    PeriodRequired = 1,
+    /// <summary>
+    /// одно-добовий запис
+    /// </summary>
+    SingleDay = 2     
 }

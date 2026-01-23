@@ -5,7 +5,6 @@
 // TimesheetRepositoryTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs.Timesheet;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 using eRaven.Infrastructure.Repositories.TimesheetRepository;
@@ -14,1406 +13,282 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Tests.Infrastructure.Repositories;
 
-public sealed class TimesheetRepositoryTests : IAsyncLifetime
+public sealed class TimesheetRepositoryTests
 {
-    private SqliteTestDb _db = default!;
-    private TimesheetRepository _repo = default!;
-
-    private static readonly DateTime NowUtc = new(2026, 01, 20, 10, 0, 0, DateTimeKind.Utc);
-    private static MonthlyTimesheetDayDto Cell(MonthlyTimesheetReadModelDto ts, int day, TimesheetLane lane)
-    => ts.Days.Single(x => x.Day == day && x.Lane == lane);
-
-    public Task InitializeAsync()
-    {
-        _db = new SqliteTestDb();
-        _repo = new TimesheetRepository(_db.Factory);
-        return Task.CompletedTask;
-    }
-
-    public async Task DisposeAsync()
-        => await _db.DisposeAsync();
-
-    // =========================
-    // Create / Read
-    // =========================
-
-    [Fact]
-    public async Task CreateEntryAsync_should_persist_and_GetEntryByIdAsync_should_return_it()
-    {
-        var personId = Guid.NewGuid();
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
-
-        var entryId = await _repo.CreateEntryAsync(
-            personId: personId,
-            lane: TimesheetLane.Main,
-            code: "30",
-            from: new DateOnly(2026, 01, 10),
-            to: null,
-            reference: "ref",
-            note: "note",
-            author: "system",
-            nowUtc: nowUtc);
-
-        var loaded = await _repo.GetEntryByIdAsync(entryId);
-
-        Assert.NotNull(loaded);
-        Assert.Equal(entryId, loaded!.Id);
-        Assert.Equal(personId, loaded.PersonId);
-        Assert.Equal(TimesheetLane.Main, loaded.Lane);
-        Assert.Equal("30", loaded.Code);
-        Assert.Equal(new DateOnly(2026, 01, 10), loaded.From);
-        Assert.Null(loaded.To);
-        Assert.Equal("ref", loaded.Reference);
-        Assert.Equal("note", loaded.Note);
-        Assert.Equal("system", loaded.CreatedBy);
-        Assert.Equal(nowUtc, loaded.CreatedAtUtc);
-        Assert.False(loaded.IsDeleted);
-    }
-
-    [Fact]
-    public async Task CreateEntryAsync_should_throw_when_to_is_less_than_from()
-    {
-        await Assert.ThrowsAsync<ArgumentException>(() => _repo.CreateEntryAsync(
-            personId: Guid.NewGuid(),
-            lane: TimesheetLane.Main,
-            code: "30",
-            from: new DateOnly(2026, 01, 10),
-            to: new DateOnly(2026, 01, 09),
-            reference: null,
-            note: null,
-            author: "system",
-            nowUtc: DateTime.UtcNow));
-    }
-
-    [Fact]
-    public async Task CreateEntryAsync_should_throw_when_author_or_code_missing()
-    {
-        await Assert.ThrowsAsync<ArgumentException>(() => _repo.CreateEntryAsync(
-            personId: Guid.NewGuid(),
-            lane: TimesheetLane.Main,
-            code: "30",
-            from: new DateOnly(2026, 01, 10),
-            to: null,
-            reference: null,
-            note: null,
-            author: "",
-            nowUtc: DateTime.UtcNow));
-
-        await Assert.ThrowsAsync<ArgumentException>(() => _repo.CreateEntryAsync(
-            personId: Guid.NewGuid(),
-            lane: TimesheetLane.Main,
-            code: " ",
-            from: new DateOnly(2026, 01, 10),
-            to: null,
-            reference: null,
-            note: null,
-            author: "system",
-            nowUtc: DateTime.UtcNow));
-    }
-
-    // =========================
-    // Overlap rule
-    // =========================
-
-    [Fact]
-    public async Task CreateEntryAsync_should_throw_on_overlap_in_same_lane()
-    {
-        var personId = Guid.NewGuid();
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
-
-        // existing: [10..12]
-        _ = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Task, "BTGr",
-            new DateOnly(2026, 01, 10),
-            new DateOnly(2026, 01, 12),
-            null, null, "system", nowUtc);
-
-        // candidate overlaps: [11..13]
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _repo.CreateEntryAsync(
-            personId, TimesheetLane.Task, "BTGr",
-            new DateOnly(2026, 01, 11),
-            new DateOnly(2026, 01, 13),
-            null, null, "system", nowUtc));
-
-        Assert.Contains("перетинається", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task CreateEntryAsync_should_allow_same_period_in_different_lane()
-    {
-        var personId = Guid.NewGuid();
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
-
-        // Main: [10..12]
-        _ = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Main, "30",
-            new DateOnly(2026, 01, 10),
-            new DateOnly(2026, 01, 12),
-            null, null, "system", nowUtc);
-
-        // Task: [10..12] - OK (different lane)
-        var id2 = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Task, "BTGr",
-            new DateOnly(2026, 01, 10),
-            new DateOnly(2026, 01, 12),
-            null, null, "system", nowUtc);
-
-        var loaded = await _repo.GetEntryByIdAsync(id2);
-        Assert.NotNull(loaded);
-        Assert.Equal(TimesheetLane.Task, loaded!.Lane);
-    }
-
-    [Fact]
-    public async Task UpdateEntryAsync_should_throw_on_overlap_with_other_existing_entry()
-    {
-        var personId = Guid.NewGuid();
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
-
-        // e1: [01..05]
-        var e1 = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Task, "BTGr",
-            new DateOnly(2026, 01, 01),
-            new DateOnly(2026, 01, 05),
-            null, null, "system", nowUtc);
-
-        // e2: [10..12]
-        var e2 = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Task, "BTGr",
-            new DateOnly(2026, 01, 10),
-            new DateOnly(2026, 01, 12),
-            null, null, "system", nowUtc);
-
-        // try update e2 to overlap e1: [04..11]
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _repo.UpdateEntryAsync(
-            entryId: e2,
-            lane: TimesheetLane.Task,
-            code: "BTGr",
-            from: new DateOnly(2026, 01, 04),
-            to: new DateOnly(2026, 01, 11),
-            reference: null,
-            note: null,
-            author: "system",
-            nowUtc: nowUtc.AddMinutes(1)));
-    }
-
-    // =========================
-    // Update
-    // =========================
-
-    [Fact]
-    public async Task UpdateEntryAsync_should_update_fields_and_set_updated_audit()
-    {
-        var personId = Guid.NewGuid();
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
-
-        var entryId = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Main, "30",
-            new DateOnly(2026, 01, 10),
-            null,
-            "r1", "n1", "system", nowUtc);
-
-        var now2 = nowUtc.AddMinutes(5);
-
-        await _repo.UpdateEntryAsync(
-            entryId: entryId,
-            lane: TimesheetLane.Main,
-            code: "F100",
-            from: new DateOnly(2026, 01, 11),
-            to: new DateOnly(2026, 01, 12),
-            reference: "r2",
-            note: "n2",
-            author: "operator",
-            nowUtc: now2);
-
-        var loaded = await _repo.GetEntryByIdAsync(entryId);
-
-        Assert.NotNull(loaded);
-        Assert.Equal("F100", loaded!.Code);
-        Assert.Equal(new DateOnly(2026, 01, 11), loaded.From);
-        Assert.Equal(new DateOnly(2026, 01, 12), loaded.To);
-        Assert.Equal("r2", loaded.Reference);
-        Assert.Equal("n2", loaded.Note);
-        Assert.Equal("operator", loaded.UpdatedBy);
-        Assert.Equal(now2, loaded.UpdatedAtUtc);
-    }
-
-    [Fact]
-    public async Task UpdateEntryAsync_should_throw_when_entry_not_found_or_deleted()
-    {
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _repo.UpdateEntryAsync(
-            entryId: Guid.NewGuid(),
-            lane: TimesheetLane.Main,
-            code: "30",
-            from: new DateOnly(2026, 01, 10),
-            to: null,
-            reference: null,
-            note: null,
-            author: "system",
-            nowUtc: nowUtc));
-
-        var personId = Guid.NewGuid();
-        var id = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Main, "30",
-            new DateOnly(2026, 01, 10),
-            null, null, null, "system", nowUtc);
-
-        await _repo.DeleteEntryAsync(id, "reason", "system", nowUtc.AddMinutes(1));
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _repo.UpdateEntryAsync(
-            entryId: id,
-            lane: TimesheetLane.Main,
-            code: "31",
-            from: new DateOnly(2026, 01, 10),
-            to: null,
-            reference: null,
-            note: null,
-            author: "system",
-            nowUtc: nowUtc.AddMinutes(2)));
-    }
-
-    // =========================
-    // Delete (soft)
-    // =========================
-
-    [Fact]
-    public async Task DeleteEntryAsync_should_soft_delete_and_GetEntryByIdAsync_should_hide_deleted()
-    {
-        var personId = Guid.NewGuid();
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
-
-        var entryId = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Main, "30",
-            new DateOnly(2026, 01, 10),
-            null, null, null, "system", nowUtc);
-
-        await _repo.DeleteEntryAsync(
-            entryId: entryId,
-            reason: "correction",
-            author: "operator",
-            nowUtc: nowUtc.AddMinutes(1));
-
-        var visible = await _repo.GetEntryByIdAsync(entryId);
-        Assert.Null(visible);
-
-        // but in DB it exists and marked deleted
-        await using var db = await _db.Factory.CreateDbContextAsync();
-        var raw = await db.TimesheetEntries.AsNoTracking().SingleAsync(x => x.Id == entryId);
-
-        Assert.True(raw.IsDeleted);
-        Assert.Equal("operator", raw.DeletedBy);
-        Assert.Equal("correction", raw.DeleteReason);
-        Assert.Equal(nowUtc.AddMinutes(1), raw.DeletedAtUtc);
-    }
-
-    [Fact]
-    public async Task DeleteEntryAsync_should_be_idempotent()
-    {
-        var personId = Guid.NewGuid();
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
-
-        var entryId = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Main, "30",
-            new DateOnly(2026, 01, 10),
-            null, null, null, "system", nowUtc);
-
-        // delete twice - should not throw
-        await _repo.DeleteEntryAsync(entryId, "correction", "operator", nowUtc.AddMinutes(1));
-        await _repo.DeleteEntryAsync(entryId, "correction2", "operator2", nowUtc.AddMinutes(2));
-
-        // still hidden
-        var visible = await _repo.GetEntryByIdAsync(entryId);
-        Assert.Null(visible);
-
-        await using var db = await _db.Factory.CreateDbContextAsync();
-        var raw = await db.TimesheetEntries.AsNoTracking().SingleAsync(x => x.Id == entryId);
-
-        Assert.True(raw.IsDeleted);
-        // IMPORTANT: your implementation returns early if already deleted, so these stay as first delete.
-        Assert.Equal("operator", raw.DeletedBy);
-        Assert.Equal("correction", raw.DeleteReason);
-        Assert.Equal(nowUtc.AddMinutes(1), raw.DeletedAtUtc);
-    }
-
-    // =========================
-    // Queries
-    // =========================
-
-    [Fact]
-    public async Task GetPersonEntriesAsync_should_return_entries_overlapping_range_sorted()
-    {
-        var personId = Guid.NewGuid();
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
-
-        // Main lane (без перетинів між собою)
-        var e1 = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Main, "A",
-            new DateOnly(2026, 01, 01), new DateOnly(2026, 01, 05),
-            null, null, "system", nowUtc);
-
-        var e2 = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Main, "B",
-            new DateOnly(2026, 01, 06), new DateOnly(2026, 01, 10),
-            null, null, "system", nowUtc);
-
-        // Task lane (може перетинатися з Main, але не з Task в Task)
-        var e3 = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Task, "T1",
-            new DateOnly(2026, 01, 03), new DateOnly(2026, 01, 04),
-            null, null, "system", nowUtc);
-
-        var e4 = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Task, "T2",
-            new DateOnly(2026, 01, 11), null, // open-ended, не перетинається з e3
-            null, null, "system", nowUtc);
-
-        // Запитний діапазон, який "зачіпає" кілька записів
-        var from = new DateOnly(2026, 01, 04);
-        var to = new DateOnly(2026, 01, 11);
-
-        var rows = await _repo.GetPersonEntriesAsync(personId, from, to);
-
-        // Маємо отримати 4 записи: e1 (зачіпає 04..05), e2 (06..10), e3 (04), e4 (11..∞)
-        Assert.Equal(4, rows.Count);
-
-        // Перевіряємо сортування: Lane -> From -> Id
-        // Тому в expected робимо так само:
-        var expected = rows
-            .OrderBy(x => x.Lane)
-            .ThenBy(x => x.From)
-            .ThenBy(x => x.Id)
-            .Select(x => x.Id)
-            .ToArray();
-
-        Assert.Equal(expected, rows.Select(x => x.Id).ToArray());
-
-        // І додатково — що це саме ті entryId
-        var ids = rows.Select(x => x.Id).ToHashSet();
-        Assert.Contains(e1, ids);
-        Assert.Contains(e2, ids);
-        Assert.Contains(e3, ids);
-        Assert.Contains(e4, ids);
-    }
-
-    [Fact]
-    public async Task GetActiveEntriesForTimesheetOnDateAsync_should_return_only_active_persons_entries_on_date()
-    {
-        var date = new DateOnly(2026, 01, 15);
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
-
-        var activePersonId = Guid.NewGuid();
-        var reservedPersonId = Guid.NewGuid();
-
-        // seed PersonRead for active vs reserved
-        await using (var db = await _db.Factory.CreateDbContextAsync())
+    private static TimesheetEntry NewEntry(
+        Guid personId,
+        TimesheetLane lane,
+        string code,
+        DateOnly from,
+        DateOnly? to,
+        bool isDeleted = false)
+        => new()
         {
-            db.PersonRead.Add(new PersonReadModel
-            {
-                Id = activePersonId,
-                FullName = "Active",
-                Rnokpp = "1111111111",
-                Lifecycle = PersonLifecycle.Enrolled,
-                EnrollmentKind = EnrollmentKind.Unit,
-                EnrolledAt = new DateOnly(2026, 01, 10),
-                ExcludedAt = null,
-                UpdatedAtUtc = nowUtc
-            });
+            Id = Guid.NewGuid(),
+            PersonId = personId,
+            Lane = lane,
+            Code = code,
+            From = from,
+            To = to,
+            Reference = null,
+            Note = null,
+            CreatedBy = "seed",
+            CreatedAtUtc = DateTime.UtcNow,
+            IsDeleted = isDeleted
+        };
 
-            db.PersonRead.Add(new PersonReadModel
-            {
-                Id = reservedPersonId,
-                FullName = "Reserved",
-                Rnokpp = "2222222222",
-                Lifecycle = PersonLifecycle.Reserved,
-                EnrollmentKind = null,
-                EnrolledAt = null,
-                ExcludedAt = null,
-                UpdatedAtUtc = nowUtc
-            });
+    [Fact]
+    public async Task CreateEntryAsync_throws_on_overlap_with_open_ended_entry_same_lane()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetRepository(tdb.Factory);
 
+        var personId = Guid.NewGuid();
+        var existing = NewEntry(personId, TimesheetLane.Main, "ВП", new DateOnly(2026, 1, 1), to: null);
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetEntries.Add(existing);
             await db.SaveChangesAsync();
         }
 
-        // seed entries for both persons
-        _ = await _repo.CreateEntryAsync(activePersonId, TimesheetLane.Main, "30",
-            new DateOnly(2026, 01, 01), null, null, null, "system", nowUtc);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await repo.CreateEntryAsync(
+                personId: personId,
+                lane: TimesheetLane.Main,
+                code: "30",
+                from: new DateOnly(2026, 1, 10),
+                to: null,
+                reference: null,
+                note: null,
+                author: "ui",
+                nowUtc: DateTime.UtcNow));
 
-        _ = await _repo.CreateEntryAsync(reservedPersonId, TimesheetLane.Main, "30",
-            new DateOnly(2026, 01, 01), null, null, null, "system", nowUtc);
-
-        var rows = await _repo.GetActiveEntriesForTimesheetOnDateAsync(date);
-
-        Assert.Single(rows);
-        Assert.Equal(activePersonId, rows[0].PersonId);
-        Assert.Equal("30", rows[0].Code);
+        Assert.Contains("перетинається", ex.Message);
     }
 
     [Fact]
-    public async Task GetActiveEntriesForTimesheetOnDateAsync_should_return_empty_when_no_active_persons()
+    public async Task CreateEntryAsync_allows_same_dates_in_other_lane()
     {
-        // No PersonRead seeded
-        var rows = await _repo.GetActiveEntriesForTimesheetOnDateAsync(new DateOnly(2026, 01, 15));
-        Assert.Empty(rows);
-    }
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetRepository(tdb.Factory);
 
-    [Fact]
-    public async Task CreateEntryAsync_should_throw_when_existing_open_ended_entry_overlaps_in_same_lane()
-    {
         var personId = Guid.NewGuid();
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
+        var existingMain = NewEntry(personId, TimesheetLane.Main, "30", new DateOnly(2026, 1, 1), to: null);
 
-        // existing: [10..∞)
-        _ = await _repo.CreateEntryAsync(
-            personId: personId,
-            lane: TimesheetLane.Task,
-            code: "BTGr",
-            from: new DateOnly(2026, 01, 10),
-            to: null,
-            reference: null,
-            note: null,
-            author: "system",
-            nowUtc: nowUtc);
-
-        // candidate: [12..15] overlaps with open-ended
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _repo.CreateEntryAsync(
-            personId: personId,
-            lane: TimesheetLane.Task,
-            code: "BTGr",
-            from: new DateOnly(2026, 01, 12),
-            to: new DateOnly(2026, 01, 15),
-            reference: null,
-            note: null,
-            author: "system",
-            nowUtc: nowUtc));
-
-        Assert.Contains("перетинається", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task UpdateEntryAsync_should_throw_when_updating_to_open_ended_overlaps_another_entry_in_same_lane()
-    {
-        var personId = Guid.NewGuid();
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
-
-        // e1: [01..05]
-        var e1 = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Task, "BTGr",
-            new DateOnly(2026, 01, 01),
-            new DateOnly(2026, 01, 05),
-            null, null, "system", nowUtc);
-
-        // e2: [10..12]
-        var e2 = await _repo.CreateEntryAsync(
-            personId, TimesheetLane.Task, "BTGr",
-            new DateOnly(2026, 01, 10),
-            new DateOnly(2026, 01, 12),
-            null, null, "system", nowUtc);
-
-        // try update e1 -> [04..∞) overlaps with e2 (because infinity crosses 10..12)
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _repo.UpdateEntryAsync(
-            entryId: e1,
-            lane: TimesheetLane.Task,
-            code: "BTGr",
-            from: new DateOnly(2026, 01, 04),
-            to: null,
-            reference: null,
-            note: null,
-            author: "system",
-            nowUtc: nowUtc.AddMinutes(1)));
-
-        Assert.Contains("перетинається", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task EnsureOpenedOnEnrollAsync_should_create_default_Main_entry_30_from_enrollDate()
-    {
-        var personId = Guid.NewGuid();
-        var enrollDate = new DateOnly(2026, 01, 10);
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
-
-        await _repo.EnsureOpenedOnEnrollAsync(
-            personId: personId,
-            enrollDate: enrollDate,
-            author: "system",
-            nowUtc: nowUtc);
-
-        await using var db = await _db.Factory.CreateDbContextAsync();
-
-        var entries = await db.Set<TimesheetEntry>()
-            .AsNoTracking()
-            .Where(x => x.PersonId == personId && !x.IsDeleted)
-            .ToListAsync();
-
-        var main = entries
-            .Where(x => x.Lane == TimesheetLane.Main)
-            .ToList();
-
-        Assert.Single(main);
-
-        var e = main[0];
-        Assert.Equal("30", e.Code);
-        Assert.Equal(enrollDate, e.From);
-        Assert.Null(e.To);
-    }
-
-    [Fact]
-    public async Task EnsureOpenedOnEnrollAsync_should_be_idempotent_when_default_entry_already_exists()
-    {
-        var personId = Guid.NewGuid();
-        var enrollDate = new DateOnly(2026, 01, 10);
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
-
-        var existingId = Guid.NewGuid();
-
-        await using (var db = await _db.Factory.CreateDbContextAsync())
+        using (var db = tdb.Factory.CreateDbContext())
         {
-            db.Set<TimesheetEntry>().Add(new TimesheetEntry
-            {
-                Id = existingId,
-                PersonId = personId,
-                Lane = TimesheetLane.Main,
-                Code = "30",
-                From = enrollDate,
-                To = null,
-                Reference = null,
-                Note = null,
-                CreatedBy = "seed",
-                CreatedAtUtc = nowUtc,
-                IsDeleted = false
-            });
-
+            db.TimesheetEntries.Add(existingMain);
             await db.SaveChangesAsync();
         }
 
-        // act: call Ensure again
-        await _repo.EnsureOpenedOnEnrollAsync(
+        var id = await repo.CreateEntryAsync(
             personId: personId,
-            enrollDate: enrollDate,
-            author: "system",
-            nowUtc: nowUtc);
+            lane: TimesheetLane.Task,
+            code: "PLAN",
+            from: new DateOnly(2026, 1, 10),
+            to: null,
+            reference: "x",
+            note: null,
+            author: "ui",
+            nowUtc: DateTime.UtcNow);
 
-        await using var db2 = await _db.Factory.CreateDbContextAsync();
+        using var db2 = tdb.Factory.CreateDbContext();
+        var created = await db2.TimesheetEntries.SingleAsync(x => x.Id == id);
 
-        var main = await db2.Set<TimesheetEntry>()
-            .AsNoTracking()
-            .Where(x => x.PersonId == personId && !x.IsDeleted && x.Lane == TimesheetLane.Main)
+        Assert.Equal(TimesheetLane.Task, created.Lane);
+        Assert.Equal("PLAN", created.Code);
+    }
+
+    [Fact]
+    public async Task UpdateEntryAsync_throws_on_overlap_after_change()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetRepository(tdb.Factory);
+
+        var personId = Guid.NewGuid();
+        var e1 = NewEntry(personId, TimesheetLane.Main, "ВП", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 9));
+        var e2 = NewEntry(personId, TimesheetLane.Main, "30", new DateOnly(2026, 1, 10), null);
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetEntries.AddRange(e1, e2);
+            await db.SaveChangesAsync();
+        }
+
+        // пробуємо змістити e2 назад так, щоб перетинав e1
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await repo.UpdateEntryAsync(
+                entryId: e2.Id,
+                lane: TimesheetLane.Main,
+                code: "30",
+                from: new DateOnly(2026, 1, 5),
+                to: null,
+                reference: null,
+                note: null,
+                author: "ui",
+                nowUtc: DateTime.UtcNow));
+
+        Assert.Contains("перетинається", ex.Message);
+    }
+
+    [Fact]
+    public async Task DeleteEntryAsync_soft_deletes_entry()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetRepository(tdb.Factory);
+
+        var personId = Guid.NewGuid();
+        var e = NewEntry(personId, TimesheetLane.Main, "30", new DateOnly(2026, 1, 1), null);
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetEntries.Add(e);
+            await db.SaveChangesAsync();
+        }
+
+        var now = DateTime.UtcNow;
+
+        await repo.DeleteEntryAsync(
+            entryId: e.Id,
+            reason: "test",
+            author: "ui",
+            nowUtc: now);
+
+        using var db2 = tdb.Factory.CreateDbContext();
+        var deleted = await db2.TimesheetEntries.SingleAsync(x => x.Id == e.Id);
+
+        Assert.True(deleted.IsDeleted);
+        Assert.Equal("ui", deleted.DeletedBy);
+        Assert.NotNull(deleted.DeletedAtUtc);
+        Assert.Equal("test", deleted.DeleteReason);
+    }
+
+    [Fact]
+    public async Task EnsureOpenedOnEnrollAsync_creates_default_30_from_enrollDate_when_no_overlap()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetRepository(tdb.Factory);
+
+        var personId = Guid.NewGuid();
+        var enrollDate = new DateOnly(2026, 1, 10);
+        var now = DateTime.UtcNow;
+
+        await repo.EnsureOpenedOnEnrollAsync(personId, enrollDate, "ui", now);
+
+        using var db = tdb.Factory.CreateDbContext();
+        var main = await db.TimesheetEntries
+            .Where(x => x.PersonId == personId && x.Lane == TimesheetLane.Main && !x.IsDeleted)
             .OrderBy(x => x.From)
-            .ThenBy(x => x.Id)
             .ToListAsync();
 
         Assert.Single(main);
-        Assert.Equal(existingId, main[0].Id); // не створюємо дубль
         Assert.Equal("30", main[0].Code);
         Assert.Equal(enrollDate, main[0].From);
         Assert.Null(main[0].To);
     }
 
     [Fact]
-    public async Task EnsureClosedOnExcludeAsync_should_close_all_open_entries_for_person_by_setting_To()
+    public async Task EnsureOpenedOnEnrollAsync_clamps_previous_open_entry_and_creates_30()
     {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetRepository(tdb.Factory);
+
         var personId = Guid.NewGuid();
-        var enrollDate = new DateOnly(2026, 01, 10);
-        var closeTo = new DateOnly(2026, 01, 15);
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
+        var enrollDate = new DateOnly(2026, 1, 10);
+        var now = DateTime.UtcNow;
 
-        var mainId = Guid.NewGuid();
-        var taskId = Guid.NewGuid();
+        var old = NewEntry(personId, TimesheetLane.Main, "ВП", new DateOnly(2026, 1, 1), to: null);
 
-        await using (var db = await _db.Factory.CreateDbContextAsync())
+        using (var db = tdb.Factory.CreateDbContext())
         {
-            db.Set<TimesheetEntry>().AddRange(
-                new TimesheetEntry
-                {
-                    Id = mainId,
-                    PersonId = personId,
-                    Lane = TimesheetLane.Main,
-                    Code = "30",
-                    From = enrollDate,
-                    To = null,
-                    CreatedBy = "seed",
-                    CreatedAtUtc = nowUtc,
-                    IsDeleted = false
-                },
-                new TimesheetEntry
-                {
-                    Id = taskId,
-                    PersonId = personId,
-                    Lane = TimesheetLane.Task,
-                    Code = "RPT-1",
-                    From = enrollDate.AddDays(1),
-                    To = null,
-                    CreatedBy = "seed",
-                    CreatedAtUtc = nowUtc,
-                    IsDeleted = false
-                }
-            );
-
+            db.TimesheetEntries.Add(old);
             await db.SaveChangesAsync();
         }
 
-        await _repo.EnsureClosedOnExcludeAsync(
-            personId: personId,
-            closeTo: closeTo,
-            reason: "Exclude",
-            author: "system",
-            nowUtc: nowUtc);
+        await repo.EnsureOpenedOnEnrollAsync(personId, enrollDate, "ui", now);
 
-        await using var db2 = await _db.Factory.CreateDbContextAsync();
+        using var db2 = tdb.Factory.CreateDbContext();
 
-        var loadedMain = await db2.Set<TimesheetEntry>()
-            .AsNoTracking()
-            .SingleAsync(x => x.Id == mainId);
+        var entries = await db2.TimesheetEntries
+            .Where(x => x.PersonId == personId && x.Lane == TimesheetLane.Main && !x.IsDeleted)
+            .OrderBy(x => x.From)
+            .ToListAsync();
 
-        var loadedTask = await db2.Set<TimesheetEntry>()
-            .AsNoTracking()
-            .SingleAsync(x => x.Id == taskId);
+        Assert.Equal(2, entries.Count);
 
-        Assert.Equal(closeTo, loadedMain.To);
-        Assert.Equal(closeTo, loadedTask.To);
+        Assert.Equal("ВП", entries[0].Code);
+        Assert.Equal(new DateOnly(2026, 1, 1), entries[0].From);
+        Assert.Equal(enrollDate.AddDays(-1), entries[0].To); // clamp
+
+        Assert.Equal("30", entries[1].Code);
+        Assert.Equal(enrollDate, entries[1].From);
+        Assert.Null(entries[1].To);
     }
 
     [Fact]
-    public async Task EnsureClosedOnExcludeAsync_should_be_idempotent_when_no_open_entries_exist()
+    public async Task EnsureClosedOnExcludeAsync_clamps_open_entries_and_soft_deletes_future_entries()
     {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetRepository(tdb.Factory);
+
         var personId = Guid.NewGuid();
-        var closeTo = new DateOnly(2026, 01, 15);
-        var nowUtc = new DateTime(2026, 01, 19, 10, 0, 0, DateTimeKind.Utc);
+        var closeTo = new DateOnly(2026, 1, 10);
+        var now = DateTime.UtcNow;
 
-        // нічого не сідімо — method має “тихо” пройти
-        await _repo.EnsureClosedOnExcludeAsync(
-            personId: personId,
-            closeTo: closeTo,
-            reason: "Exclude",
-            author: "system",
-            nowUtc: nowUtc);
+        var open = NewEntry(personId, TimesheetLane.Main, "30", new DateOnly(2026, 1, 1), to: null);
+        var future = NewEntry(personId, TimesheetLane.Main, "ВП", new DateOnly(2026, 1, 20), to: null);
 
-        await using var db = await _db.Factory.CreateDbContextAsync();
-        var any = await db.Set<TimesheetEntry>()
-            .AsNoTracking()
-            .AnyAsync(x => x.PersonId == personId);
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetEntries.AddRange(open, future);
+            await db.SaveChangesAsync();
+        }
 
-        Assert.False(any);
+        await repo.EnsureClosedOnExcludeAsync(personId, closeTo, "excluded", "ui", now);
+
+        using var db2 = tdb.Factory.CreateDbContext();
+
+        var openAfter = await db2.TimesheetEntries.SingleAsync(x => x.Id == open.Id);
+        Assert.Equal(closeTo, openAfter.To);
+        Assert.Equal("ui", openAfter.UpdatedBy);
+        Assert.NotNull(openAfter.UpdatedAtUtc);
+
+        var futureAfter = await db2.TimesheetEntries.SingleAsync(x => x.Id == future.Id);
+        Assert.True(futureAfter.IsDeleted);
+        Assert.Equal("ui", futureAfter.DeletedBy);
+        Assert.NotNull(futureAfter.DeletedAtUtc);
+        Assert.Contains("excluded", futureAfter.DeleteReason ?? "");
     }
 
     [Fact]
-    public async Task GetMonthlyTimesheetAsync_should_return_only_persons_active_in_month_apply_search_and_sort()
+    public async Task GetPersonEntriesAsync_returns_entries_overlapping_range_ordered()
     {
-        await using var db = await _db.Factory.CreateDbContextAsync();
-
-        // Jan 2026 window
-
-        // A: active in Jan, PositionSort=20
-        var pA = new PersonReadModel
-        {
-            Id = Guid.NewGuid(),
-            Lifecycle = PersonLifecycle.Enrolled,
-            Rnokpp = "111",
-            LastName = "A",
-            FirstName = "A",
-            FullName = "A Person",
-            Rank = "Солдат",
-            EnrollmentKind = EnrollmentKind.Unit,
-            PositionSort = 20,
-            Position = "Стрілець",
-            EnrolledAt = new DateOnly(2026, 01, 05),
-            ExcludedAt = null,
-            Version = 1,
-            UpdatedAtUtc = NowUtc
-        };
-
-        // B: active in Jan, PositionSort=10 => must come first
-        var pB = new PersonReadModel
-        {
-            Id = Guid.NewGuid(),
-            Lifecycle = PersonLifecycle.Enrolled,
-            Rnokpp = "222",
-            LastName = "B",
-            FirstName = "B",
-            FullName = "B Person",
-            Rank = "Сержант",
-            EnrollmentKind = EnrollmentKind.Unit,
-            PositionSort = 10,
-            Position = "Навідник",
-            EnrolledAt = new DateOnly(2026, 01, 10),
-            ExcludedAt = null,
-            Version = 1,
-            UpdatedAtUtc = NowUtc
-        };
-
-        // C: NOT active in Jan (enrolled in Feb) -> must be excluded
-        var pC = new PersonReadModel
-        {
-            Id = Guid.NewGuid(),
-            Lifecycle = PersonLifecycle.Enrolled,
-            Rnokpp = "333",
-            LastName = "C",
-            FirstName = "C",
-            FullName = "C Person",
-            Rank = "Солдат",
-            EnrollmentKind = EnrollmentKind.Unit,
-            PositionSort = 5,
-            Position = "Стрілець",
-            EnrolledAt = new DateOnly(2026, 02, 01),
-            ExcludedAt = null,
-            Version = 1,
-            UpdatedAtUtc = NowUtc
-        };
-
-        db.PersonRead.AddRange(pA, pB, pC);
-
-        db.TimesheetEntries.AddRange(
-            new TimesheetEntry
-            {
-                Id = Guid.NewGuid(),
-                PersonId = pA.Id,
-                Lane = TimesheetLane.Main,
-                Code = "30",
-                From = pA.EnrolledAt!.Value,
-                To = null,
-                CreatedBy = "seed",
-                CreatedAtUtc = NowUtc,
-                IsDeleted = false
-            },
-            new TimesheetEntry
-            {
-                Id = Guid.NewGuid(),
-                PersonId = pB.Id,
-                Lane = TimesheetLane.Main,
-                Code = "30",
-                From = pB.EnrolledAt!.Value,
-                To = null,
-                CreatedBy = "seed",
-                CreatedAtUtc = NowUtc,
-                IsDeleted = false
-            }
-        );
-        await db.SaveChangesAsync();
-
-        // act: no search
-        var rows = await _repo.GetMonthlyTimesheetAsync(2026, 1, search: null);
-
-        // assert: only A and B, sorted by EnrollmentKind then PositionSort
-        Assert.Equal(2, rows.Count);
-        Assert.Equal(pB.Id, rows[0].PersonId);
-        Assert.Equal(pA.Id, rows[1].PersonId);
-
-        // days count must match month length * 2 lanes
-        Assert.Equal(31 * 2, rows[0].Timesheet!.Days.Count);
-
-        // A enrolled at 05.01 => day1 Main is НБ, day5 Main is 30
-        var a = rows.Single(x => x.PersonId == pA.Id).Timesheet!;
-        Assert.Equal("НБ", Cell(a, 1, TimesheetLane.Main).Code);
-        Assert.Equal("30", Cell(a, 5, TimesheetLane.Main).Code);
-
-        // search filters by rnokpp/fullname
-        var onlyA = await _repo.GetMonthlyTimesheetAsync(2026, 1, search: "111");
-        Assert.Single(onlyA);
-        Assert.Equal(pA.Id, onlyA[0].PersonId);
-
-        var none = await _repo.GetMonthlyTimesheetAsync(2026, 1, search: "no-match");
-        Assert.Empty(none);
-    }
-
-    [Fact]
-    public async Task GetMonthlyTimesheetAsync_when_monthly_read_model_exists_should_take_UpdatedAtUtc_from_it_but_days_are_built()
-    {
-        await using var db = await _db.Factory.CreateDbContextAsync();
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetRepository(tdb.Factory);
 
         var personId = Guid.NewGuid();
 
-        db.PersonRead.Add(new PersonReadModel
+        var e1 = NewEntry(personId, TimesheetLane.Main, "ВП", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 9));
+        var e2 = NewEntry(personId, TimesheetLane.Main, "30", new DateOnly(2026, 1, 10), null);
+        var e3 = NewEntry(personId, TimesheetLane.Task, "PLAN", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 6));
+
+        using (var db = tdb.Factory.CreateDbContext())
         {
-            Id = personId,
-            Lifecycle = PersonLifecycle.Enrolled,
-            Rnokpp = "777",
-            LastName = "Ivanov",
-            FirstName = "Ivan",
-            FullName = "Ivanov Ivan",
-            Rank = "Солдат",
-            EnrollmentKind = EnrollmentKind.Unit,
-            PositionSort = 1,
-            Position = "Стрілець",
-            EnrolledAt = new DateOnly(2026, 01, 01),
-            ExcludedAt = null,
-            Version = 1,
-            UpdatedAtUtc = NowUtc
-        });
-
-        var rmUpdated = new DateTime(2026, 01, 19, 9, 0, 0, DateTimeKind.Utc);
-
-        db.Set<MonthlyTimesheetReadModel>().Add(new MonthlyTimesheetReadModel
-        {
-            PersonId = personId,
-            Year = 2026,
-            Month = 1,
-            Version = 5,
-            UpdatedAtUtc = rmUpdated
-            // Days можна не заповнювати — репо їх зараз не читає
-        });
-
-        // entry that overrides main on 10..12
-        db.Set<TimesheetEntry>().Add(new TimesheetEntry
-        {
-            Id = Guid.NewGuid(),
-            PersonId = personId,
-            Lane = TimesheetLane.Main,
-            Code = "100",
-            From = new DateOnly(2026, 01, 10),
-            To = new DateOnly(2026, 01, 12),
-            CreatedBy = "tester",
-            CreatedAtUtc = NowUtc,
-            IsDeleted = false
-        });
-
-        db.Set<TimesheetEntry>().Add(new TimesheetEntry
-        {
-            Id = Guid.NewGuid(),
-            PersonId = personId,
-            Lane = TimesheetLane.Main,
-            Code = "30",
-            From = new DateOnly(2026, 01, 01),
-            To = null,
-            CreatedBy = "seed",
-            CreatedAtUtc = NowUtc,
-            IsDeleted = false
-        });
-
-        await db.SaveChangesAsync();
-
-        var rows = await _repo.GetMonthlyTimesheetAsync(2026, 1, search: null);
-        Assert.Single(rows);
-
-        var ts = rows[0].Timesheet!;
-        Assert.Equal(rmUpdated, ts.UpdatedAtUtc);
-
-        // day 9 main is default 30 (in timesheet), day 10 main overridden to 100
-        Assert.Equal("30", Cell(ts, 9, TimesheetLane.Main).Code);
-        Assert.Equal("100", Cell(ts, 10, TimesheetLane.Main).Code);
-
-        // task lane default empty
-        Assert.Equal("", Cell(ts, 10, TimesheetLane.Task).Code);
-    }
-
-    [Fact]
-    public async Task GetMonthlyTimesheetAsync_when_read_model_missing_should_build_days_from_enroll_exclude_and_entries()
-    {
-        await using var db = await _db.Factory.CreateDbContextAsync();
-
-        var personId = Guid.NewGuid();
-
-        db.PersonRead.Add(new PersonReadModel
-        {
-            Id = personId,
-            Lifecycle = PersonLifecycle.Enrolled,
-            Rnokpp = "888",
-            LastName = "Petrov",
-            FirstName = "Petr",
-            FullName = "Petrov Petr",
-            Rank = "Солдат",
-            EnrollmentKind = EnrollmentKind.Unit,
-            PositionSort = 1,
-            Position = "Стрілець",
-            EnrolledAt = new DateOnly(2026, 01, 10),
-            ExcludedAt = new DateOnly(2026, 01, 20),
-            Version = 1,
-            UpdatedAtUtc = NowUtc
-        });
-
-        db.TimesheetEntries.Add(new TimesheetEntry
-        {
-            Id = Guid.NewGuid(),
-            PersonId = personId,
-            Lane = TimesheetLane.Main,
-            Code = "30",
-            From = new DateOnly(2026, 01, 10),
-            To = new DateOnly(2026, 01, 20),
-            CreatedBy = "seed",
-            CreatedAtUtc = NowUtc,
-            IsDeleted = false
-        });
-
-        await db.SaveChangesAsync();
-
-        var rows = await _repo.GetMonthlyTimesheetAsync(2026, 1, search: null);
-        Assert.Single(rows);
-
-        var ts = rows[0].Timesheet!;
-        Assert.Equal(DateTime.MinValue, ts.UpdatedAtUtc);
-
-        // before enroll => НБ
-        Assert.Equal("НБ", Cell(ts, 9, TimesheetLane.Main).Code);
-
-        // in timesheet => 30
-        Assert.Equal("30", Cell(ts, 10, TimesheetLane.Main).Code);
-        Assert.Equal("30", Cell(ts, 20, TimesheetLane.Main).Code);
-
-        // after exclude => НБ
-        Assert.Equal("НБ", Cell(ts, 21, TimesheetLane.Main).Code);
-
-        // task lane is always empty by default
-        Assert.Equal("", Cell(ts, 10, TimesheetLane.Task).Code);
-        Assert.Equal("", Cell(ts, 21, TimesheetLane.Task).Code);
-    }
-
-    [Fact]
-    public async Task GetMonthlyTimesheetAsync_should_show_two_enrollment_periods_within_same_month()
-    {
-        // arrange
-        await using var db = await _db.Factory.CreateDbContextAsync();
-
-        var personId = Guid.NewGuid();
-        var year = 2026;
-        var month = 1;
-
-        // Period #1: 05..08
-        var enroll1 = new DateOnly(year, month, 5);
-        var exclude1 = new DateOnly(year, month, 8);
-
-        // Period #2: from 12..
-        var enroll2 = new DateOnly(year, month, 12);
-
-        // IMPORTANT: PersonReadModel після повторного зарахування містить тільки "останнє" EnrolledAt
-        db.PersonRead.Add(new PersonReadModel
-        {
-            Id = personId,
-            Lifecycle = PersonLifecycle.Enrolled,
-            EnrollmentKind = EnrollmentKind.Unit,
-            PositionSort = 1,
-            Rnokpp = "9999999999",
-            LastName = "Іванов",
-            FirstName = "Іван",
-            FullName = "Іванов Іван Іванович",
-            Rank = "Солдат",
-            Position = "Стрілець",
-            EnrolledAt = enroll2,
-            ExcludedAt = null,
-            Version = 1,
-            UpdatedAtUtc = NowUtc
-        });
-
-        // TimesheetEntry період #1 (закритий на дату виключення)
-        db.TimesheetEntries.Add(new TimesheetEntry
-        {
-            Id = Guid.NewGuid(),
-            PersonId = personId,
-            Lane = TimesheetLane.Main,
-            Code = "30",
-            From = enroll1,
-            To = exclude1,
-            CreatedBy = "seed",
-            CreatedAtUtc = NowUtc,
-            IsDeleted = false
-        });
-
-        // TimesheetEntry період #2 (open-ended)
-        db.TimesheetEntries.Add(new TimesheetEntry
-        {
-            Id = Guid.NewGuid(),
-            PersonId = personId,
-            Lane = TimesheetLane.Main,
-            Code = "30",
-            From = enroll2,
-            To = null,
-            CreatedBy = "seed",
-            CreatedAtUtc = NowUtc,
-            IsDeleted = false
-        });
-
-        await db.SaveChangesAsync();
-
-        // act
-        var rows = await _repo.GetMonthlyTimesheetAsync(year, month, search: null);
-
-        // assert
-        Assert.Single(rows);
-        var r = rows[0];
-
-        string CodeAt(int day, TimesheetLane lane)
-            => r.Timesheet!.Days.Single(x => x.Day == day && x.Lane == lane).Code;
-
-        // Очікування:
-        // - 6 число в 1-му періоді має бути "30"
-        // - 10 число між періодами має бути "НБ"
-        // - 15 число в 2-му періоді має бути "30"
-        Assert.Equal("30", CodeAt(6, TimesheetLane.Main));
-        Assert.Equal("НБ", CodeAt(10, TimesheetLane.Main));
-        Assert.Equal("30", CodeAt(15, TimesheetLane.Main));
-    }
-
-    [Fact]
-    public async Task GetMonthlyTimesheetAsync_when_person_active_but_no_main_entries_should_show_NB_everywhere_in_Main()
-    {
-        await using var db = await _db.Factory.CreateDbContextAsync();
-
-        var personId = Guid.NewGuid();
-
-        db.PersonRead.Add(new PersonReadModel
-        {
-            Id = personId,
-            Lifecycle = PersonLifecycle.Enrolled,
-            Rnokpp = "000",
-            LastName = "X",
-            FirstName = "Y",
-            FullName = "X Y",
-            Rank = "Солдат",
-            EnrollmentKind = EnrollmentKind.Unit,
-            PositionSort = 1,
-            Position = "Стрілець",
-            EnrolledAt = new DateOnly(2026, 01, 10),
-            ExcludedAt = new DateOnly(2026, 01, 20),
-            Version = 1,
-            UpdatedAtUtc = NowUtc
-        });
-
-        // IMPORTANT: no TimesheetEntries
-        await db.SaveChangesAsync();
-
-        var rows = await _repo.GetMonthlyTimesheetAsync(2026, 1, null);
-        Assert.Single(rows);
-
-        var ts = rows[0].Timesheet!;
-        Assert.Equal("НБ", Cell(ts, 10, TimesheetLane.Main).Code);
-        Assert.Equal("НБ", Cell(ts, 20, TimesheetLane.Main).Code);
-        Assert.Equal("", Cell(ts, 10, TimesheetLane.Task).Code);
-    }
-
-    // =========================
-    // Daily timesheet (day screen)
-    // =========================
-
-    [Fact]
-    public async Task GetDailyTimesheetAsync_when_activeOnly_true_should_return_only_currently_enrolled_and_default_codes()
-    {
-        // arrange
-        await using var db = await _db.Factory.CreateDbContextAsync();
-
-        var date = new DateOnly(2025, 12, 15);
-
-        var enrolledId = Guid.NewGuid();
-        var reservedId = Guid.NewGuid();
-
-        db.PersonRead.AddRange(
-            new PersonReadModel
-            {
-                Id = enrolledId,
-                Lifecycle = PersonLifecycle.Enrolled,
-                EnrollmentKind = EnrollmentKind.Unit,
-                PositionSort = 1,
-                FullName = "Ivanov Ivan",
-                Rnokpp = "AAA111",
-                Rank = "Солдат",
-                Position = "Стрілець",
-                EnrolledAt = new DateOnly(2025, 12, 01),
-                ExcludedAt = null,
-                Version = 1,
-                UpdatedAtUtc = NowUtc
-            },
-            // людина зараз Reserved, але на дату "в табелі" (історично) — перевіряємо що activeOnly=true її прибере
-            new PersonReadModel
-            {
-                Id = reservedId,
-                Lifecycle = PersonLifecycle.Reserved,
-                EnrollmentKind = EnrollmentKind.Unit,
-                PositionSort = 2,
-                FullName = "Petrov Petr",
-                Rnokpp = "BBB222",
-                Rank = "Солдат",
-                Position = "Водій",
-                EnrolledAt = new DateOnly(2025, 12, 01),
-                ExcludedAt = new DateOnly(2025, 12, 20),
-                Version = 1,
-                UpdatedAtUtc = NowUtc
-            }
-        );
-
-        await db.SaveChangesAsync();
-
-        // act
-        var rows = await _repo.GetDailyTimesheetAsync(
-            date: date,
-            search: null,
-            enrollmentKind: null,
-            activeOnly: true);
-
-        // assert
-        Assert.Single(rows);
-
-        var r = rows[0];
-        Assert.Equal(enrolledId, r.PersonId);
-
-        // default codes when no entries
-        Assert.Null(r.MainEntryId);
-        Assert.Equal("НБ", r.MainCode);
-
-        Assert.Null(r.TaskEntryId);
-        Assert.Equal("", r.TaskCode);
-    }
-
-    [Fact]
-    public async Task GetDailyTimesheetAsync_when_activeOnly_false_should_include_reserved_if_they_were_active_on_date()
-    {
-        // arrange
-        await using var db = await _db.Factory.CreateDbContextAsync();
-
-        var date = new DateOnly(2025, 12, 15);
-
-        var enrolledId = Guid.NewGuid();
-        var reservedId = Guid.NewGuid();
-
-        db.PersonRead.AddRange(
-            new PersonReadModel
-            {
-                Id = enrolledId,
-                Lifecycle = PersonLifecycle.Enrolled,
-                EnrollmentKind = EnrollmentKind.Unit,
-                PositionSort = 1,
-                FullName = "Ivanov Ivan",
-                Rnokpp = "AAA111",
-                EnrolledAt = new DateOnly(2025, 12, 01),
-                ExcludedAt = null,
-                Version = 1,
-                UpdatedAtUtc = NowUtc
-            },
-            new PersonReadModel
-            {
-                Id = reservedId,
-                Lifecycle = PersonLifecycle.Reserved,
-                EnrollmentKind = EnrollmentKind.Unit,
-                PositionSort = 2,
-                FullName = "Petrov Petr",
-                Rnokpp = "BBB222",
-                EnrolledAt = new DateOnly(2025, 12, 01),
-                ExcludedAt = new DateOnly(2025, 12, 20),
-                Version = 1,
-                UpdatedAtUtc = NowUtc
-            }
-        );
-
-        await db.SaveChangesAsync();
-
-        // act
-        var rows = await _repo.GetDailyTimesheetAsync(
-            date: date,
-            search: null,
-            enrollmentKind: null,
-            activeOnly: false);
-
-        // assert
-        Assert.Equal(2, rows.Count);
-
-        var ids = rows.Select(x => x.PersonId).ToHashSet();
-        Assert.Contains(enrolledId, ids);
-        Assert.Contains(reservedId, ids);
-    }
-
-    [Fact]
-    public async Task GetDailyTimesheetAsync_should_apply_case_insensitive_search_on_fullname_and_rnokpp()
-    {
-        // arrange
-        await using var db = await _db.Factory.CreateDbContextAsync();
-
-        var date = new DateOnly(2025, 12, 15);
-        var personId = Guid.NewGuid();
-
-        db.PersonRead.Add(new PersonReadModel
-        {
-            Id = personId,
-            Lifecycle = PersonLifecycle.Enrolled,
-            EnrollmentKind = EnrollmentKind.Unit,
-            PositionSort = 1,
-            FullName = "Ivanov Ivan",
-            Rnokpp = "aBc123",
-            EnrolledAt = new DateOnly(2025, 12, 01),
-            ExcludedAt = null,
-            Version = 1,
-            UpdatedAtUtc = NowUtc
-        });
-
-        await db.SaveChangesAsync();
-
-        // act + assert (fullname)
-        var byNameLower = await _repo.GetDailyTimesheetAsync(date, search: "  ivanov  ");
-        Assert.Single(byNameLower);
-        Assert.Equal(personId, byNameLower[0].PersonId);
-
-        var byNameUpper = await _repo.GetDailyTimesheetAsync(date, search: "IVANOV");
-        Assert.Single(byNameUpper);
-        Assert.Equal(personId, byNameUpper[0].PersonId);
-
-        // act + assert (rnokpp)
-        var byRnokppUpper = await _repo.GetDailyTimesheetAsync(date, search: "ABC");
-        Assert.Single(byRnokppUpper);
-        Assert.Equal(personId, byRnokppUpper[0].PersonId);
-    }
-
-    [Fact]
-    public async Task GetDailyTimesheetAsync_should_map_entries_and_pick_latest_active_entry_per_lane()
-    {
-        // arrange
-        await using var db = await _db.Factory.CreateDbContextAsync();
-
-        var date = new DateOnly(2025, 12, 15);
-        var personId = Guid.NewGuid();
-
-        db.PersonRead.Add(new PersonReadModel
-        {
-            Id = personId,
-            Lifecycle = PersonLifecycle.Enrolled,
-            EnrollmentKind = EnrollmentKind.Unit,
-            PositionSort = 1,
-            FullName = "Ivanov Ivan",
-            Rnokpp = "AAA111",
-            EnrolledAt = new DateOnly(2025, 12, 01),
-            ExcludedAt = null,
-            Version = 1,
-            UpdatedAtUtc = NowUtc
-        });
-
-        var mainOldId = Guid.NewGuid();
-        var mainNewId = Guid.NewGuid();
-        var taskId = Guid.NewGuid();
-
-        // дві Main-ентрі активні на date -> має обрати з більшим From (mainNew)
-        db.TimesheetEntries.AddRange(
-            new TimesheetEntry
-            {
-                Id = mainOldId,
-                PersonId = personId,
-                Lane = TimesheetLane.Main,
-                Code = "30",
-                From = new DateOnly(2025, 12, 01),
-                To = null,
-                CreatedBy = "seed",
-                CreatedAtUtc = NowUtc,
-                IsDeleted = false
-            },
-            new TimesheetEntry
-            {
-                Id = mainNewId,
-                PersonId = personId,
-                Lane = TimesheetLane.Main,
-                Code = "100",
-                From = new DateOnly(2025, 12, 14),
-                To = null,
-                CreatedBy = "seed",
-                CreatedAtUtc = NowUtc,
-                IsDeleted = false
-            },
-            new TimesheetEntry
-            {
-                Id = taskId,
-                PersonId = personId,
-                Lane = TimesheetLane.Task,
-                Code = "BT",
-                From = new DateOnly(2025, 12, 10),
-                To = new DateOnly(2025, 12, 20),
-                CreatedBy = "seed",
-                CreatedAtUtc = NowUtc,
-                IsDeleted = false
-            }
-        );
-
-        await db.SaveChangesAsync();
-
-        // act
-        var rows = await _repo.GetDailyTimesheetAsync(date, search: null);
-
-        // assert
-        Assert.Single(rows);
-        var r = rows[0];
-
-        Assert.Equal(mainNewId, r.MainEntryId);
-        Assert.Equal("100", r.MainCode);
-
-        Assert.Equal(taskId, r.TaskEntryId);
-        Assert.Equal("BT", r.TaskCode);
-    }
-
-    [Fact]
-    public async Task GetDailyTimesheetAsync_should_apply_enrollmentKind_filter_and_sort_by_positionSort_then_fullname()
-    {
-        // arrange
-        await using var db = await _db.Factory.CreateDbContextAsync();
-
-        var date = new DateOnly(2025, 12, 15);
-
-        var p1 = Guid.NewGuid(); // Unit, pos 10, name B
-        var p2 = Guid.NewGuid(); // Unit, pos 10, name A  -> should come before p1
-        var p3 = Guid.NewGuid(); // Unit, pos 20
-        var pOther = Guid.NewGuid(); // another kind, should be filtered out
-
-        db.PersonRead.AddRange(
-            new PersonReadModel
-            {
-                Id = p1,
-                Lifecycle = PersonLifecycle.Enrolled,
-                EnrollmentKind = EnrollmentKind.Unit,
-                PositionSort = 10,
-                FullName = "B Person",
-                Rnokpp = "U1",
-                EnrolledAt = new DateOnly(2025, 12, 01),
-                ExcludedAt = null,
-                Version = 1,
-                UpdatedAtUtc = NowUtc
-            },
-            new PersonReadModel
-            {
-                Id = p2,
-                Lifecycle = PersonLifecycle.Enrolled,
-                EnrollmentKind = EnrollmentKind.Unit,
-                PositionSort = 10,
-                FullName = "A Person",
-                Rnokpp = "U2",
-                EnrolledAt = new DateOnly(2025, 12, 01),
-                ExcludedAt = null,
-                Version = 1,
-                UpdatedAtUtc = NowUtc
-            },
-            new PersonReadModel
-            {
-                Id = p3,
-                Lifecycle = PersonLifecycle.Enrolled,
-                EnrollmentKind = EnrollmentKind.Unit,
-                PositionSort = 20,
-                FullName = "A Person",
-                Rnokpp = "U3",
-                EnrolledAt = new DateOnly(2025, 12, 01),
-                ExcludedAt = null,
-                Version = 1,
-                UpdatedAtUtc = NowUtc
-            },
-            new PersonReadModel
-            {
-                Id = pOther,
-                Lifecycle = PersonLifecycle.Enrolled,
-                EnrollmentKind = EnrollmentKind.AttachedByOrder,
-                PositionSort = 1,
-                FullName = "Z Other",
-                Rnokpp = "X1",
-                EnrolledAt = new DateOnly(2025, 12, 01),
-                ExcludedAt = null,
-                Version = 1,
-                UpdatedAtUtc = NowUtc
-            }
-        );
-
-        await db.SaveChangesAsync();
-
-        // act (filter only Unit)
-        var rows = await _repo.GetDailyTimesheetAsync(
-            date: date,
-            search: null,
-            enrollmentKind: EnrollmentKind.Unit,
-            activeOnly: true);
-
-        // assert (only p1,p2,p3)
-        Assert.Equal(3, rows.Count);
-        Assert.DoesNotContain(rows, x => x.PersonId == pOther);
-
-        // sort: EnrollmentKind (same) -> PositionSort -> FullName
-        Assert.Equal(p2, rows[0].PersonId); // pos10 + "A Person"
-        Assert.Equal(p1, rows[1].PersonId); // pos10 + "B Person"
-        Assert.Equal(p3, rows[2].PersonId); // pos20
+            db.TimesheetEntries.AddRange(e1, e2, e3);
+            await db.SaveChangesAsync();
+        }
+
+        var list = await repo.GetPersonEntriesAsync(personId, new DateOnly(2026, 1, 6), new DateOnly(2026, 1, 10));
+
+        // overlap should include e1 (covers 6), e3 (covers 6), e2 (starts 10)
+        Assert.Equal(3, list.Count);
+        Assert.Equal(TimesheetLane.Main, list[0].Lane);
+        Assert.Equal(TimesheetLane.Main, list[1].Lane);
+        Assert.Equal(TimesheetLane.Task, list[2].Lane); // because ordering by Lane then From
+
+        Assert.Contains(list, x => x.Id == e1.Id);
+        Assert.Contains(list, x => x.Id == e2.Id);
+        Assert.Contains(list, x => x.Id == e3.Id);
     }
 }
