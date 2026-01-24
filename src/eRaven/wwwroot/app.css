@@ -575,65 +575,38 @@ body {
    Calendar Timesheet table (stable cell colors)
    ========================= */
 
-.ts-cal {
-    width: 100%;
-}
-
 .ts-cal-head {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
-    margin-bottom: 4px;
+    gap: 3px; /* було 4px */
+    margin-bottom: 3px; /* було 4px */
 }
 
 .ts-cal-head-cell {
-    text-align: center;
-    font-weight: 600;
-    font-size: 12px;
-    padding: 4px 0;
-    background: var(--bs-tertiary-bg);
-    border: 1px solid var(--bs-border-color);
+    font-size: 11px; /* було 12px */
+    padding: 2px 0; /* було 4px 0 */
 }
 
 .ts-cal-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
+    gap: 3px; /* було 4px */
 }
 
 .ts-cal-cell {
     border: 1px solid var(--bs-border-color);
     background: #fff;
-    min-height: 78px;
-    padding: 6px;
+    min-height: 70px; /* було 78px */
+    padding: 4px; /* було 6px */
     overflow: hidden;
-}
-
-.ts-cal-cell--empty {
-    background: transparent;
-    border: 1px dashed rgba(0,0,0,.08);
-}
-
-.ts-cal-daynum {
-    font-size: 12px;
-    font-weight: 700;
-    opacity: .8;
 }
 
 .ts-cal-main {
-    margin-top: 6px;
-    font-size: 13px;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    margin-top: 4px; /* було 6px */
+    font-size: 12px; /* було 13px */
 }
 
 .ts-cal-task {
-    margin-top: 4px;
-    font-size: 11px;
-    opacity: .9;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    margin-top: 2px; /* було 4px */
+    font-size: 10px; /* було 11px */
 }

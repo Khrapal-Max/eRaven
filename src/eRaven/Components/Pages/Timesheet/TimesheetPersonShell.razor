@@ -43,17 +43,8 @@
                     }
                 </div>
 
-                <div class="ms-auto d-flex align-items-center gap-2">
-                    <Button Class="btn-sm btn-secondary rounded-0"
-                            IsDisabled="@_loading"
-                            OnClickButton="ReloadAsync">
-                        <span class="d-inline-flex align-items-center gap-1">
-                            <span aria-hidden="true">⟳</span>
-                            Оновити
-                        </span>
-                    </Button>
-
-                    <a class="btn btn-sm btn-secondary rounded-0" href="/timesheet">← Назад</a>
+                <div class="ms-auto d-flex align-items-center gap-2">    
+                    <a class="btn btn-sm btn-primary rounded-0" href="/timesheet">← Назад</a>
                 </div>
             </div>
         </div>
@@ -103,9 +94,13 @@
                                 </select>
                             </div>
 
-                            <div class="ms-auto small">
+                            <div class="ms-auto px-2 small">
                                 @_month / @_year · Updated: @_dto.UpdatedAtUtc.ToString("u")
                             </div>
+                            <Button Class="btn-sm btn-warning rounded-0"
+                                    Label="Оновити"
+                                    IsDisabled="@_loading"
+                                    OnClickButton="ReloadAsync" />
                         </div>
 
                         <div class="ts-cal">
