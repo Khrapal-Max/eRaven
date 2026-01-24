@@ -2,21 +2,13 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// TimesheetMonthPersonRowDto
+// GetTimesheetPersonMonthQuery
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+namespace eRaven.Application.Queries.Timesheet;
 
-namespace eRaven.Application.DTOs.Timesheet;
-
-public sealed record TimesheetMonthPersonRowDto(
+public sealed record GetTimesheetPersonMonthQuery(
     Guid PersonId,
-    string FullName,
-    string RNOKPP,
-    string? Rank,
-    string? Position,
-    EnrollmentKind? EnrollmentKind,
-    DateOnly? EnrolledAt,
-    DateOnly? ExcludedAt,
-    IReadOnlyList<string> MainCodes,
-    IReadOnlyList<string> TaskCodes);
+    int Year,
+    int Month
+);

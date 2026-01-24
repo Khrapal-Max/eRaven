@@ -15,7 +15,7 @@ namespace eRaven.Components.Pages.Timesheet;
 
 public partial class TimesheetShell : IDisposable
 {
-    [Inject] public IQueryHandler<GetTimesheetMonthQuery, TimesheetMonthGridDto> Query { get; set; } = default!;
+    [Inject] public IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetPersonMonthRowDto>> Query { get; set; } = default!;
 
     private bool _loading;
     private string? _error;
@@ -27,9 +27,9 @@ public partial class TimesheetShell : IDisposable
 
     private string? _search;
 
-    private TimesheetMonthGridDto? _model;
-    private TimesheetMonthPersonRowDto? _selected;
-    private TimesheetMonthPersonRowDto? _personDrawerPerson;
+    private IReadOnlyList<TimesheetPersonMonthRowDto>? _rows;
+    private TimesheetPersonMonthRowDto? _selected;
+    private TimesheetPersonMonthRowDto? _personDrawerPerson;
 
     protected override async Task OnInitializedAsync()
     {
@@ -48,17 +48,18 @@ public partial class TimesheetShell : IDisposable
 
         try
         {
-            _model = await Query.HandleAsync(new GetTimesheetMonthQuery(
+            _daysInMonth = DateTime.DaysInMonth(_year, _month);
+
+            _rows = await Query.HandleAsync(new GetTimesheetMonthQuery(
                 Year: _year,
                 Month: _month,
                 Search: string.IsNullOrWhiteSpace(_search) ? null : _search.Trim()
             ));
-
-            _daysInMonth = _model.DaysInMonth;
         }
         catch (Exception ex)
         {
             _error = ex.Message;
+            _rows = [];
         }
         finally
         {
@@ -92,7 +93,7 @@ public partial class TimesheetShell : IDisposable
             await ReloadAsync();
     }
 
-    private void OpenPersonDrawer(TimesheetMonthPersonRowDto r)
+    private void OpenPersonDrawer(TimesheetPersonMonthRowDto r)
     {
         _personDrawerPerson = r;
         _personDrawerOpen = true;
@@ -102,6 +103,14 @@ public partial class TimesheetShell : IDisposable
     {
         _personDrawerOpen = false;
         _personDrawerPerson = null;
+    }
+
+    private static string GetCode(IReadOnlyList<string>? codes, int day)
+    {
+        if (codes is null) return "";
+        var idx = day - 1;
+        if (idx < 0 || idx >= codes.Count) return "";
+        return (codes[idx] ?? "").Trim();
     }
 
     private static string ShortCode(string code)
@@ -148,7 +157,9 @@ public partial class TimesheetShell : IDisposable
 
         var hasTask = t.Length > 0;
 
-        if (m is "100" or "F100" || t is "100" or "F100") return "ts-cell ts-cell--alert" + (hasTask ? " ts-cell--has-task" : "");
+        if (m is "100" or "F100" or "Ф100" || t is "100" or "F100" or "Ф100")
+            return "ts-cell ts-cell--alert" + (hasTask ? " ts-cell--has-task" : "");
+
         if (m == "НБ") return "ts-cell ts-cell--nb" + (hasTask ? " ts-cell--has-task" : "");
         if (m == "30") return "ts-cell ts-cell--30" + (hasTask ? " ts-cell--has-task" : "");
         if (m == "ВП") return "ts-cell ts-cell--vac" + (hasTask ? " ts-cell--has-task" : "");
@@ -159,7 +170,8 @@ public partial class TimesheetShell : IDisposable
 
     public void Dispose()
     {
-        _model = null;
+        _rows = [];
+        _personDrawerPerson = null;
         GC.SuppressFinalize(this);
     }
 }

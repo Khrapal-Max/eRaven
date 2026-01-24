@@ -12,11 +12,11 @@ using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.Timesheet;
 
-public sealed class GetTimesheetMonthQueryHandler(ITimesheetMonthGridRepository repo)
-    : IQueryHandler<GetTimesheetMonthQuery, TimesheetMonthGridDto>
+public sealed class GetTimesheetMonthQueryHandler(ITimesheetMonthRepository repo)
+    : IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetPersonMonthRowDto>>
 {
-    private readonly ITimesheetMonthGridRepository _repo = repo;
+    private readonly ITimesheetMonthRepository _repo = repo;
 
-    public Task<TimesheetMonthGridDto> HandleAsync(GetTimesheetMonthQuery query, CancellationToken ct = default)
+    public Task<IReadOnlyList<TimesheetPersonMonthRowDto>> HandleAsync(GetTimesheetMonthQuery query, CancellationToken ct = default)
         => _repo.GetTimesheetMonthAsync(query.Year, query.Month, query.Search, ct);
 }

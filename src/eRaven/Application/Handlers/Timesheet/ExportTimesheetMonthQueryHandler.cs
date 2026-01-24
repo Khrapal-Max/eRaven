@@ -16,13 +16,13 @@ using eRaven.Infrastructure.Repositories.TimesheetRepository;
 namespace eRaven.Application.Handlers.Timesheet;
 
 public sealed class ExportTimesheetMonthQueryHandler(
-    ITimesheetMonthGridRepository repo)
+    ITimesheetMonthRepository repo)
     : IQueryHandler<ExportTimesheetMonthQuery, DownloadFileDto>
 {
     public const string XlsxContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-    private readonly ITimesheetMonthGridRepository _repo = repo;
+    private readonly ITimesheetMonthRepository _repo = repo;
 
     public async Task<DownloadFileDto> HandleAsync(
         ExportTimesheetMonthQuery query,
@@ -34,10 +34,11 @@ public sealed class ExportTimesheetMonthQueryHandler(
         ArgumentOutOfRangeException.ThrowIfLessThan(query.Month, 1, nameof(query.Month));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(query.Month, 12, nameof(query.Month));
 
+        var daysInMonth = DateTime.DaysInMonth(query.Year, query.Month);
         var search = string.IsNullOrWhiteSpace(query.Search) ? null : query.Search.Trim();
 
-        // NEW: беремо готовий grid
-        var grid = await _repo.GetTimesheetMonthAsync(
+        // NEW: repo повертає rows (без grid wrapper)
+        var rows = await _repo.GetTimesheetMonthAsync(
             year: query.Year,
             month: query.Month,
             search: search,
@@ -46,8 +47,8 @@ public sealed class ExportTimesheetMonthQueryHandler(
         var bytes = BuildMonthlyTimesheetXlsx(
             year: query.Year,
             month: query.Month,
-            daysInMonth: grid.DaysInMonth,
-            rows: grid.Rows);
+            daysInMonth: daysInMonth,
+            rows: rows);
 
         return new DownloadFileDto(
             FileName: BuildFileName(query.Year, query.Month),
@@ -59,7 +60,7 @@ public sealed class ExportTimesheetMonthQueryHandler(
         int year,
         int month,
         int daysInMonth,
-        IReadOnlyList<TimesheetMonthPersonRowDto> rows)
+        IReadOnlyList<TimesheetPersonMonthRowDto> rows)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add($"Табель {MonthAbbrUa(month)} {year}");
@@ -196,21 +197,18 @@ public sealed class ExportTimesheetMonthQueryHandler(
         cell.Style.Font.Bold = true;
         cell.Style.Font.FontSize = 10;
 
-        // empty
         if (!hasMain && !hasTask)
         {
             SetCellColors(cell, BgEmpty, FgEmpty);
             return;
         }
 
-        // alert has highest priority (either lane)
         if (IsAlert(m) || IsAlert(t))
         {
             SetCellColors(cell, BgAlert, FgAlert);
             return;
         }
 
-        // NB/30/VAC by MAIN lane first (як у UI)
         if (string.Equals(m, "НБ", StringComparison.OrdinalIgnoreCase))
         {
             SetCellColors(cell, BgNb, FgNb);
@@ -225,24 +223,20 @@ public sealed class ExportTimesheetMonthQueryHandler(
             return;
         }
 
-        // “відпустки” (як мінімум ВП; за бажанням додай ВПХ/ВПП)
         if (m is "ВП" or "ВПХ" or "ВПП")
         {
             SetCellColors(cell, BgVac, FgVac);
             return;
         }
 
-        // якщо main пустий, але є task — фарбуємо як task
         if (!hasMain && hasTask)
         {
             SetCellColors(cell, BgTask, FgTask);
             return;
         }
 
-        // все інше
         SetCellColors(cell, BgOther, FgOther);
 
-        // (опційно) якщо є task разом з main — легенько підкреслити низ
         if (hasMain && hasTask)
         {
             cell.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
@@ -266,11 +260,9 @@ public sealed class ExportTimesheetMonthQueryHandler(
         var s = (code ?? "").Trim();
         if (s.Length == 0) return "";
 
-        // якщо є пробіли/службовий текст — беремо перший токен
         var sp = s.IndexOf(' ');
         if (sp > 0) s = s[..sp];
 
-        // якщо є переноси (на всяк)
         var nl = s.IndexOfAny(['\n', '\r']);
         if (nl > 0) s = s[..nl];
 

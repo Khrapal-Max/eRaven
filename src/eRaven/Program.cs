@@ -77,7 +77,7 @@ builder.Services.AddScoped<ITimesheetTimelineRepository, TimesheetTimelineReposi
 builder.Services.AddScoped<ITimesheetEntryRepository, TimesheetEntryRepository>();
 builder.Services.AddScoped<ITimesheetLifecycleRepository, TimesheetLifecycleRepository>();
 builder.Services.AddScoped<ITimesheetPolicyRepository, TimesheetPolicyRepository>();
-builder.Services.AddScoped<ITimesheetMonthGridRepository, TimesheetMonthGridRepository>();
+builder.Services.AddScoped<ITimesheetMonthRepository, TimesheetMonthRepository>();
 
 // Command handlers
 builder.Services.AddScoped<ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult>, BootstrapPersonsCommandHandler>();
@@ -99,7 +99,8 @@ builder.Services.AddScoped<IQueryHandler<GetPersonDetailsQuery, PersonDetailsDto
 builder.Services.AddScoped<IQueryHandler<GetPersonHistoryQuery, IReadOnlyList<PersonEventListItemDto>>, GetPersonHistoryQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<GetPersonnelDashboardQuery, PersonnelDashboardDto>, GetPersonnelDashboardQueryHandler>();
 
-builder.Services.AddScoped<IQueryHandler<GetTimesheetMonthQuery, TimesheetMonthGridDto>, GetTimesheetMonthQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetTimesheetPersonMonthQuery, TimesheetPersonMonthDto>, GetTimesheetPersonMonthQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetPersonMonthRowDto>>, GetTimesheetMonthQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<ExportTimesheetMonthQuery, DownloadFileDto>, ExportTimesheetMonthQueryHandler>();
 
 // services

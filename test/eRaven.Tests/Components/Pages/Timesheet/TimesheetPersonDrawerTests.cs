@@ -40,7 +40,7 @@ public sealed class TimesheetPersonDrawerTests : BunitContext
         // arrange
         var personId = Guid.NewGuid();
 
-        var dto = new TimesheetMonthPersonRowDto(
+        var dto = new TimesheetPersonMonthRowDto(
             PersonId: personId,
             FullName: "Іванов Іван Іванович",
             RNOKPP: "1234567890",
@@ -82,7 +82,7 @@ public sealed class TimesheetPersonDrawerTests : BunitContext
 
         var personId = Guid.NewGuid();
 
-        var dto = new TimesheetMonthPersonRowDto(
+        var dto = new TimesheetPersonMonthRowDto(
             PersonId: personId,
             FullName: "Іванов Іван",
             RNOKPP: "123",
@@ -117,7 +117,7 @@ public sealed class TimesheetPersonDrawerTests : BunitContext
         // arrange
         var personId = Guid.NewGuid();
 
-        var dto = new TimesheetMonthPersonRowDto(
+        var dto = new TimesheetPersonMonthRowDto(
             PersonId: personId,
             FullName: "Іванов Іван",
             RNOKPP: "123",

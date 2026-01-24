@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// TimesheetMonthGridRepositoryTests
+// TimesheetMonthRepositoryTests
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
@@ -12,7 +12,7 @@ using eRaven.Tests.Extensions;
 
 namespace eRaven.Tests.Infrastructure.Repositories;
 
-public sealed class TimesheetMonthGridRepositoryTests
+public sealed class TimesheetMonthRepositoryTests
 {
     private static readonly DateTime NowUtc = new(2026, 01, 23, 12, 0, 0, DateTimeKind.Utc);
 
@@ -49,18 +49,30 @@ public sealed class TimesheetMonthGridRepositoryTests
             db.SaveChanges();
         }
 
-        var repo = new TimesheetMonthGridRepository(tdb.Factory);
+        var repo = new TimesheetMonthRepository(tdb.Factory);
 
-        var res = await repo.GetTimesheetMonthAsync(2026, 1, search: null);
+        // act
+        var rows = await repo.GetTimesheetMonthAsync(2026, 1, search: null);
 
-        Assert.Equal(31, res.DaysInMonth);
-        Assert.Equal(3, res.Rows.Count);
+        // assert
+        var daysInMonth = DateTime.DaysInMonth(2026, 1);
 
-        var r3 = res.Rows.Single(r => r.RNOKPP == "333");
+        Assert.Equal(3, rows.Count);
+
+        // усі рядки мають мати масиви під місяць
+        Assert.All(rows, r =>
+        {
+            Assert.Equal(daysInMonth, r.MainCodes.Count);
+            Assert.Equal(daysInMonth, r.TaskCodes.Count);
+        });
+
+        // p3: 1..15 => "30", 16..31 => "НБ"
+        var r3 = rows.Single(r => r.RNOKPP == "333");
         Assert.All(r3.MainCodes.Take(15), c => Assert.Equal("30", c));
         Assert.All(r3.MainCodes.Skip(15), c => Assert.Equal("НБ", c));
 
-        var r2 = res.Rows.Single(r => r.RNOKPP == "222");
+        // p2: 1..9 => "НБ", 10..31 => "30"
+        var r2 = rows.Single(r => r.RNOKPP == "222");
         Assert.All(r2.MainCodes.Take(9), c => Assert.Equal("НБ", c));
         Assert.All(r2.MainCodes.Skip(9), c => Assert.Equal("30", c));
     }
@@ -90,15 +102,15 @@ public sealed class TimesheetMonthGridRepositoryTests
             db.SaveChanges();
         }
 
-        var repo = new TimesheetMonthGridRepository(tdb.Factory);
+        var repo = new TimesheetMonthRepository(tdb.Factory);
 
         var byRnokpp = await repo.GetTimesheetMonthAsync(2026, 1, "111");
-        Assert.Single(byRnokpp.Rows);
-        Assert.Equal("111", byRnokpp.Rows[0].RNOKPP);
+        Assert.Single(byRnokpp);
+        Assert.Equal("111", byRnokpp[0].RNOKPP);
 
         var byName = await repo.GetTimesheetMonthAsync(2026, 1, "petrenko");
-        Assert.Single(byName.Rows);
-        Assert.Equal("222", byName.Rows[0].RNOKPP);
+        Assert.Single(byName);
+        Assert.Equal("222", byName[0].RNOKPP);
     }
 
     private static PersonReadModel NewPerson(

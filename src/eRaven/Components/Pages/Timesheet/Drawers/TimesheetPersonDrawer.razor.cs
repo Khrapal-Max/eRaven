@@ -18,7 +18,7 @@ public partial class TimesheetPersonDrawer
 
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
-    [Parameter] public TimesheetMonthPersonRowDto? Person { get; set; }
+    [Parameter] public TimesheetPersonMonthRowDto? Person { get; set; }
     [Parameter] public EventCallback OnClosed { get; set; }
 
     private Drawer? _drawer;

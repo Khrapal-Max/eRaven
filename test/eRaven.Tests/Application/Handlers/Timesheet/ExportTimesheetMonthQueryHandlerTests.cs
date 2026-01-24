@@ -21,7 +21,7 @@ public sealed class ExportTimesheetMonthQueryHandlerTests
     public async Task HandleAsync_should_call_repo_trim_search_and_return_valid_xlsx()
     {
         // arrange
-        var repo = new Mock<ITimesheetMonthGridRepository>(MockBehavior.Strict);
+        var repo = new Mock<ITimesheetMonthRepository>(MockBehavior.Strict);
 
         var year = 2026;
         var month = 1;
@@ -38,7 +38,7 @@ public sealed class ExportTimesheetMonthQueryHandlerTests
         // Day 1: both lanes visible in same cell
         task[0] = "ПБД";
 
-        var row = new TimesheetMonthPersonRowDto(
+        var row = new TimesheetPersonMonthRowDto(
             PersonId: Guid.NewGuid(),
             FullName: "Іванов Іван",
             RNOKPP: "1234567890",
@@ -50,18 +50,14 @@ public sealed class ExportTimesheetMonthQueryHandlerTests
             MainCodes: main,
             TaskCodes: task);
 
-        var grid = new TimesheetMonthGridDto(
-            Year: year,
-            Month: month,
-            DaysInMonth: 31,
-            Rows: [row]);
+        IReadOnlyList<TimesheetPersonMonthRowDto> rows = [row];
 
         repo.Setup(x => x.GetTimesheetMonthAsync(
                 year,
                 month,
                 "ivanov", // trimmed
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(grid);
+            .ReturnsAsync(rows);
 
         var sut = new ExportTimesheetMonthQueryHandler(repo.Object);
 
@@ -82,27 +78,26 @@ public sealed class ExportTimesheetMonthQueryHandlerTests
         var bytes = Convert.FromBase64String(file.Base64);
         Assert.True(bytes.Length > 0);
 
-        using (var ms = new MemoryStream(bytes))
-        using (var wb = new XLWorkbook(ms))
-        {
-            Assert.Single(wb.Worksheets);
+        using var ms = new MemoryStream(bytes);
+        using var wb = new XLWorkbook(ms);
 
-            var ws = wb.Worksheets.First();
-            Assert.Equal("Табель Січ 2026", ws.Name);
+        Assert.Single(wb.Worksheets);
 
-            // Header
-            Assert.Equal("Тип", ws.Cell(1, 1).GetString());
-            Assert.Equal("ПІБ", ws.Cell(1, 4).GetString());
-            Assert.Equal("1 Січ", ws.Cell(1, 6).GetString()); // first day column
+        var ws = wb.Worksheets.First();
+        Assert.Equal("Табель Січ 2026", ws.Name);
 
-            // First row body: EnrollmentKind.Unit => "ШТ"
-            Assert.Equal("ШТ", ws.Cell(2, 1).GetString());
+        // Header
+        Assert.Equal("Тип", ws.Cell(1, 1).GetString());
+        Assert.Equal("ПІБ", ws.Cell(1, 4).GetString());
+        Assert.Equal("1 Січ", ws.Cell(1, 6).GetString()); // first day column
 
-            // Day 1 cell = "30\nПБД"
-            var day1 = ws.Cell(2, 6).GetString();
-            Assert.Contains("30", day1);
-            Assert.Contains("ПБД", day1);
-        }
+        // First row body: EnrollmentKind.Unit => "ШТ"
+        Assert.Equal("ШТ", ws.Cell(2, 1).GetString());
+
+        // Day 1 cell = "30\nПБД" (може бути \n або \r\n)
+        var day1 = ws.Cell(2, 6).GetString();
+        Assert.Contains("30", day1);
+        Assert.Contains("ПБД", day1);
 
         repo.Verify(x => x.GetTimesheetMonthAsync(
             year, month, "ivanov", It.IsAny<CancellationToken>()), Times.Once);
@@ -113,7 +108,7 @@ public sealed class ExportTimesheetMonthQueryHandlerTests
     [Fact]
     public async Task HandleAsync_when_year_out_of_range_should_throw()
     {
-        var repo = new Mock<ITimesheetMonthGridRepository>(MockBehavior.Strict);
+        var repo = new Mock<ITimesheetMonthRepository>(MockBehavior.Strict);
         var sut = new ExportTimesheetMonthQueryHandler(repo.Object);
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
@@ -125,7 +120,7 @@ public sealed class ExportTimesheetMonthQueryHandlerTests
     [Fact]
     public async Task HandleAsync_when_month_out_of_range_should_throw()
     {
-        var repo = new Mock<ITimesheetMonthGridRepository>(MockBehavior.Strict);
+        var repo = new Mock<ITimesheetMonthRepository>(MockBehavior.Strict);
         var sut = new ExportTimesheetMonthQueryHandler(repo.Object);
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>

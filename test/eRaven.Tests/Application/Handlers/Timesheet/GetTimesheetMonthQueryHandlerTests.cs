@@ -8,6 +8,7 @@
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Application.Handlers.Timesheet;
 using eRaven.Application.Queries.Timesheet;
+using eRaven.Domain.Enums;
 using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using Moq;
 
@@ -19,18 +20,27 @@ public sealed class GetTimesheetMonthQueryHandlerTests
     public async Task HandleAsync_should_call_repo_with_same_params_and_return_result()
     {
         // arrange
-        var repo = new Mock<ITimesheetMonthGridRepository>(MockBehavior.Strict);
+        var repo = new Mock<ITimesheetMonthRepository>(MockBehavior.Strict);
 
         var query = new GetTimesheetMonthQuery(
             Year: 2026,
             Month: 1,
             Search: " ivanov ");
 
-        var expected = new TimesheetMonthGridDto(
-            Year: 2026,
-            Month: 1,
-            DaysInMonth: 31,
-            Rows: []);
+        var row = new TimesheetPersonMonthRowDto(
+            PersonId: Guid.NewGuid(),
+            FullName: "Ivanov Ivan",
+            RNOKPP: "111",
+            Rank: "Солдат",
+            Position: "Стрілець",
+            EnrollmentKind: EnrollmentKind.Unit,
+            EnrolledAt: new DateOnly(2026, 1, 1),
+            ExcludedAt: null,
+            MainCodes: ["30"],
+            TaskCodes: [""]
+        );
+
+        IReadOnlyList<TimesheetPersonMonthRowDto> expected = [row];
 
         repo.Setup(x => x.GetTimesheetMonthAsync(
                 2026,

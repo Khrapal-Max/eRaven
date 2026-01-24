@@ -76,14 +76,14 @@
         else
         {
             <div class="small mb-2">
-                Рядків: <strong>@(_model?.Rows.Count ?? 0)</strong>
+                Рядків: <strong>@(_rows?.Count ?? 0)</strong>
                 · Місяць: <strong>@_month</strong> / <strong>@_year</strong>
                 · Днів: <strong>@_daysInMonth</strong>
             </div>
 
             <div class="timesheet-wrap border">
-                <Table TItem="TimesheetMonthPersonRowDto"
-                       Items="@(_model?.Rows ?? [])"
+                <Table TItem="TimesheetPersonMonthRowDto"
+                       Items="@(_rows ?? [])"
                        Class="table-sm table-bordered mb-0 timesheet-table"
                        @bind-SelectedItem="_selected"
                        KeySelector="@(r => r.PersonId)">
@@ -116,8 +116,8 @@
 
                         @for (var day = 1; day <= _daysInMonth; day++)
                         {
-                            var main = r.MainCodes[day - 1];
-                            var task = r.TaskCodes[day - 1];
+                            var main = GetCode(r.MainCodes, day);
+                            var task = GetCode(r.TaskCodes, day);
                             var tdClass = GetCellClass(main, task);
 
                             <td class="text-center @tdClass">
