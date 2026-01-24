@@ -1,8 +1,8 @@
-﻿/*//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// TimesheetExportHandler
+// ExportTimesheetMonthQueryHandler
 //-----------------------------------------------------------------------------
 
 using ClosedXML.Excel;
@@ -16,13 +16,13 @@ using eRaven.Infrastructure.Repositories.TimesheetRepository;
 namespace eRaven.Application.Handlers.Timesheet;
 
 public sealed class ExportTimesheetMonthQueryHandler(
-    ITimesheetRepository repo)
+    ITimesheetMonthGridRepository repo)
     : IQueryHandler<ExportTimesheetMonthQuery, DownloadFileDto>
 {
     public const string XlsxContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-    private readonly ITimesheetRepository _repo = repo;
+    private readonly ITimesheetMonthGridRepository _repo = repo;
 
     public async Task<DownloadFileDto> HandleAsync(
         ExportTimesheetMonthQuery query,
@@ -34,15 +34,20 @@ public sealed class ExportTimesheetMonthQueryHandler(
         ArgumentOutOfRangeException.ThrowIfLessThan(query.Month, 1, nameof(query.Month));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(query.Month, 12, nameof(query.Month));
 
-        var daysInMonth = DateTime.DaysInMonth(query.Year, query.Month);
+        var search = string.IsNullOrWhiteSpace(query.Search) ? null : query.Search.Trim();
 
-        var rows = await _repo.GetMonthlyTimesheetAsync(
+        // NEW: беремо готовий grid
+        var grid = await _repo.GetTimesheetMonthAsync(
             year: query.Year,
             month: query.Month,
-            search: string.IsNullOrWhiteSpace(query.Search) ? null : query.Search.Trim(),
+            search: search,
             ct: ct);
 
-        var bytes = BuildMonthlyTimesheetXlsx(query.Year, query.Month, daysInMonth, rows);
+        var bytes = BuildMonthlyTimesheetXlsx(
+            year: query.Year,
+            month: query.Month,
+            daysInMonth: grid.DaysInMonth,
+            rows: grid.Rows);
 
         return new DownloadFileDto(
             FileName: BuildFileName(query.Year, query.Month),
@@ -54,14 +59,14 @@ public sealed class ExportTimesheetMonthQueryHandler(
         int year,
         int month,
         int daysInMonth,
-        IReadOnlyList<TimesheetMonthPerPersonDto> rows)
+        IReadOnlyList<TimesheetMonthPersonRowDto> rows)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add($"Табель {MonthAbbrUa(month)} {year}");
 
         var monthAbbr = MonthAbbrUa(month);
 
-        // Header: Тип Посада Звання ПІБ РНКОПП + дни
+        // Header: Тип Посада Звання ПІБ РНКОПП + дні
         var col = 1;
         ws.Cell(1, col++).Value = "Тип";
         ws.Cell(1, col++).Value = "Посада";
@@ -112,12 +117,10 @@ public sealed class ExportTimesheetMonthQueryHandler(
             ws.Cell(rIdx, c++).Value = r.FullName ?? "";
             ws.Cell(rIdx, c++).Value = r.RNOKPP ?? "";
 
-            var map = BuildDayMap(r.Timesheet?.Days);
-
             for (var day = 1; day <= daysInMonth; day++)
             {
-                var main = map.TryGetValue((day, TimesheetLane.Main), out var m) ? m : "";
-                var task = map.TryGetValue((day, TimesheetLane.Task), out var t) ? t : "";
+                var main = GetCode([.. r.MainCodes], day);
+                var task = GetCode([.. r.TaskCodes], day);
 
                 var cellText = string.IsNullOrWhiteSpace(task)
                     ? main
@@ -132,7 +135,7 @@ public sealed class ExportTimesheetMonthQueryHandler(
             rIdx++;
         }
 
-        // borders (краще і outside, і inside)
+        // borders
         var used = ws.RangeUsed();
         if (used is not null)
         {
@@ -143,6 +146,18 @@ public sealed class ExportTimesheetMonthQueryHandler(
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
         return ms.ToArray();
+    }
+
+    // -------------------------
+    // Helpers
+    // -------------------------
+
+    private static string GetCode(string[]? codes, int day)
+    {
+        if (codes is null) return "";
+        var idx = day - 1;
+        if (idx < 0 || idx >= codes.Length) return "";
+        return (codes[idx] ?? "").Trim();
     }
 
     // -------------------------
@@ -210,7 +225,8 @@ public sealed class ExportTimesheetMonthQueryHandler(
             return;
         }
 
-        if (string.Equals(m, "ВП", StringComparison.OrdinalIgnoreCase))
+        // “відпустки” (як мінімум ВП; за бажанням додай ВПХ/ВПП)
+        if (m is "ВП" or "ВПХ" or "ВПП")
         {
             SetCellColors(cell, BgVac, FgVac);
             return;
@@ -242,34 +258,23 @@ public sealed class ExportTimesheetMonthQueryHandler(
 
     private static bool IsAlert(string? code)
         => string.Equals(code, "100", StringComparison.OrdinalIgnoreCase)
-           || string.Equals(code, "F100", StringComparison.OrdinalIgnoreCase);
+           || string.Equals(code, "F100", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(code, "Ф100", StringComparison.OrdinalIgnoreCase);
 
     private static string NormalizeCode(string? code)
     {
         var s = (code ?? "").Trim();
-
         if (s.Length == 0) return "";
 
-        // якщо раптом в коді є пробіли/службовий текст — беремо перший токен
+        // якщо є пробіли/службовий текст — беремо перший токен
         var sp = s.IndexOf(' ');
         if (sp > 0) s = s[..sp];
 
-        // якщо раптом є переноси (на всяк)
+        // якщо є переноси (на всяк)
         var nl = s.IndexOfAny(['\n', '\r']);
         if (nl > 0) s = s[..nl];
 
         return s.Trim().ToUpperInvariant();
-    }
-
-    private static Dictionary<(int Day, TimesheetLane Lane), string> BuildDayMap(IReadOnlyList<TimesheetMonthPersonRowDto>? days)
-    {
-        var dict = new Dictionary<(int, TimesheetLane), string>();
-        if (days is null) return dict;
-
-        foreach (var d in days)
-            dict[(d.Day, d.Lane)] = d.Code ?? "";
-
-        return dict;
     }
 
     private static string BuildFileName(int year, int month)
@@ -300,4 +305,4 @@ public sealed class ExportTimesheetMonthQueryHandler(
         12 => "Гру",
         _ => "???"
     };
-}*/
+}

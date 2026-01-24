@@ -1,4 +1,4 @@
-﻿/*//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -32,7 +32,7 @@ public partial class TimesheetExport
 
         try
         {
-            var file = await ExportQuery.HandleAsync(new GetTimesheetMonthQuery(
+            var file = await ExportQuery.HandleAsync(new ExportTimesheetMonthQuery(
                 Year: Year,
                 Month: Month,
                 Search: string.IsNullOrWhiteSpace(Search) ? null : Search.Trim()));
@@ -48,4 +48,4 @@ public partial class TimesheetExport
             _busy = false;
         }
     }
-}*/
+}

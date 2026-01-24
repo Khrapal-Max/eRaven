@@ -11,6 +11,7 @@ using eRaven.Application.Commands.Excel;
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs.Dashboard;
+using eRaven.Application.DTOs.Excel;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Application.EventJson;
@@ -97,6 +98,7 @@ builder.Services.AddScoped<IQueryHandler<GetPersonHistoryQuery, IReadOnlyList<Pe
 builder.Services.AddScoped<IQueryHandler<GetPersonnelDashboardQuery, PersonnelDashboardDto>, GetPersonnelDashboardQueryHandler>();
 
 builder.Services.AddScoped<IQueryHandler<GetTimesheetMonthQuery, TimesheetMonthGridDto>, GetTimesheetMonthQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<ExportTimesheetMonthQuery, DownloadFileDto>, ExportTimesheetMonthQueryHandler>();
 
 // services
 builder.Services.AddScoped<ToastService>();
