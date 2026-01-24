@@ -1,4 +1,5 @@
-﻿@* @using eRaven.Components.Shared.Drawer
+﻿@using eRaven.Application.DTOs.Timesheet
+@using eRaven.Components.Shared.Drawer
 
 <Drawer @ref="_drawer"
         IsOpen="IsOpen"
@@ -59,15 +60,13 @@
                         <div>@(Person.ExcludedAt?.ToString("dd.MM.yyyy") ?? "-")</div>
                     </div>
                 </div>
-
-                <div class="col-12">
-                    <div class="border p-2 bg-white">
-                        <div class="small">Оновлено табель</div>
-                        <div>@(Person.Timesheet is null ? "-" : Person.Timesheet.UpdatedAtUtc.ToString("u"))</div>
-                    </div>
-                </div>
             </div>
         }
+        <div class="pt-2 d-flex gap-2">
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="Особовий табель"
+                    OnClickButton="@(() => Nav.NavigateTo($"/timesheet/person/{Person?.PersonId}"))" />
+        </div>
     </ChildContent>
 
     <FooterContent>
@@ -75,4 +74,4 @@
                 Label="Закрити"
                 OnClickButton="CloseAsync" />
     </FooterContent>
-</Drawer> *@
+</Drawer>

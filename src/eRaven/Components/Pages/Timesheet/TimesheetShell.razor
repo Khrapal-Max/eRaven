@@ -1,4 +1,4 @@
-﻿@* @page "/timesheet"
+﻿@page "/timesheet"
 
 @using eRaven.Application.DTOs.Timesheet
 @using eRaven.Application.Queries
@@ -19,7 +19,6 @@
 
     <div class="container-fluid px-3 py-3">
 
-        <!-- Controls -->
         <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
 
             <div class="d-flex flex-column">
@@ -53,8 +52,8 @@
                        placeholder="Напр: Іванов або 1234567890" />
             </div>
 
-            <TimesheetExport Year="@_year"
-                             Month="@_month" />
+            @* <TimesheetExport Year="@_year"
+                             Month="@_month" /> *@
 
             <Button Class="btn-sm btn-outline-secondary rounded-0"
                     IsDisabled="@_loading"
@@ -77,14 +76,14 @@
         else
         {
             <div class="small mb-2">
-                Рядків: <strong>@(_rows?.Count ?? 0)</strong>
+                Рядків: <strong>@(_model?.Rows.Count ?? 0)</strong>
                 · Місяць: <strong>@_month</strong> / <strong>@_year</strong>
                 · Днів: <strong>@_daysInMonth</strong>
             </div>
 
             <div class="timesheet-wrap border">
-                <Table TItem="TimesheetMonthPerPersonDto"
-                       Items="@(_rows ?? [])"
+                <Table TItem="TimesheetMonthPersonRowDto"
+                       Items="@(_model?.Rows ?? [])"
                        Class="table-sm table-bordered mb-0 timesheet-table"
                        @bind-SelectedItem="_selected"
                        KeySelector="@(r => r.PersonId)">
@@ -117,9 +116,8 @@
 
                         @for (var day = 1; day <= _daysInMonth; day++)
                         {
-                            var main = GetCode(r, day, TimesheetLane.Main);
-                            var task = GetCode(r, day, TimesheetLane.Task);
-
+                            var main = r.MainCodes[day - 1];
+                            var task = r.TaskCodes[day - 1];
                             var tdClass = GetCellClass(main, task);
 
                             <td class="text-center @tdClass">
@@ -145,4 +143,4 @@
 <TimesheetPersonDrawer IsOpen="@_personDrawerOpen"
                        IsOpenChanged="@(v => _personDrawerOpen = v)"
                        Person="@_personDrawerPerson"
-                       OnClosed="ClosePersonDrawer" /> *@
+                       OnClosed="ClosePersonDrawer" />

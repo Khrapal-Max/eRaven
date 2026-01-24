@@ -32,7 +32,7 @@ public partial class TimesheetExport
 
         try
         {
-            var file = await ExportQuery.HandleAsync(new ExportTimesheetMonthQuery(
+            var file = await ExportQuery.HandleAsync(new GetTimesheetMonthQuery(
                 Year: Year,
                 Month: Month,
                 Search: string.IsNullOrWhiteSpace(Search) ? null : Search.Trim()));

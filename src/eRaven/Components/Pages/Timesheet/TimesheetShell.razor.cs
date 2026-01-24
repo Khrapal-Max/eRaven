@@ -1,4 +1,4 @@
-﻿/*//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -15,14 +15,8 @@ namespace eRaven.Components.Pages.Timesheet;
 
 public partial class TimesheetShell : IDisposable
 {
-    // ====================================
-    // DI
-    // ====================================
-    [Inject] public IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetMonthPerPersonDto>> Query { get; set; } = default!;
+    [Inject] public IQueryHandler<GetTimesheetMonthQuery, TimesheetMonthGridDto> Query { get; set; } = default!;
 
-    // ====================================
-    // UI
-    // ====================================
     private bool _loading;
     private string? _error;
     private bool _personDrawerOpen;
@@ -33,16 +27,10 @@ public partial class TimesheetShell : IDisposable
 
     private string? _search;
 
-    private TimesheetMonthPerPersonDto? _selected;
-    private TimesheetMonthPerPersonDto? _personDrawerPerson;
-    private IReadOnlyList<TimesheetMonthPerPersonDto>? _rows;
+    private TimesheetMonthGridDto? _model;
+    private TimesheetMonthPersonRowDto? _selected;
+    private TimesheetMonthPersonRowDto? _personDrawerPerson;
 
-    // O(1) lookup по клітинках: PersonId -> ((day,lane) -> code)
-    private readonly Dictionary<Guid, Dictionary<(int Day, TimesheetLane Lane), string>> _cellIndex = [];
-
-    // ===============================
-    // Lifecycle
-    // ===============================
     protected override async Task OnInitializedAsync()
     {
         var today = DateTime.Today;
@@ -60,15 +48,13 @@ public partial class TimesheetShell : IDisposable
 
         try
         {
-            _daysInMonth = DateTime.DaysInMonth(_year, _month);
-
-            _rows = await Query.HandleAsync(new GetTimesheetMonthQuery(
+            _model = await Query.HandleAsync(new GetTimesheetMonthQuery(
                 Year: _year,
                 Month: _month,
                 Search: string.IsNullOrWhiteSpace(_search) ? null : _search.Trim()
             ));
 
-            RebuildCellIndex(_rows);
+            _daysInMonth = _model.DaysInMonth;
         }
         catch (Exception ex)
         {
@@ -80,9 +66,6 @@ public partial class TimesheetShell : IDisposable
         }
     }
 
-    // ===============================
-    // Actions
-    // ===============================
     private async Task OnYearChanged(ChangeEventArgs e)
     {
         if (int.TryParse(Convert.ToString(e.Value), out var y))
@@ -105,12 +88,11 @@ public partial class TimesheetShell : IDisposable
     {
         _search = Convert.ToString(e.Value);
 
-        // мінімально: не стріляємо на кожен символ — тільки якщо >=2 або очистили
         if (string.IsNullOrWhiteSpace(_search) || _search.Trim().Length >= 2)
             await ReloadAsync();
     }
 
-    private void OpenPersonDrawer(TimesheetMonthPerPersonDto r)
+    private void OpenPersonDrawer(TimesheetMonthPersonRowDto r)
     {
         _personDrawerPerson = r;
         _personDrawerOpen = true;
@@ -122,43 +104,11 @@ public partial class TimesheetShell : IDisposable
         _personDrawerPerson = null;
     }
 
-    private string GetCode(TimesheetMonthPerPersonDto r, int day, TimesheetLane lane)
-    {
-        if (day < 1 || day > _daysInMonth) return string.Empty;
-
-        if (_cellIndex.TryGetValue(r.PersonId, out var map) &&
-            map.TryGetValue((day, lane), out var code))
-            return code ?? string.Empty;
-
-        return string.Empty;
-    }
-
-    private void RebuildCellIndex(IReadOnlyList<TimesheetMonthPerPersonDto>? rows)
-    {
-        _cellIndex.Clear();
-        if (rows is null) return;
-
-        foreach (var r in rows)
-        {
-            var map = new Dictionary<(int, TimesheetLane), string>(_daysInMonth * 2);
-
-            var days = r.Timesheet?.Days;
-            if (days is not null)
-            {
-                foreach (var d in days)
-                    map[(d.Day, d.Lane)] = d.Code ?? string.Empty;
-            }
-
-            _cellIndex[r.PersonId] = map;
-        }
-    }
-
     private static string ShortCode(string code)
     {
         var s = (code ?? "").Trim();
         if (s.Length <= 4) return s;
 
-        // якщо є пробіл — беремо першу “частину”
         var sp = s.IndexOf(' ');
         if (sp > 0) s = s[..sp];
 
@@ -180,26 +130,23 @@ public partial class TimesheetShell : IDisposable
         return $"{last} {firstI}{midI}".Trim();
     }
 
-    // Безпечно: не прив’язуємось до конкретних enum-значень компілятором
     private static string GetSign(EnrollmentKind? kind)
-     => kind switch
-     {
-         EnrollmentKind.Unit => "ШТ",
-         EnrollmentKind.AttachedByList => "НК",
-         EnrollmentKind.AttachedByOrder => "БР",
-         _ => "ВКЛ"
-     };
+        => kind switch
+        {
+            EnrollmentKind.Unit => "ШТ",
+            EnrollmentKind.AttachedByList => "НК",
+            EnrollmentKind.AttachedByOrder => "БР",
+            _ => "ВКЛ"
+        };
 
     private static string GetCellClass(string? main, string? task)
     {
-        // пріоритет: alert > nb > 30 > vac > task > other > empty
         var m = (main ?? "").Trim().ToUpperInvariant();
         var t = (task ?? "").Trim().ToUpperInvariant();
 
         if (m.Length == 0 && t.Length == 0) return "ts-cell ts-cell--empty";
 
-        // якщо є task — можна окремо позначити, але не перебивати alert/nb
-        bool hasTask = t.Length > 0;
+        var hasTask = t.Length > 0;
 
         if (m is "100" or "F100" || t is "100" or "F100") return "ts-cell ts-cell--alert" + (hasTask ? " ts-cell--has-task" : "");
         if (m == "НБ") return "ts-cell ts-cell--nb" + (hasTask ? " ts-cell--has-task" : "");
@@ -212,7 +159,7 @@ public partial class TimesheetShell : IDisposable
 
     public void Dispose()
     {
-        _rows = [];
+        _model = null;
         GC.SuppressFinalize(this);
     }
-}*/
+}
