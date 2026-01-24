@@ -19,4 +19,5 @@ public sealed record TimesheetPersonMonthRowDto(
     DateOnly? EnrolledAt,
     DateOnly? ExcludedAt,
     IReadOnlyList<string> MainCodes,
+    IReadOnlyList<string?> MainRef,
     IReadOnlyList<string> TaskCodes);

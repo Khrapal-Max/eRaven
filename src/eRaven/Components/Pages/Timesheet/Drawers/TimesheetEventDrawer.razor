@@ -1,0 +1,182 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using eRaven.Application.DTOs.Timesheet
+@using eRaven.Components.Shared.Validation
+@using eRaven.Domain.Enums
+@using eRaven.Domain.Entities
+
+<Drawer Title="Створити подію"
+        IsOpen="@IsOpen"
+        IsOpenChanged="@IsOpenChanged"
+        DisableClose="@_busy"
+        OnClosed="OnDrawerClosed">
+
+    <ChildContent>
+        @if (IsOpen)
+        {
+            <div class="drawer-grow">
+
+                @if (Person is not null)
+                {
+                    <div class="border p-2 bg-white mb-3">
+                        <div class="d-flex justify-content-between align-items-start gap-3">
+                            <div class="min-w-0">
+                                <div class="fw-semibold text-truncate">@Person.FullName</div>
+                                <div class="small text-nowrap">
+                                    РНОКПП: <span class="font-monospace">@Person.RNOKPP</span>
+                                    · Lane: <span class="fw-semibold">@LaneTitle(Lane)</span>
+                                </div>
+                            </div>
+                            <div class="small text-end text-nowrap">
+                                <div class="font-monospace">@Person.PersonId</div>
+                                <div>Anchor: <span class="fw-semibold">@Date.ToString("dd.MM.yyyy")</span></div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (_loading)
+                {
+                    <div class="px-2"><em>Завантаження...</em></div>
+                }
+                else if (Person is null)
+                {
+                    <div class="alert alert-warning rounded-0 mb-0">Немає даних по особі.</div>
+                }
+                else
+                {
+                    <!-- Active/timeline info -->
+                    <div class="border p-2 bg-white mb-3">
+                        <div class="fw-semibold mb-1">Поточний стан</div>
+
+                        @if (_timeline is null)
+                        {
+                            <div class="alert alert-warning rounded-0 mb-0">
+                                Немає активної шкали на цю дату (особа поза табелем).
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="small">
+                                Табель від: <span class="font-monospace">@_timeline.OpenedAt.ToString("dd-MM-yyyy")</span>
+                                @if (_timeline.ClosedAt is not null)
+                                {
+                                    <span> · закритий: <span class="font-monospace">@_timeline.ClosedAt.Value.ToString("dd-MM-yyyy")</span></span>
+                                }
+                                else
+                                {
+                                    <span> · активний</span>
+                                }
+                            </div>
+
+                            @if (_active is null)
+                            {
+                                <div class="small mt-2"><em>Активного запису немає (немає історії).</em></div>
+                            }
+                            else
+                            {
+                                <div class="mt-2">
+                                    <div>
+                                        Активний: <span class="fw-semibold">@_active.Code</span>
+                                        <span class="small">
+                                            (@_active.From.ToString("dd-MM-yyyy") – @(_active.To?.ToString("dd-MM-yyyy") ?? "∞"))
+                                        </span>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    <!-- Form -->
+                    <EditForm EditContext="@_editContext" OnValidSubmit="SubmitAsync" id="ts-event-form">
+                        <FluentValidationValidator />
+
+                        <div class="row g-2">
+                            <!-- Start -->
+                            <div class="col-12 col-md-6">
+                                <label class="form-label mb-1">Дата початку події</label>
+
+                                <InputDate class="form-control rounded-0 bg-dark text-white" @bind-Value="Model.From" />
+                                <ValidationMessage For="@(() => Model.From)" />
+                            </div>
+
+                            <!-- Period toggle + To -->
+                            <div class="col-12 col-md-6">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <label class="form-label mb-1">По</label>
+
+                                    <div class="form-check form-switch small">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               role="switch"
+                                               checked="@_isPeriod"
+                                               @onchange="OnPeriodChanged" />
+                                        <label class="form-check-label">Період</label>
+                                    </div>
+                                </div>
+
+                                @if (_isPeriod)
+                                {
+                                    <InputDate class="form-control rounded-0 bg-dark text-white" @bind-Value="Model.To" />
+                                    <ValidationMessage For="@(() => Model.To)" />
+                                }
+                                else
+                                {
+                                    <div class="form-text">Без кінця (open-ended)</div>
+                                }
+                            </div>
+
+                            <!-- Allowed codes -->
+                            <div class="col-12">
+                                <label class="form-label mb-1">Код (дозволені)</label>
+
+                                <InputSelect class="form-select rounded-0" @bind-Value="Model.Code" @bind-Value:after="OnCodeChanged">
+                                    <option value="">— оберіть код —</option>
+                                    @foreach (var c in _allowedCodes)
+                                    {
+                                        <option value="@c.Code">@c.Code · @c.Title</option>
+                                    }
+                                </InputSelect>
+
+                                <ValidationMessage For="@(() => Model.Code)" />
+
+                                @if (_selectedDef is not null)
+                                {
+                                    <div class="small text-muted mt-1">
+                                        @_selectedDef.Title
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label class="form-label mb-1">Референс (Код 100 - вказати номер БР)</label>
+                                <InputText class="form-control rounded-0" @bind-Value="Model.Reference" />
+                                <ValidationMessage For="@(() => Model.Reference)" />
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label class="form-label mb-1">Примітка (опц.)</label>
+                                <InputText class="form-control rounded-0" @bind-Value="Model.Note" />
+                                <ValidationMessage For="@(() => Model.Note)" />
+                            </div>
+                        </div>
+                    </EditForm>
+                }
+            </div>
+        }
+    </ChildContent>
+
+    <FooterContent>
+        <Button Class="btn-outline-secondary rounded-0"
+                Label="Скасувати"
+                IsDisabled="@_busy"
+                OnClickButton="OnCancel" />
+
+        <button type="submit"
+                form="ts-event-form"
+                class="btn btn-primary rounded-0"
+                disabled="@DisabledSave">
+            Зберегти
+        </button>
+    </FooterContent>
+
+</Drawer>

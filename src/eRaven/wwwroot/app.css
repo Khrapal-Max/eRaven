@@ -610,3 +610,35 @@ body {
     margin-top: 2px; /* було 4px */
     font-size: 10px; /* було 11px */
 }
+
+.ts-cell {
+    position: relative;
+}
+
+/* дуже помітно і не впливає на layout */
+.ts-cell--has-task {
+    box-shadow: inset 0 0 0 2px currentColor;
+}
+
+.ts-task-flag {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1;
+    border: 1px solid currentColor;
+    /*background: rgba(255,255,255,.65);*/ /* видно на темних фонах */
+    color: currentColor;
+    pointer-events: none; /* щоб не ламав hover/клік */
+}
+
+    .ts-task-flag::before {
+        content: "T";
+    }

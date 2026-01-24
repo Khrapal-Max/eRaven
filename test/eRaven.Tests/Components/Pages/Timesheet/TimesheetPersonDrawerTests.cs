@@ -50,6 +50,7 @@ public sealed class TimesheetPersonDrawerTests : BunitContext
             EnrolledAt: new DateOnly(2026, 01, 10),
             ExcludedAt: null,
             MainCodes: [],
+            MainRef: [],
             TaskCodes: []
         );
 
@@ -92,6 +93,7 @@ public sealed class TimesheetPersonDrawerTests : BunitContext
             EnrolledAt: null,
             ExcludedAt: null,
             MainCodes: [],
+            MainRef: [],
             TaskCodes: []
         );
 
@@ -127,6 +129,7 @@ public sealed class TimesheetPersonDrawerTests : BunitContext
             EnrolledAt: null,
             ExcludedAt: null,
             MainCodes: [],
+            MainRef: [],
             TaskCodes: []
         );
 

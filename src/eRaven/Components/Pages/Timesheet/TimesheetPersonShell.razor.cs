@@ -5,7 +5,10 @@
 // TimesheetPersonShell
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Commands;
+using eRaven.Application.Commands.Timesheet;
 using eRaven.Application.DTOs.Timesheet;
+using eRaven.Application.Handlers.Timesheet;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheet;
 using eRaven.Domain.Enums;
@@ -143,5 +146,46 @@ public partial class TimesheetPersonShell
         });
 
         Nav.NavigateTo(url);
+    }
+
+    // ЧИСТО ДЛЯ ТЕСТА: открытие боковой панели создания события на сегодня
+    private bool _eventDrawerOpen;
+    private TimesheetPersonMonthRowDto? _eventDrawerPerson;
+    private DateOnly _eventDrawerDate;
+    private TimesheetLane _eventDrawerLane = TimesheetLane.Main;
+
+    [Inject] public ICommandHandler<CreateTimesheetEntryCommand> Handler { get; set; } = default!;
+
+    private void OpenEventDrawerToday()
+    {
+        if (_dto?.Person is null) return;
+
+        _eventDrawerPerson = _dto.Person;
+
+        // current date (today)
+        _eventDrawerDate = DateOnly.FromDateTime(DateTime.Today);
+
+        _eventDrawerLane = TimesheetLane.Main; // for quick tests
+        _eventDrawerOpen = true;
+    }
+
+    // optional: if your drawer requires OnSubmit callback
+    private async Task HandleCreateEventAsync(TimesheetEntryCreateDto dto)
+    {
+        // quick test stub: just close drawer; wiring save can be added later
+        var command = new CreateTimesheetEntryCommand(
+            PersonId: dto.PersonId,
+            Lane: dto.Lane,
+            From: dto.From,
+            To: dto.To,
+            Code: dto.Code,
+            Reference: dto.Reference,
+            Note: dto.Note,
+            Author: "test.user",
+            NowUtc: DateTime.UtcNow);
+
+
+        await Handler.HandleAsync(command, default);
+        _eventDrawerOpen = false;
     }
 }

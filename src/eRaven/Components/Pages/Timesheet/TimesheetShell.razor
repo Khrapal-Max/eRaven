@@ -120,15 +120,18 @@
                             var task = GetCode(r.TaskCodes, day);
                             var tdClass = GetCellClass(main, task);
 
-                            <td class="text-center @tdClass">
+                            <td class="text-center ts-cell @tdClass">
                                 @if (!string.IsNullOrWhiteSpace(main))
                                 {
-                                    <div class="ts-main" title="@main">@ShortCode(main)</div>
+                                    <div class="ts-main"
+                                         title="@(IsAlert(main) ? r.MainRef[day - 1] : null)">
+                                        @ShortCode(main)
+                                    </div>
                                 }
 
                                 @if (!string.IsNullOrWhiteSpace(task))
                                 {
-                                    <div class="ts-task" title="@task">@ShortCode(task)</div>
+                                    <span class="ts-task-flag" title="@($"Task: {task}")"></span>
                                 }
                             </td>
                         }

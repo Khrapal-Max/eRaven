@@ -10,6 +10,7 @@ using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
+using eRaven.Application.Commands.Timesheet;
 using eRaven.Application.DTOs.Dashboard;
 using eRaven.Application.DTOs.Excel;
 using eRaven.Application.DTOs.Person;
@@ -92,6 +93,8 @@ builder.Services.AddScoped<ICommandHandler<ChangeBzvpCommand>, ChangeBzvpCommand
 builder.Services.AddScoped<ICommandHandler<ChangeWeaponCommand>, ChangeWeaponCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<ChangeCallsignCommand>, ChangeCallsignCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<VoidPersonEventCommand>, VoidPersonEventCommandHandler>();
+
+builder.Services.AddScoped<ICommandHandler<CreateTimesheetEntryCommand>, CreateTimesheetEntryCommandHandler>();
 
 // Query handlers
 builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>, GetPersonsPageQueryHandler>();

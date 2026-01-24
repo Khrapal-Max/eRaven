@@ -121,16 +121,24 @@ public sealed class ExportTimesheetMonthQueryHandler(
             for (var day = 1; day <= daysInMonth; day++)
             {
                 var main = GetCode(r.MainCodes, day);
-                var task = GetCode(r.TaskCodes, day);
-
-                var cellText = string.IsNullOrWhiteSpace(task)
-                    ? main
-                    : string.IsNullOrWhiteSpace(main) ? task : $"{main}\n{task}";
 
                 var cell = ws.Cell(rIdx, c++);
-                cell.Value = cellText ?? "";
+                cell.Value = main ?? "";
 
-                ApplyDayCellStyle(cell, main, task);
+                // style only by main (task ignored)
+                ApplyDayCellStyle(cell, main, task: "");
+
+                // comment for 100
+                if (IsAlert(NormalizeCode(main)))
+                {
+                    var ref100 = GetText(r.MainRef, day); // потрібно поле в DTO
+                    if (!string.IsNullOrWhiteSpace(ref100))
+                    {
+                        var comment = cell.CreateComment();   // replaces existing comment
+                        comment.AddText(ref100);
+                        comment.Visible = false;
+                    }
+                }
             }
 
             rIdx++;
@@ -152,6 +160,15 @@ public sealed class ExportTimesheetMonthQueryHandler(
     // -------------------------
     // Helpers
     // -------------------------
+
+    private static string? GetText(IReadOnlyList<string?>? items, int day)
+    {
+        if (items is null) return null;
+        var idx = day - 1;
+        if (idx < 0 || idx >= items.Count) return null;
+        var s = items[idx];
+        return string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+    }
 
     private static string GetCode(IReadOnlyList<string>? codes, int day)
     {
@@ -252,7 +269,7 @@ public sealed class ExportTimesheetMonthQueryHandler(
 
     private static bool IsAlert(string? code)
         => string.Equals(code, "100", StringComparison.OrdinalIgnoreCase)
-           || string.Equals(code, "F100", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(code, "ПБД", StringComparison.OrdinalIgnoreCase)
            || string.Equals(code, "Ф100", StringComparison.OrdinalIgnoreCase);
 
     private static string NormalizeCode(string? code)

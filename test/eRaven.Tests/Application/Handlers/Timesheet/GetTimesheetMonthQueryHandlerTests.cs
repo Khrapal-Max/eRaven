@@ -37,6 +37,7 @@ public sealed class GetTimesheetMonthQueryHandlerTests
             EnrolledAt: new DateOnly(2026, 1, 1),
             ExcludedAt: null,
             MainCodes: ["30"],
+            MainRef: [null],
             TaskCodes: [""]
         );
 

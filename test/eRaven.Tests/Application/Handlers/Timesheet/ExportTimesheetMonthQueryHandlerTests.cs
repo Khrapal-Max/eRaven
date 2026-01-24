@@ -28,14 +28,16 @@ public sealed class ExportTimesheetMonthQueryHandlerTests
 
         var main = new string[31];
         var task = new string[31];
+        var ref100 = new string?[31];
 
         for (var i = 0; i < 31; i++)
         {
             main[i] = "30";
-            task[i] = "";
+            task[i] = "";      // ignored by export, still present in DTO
+            ref100[i] = null;  // no alert refs
         }
 
-        // Day 1: both lanes visible in same cell
+        // Day 1: task exists, but export should ignore it
         task[0] = "ПБД";
 
         var row = new TimesheetPersonMonthRowDto(
@@ -48,6 +50,7 @@ public sealed class ExportTimesheetMonthQueryHandlerTests
             EnrolledAt: new DateOnly(2026, 1, 1),
             ExcludedAt: null,
             MainCodes: main,
+            MainRef: ref100,
             TaskCodes: task);
 
         IReadOnlyList<TimesheetPersonMonthRowDto> rows = [row];
@@ -94,13 +97,92 @@ public sealed class ExportTimesheetMonthQueryHandlerTests
         // First row body: EnrollmentKind.Unit => "ШТ"
         Assert.Equal("ШТ", ws.Cell(2, 1).GetString());
 
-        // Day 1 cell = "30\nПБД" (може бути \n або \r\n)
+        // Day 1 cell must contain ONLY main code (task ignored)
         var day1 = ws.Cell(2, 6).GetString();
-        Assert.Contains("30", day1);
-        Assert.Contains("ПБД", day1);
+        Assert.Equal("30", day1);
+        Assert.DoesNotContain("ПБД", day1);
 
         repo.Verify(x => x.GetTimesheetMonthAsync(
             year, month, "ivanov", It.IsAny<CancellationToken>()), Times.Once);
+
+        repo.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task HandleAsync_should_put_ref_to_cell_comment_when_main_is_100()
+    {
+        // arrange
+        var repo = new Mock<ITimesheetMonthRepository>(MockBehavior.Strict);
+
+        var year = 2026;
+        var month = 1;
+
+        var main = new string[31];
+        var task = new string[31];
+        var ref100 = new string?[31];
+
+        for (var i = 0; i < 31; i++)
+        {
+            main[i] = "30";
+            task[i] = "";
+            ref100[i] = null;
+        }
+
+        // Day 1 => 100 with reference
+        main[0] = "100";
+        ref100[0] = "REF-ABC";
+
+        var row = new TimesheetPersonMonthRowDto(
+            PersonId: Guid.NewGuid(),
+            FullName: "Іванов Іван",
+            RNOKPP: "1234567890",
+            Rank: "Солдат",
+            Position: "Стрілець",
+            EnrollmentKind: EnrollmentKind.Unit,
+            EnrolledAt: new DateOnly(2026, 1, 1),
+            ExcludedAt: null,
+            MainCodes: main,
+            MainRef: ref100,
+            TaskCodes: task);
+
+        IReadOnlyList<TimesheetPersonMonthRowDto> rows = [row];
+
+        repo.Setup(x => x.GetTimesheetMonthAsync(
+                year,
+                month,
+                null,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(rows);
+
+        var sut = new ExportTimesheetMonthQueryHandler(repo.Object);
+
+        var query = new ExportTimesheetMonthQuery(
+            Year: year,
+            Month: month,
+            Search: null);
+
+        // act
+        var file = await sut.HandleAsync(query, CancellationToken.None);
+
+        // assert workbook comment
+        var bytes = Convert.FromBase64String(file.Base64);
+        using var ms = new MemoryStream(bytes);
+        using var wb = new XLWorkbook(ms);
+
+        var ws = wb.Worksheets.First();
+
+        // Day 1 => column 6, first data row => row 2
+        var cell = ws.Cell(2, 6);
+
+        Assert.Equal("100", cell.GetString());
+
+        // ClosedXML: comment should exist and contain ref text
+        Assert.True(cell.HasComment);
+        var txt = cell.GetComment().Text; // safe for newer ClosedXML
+        Assert.Contains("REF-ABC", txt);
+
+        repo.Verify(x => x.GetTimesheetMonthAsync(
+            year, month, null, It.IsAny<CancellationToken>()), Times.Once);
 
         repo.VerifyNoOtherCalls();
     }

@@ -101,7 +101,8 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
                 e.Lane,
                 e.Code,
                 e.From,
-                e.To
+                e.To,
+                e.Reference
             }
         ).ToListAsync(ct);
 
@@ -116,6 +117,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         {
             var main = new string[daysInMonth];
             var task = new string[daysInMonth];
+            var mainRef100 = new string?[daysInMonth];
 
             for (var i = 0; i < daysInMonth; i++)
             {
@@ -139,8 +141,17 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
                         var idx = d.Day - 1;
                         if ((uint)idx >= (uint)daysInMonth) continue;
 
-                        if (e.Lane == TimesheetLane.Main) main[idx] = code;
-                        else if (e.Lane == TimesheetLane.Task) task[idx] = code;
+                        if (e.Lane == TimesheetLane.Main)
+                        {
+                            main[idx] = code;
+                            mainRef100[idx] = IsAlert(code)
+                                 ? (string.IsNullOrWhiteSpace(e.Reference) ? null : e.Reference.Trim())
+                                 : null;
+                        }
+                        else if (e.Lane == TimesheetLane.Task)
+                        {
+                            task[idx] = code;
+                        }
                     }
                 }
             }
@@ -155,6 +166,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
                 EnrolledAt: p.EnrolledAt,
                 ExcludedAt: p.ExcludedAt,
                 MainCodes: main,
+                MainRef: mainRef100,
                 TaskCodes: task
             ));
         }
@@ -231,6 +243,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         // 4) Day codes (grid) defaults
         var main = new string[daysInMonth];
         var task = new string[daysInMonth];
+        var mainRef100 = new string?[daysInMonth];
 
         for (var i = 0; i < daysInMonth; i++)
         {
@@ -250,8 +263,18 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
                 var idx = d.Day - 1;
                 if ((uint)idx >= (uint)daysInMonth) continue;
 
-                if (e.Lane == TimesheetLane.Main) main[idx] = code;
-                else if (e.Lane == TimesheetLane.Task) task[idx] = code;
+                if (e.Lane == TimesheetLane.Main)
+                {
+                    main[idx] = code;
+
+                    mainRef100[idx] = IsAlert(code)
+                         ? (string.IsNullOrWhiteSpace(e.Reference) ? null : e.Reference.Trim())
+                         : null;
+                }
+                else if (e.Lane == TimesheetLane.Task)
+                {
+                    task[idx] = code;
+                }
             }
         }
 
@@ -265,6 +288,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
             EnrolledAt: p.EnrolledAt,
             ExcludedAt: p.ExcludedAt,
             MainCodes: main,
+            MainRef: mainRef100,
             TaskCodes: task
         );
 
@@ -294,4 +318,10 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         => q.Where(t => t.OpenedAt <= to && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= from));
 
     private static string TrimCode(string? code) => (code ?? "").Trim();
+
+    private static bool IsAlert(string? code)
+    {
+        var c = (code ?? "").Trim().ToUpperInvariant();
+        return c == "100" || c == "ПБД" || c == "Ф100";
+    }
 }

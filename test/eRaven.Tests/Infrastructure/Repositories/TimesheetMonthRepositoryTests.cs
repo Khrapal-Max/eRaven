@@ -25,7 +25,8 @@ public sealed class TimesheetMonthRepositoryTests
         {
             var p1 = NewPerson("111", "Ivanov Ivan", EnrollmentKind.Unit, new DateOnly(2026, 01, 01));
             var p2 = NewPerson("222", "Petrenko Petro", EnrollmentKind.Unit, new DateOnly(2026, 01, 10));
-            var p3 = NewPerson("333", "Sydorenko Sydir", EnrollmentKind.Unit, new DateOnly(2026, 01, 01), excludedAt: new DateOnly(2026, 01, 15));
+            var p3 = NewPerson("333", "Sydorenko Sydir", EnrollmentKind.Unit, new DateOnly(2026, 01, 01),
+                excludedAt: new DateOnly(2026, 01, 15));
 
             db.PersonRead.AddRange(p1, p2, p3);
 
@@ -35,8 +36,10 @@ public sealed class TimesheetMonthRepositoryTests
             var t2m = NewTimeline(p2.Id, TimesheetLane.Main, openedAt: new DateOnly(2026, 01, 10));
             var t2t = NewTimeline(p2.Id, TimesheetLane.Task, openedAt: new DateOnly(2026, 01, 10));
 
-            var t3m = NewTimeline(p3.Id, TimesheetLane.Main, openedAt: new DateOnly(2026, 01, 01), closedAt: new DateOnly(2026, 01, 15));
-            var t3t = NewTimeline(p3.Id, TimesheetLane.Task, openedAt: new DateOnly(2026, 01, 01), closedAt: new DateOnly(2026, 01, 15));
+            var t3m = NewTimeline(p3.Id, TimesheetLane.Main, openedAt: new DateOnly(2026, 01, 01),
+                closedAt: new DateOnly(2026, 01, 15));
+            var t3t = NewTimeline(p3.Id, TimesheetLane.Task, openedAt: new DateOnly(2026, 01, 01),
+                closedAt: new DateOnly(2026, 01, 15));
 
             db.TimesheetTimelines.AddRange(t1m, t1t, t2m, t2t, t3m, t3t);
 
@@ -64,6 +67,12 @@ public sealed class TimesheetMonthRepositoryTests
         {
             Assert.Equal(daysInMonth, r.MainCodes.Count);
             Assert.Equal(daysInMonth, r.TaskCodes.Count);
+
+            // NEW: ref100 array must exist and match month length
+            Assert.Equal(daysInMonth, r.MainRef.Count);
+
+            // seed has no 100 => all null/empty
+            Assert.All(r.MainRef, x => Assert.True(string.IsNullOrWhiteSpace(x)));
         });
 
         // p3: 1..15 => "30", 16..31 => "НБ"
@@ -103,15 +112,62 @@ public sealed class TimesheetMonthRepositoryTests
         }
 
         var repo = new TimesheetMonthRepository(tdb.Factory);
+        var daysInMonth = DateTime.DaysInMonth(2026, 1);
 
         var byRnokpp = await repo.GetTimesheetMonthAsync(2026, 1, "111");
         Assert.Single(byRnokpp);
         Assert.Equal("111", byRnokpp[0].RNOKPP);
+        Assert.Equal(daysInMonth, byRnokpp[0].MainRef.Count);
+        Assert.All(byRnokpp[0].MainRef, x => Assert.True(string.IsNullOrWhiteSpace(x)));
 
         var byName = await repo.GetTimesheetMonthAsync(2026, 1, "petrenko");
         Assert.Single(byName);
         Assert.Equal("222", byName[0].RNOKPP);
+        Assert.Equal(daysInMonth, byName[0].MainRef.Count);
+        Assert.All(byName[0].MainRef, x => Assert.True(string.IsNullOrWhiteSpace(x)));
     }
+
+    [Fact]
+    public async Task GetTimesheetMonthAsync_sets_MainRef100_only_for_alert_codes()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            var p1 = NewPerson("111", "Ivanov Ivan", EnrollmentKind.Unit, new DateOnly(2026, 01, 01));
+            db.PersonRead.Add(p1);
+
+            var t1m = NewTimeline(p1.Id, TimesheetLane.Main, openedAt: new DateOnly(2026, 01, 01));
+            db.TimesheetTimelines.Add(t1m);
+
+            db.TimesheetEntries.AddRange(
+                NewEntry(t1m, p1.Id, TimesheetLane.Main, "30", from: new DateOnly(2026, 01, 01), to: new DateOnly(2026, 01, 04)),
+                NewEntry(t1m, p1.Id, TimesheetLane.Main, "100", from: new DateOnly(2026, 01, 05), to: new DateOnly(2026, 01, 05), reference: "REF-ABC"),
+                NewEntry(t1m, p1.Id, TimesheetLane.Main, "30", from: new DateOnly(2026, 01, 06), to: null)
+            );
+
+            db.SaveChanges();
+        }
+
+        var repo = new TimesheetMonthRepository(tdb.Factory);
+
+        var rows = await repo.GetTimesheetMonthAsync(2026, 1, search: "111");
+        Assert.Single(rows);
+
+        var r = rows[0];
+
+        // day 5 => index 4
+        Assert.Equal("100", r.MainCodes[4]);
+        Assert.Equal("REF-ABC", r.MainRef[4]);
+
+        // neighbors are not alert => ref must be empty/null
+        Assert.True(string.IsNullOrWhiteSpace(r.MainRef[3]));
+        Assert.True(string.IsNullOrWhiteSpace(r.MainRef[5]));
+    }
+
+    // -------------------------
+    // Test data helpers
+    // -------------------------
 
     private static PersonReadModel NewPerson(
         string rnokpp,
@@ -155,7 +211,8 @@ public sealed class TimesheetMonthRepositoryTests
         TimesheetLane lane,
         string code,
         DateOnly from,
-        DateOnly? to)
+        DateOnly? to,
+        string? reference = null)
         => new()
         {
             Id = Guid.NewGuid(),
@@ -165,6 +222,7 @@ public sealed class TimesheetMonthRepositoryTests
             Code = code,
             From = from,
             To = to,
+            Reference = reference,
             CreatedBy = "tester",
             CreatedAtUtc = NowUtc
         };

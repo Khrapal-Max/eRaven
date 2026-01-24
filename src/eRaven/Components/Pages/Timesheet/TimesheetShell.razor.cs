@@ -153,19 +153,53 @@ public partial class TimesheetShell : IDisposable
         var m = (main ?? "").Trim().ToUpperInvariant();
         var t = (task ?? "").Trim().ToUpperInvariant();
 
-        if (m.Length == 0 && t.Length == 0) return "ts-cell ts-cell--empty";
-
+        var hasMain = m.Length > 0;
         var hasTask = t.Length > 0;
 
-        if (m is "100" or "F100" or "Ф100" || t is "100" or "F100" or "Ф100")
-            return "ts-cell ts-cell--alert" + (hasTask ? " ts-cell--has-task" : "");
+        // base class
+        var cls = "ts-cell";
 
-        if (m == "НБ") return "ts-cell ts-cell--nb" + (hasTask ? " ts-cell--has-task" : "");
-        if (m == "30") return "ts-cell ts-cell--30" + (hasTask ? " ts-cell--has-task" : "");
-        if (m == "ВП") return "ts-cell ts-cell--vac" + (hasTask ? " ts-cell--has-task" : "");
+        if (!hasMain && !hasTask)
+        {
+            cls += " ts-cell--empty";
+        }
+        else if (m is "100" or "ПБД" or "Ф100" || t is "100" or "ПБД" or "Ф100")
+        {
+            cls += " ts-cell--alert";
+        }
+        else if (m == "НБ")
+        {
+            cls += " ts-cell--nb";
+        }
+        else if (m == "30")
+        {
+            cls += " ts-cell--30";
+        }
+        else if (m is "ВП" or "ВПХ" or "ВПП")
+        {
+            cls += " ts-cell--vac";
+        }
+        else if (!hasMain && hasTask)
+        {
+            cls += " ts-cell--task";
+        }
+        else
+        {
+            cls += " ts-cell--other";
+        }
 
-        if (hasTask) return "ts-cell ts-cell--task";
-        return "ts-cell ts-cell--other";
+        // ALWAYS mark when task exists (independent of code)
+        if (hasTask)
+            cls += " ts-cell--has-task";
+
+        return cls;
+    }
+
+
+    private static bool IsAlert(string? code)
+    {
+        var c = (code ?? "").Trim().ToUpperInvariant();
+        return c == "100" || c == "ПБД" || c == "Ф100";
     }
 
     public void Dispose()
