@@ -63,14 +63,14 @@
             </div>
         }
         <div class="pt-2 d-flex gap-2">
-            <Button Class="btn-sm btn-outline-secondary rounded-0"
+            <Button Class="btn-sm btn-primary rounded-0"
                     Label="Особовий табель"
                     OnClickButton="@(() => Nav.NavigateTo($"/timesheet/person/{Person?.PersonId}"))" />
         </div>
     </ChildContent>
 
     <FooterContent>
-        <Button Class="btn-sm btn-outline-secondary rounded-0"
+        <Button Class="btn-sm btn-secondary rounded-0"
                 Label="Закрити"
                 OnClickButton="CloseAsync" />
     </FooterContent>

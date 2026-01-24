@@ -30,6 +30,7 @@ using eRaven.Infrastructure;
 using eRaven.Infrastructure.Projectors;
 using eRaven.Infrastructure.Repositories.DashboardRepository;
 using eRaven.Infrastructure.Repositories.PersonRepository;
+using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
 using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using eRaven.Presentation.Errors;
 using eRaven.Presentation.Toasts;
@@ -75,6 +76,7 @@ builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<ITimesheetTimelineRepository, TimesheetTimelineRepository>();
 builder.Services.AddScoped<ITimesheetEntryRepository, TimesheetEntryRepository>();
 builder.Services.AddScoped<ITimesheetLifecycleRepository, TimesheetLifecycleRepository>();
+builder.Services.AddScoped<ITimesheetPolicyRepository, TimesheetPolicyRepository>();
 builder.Services.AddScoped<ITimesheetMonthGridRepository, TimesheetMonthGridRepository>();
 
 // Command handlers
