@@ -119,8 +119,8 @@ public sealed class ExportTimesheetMonthQueryHandler(
 
             for (var day = 1; day <= daysInMonth; day++)
             {
-                var main = GetCode([.. r.MainCodes], day);
-                var task = GetCode([.. r.TaskCodes], day);
+                var main = GetCode(r.MainCodes, day);
+                var task = GetCode(r.TaskCodes, day);
 
                 var cellText = string.IsNullOrWhiteSpace(task)
                     ? main
@@ -152,11 +152,11 @@ public sealed class ExportTimesheetMonthQueryHandler(
     // Helpers
     // -------------------------
 
-    private static string GetCode(string[]? codes, int day)
+    private static string GetCode(IReadOnlyList<string>? codes, int day)
     {
         if (codes is null) return "";
         var idx = day - 1;
-        if (idx < 0 || idx >= codes.Length) return "";
+        if (idx < 0 || idx >= codes.Count) return "";
         return (codes[idx] ?? "").Trim();
     }
 
