@@ -1,0 +1,130 @@
+﻿@page "/timesheet-day"
+@using eRaven.Application.DTOs.Timesheet
+@using eRaven.Domain.Enums
+
+<PageTitle>Табель (стан на день)</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid px-3 py-3">
+
+        <div class="border bg-secondary-subtle mb-3">
+            <div class="py-2 px-4 text-white">
+                Табель (стан на день)
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+
+            <div class="d-flex flex-column">
+                <label class="form-label mb-1">Дата</label>
+                <input class="form-control form-control-sm rounded-0  bg-dark text-white"
+                       type="date"
+                       value="@_dateIso"
+                       @onchange="OnDateChanged" />
+            </div>
+
+            <div class="flex-grow-1 d-flex flex-column">
+                <label class="form-label mb-1">Пошук (ПІБ або РНОКПП)</label>
+                <input class="form-control form-control-sm rounded-0"
+                       value="@_search"
+                       @oninput="OnSearchInput"
+                       placeholder="Напр: Іванов або 1234567890" />
+            </div>
+
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    IsDisabled="@_loading"
+                    OnClickButton="ReloadAsync">
+                <span class="d-inline-flex align-items-center gap-1">
+                    <span aria-hidden="true">⟳</span>
+                    Оновити
+                </span>
+            </Button>
+        </div>
+
+        @if (_loading)
+        {
+            <p class="px-1"><em>Завантаження...</em></p>
+        }
+        else if (_error is not null)
+        {
+            <div class="alert alert-danger rounded-0">@_error</div>
+        }
+        else
+        {
+            <div class="small mb-2">
+                Дата: <strong>@_date.ToString("dd.MM.yyyy")</strong>
+                · Рядків: <strong>@(_rows?.Count ?? 0)</strong>
+            </div>
+
+            <div class="timesheet-wrap border">
+                <Table TItem="TimesheetPersonDayRowDto"
+                       Items="@(_rows ?? [])"
+                       Class="table-sm table-bordered mb-0"
+                       @bind-SelectedItem="_selected"
+                       KeySelector="@(r => r.PersonId)">
+
+                    <TableHeader>
+                        <th class="text-center">Тип</th>
+                        <th>ПІБ</th>
+                        <th class="text-center">Факт</th>
+                        <th class="text-center">Підстава</th>
+                        <th class="text-center">Примітка</th>
+                        <th class="text-center">План</th>
+                        <th class="text-center">Підстава</th>
+                        <th class="text-center">Примітка</th>
+                        <th class="text-center">Дія</th>
+                    </TableHeader>
+
+                    <RowTemplate Context="r">
+                        <td class="text-center fw-semibold">@GetSign(r.EnrollmentKind)</td>
+
+                        <td class="min-w-0">
+                            <div class="fw-semibold text-truncate">@r.FullName</div>
+                            <div class="small text-truncate">
+                                РНОКПП: <span class="font-monospace">@r.RNOKPP</span>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(r.Position))
+                            {
+                                <div class="small text-truncate" style="width:300px" title="@r.Position">@r.Position</div>
+                            }
+                        </td>
+
+                        <td class="text-center fw-semibold">@r.Main.Code</td>
+                        <td class="text-truncate">@r.Main.Reference</td>
+                        <td class="text-truncate">@r.Main.Note</td>
+
+                        <td class="text-center fw-semibold">@r.Task.Code</td>
+                        <td class="text-truncate">@r.Task.Reference</td>
+                        <td class="text-truncate">@r.Task.Note</td>
+
+                        <td class="text-center">
+                            <div class="d-inline-flex gap-1">
+                                <Button Class="btn-sm btn-primary rounded-0"
+                                        Label="+ подія"
+                                        StopPropagation="true"
+                                        OnClickButton="@(() => OpenEventDrawer(r, TimesheetLane.Main))" />
+
+                                <Button Class="btn-sm btn-success rounded-0"
+                                        Label="+ план"
+                                        StopPropagation="true"
+                                        OnClickButton="@(() => OpenEventDrawer(r, TimesheetLane.Task))" />
+
+                                <Button Class="btn-sm btn-warning rounded-0"
+                                        Label="Особовий табель"
+                                        OnClickButton="@(() => Nav.NavigateTo($"/timesheet/person/{r?.PersonId}"))" />
+                            </div>
+                        </td>
+                    </RowTemplate>
+
+                </Table>
+            </div>
+        }
+    </div>
+</div>
+
+<TimesheetEventDrawer IsOpen="@_eventDrawerOpen"
+                      IsOpenChanged="@(v => _eventDrawerOpen = v)"
+                      Person="@_eventDrawerPerson"
+                      Lane="@_eventDrawerLane"
+                      Date="@_eventDrawerDate"
+                      OnSubmit="HandleCreateEventAsync" />

@@ -12,15 +12,24 @@ namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 public interface ITimesheetEntryRepository
 {
+    /// <summary>
+    /// Повертає запис табеля за його унікальним ідентифікатором.
+    /// </summary>
     Task<TimesheetEntry?> GetByIdAsync(Guid entryId, CancellationToken ct = default);
 
-    // Entries overlapping [from..to] for person (optionally lane)
+    /// <summary>
+    /// Повертає записи табеля для вказаної особи у визначеному діапазоні дат.
+    /// </summary>
     Task<IReadOnlyList<TimesheetEntry>> GetPersonEntriesAsync(Guid personId, DateOnly from, DateOnly to, TimesheetLane? lane = null, CancellationToken ct = default);
 
-    // Entries overlapping [from..to] for many persons (for month/day queries)
+    /// <summary>
+    /// Повертає записи табеля, що перетинаються з вказаним діапазоном дат, для багатьох осіб.
+    /// </summary>
     Task<IReadOnlyList<TimesheetEntry>> GetEntriesForPersonsAsync(IReadOnlyCollection<Guid> personIds, DateOnly from, DateOnly to, CancellationToken ct = default);
 
-    // Active entry on date for person+lane (To null = open)
+    /// <summary>
+    /// Повертає активний запис табеля для вказаної особи на певну дату.
+    /// </summary>
     Task<TimesheetEntry?> GetActiveEntryOnDateAsync(Guid personId, TimesheetLane lane, DateOnly date, CancellationToken ct = default);
 
     // CRUD

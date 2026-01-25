@@ -29,4 +29,12 @@ public interface ITimesheetMonthRepository
           int year,
           int month,
           CancellationToken ct = default);
+
+    /// <summary>
+    /// Повертає денний звіт табеля з урахуванням фільтру пошуку по імені працівника.
+    /// </summary>
+    Task<IReadOnlyList<TimesheetPersonDayRowDto>> GetTimesheetDayAsync(
+        DateOnly date,
+        string? search,
+        CancellationToken ct = default);
 }

@@ -28,6 +28,7 @@ public sealed class TimesheetPolicySeed
                 // ----------------------------
 
                 // базовий факт-стан
+                CodeMain("0", "Рекрут", 10, TimesheetEndDateMeaning.LastDayOfThisCode),
                 CodeMain("30", "В районі", 10, TimesheetEndDateMeaning.LastDayOfThisCode),
 
                 // “день повернення це ще подія”
@@ -112,6 +113,9 @@ public sealed class TimesheetPolicySeed
             // 30 -> все (крім себе)
             var id30 = mainByCode["30"];
             AddAll(db, TimesheetLane.Main, id30, main.Select(x => x.Id).Where(x => x != id30), author, now);
+
+            // Рекрут дозволені: 30, ЛХ, СЗЧ, 200, А, БВ (СЗЧ)
+            AddMain("0", "ВДР", "30", "ЛХ", "СЗЧ", "200", "А", "БВ (СЗЧ)");
 
             // ВДР дозволені: 30, ЛХ, СЗЧ, 200, А, БВ (СЗЧ)
             AddMain("ВДР", "30", "ЛХ", "СЗЧ", "200", "А", "БВ (СЗЧ)");
