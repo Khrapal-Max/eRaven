@@ -28,33 +28,50 @@ public sealed class CreateTimesheetEntryCommandHandler(
         var prev = await _repo.GetActiveEntryOnDateAsync(command.PersonId, command.Lane, command.From, ct)
             ?? throw new InvalidOperationException("Не можна створити подію, так як нема історії.");
 
-        // 2) policy of NEW code (the one we add)
-        var def = (await _policyRepo.GetCodesAsync(command.Lane, ct))
-            .First(x => x.Code == command.Code);
+        // 2) load policy codes once (need ids + end-date meaning)
+        var defs = await _policyRepo.GetCodesAsync(command.Lane, ct);
+
+        var prevCodeNorm = NormalizeCode(prev.Code);
+        var newCodeNorm = NormalizeCode(command.Code);
+
+        var prevDef = defs.FirstOrDefault(x => NormalizeCode(x.Code) == prevCodeNorm)
+            ?? throw new InvalidOperationException($"Policy: не знайдено код '{prevCodeNorm}' для lane {command.Lane}.");
+
+        var newDef = defs.FirstOrDefault(x => NormalizeCode(x.Code) == newCodeNorm)
+            ?? throw new InvalidOperationException($"Policy: не знайдено код '{newCodeNorm}' для lane {command.Lane}.");
+
+        // 3) policy graph rule: must be reachable prev => new (без мостів у БД)
+        // same-code allowed (0-length path)
+        if (prevDef.Id != newDef.Id)
+        {
+            var ok = await IsReachableAsync(prevDef.Id, newDef.Id, ct);
+            if (!ok)
+                throw new InvalidOperationException($"Перехід '{prevCodeNorm}' до '{newCodeNorm}' заборонений політикою.");
+        }
 
         var timelineId = prev.TimelineId;
-        var prevCode = prev.Code;
+        var prevCodeForReturn = prev.Code?.Trim() ?? prevCodeNorm;
 
-        // 3) close previous at From-1
+        // 4) close previous at From-1
         prev.To = command.From.AddDays(-1);
         prev.UpdatedBy = command.Author;
         prev.UpdatedAtUtc = command.NowUtc;
         await _repo.UpdateAsync(prev, ct);
 
-        // 4) normalize To for THIS code using end-date meaning (±1 day)
+        // 5) normalize To for THIS code using end-date meaning (±1 day)
         DateOnly? newTo = command.To;
 
-        if (command.To is not null && def.EndDateMeaning == TimesheetEndDateMeaning.FirstDayOfNextCode)
+        if (command.To is not null && newDef.EndDateMeaning == TimesheetEndDateMeaning.FirstDayOfNextCode)
             newTo = command.To.Value.AddDays(-1);
 
-        // 5) add new entry
+        // 6) add new entry
         await _repo.AddAsync(new TimesheetEntry
         {
             Id = Guid.NewGuid(),
             TimelineId = timelineId,
             PersonId = command.PersonId,
             Lane = command.Lane,
-            Code = command.Code,
+            Code = newCodeNorm, // нормалізуємо, щоб не було " 30 "
             From = command.From,
             To = newTo,
             Reference = command.Reference,
@@ -63,10 +80,10 @@ public sealed class CreateTimesheetEntryCommandHandler(
             CreatedAtUtc = command.NowUtc
         }, ct);
 
-        // 6) OPTIONAL: add "return" entry when user provided an end date
+        // 7) OPTIONAL: add "return" entry when user provided an end date
         if (command.To is not null)
         {
-            if (def.EndDateMeaning == TimesheetEndDateMeaning.LastDayOfThisCode)
+            if (newDef.EndDateMeaning == TimesheetEndDateMeaning.LastDayOfThisCode)
             {
                 // return to previous code from the next day after the user's last day
                 await _repo.AddAsync(new TimesheetEntry
@@ -75,7 +92,7 @@ public sealed class CreateTimesheetEntryCommandHandler(
                     TimelineId = timelineId,
                     PersonId = command.PersonId,
                     Lane = command.Lane,
-                    Code = prevCode,
+                    Code = NormalizeCode(prevCodeForReturn),
                     From = command.To.Value.AddDays(1),
                     To = null,
                     CreatedBy = command.Author,
@@ -85,7 +102,8 @@ public sealed class CreateTimesheetEntryCommandHandler(
             else // FirstDayOfNextCode
             {
                 // return date is exactly command.To (first day of next/base code)
-                if (!string.IsNullOrWhiteSpace(def.NextCodeOnEnd))
+                var next = string.IsNullOrWhiteSpace(newDef.NextCodeOnEnd) ? null : NormalizeCode(newDef.NextCodeOnEnd);
+                if (!string.IsNullOrWhiteSpace(next))
                 {
                     await _repo.AddAsync(new TimesheetEntry
                     {
@@ -93,7 +111,7 @@ public sealed class CreateTimesheetEntryCommandHandler(
                         TimelineId = timelineId,
                         PersonId = command.PersonId,
                         Lane = command.Lane,
-                        Code = def.NextCodeOnEnd.Trim(),
+                        Code = next!,
                         From = command.To.Value,
                         To = null,
                         CreatedBy = command.Author,
@@ -103,4 +121,30 @@ public sealed class CreateTimesheetEntryCommandHandler(
             }
         }
     }
+
+    private async Task<bool> IsReachableAsync(Guid fromCodeId, Guid toCodeId, CancellationToken ct)
+    {
+        var visited = new HashSet<Guid>();
+        var q = new Queue<Guid>();
+
+        visited.Add(fromCodeId);
+        q.Enqueue(fromCodeId);
+
+        while (q.Count > 0)
+        {
+            var cur = q.Dequeue();
+
+            var next = await _policyRepo.GetAllowedNextAsync(cur, ct);
+            foreach (var n in next)
+            {
+                if (n == toCodeId) return true;
+                if (visited.Add(n)) q.Enqueue(n);
+            }
+        }
+
+        return false;
+    }
+
+    private static string NormalizeCode(string? code)
+        => (code ?? "").Trim().ToUpperInvariant();
 }
