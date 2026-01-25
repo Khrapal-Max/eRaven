@@ -394,7 +394,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         // pick "latest" active per (person,lane)
         var activeByKey = entries
             .GroupBy(x => (x.PersonId, x.Lane))
-            .ToDictionary(g => g.Key, g => g.Last());       
+            .ToDictionary(g => g.Key, g => g.Last());
 
         // NOTE: using dynamic above is ugly in IDE, so let's rebuild the map strongly:
         var map2 = new Dictionary<(Guid PersonId, TimesheetLane Lane), (string Code, string? Ref, string? Note)>();
