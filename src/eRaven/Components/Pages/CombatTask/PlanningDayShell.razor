@@ -1,0 +1,100 @@
+﻿@page "/planning-day"
+
+<PageTitle>Планування (на день)</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid px-3 py-3">
+
+        <div class="border bg-secondary-subtle mb-3">
+            <div class="py-2 px-4 text-white">
+                Планування (на день)
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+
+            <div class="d-flex flex-column">
+                <label class="form-label mb-1">Дата</label>
+                <input class="form-control form-control-sm rounded-0 bg-dark text-white"
+                       type="date"
+                       value="@_dateIso"
+                       @onchange="OnDateChanged" />
+            </div>
+
+            <div class="flex-grow-1 d-flex flex-column">
+                <label class="form-label mb-1">Пошук (ПІБ або РНОКПП)</label>
+                <input class="form-control form-control-sm rounded-0"
+                       value="@_search"
+                       @oninput="OnSearchInput"
+                       placeholder="Напр: Іванов або 1234567890" />
+            </div>
+
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    IsDisabled="@_loading"
+                    OnClickButton="ReloadAsync">
+                <span class="d-inline-flex align-items-center gap-1">
+                    <span aria-hidden="true">⟳</span>
+                    Оновити
+                </span>
+            </Button>
+
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="Місяць"
+                    OnClickButton="@(() => Nav.NavigateTo("/planning"))"/>
+
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="Документи"
+                    OnClickButton="@(() => Nav.NavigateTo("/planning-documents"))" />
+        </div>
+
+        @if (_loading)
+        {
+            <p class="px-1"><em>Завантаження...</em></p>
+        }
+        else if (_error is not null)
+        {
+            <div class="alert alert-danger rounded-0">@_error</div>
+        }
+        else if ((_groups?.Count ?? 0) == 0)
+        {
+            <p class="px-1"><em>Записів немає.</em></p>
+        }
+        else
+        {
+            <div class="small mb-2">
+                Дата: <strong>@_date.ToString("dd.MM.yyyy")</strong>
+                · Груп: <strong>@(_groups?.Count ?? 0)</strong>
+            </div>
+
+            @foreach (var g in _groups ?? [])
+            {
+                <div class="border mb-2">
+                    <div class="p-2 bg-light">
+                        <div class="fw-semibold">
+                            @g.PositionalArea · @g.GroupName · @(g.AssetType ?? "—") · @g.Mode · @g.Goal
+                        </div>
+                        <div class="small text-muted">
+                            Осіб: @g.Persons.Count
+                        </div>
+                    </div>
+
+                    <div class="p-2">
+                        <ul class="mb-0 ps-3">
+                            @foreach (var p in g.Persons)
+                            {
+                                <li class="mb-1">
+                                    <span class="fw-semibold">@p.FullName</span>
+                                    <span class="small text-muted">
+                                        · @p.RNOKPP · @(p.Rank ?? "-") · @(p.Position ?? "-")
+                                        · @p.StartDate.ToString("dd.MM")–@((p.EndDate?.ToString("dd.MM")) ?? "∞")
+                                        · @p.DocumentTitle
+                                    </span>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>

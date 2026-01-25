@@ -1,0 +1,25 @@
+﻿//-----------------------------------------------------------------------------
+// All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+// GetPlanningMonthQueryHandler
+//-----------------------------------------------------------------------------
+
+using eRaven.Application.DTOs.CombatTask;
+using eRaven.Application.Queries;
+using eRaven.Application.Queries.CombatTask;
+using eRaven.Infrastructure.Repositories.CombatTaskRepository;
+
+namespace eRaven.Application.Handlers.CombatTask;
+
+public sealed class GetPlanningMonthQueryHandler(ICombatTaskReadRepository repo)
+    : IQueryHandler<GetPlanningMonthQuery, IReadOnlyList<PlanningMonthAssignmentRowDto>>
+{
+    private readonly ICombatTaskReadRepository _repo = repo;
+
+    public async Task<IReadOnlyList<PlanningMonthAssignmentRowDto>> HandleAsync(GetPlanningMonthQuery query, CancellationToken ct = default)
+    {
+        var s = string.IsNullOrWhiteSpace(query.Search) ? null : query.Search.Trim();
+        return await _repo.GetPlanningMonthAsync(query.Year, query.Month, s, ct);
+    }
+}

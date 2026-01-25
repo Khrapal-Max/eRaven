@@ -11,16 +11,19 @@ using eRaven.Application.Commands.Excel;
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.Commands.Timesheet;
+using eRaven.Application.DTOs.CombatTask;
 using eRaven.Application.DTOs.Dashboard;
 using eRaven.Application.DTOs.Excel;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Application.EventJson;
+using eRaven.Application.Handlers.CombatTask;
 using eRaven.Application.Handlers.Dashboard;
 using eRaven.Application.Handlers.Personal;
 using eRaven.Application.Handlers.Timesheet;
 using eRaven.Application.Presenter;
 using eRaven.Application.Queries;
+using eRaven.Application.Queries.CombatTask;
 using eRaven.Application.Queries.Dashboard;
 using eRaven.Application.Queries.Personal;
 using eRaven.Application.Queries.Timesheet;
@@ -81,6 +84,7 @@ builder.Services.AddScoped<ITimesheetLifecycleRepository, TimesheetLifecycleRepo
 builder.Services.AddScoped<ITimesheetPolicyRepository, TimesheetPolicyRepository>();
 builder.Services.AddScoped<ITimesheetMonthRepository, TimesheetMonthRepository>();
 builder.Services.AddScoped<ICombatTaskAssignmentRepository, CombatTaskAssignmentRepository>();
+builder.Services.AddScoped<ICombatTaskReadRepository, CombatTaskReadRepository>();
 
 // Command handlers
 builder.Services.AddScoped<ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult>, BootstrapPersonsCommandHandler>();
@@ -109,6 +113,9 @@ builder.Services.AddScoped<IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<T
 builder.Services.AddScoped<IQueryHandler<ExportTimesheetMonthQuery, DownloadFileDto>, ExportTimesheetMonthQueryHandler>();
 builder.Services.AddScoped<IQueryHandler<GetTimesheetDayQuery, IReadOnlyList<TimesheetPersonDayRowDto>>, GetTimesheetDayQueryHandler>();
 
+builder.Services.AddScoped<IQueryHandler<GetPlanningMonthQuery, IReadOnlyList<PlanningMonthAssignmentRowDto>>, GetPlanningMonthQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetPlanningDayQuery, IReadOnlyList<PlanningDayGroupDto>>, GetPlanningDayQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetPlanningDocumentsQuery, IReadOnlyList<PlanningDocumentRowDto>>, GetPlanningDocumentsQueryHandler>();
 
 // services
 builder.Services.AddScoped<ToastService>();

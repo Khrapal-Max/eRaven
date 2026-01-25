@@ -1,0 +1,102 @@
+﻿@page "/planning-documents"
+@using eRaven.Application.DTOs.CombatTask
+@using eRaven.Domain.Enums
+
+<PageTitle>Планування (документи)</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid px-3 py-3">
+
+        <div class="border bg-secondary-subtle mb-3">
+            <div class="py-2 px-4 text-white">
+                Планування (документи)
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+
+            <div class="d-flex flex-column">
+                <label class="form-label mb-1">Місяць</label>
+                <input class="form-control form-control-sm rounded-0 bg-dark text-white"
+                       type="month"
+                       value="@_monthIso"
+                       @onchange="OnMonthChanged" />
+            </div>
+
+            <div class="d-flex flex-column">
+                <label class="form-label mb-1">Статус</label>
+                <select class="form-select form-select-sm rounded-0"
+                        value="@_statusRaw"
+                        @onchange="OnStatusChanged">
+                    <option value="">Всі</option>
+                    <option value="@CombatTaskPlanDocumentStatus.Draft">Чернетка</option>
+                    <option value="@CombatTaskPlanDocumentStatus.Posted">Проведений</option>
+                    <option value="@CombatTaskPlanDocumentStatus.Canceled">Відмінений</option>
+                </select>
+            </div>
+
+            <div class="flex-grow-1 d-flex flex-column">
+                <label class="form-label mb-1">Пошук (назва документа)</label>
+                <input class="form-control form-control-sm rounded-0"
+                       value="@_search"
+                       @oninput="OnSearchInput"
+                       placeholder="Напр: План №12" />
+            </div>
+
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    IsDisabled="@_loading"
+                    OnClickButton="ReloadAsync">
+                <span class="d-inline-flex align-items-center gap-1">
+                    <span aria-hidden="true">⟳</span>
+                    Оновити
+                </span>
+            </Button>
+
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="Місяць"
+                    OnClickButton="@(() => Nav.NavigateTo("/planning"))" />
+
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="День"
+                    OnClickButton="@(() => Nav.NavigateTo("/planning-day"))" />
+        </div>
+
+        @if (_loading)
+        {
+            <p class="px-1"><em>Завантаження...</em></p>
+        }
+        else if (_error is not null)
+        {
+            <div class="alert alert-danger rounded-0">@_error</div>
+        }
+        else
+        {
+            <div class="border">
+                <Table TItem="PlanningDocumentRowDto"
+                       Items="@(_rows ?? [])"
+                       Class="table-sm table-bordered mb-0"
+                       @bind-SelectedItem="_selected"
+                       KeySelector="@(r => r.DocumentId)">
+
+                    <TableHeader>
+                        <th class="text-center">Дата</th>
+                        <th>Назва</th>
+                        <th class="text-center">Статус</th>
+                        <th class="text-center">Осіб</th>
+                        <th class="text-center">Діапазон</th>
+                    </TableHeader>
+
+                    <RowTemplate Context="r">
+                        <td class="text-center font-monospace">@r.DocumentDate.ToString("dd.MM.yyyy")</td>
+                        <td class="text-truncate">@r.Title</td>
+                        <td class="text-center">@StatusText(r.Status)</td>
+                        <td class="text-center">@r.PersonsCount</td>
+                        <td class="text-center font-monospace">
+                            @((r.MinStart?.ToString("dd.MM")) ?? "—") – @((r.MaxEnd?.ToString("dd.MM")) ?? "—")
+                        </td>
+                    </RowTemplate>
+                </Table>
+            </div>
+        }
+    </div>
+</div>
