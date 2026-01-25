@@ -29,6 +29,7 @@ using eRaven.Components;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Projectors;
+using eRaven.Infrastructure.Repositories.CombatTaskRepository;
 using eRaven.Infrastructure.Repositories.DashboardRepository;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
@@ -79,6 +80,7 @@ builder.Services.AddScoped<ITimesheetEntryRepository, TimesheetEntryRepository>(
 builder.Services.AddScoped<ITimesheetLifecycleRepository, TimesheetLifecycleRepository>();
 builder.Services.AddScoped<ITimesheetPolicyRepository, TimesheetPolicyRepository>();
 builder.Services.AddScoped<ITimesheetMonthRepository, TimesheetMonthRepository>();
+builder.Services.AddScoped<ICombatTaskAssignmentRepository, CombatTaskAssignmentRepository>();
 
 // Command handlers
 builder.Services.AddScoped<ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult>, BootstrapPersonsCommandHandler>();
