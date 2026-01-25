@@ -153,7 +153,7 @@ public partial class TimesheetPersonShell
     private DateOnly _eventDrawerDate;
     private TimesheetLane _eventDrawerLane = TimesheetLane.Main;
 
-    [Inject] public ICommandHandler<CreateTimesheetEntryCommand> Handler { get; set; } = default!;
+    [Inject] public ICommandHandler<TransitionTimesheetStateCommand> Handler { get; set; } = default!;
 
     private void OpenEventDrawerToday()
     {
@@ -169,15 +169,15 @@ public partial class TimesheetPersonShell
     }
 
     // optional: if your drawer requires OnSubmit callback
-    private async Task HandleCreateEventAsync(TimesheetEntryCreateDto dto)
+    private async Task HandleCreateEventAsync(TimesheetTransitionCreateDto dto)
     {
         // quick test stub: just close drawer; wiring save can be added later
-        var command = new CreateTimesheetEntryCommand(
+        var command = new TransitionTimesheetStateCommand(
             PersonId: dto.PersonId,
             Lane: dto.Lane,
-            From: dto.From,
-            To: dto.To,
-            Code: dto.Code,
+            AnchorDate: dto.AnchorDate,
+            InputDate: dto.InputDate,
+            NextCode: dto.NextCode,
             Reference: dto.Reference,
             Note: dto.Note,
             Author: "test.user",

@@ -36,4 +36,6 @@ public interface ITimesheetEntryRepository
     Task AddAsync(TimesheetEntry entry, CancellationToken ct = default);
     Task UpdateAsync(TimesheetEntry entry, CancellationToken ct = default);
     Task SoftDeleteAsync(Guid entryId, string reason, string author, DateTime nowUtc, CancellationToken ct = default);
+
+    Task SaveTransitionAsync(TimesheetEntry prevUpdated, TimesheetEntry nextAdded, CancellationToken ct = default);
 }

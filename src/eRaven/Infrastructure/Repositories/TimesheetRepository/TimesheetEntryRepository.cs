@@ -113,4 +113,16 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
 
         await db.SaveChangesAsync(ct);
     }
+
+    public async Task SaveTransitionAsync(TimesheetEntry prevUpdated, TimesheetEntry nextAdded, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        db.TimesheetEntries.Update(prevUpdated);
+        db.TimesheetEntries.Add(nextAdded);
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
 }

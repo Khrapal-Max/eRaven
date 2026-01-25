@@ -19,7 +19,7 @@ namespace eRaven.Components.Pages.Timesheet;
 public partial class TimesheetDayShell
 {
     [Inject] public IQueryHandler<GetTimesheetDayQuery, IReadOnlyList<TimesheetPersonDayRowDto>> Query { get; set; } = default!;
-    [Inject] public ICommandHandler<CreateTimesheetEntryCommand> CreateEntryHandler { get; set; } = default!;
+    [Inject] public ICommandHandler<TransitionTimesheetStateCommand> CreateEntryHandler { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
 
@@ -110,19 +110,19 @@ public partial class TimesheetDayShell
         _eventDrawerOpen = true;
     }
 
-    private async Task HandleCreateEventAsync(TimesheetEntryCreateDto dto)
+    private async Task HandleCreateEventAsync(TimesheetTransitionCreateDto dto)
     {
         var author = "system"; // TODO: current user
         var nowUtc = DateTime.UtcNow;
 
         try
         {
-            await CreateEntryHandler.HandleAsync(new CreateTimesheetEntryCommand(
+            await CreateEntryHandler.HandleAsync(new TransitionTimesheetStateCommand(
                 PersonId: dto.PersonId,
                 Lane: dto.Lane,
-                Code: dto.Code,
-                From: dto.From,
-                To: dto.To,
+                AnchorDate: dto.AnchorDate,
+                InputDate: dto.InputDate,
+                NextCode: dto.NextCode,
                 Reference: dto.Reference,
                 Note: dto.Note,
                 Author: author,

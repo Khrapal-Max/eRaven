@@ -12,6 +12,7 @@ using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
 using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using System.ComponentModel.DataAnnotations;
 
 namespace eRaven.Components.Pages.Timesheet.Drawers;
 
@@ -22,9 +23,10 @@ public partial class TimesheetEventDrawer
 
     [Parameter] public TimesheetPersonMonthRowDto? Person { get; set; }
     [Parameter] public TimesheetLane Lane { get; set; }
-    [Parameter] public DateOnly Date { get; set; } // anchor date (from calendar)
+    [Parameter] public DateOnly Date { get; set; } // anchor date (from day/table)
 
-    [Parameter] public EventCallback<TimesheetEntryCreateDto> OnSubmit { get; set; }
+    // NOTE: NEW payload
+    [Parameter] public EventCallback<TimesheetTransitionCreateDto> OnSubmit { get; set; }
 
     [Inject] public ITimesheetPolicyRepository Policy { get; set; } = default!;
     [Inject] public ITimesheetTimelineRepository Timelines { get; set; } = default!;
@@ -36,17 +38,21 @@ public partial class TimesheetEventDrawer
 
     private IReadOnlyList<TimesheetCodeDefinition> _allCodes = [];
     private IReadOnlyList<TimesheetCodeDefinition> _allowedCodes = [];
-    private TimesheetCodeDefinition? _selectedDef;
 
     private TimesheetTimeline? _timeline;
     private TimesheetEntry? _active;
 
-    private bool _isPeriod; // default false (period is rare)
-    private bool DisabledSave =>
-    _busy || _loading || Person is null || string.IsNullOrWhiteSpace(Model.Code);
+    private TimesheetCodeDefinition? _activeDef;
+    private TimesheetCodeDefinition? _nextDef;
+
+    private DateOnly _computedPrevLastDay;
+    private DateOnly _computedNextFrom;
 
     private EditContext _editContext = default!;
-    protected TimesheetEntryCreateDto Model { get; set; } = new();
+    protected TransitionModel Model { get; set; } = new();
+
+    private bool DisabledSave =>
+        _busy || _loading || Person is null || _timeline is null || _active is null || string.IsNullOrWhiteSpace(Model.NextCode);
 
     protected override void OnInitialized() => Reset();
 
@@ -76,37 +82,38 @@ public partial class TimesheetEventDrawer
         _loading = true;
         try
         {
-            // Base model
+            // base model
             Model.PersonId = Person.PersonId;
             Model.Lane = Lane;
+            Model.AnchorDate = Date;
 
-            // Load code definitions
             _allCodes = await Policy.GetCodesAsync(Lane);
 
-            // Always pull active entry (anchor)
             _timeline = await Timelines.GetTimelineOnDateAsync(Person.PersonId, Lane, Date);
             _active = await Entries.GetActiveEntryOnDateAsync(Person.PersonId, Lane, Date);
 
-            // Start date: end of active (or anchor), with quick buttons to switch to active start
-            if (_active is not null)
+            // No timeline or no active history => user canТt apply transition
+            if (_timeline is null || _active is null)
             {
-                Model.From = _active.To ?? Date;
-            }
-            else
-            {
-                Model.From = Date;
+                _allowedCodes = [];
+                Model.InputDate = Date;
+                Model.NextCode = "";
+                RecalcDates();
+                _editContext = new EditContext(Model);
+                return;
             }
 
-            // Period OFF by default
-            _isPeriod = false;
-            Model.To = null;
-
-            // Allowed codes: based on active code transitions
+            _activeDef = FindDef(_active.Code);
             _allowedCodes = await GetAllowedCodesAsync();
 
-            // Default selected code: first allowed (or empty)
-            Model.Code = _allowedCodes[0].Code;
-            _selectedDef = FindDef(Model.Code);
+            // Default input: anchor date (interpreted by current state's meaning)
+            Model.InputDate = Date;
+
+            // Default next code: first allowed
+            Model.NextCode = _allowedCodes.Count > 0 ? _allowedCodes[0].Code : "";
+            _nextDef = FindDef(Model.NextCode);
+
+            RecalcDates();
 
             _editContext = new EditContext(Model);
         }
@@ -118,78 +125,61 @@ public partial class TimesheetEventDrawer
 
     private async Task<IReadOnlyList<TimesheetCodeDefinition>> GetAllowedCodesAsync()
     {
-        // If no active entry or policy missing -> fallback to all codes (do not block UI)
         if (_active is null || string.IsNullOrWhiteSpace(_active.Code))
             return _allCodes;
 
-        var fromDef = _allCodes.FirstOrDefault(x =>
-            string.Equals(x.Code, _active.Code.Trim(), StringComparison.OrdinalIgnoreCase));
-
+        var fromDef = FindDef(_active.Code);
         if (fromDef is null)
             return _allCodes;
 
         var allowedIds = await Policy.GetAllowedNextAsync(fromDef.Id);
 
-        // If transitions not configured -> fallback to all (so UI still works)
         if (allowedIds.Count == 0)
             return _allCodes;
 
         return [.. _allCodes.Where(x => allowedIds.Contains(x.Id))];
     }
 
-    private void Reset()
+    private void OnInputDateChanged()
     {
-        _busy = false;
-        _loading = false;
+        RecalcDates();
+        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.InputDate)));
+    }
 
-        _allCodes = [];
-        _allowedCodes = [];
-        _selectedDef = null;
+    private void OnNextCodeChanged()
+    {
+        _nextDef = FindDef(Model.NextCode);
+        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.NextCode)));
+    }
 
-        _timeline = null;
-        _active = null;
-
-        _isPeriod = false;
-
-        Model = new TimesheetEntryCreateDto
+    private void RecalcDates()
+    {
+        // Defaults even when no active (so UI stays stable)
+        if (_activeDef is null)
         {
-            From = DateOnly.FromDateTime(DateTime.Now),
-            To = null
-        };
+            _computedPrevLastDay = Model.InputDate;
+            _computedNextFrom = Model.InputDate;
+            return;
+        }
 
-        _editContext = new EditContext(Model);
-    }
-
-    private void OnPeriodChanged(ChangeEventArgs e)
-    {
-        var s = Convert.ToString(e.Value);
-        var on = string.Equals(s, "true", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(s, "on", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(s, "1", StringComparison.OrdinalIgnoreCase);
-
-        _isPeriod = on;
-
-        if (_isPeriod)
-            Model.To ??= Model.From;
+        if (_activeDef.EndDateMeaning == TimesheetEndDateMeaning.LastDayOfThisCode)
+        {
+            _computedPrevLastDay = Model.InputDate;
+            _computedNextFrom = Model.InputDate.AddDays(1);
+        }
         else
-            Model.To = null;
-
-        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.To)));
-    }
-
-    private void OnCodeChanged()
-    {
-        _selectedDef = FindDef(Model.Code);
-        _editContext.NotifyFieldChanged(new FieldIdentifier(Model, nameof(Model.Code)));
+        {
+            _computedNextFrom = Model.InputDate;
+            _computedPrevLastDay = Model.InputDate.AddDays(-1);
+        }
     }
 
     private TimesheetCodeDefinition? FindDef(string? code)
     {
-        var c = (code ?? string.Empty).Trim();
+        var c = Normalize(code);
         if (c.Length == 0) return null;
 
-        return _allCodes.FirstOrDefault(x =>
-            string.Equals(x.Code, c, StringComparison.OrdinalIgnoreCase));
+        return _allCodes.FirstOrDefault(x => Normalize(x.Code) == c);
     }
 
     private async Task SubmitAsync()
@@ -200,22 +190,21 @@ public partial class TimesheetEventDrawer
         _busy = true;
         try
         {
-            Model.Code = (Model.Code ?? string.Empty).Trim();
+            Model.NextCode = (Model.NextCode ?? "").Trim();
             Model.Reference = TrimOrNull(Model.Reference);
             Model.Note = TrimOrNull(Model.Note);
 
             if (OnSubmit.HasDelegate)
             {
-                await OnSubmit.InvokeAsync(new TimesheetEntryCreateDto
-                {
-                    PersonId = Model.PersonId,
-                    Lane = Model.Lane,
-                    From = Model.From,
-                    To = Model.To, // user-entered end date (policy applies +/-1 in handler)
-                    Code = Model.Code,
-                    Reference = Model.Reference,
-                    Note = Model.Note
-                });
+                await OnSubmit.InvokeAsync(new TimesheetTransitionCreateDto(
+                    PersonId: Model.PersonId,
+                    Lane: Model.Lane,
+                    AnchorDate: Model.AnchorDate,
+                    InputDate: Model.InputDate,
+                    NextCode: Model.NextCode,
+                    Reference: Model.Reference,
+                    Note: Model.Note
+                ));
             }
 
             await IsOpenChanged.InvokeAsync(false);
@@ -238,9 +227,54 @@ public partial class TimesheetEventDrawer
         return Task.CompletedTask;
     }
 
-    private static string LaneTitle(TimesheetLane lane)
-        => lane == TimesheetLane.Main ? "Main" : "Task";
+    private void Reset()
+    {
+        _busy = false;
+        _loading = false;
 
-    private static string? TrimOrNull(string? s)
-        => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+        _allCodes = [];
+        _allowedCodes = [];
+
+        _timeline = null;
+        _active = null;
+
+        _activeDef = null;
+        _nextDef = null;
+
+        Model = new TransitionModel
+        {
+            AnchorDate = Date,
+            InputDate = Date,
+            NextCode = ""
+        };
+
+        _computedPrevLastDay = Model.InputDate;
+        _computedNextFrom = Model.InputDate;
+
+        _editContext = new EditContext(Model);
+    }
+
+    private static string LaneTitle(TimesheetLane lane) => lane == TimesheetLane.Main ? "Main" : "Task";
+
+    private static string Normalize(string? code) => (code ?? "").Trim().ToUpperInvariant();
+    private static string? TrimOrNull(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    // -----------------------
+    // Model with minimal validation
+    // -----------------------
+    public sealed class TransitionModel
+    {
+        public Guid PersonId { get; set; }
+        public TimesheetLane Lane { get; set; }
+        public DateOnly AnchorDate { get; set; }
+
+        [Required]
+        public DateOnly InputDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+
+        [Required(ErrorMessage = "ќбер≥ть наступний код.")]
+        public string NextCode { get; set; } = string.Empty;
+
+        public string? Reference { get; set; }
+        public string? Note { get; set; }
+    }
 }

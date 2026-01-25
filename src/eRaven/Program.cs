@@ -94,7 +94,7 @@ builder.Services.AddScoped<ICommandHandler<ChangeWeaponCommand>, ChangeWeaponCom
 builder.Services.AddScoped<ICommandHandler<ChangeCallsignCommand>, ChangeCallsignCommandHandler>();
 builder.Services.AddScoped<ICommandHandler<VoidPersonEventCommand>, VoidPersonEventCommandHandler>();
 
-builder.Services.AddScoped<ICommandHandler<CreateTimesheetEntryCommand>, CreateTimesheetEntryCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<TransitionTimesheetStateCommand>, TransitionTimesheetStateCommandHandler>();
 
 // Query handlers
 builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>, GetPersonsPageQueryHandler>();
