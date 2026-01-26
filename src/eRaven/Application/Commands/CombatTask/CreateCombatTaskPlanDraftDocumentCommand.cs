@@ -8,7 +8,6 @@
 namespace eRaven.Application.Commands.CombatTask;
 
 public sealed record CreateCombatTaskPlanDraftDocumentCommand(
-    Guid DocumentId,
     DateOnly RecordedAt,
     DateOnly PlanningDate,
     string PlanningDocTitle,

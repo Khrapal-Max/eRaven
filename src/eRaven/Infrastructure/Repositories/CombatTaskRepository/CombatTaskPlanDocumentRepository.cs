@@ -179,13 +179,18 @@ public sealed class CombatTaskPlanDocumentRepository(IDbContextFactory<AppDbCont
         await db.SaveChangesAsync(ct);
     }
 
-    private static void ValidateLine(CombatTaskPlanLineInputDto l)
+    public Task<Guid> AddLineToDraftAsync(Guid documentId, CombatTaskPlanLineInputDto line, string author, DateTime nowUtc, CancellationToken ct = default)
     {
-        if (l.PersonId == Guid.Empty) throw new ArgumentException("Line.PersonId is required.");
-        if (string.IsNullOrWhiteSpace(l.RNOKPP)) throw new ArgumentException("Line.RNOKPP is required.");
-        if (string.IsNullOrWhiteSpace(l.FullName)) throw new ArgumentException("Line.FullName is required.");
-        if (string.IsNullOrWhiteSpace(l.PositionalArea)) throw new ArgumentException("Line.PositionalArea is required.");
-        if (string.IsNullOrWhiteSpace(l.GroupName)) throw new ArgumentException("Line.GroupName is required.");
-        if (string.IsNullOrWhiteSpace(l.Goal)) throw new ArgumentException("Line.Goal is required.");
+        throw new NotImplementedException();
+    }
+
+    public Task UpdateLineInDraftAsync(Guid documentId, Guid lineId, CombatTaskPlanLineInputDto line, string author, DateTime nowUtc, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task DeleteLineFromDraftAsync(Guid documentId, Guid lineId, string author, DateTime nowUtc, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
     }
 }

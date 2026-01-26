@@ -15,6 +15,7 @@ public sealed class CombatTaskAssignmentRepository(IDbContextFactory<AppDbContex
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
+    // не підключений
     public async Task<CombatTaskAssignment?> GetOpenAssignmentForPersonAsync(
         Guid personId,
         CancellationToken ct = default)
@@ -31,6 +32,7 @@ public sealed class CombatTaskAssignmentRepository(IDbContextFactory<AppDbContex
             .FirstOrDefaultAsync(ct);
     }
 
+    // не підключений
     public async Task CreateAssignmentAsync(
         CombatTaskAssignment assignment,
         CancellationToken ct = default)
@@ -58,6 +60,7 @@ public sealed class CombatTaskAssignmentRepository(IDbContextFactory<AppDbContex
         await db.SaveChangesAsync(ct);
     }
 
+    // не підключений
     public async Task CloseAssignmentAsync(
         Guid assignmentId,
         DateOnly endedAt,

@@ -108,4 +108,29 @@ public interface ICombatTaskReadRepository
         DateOnly date,
         string? search,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Повертає деталі документа планування за його ідентифікатором (header + lines) для UI-редактора.
+    /// </summary>
+    /// <remarks>
+    /// Використання:
+    /// - Сторінка <c>/planning-documents/{id}</c> (Document editor): показ шапки, список рядків, доступність дій Draft.
+    /// - Сторінки <c>/planning-documents/{id}/line/new</c> та <c>/planning-documents/{id}/line/{lineId}</c>:
+    ///   підвантаження контексту документа + (для edit) вибір існуючого рядка.
+    ///
+    /// Поведінка/контракти:
+    /// - Read-only запит: <c>AsNoTracking</c>, без будь-яких мутацій.
+    /// - Якщо документ не знайдено — повертає <c>null</c> (UI вирішує як показати помилку/redirect).
+    /// - Рядки повертаються відсортованими (рекомендовано): <c>ActionDate</c> ↑, <c>Kind</c> ↑, <c>FullName</c> ↑, <c>Id</c> ↑
+    ///   щоб відображення було стабільним при оновленнях/посторінкових перерендерингах.
+    /// - Повертає і Draft, і Posted, і Canceled — але UI може обмежувати кнопки дій за статусом.
+    /// </remarks>
+    /// <param name="documentId">ID документа планування.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>
+    /// DTO з полями документа та переліком рядків або <c>null</c>, якщо документ не існує.
+    /// </returns>
+    Task<CombatTaskPlanDocumentDetailsDto?> GetPlanningDocumentDetailsAsync(
+        Guid documentId,
+        CancellationToken ct = default);
 }

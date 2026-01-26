@@ -214,4 +214,58 @@ public sealed class CombatTaskReadRepository(IDbContextFactory<AppDbContext> dbF
             .ThenBy(x => x.Mode)
             .ThenBy(x => x.Goal)];
     }
+
+    public async Task<CombatTaskPlanDocumentDetailsDto?> GetPlanningDocumentDetailsAsync(
+        Guid documentId,
+        CancellationToken ct = default)
+    {
+        if (documentId == Guid.Empty)
+            throw new ArgumentException("DocumentId is required.", nameof(documentId));
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var doc = await db.Set<CombatTaskPlanDocument>()
+            .AsNoTracking()
+            .Where(x => x.Id == documentId)
+            .Select(x => new CombatTaskPlanDocumentDetailsDto(
+                DocumentId: x.Id,
+                RecordedAt: x.RecordedAt,
+                PlanningDate: x.PlanningDate,
+                PlanningDocTitle: x.PlanningDocTitle,
+                Status: x.Status,
+                CreatedAtUtc: x.CreatedAtUtc,
+                CreatedBy: x.CreatedBy,
+                UpdatedAtUtc: x.UpdatedAtUtc,
+                UpdatedBy: x.UpdatedBy, 
+                CanceledReason: x.CanceledReason,
+                CanceledBy: x.CanceledBy,
+                CanceledAtUtc: x.CanceledAtUtc,
+                Lines: x.Lines
+                    .OrderBy(l => l.ActionDate)
+                    .ThenBy(l => l.FullName)
+                    .ThenBy(l => l.Id)
+                    .Select(l => new CombatTaskPlanLineRowDto(
+                        LineId: l.Id,
+                        Kind: l.Kind,
+                        PersonId: l.PersonId,
+                        AssignmentId: l.AssignmentId,
+                        ActionDate: l.ActionDate,
+                        RNOKPP: l.RNOKPP,
+                        FullName: l.FullName,
+                        Rank: l.Rank,
+                        Position: l.Position,
+                        Weapon: l.Weapon,
+                        Callsign: l.Callsign,
+                        PositionalArea: l.PositionalArea,
+                        GroupName: l.GroupName,
+                        AssetType: l.AssetType,
+                        Mode: l.Mode,
+                        Goal: l.Goal,
+                        IsActual: l.IsActual,
+                        Note: l.Note))
+                    .ToList()))
+            .FirstOrDefaultAsync(ct);
+
+        return doc;
+    }
 }

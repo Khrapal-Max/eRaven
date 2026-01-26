@@ -16,12 +16,11 @@ namespace eRaven.Components.Pages.CombatTask.Drawers;
 public partial class PlanningCreateDraftDocumentDrawer
 {
     [Inject] public ICommandHandler<CreateCombatTaskPlanDraftDocumentCommand, Guid> CreateDraft { get; set; } = default!;
+
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
 
-    /// <summary>
-    /// Повертаємо ID створеної чернетки (щоб shell зробив NavigateTo).
-    /// </summary>
+    /// <summary>Повертаємо ID створеної чернетки (щоб shell зробив NavigateTo).</summary>
     [Parameter] public EventCallback<Guid> OnCreated { get; set; }
 
     private bool _busy;
@@ -31,8 +30,7 @@ public partial class PlanningCreateDraftDocumentDrawer
     private EditContext _editContext = default!;
     protected CreateDraftModelDto Model { get; set; } = new();
 
-    private bool DisabledSave =>
-        _busy || string.IsNullOrWhiteSpace(Model.PlanningDocTitle);
+    private bool DisabledSave => _busy || string.IsNullOrWhiteSpace(Model.PlanningDocTitle);
 
     protected override void OnInitialized() => Reset();
 
@@ -41,7 +39,7 @@ public partial class PlanningCreateDraftDocumentDrawer
         if (IsOpen && !_wasOpen)
         {
             _wasOpen = true;
-            Reset(); // на кожне відкриття — чистий стан
+            Reset();
         }
 
         if (!IsOpen && _wasOpen)
@@ -80,20 +78,15 @@ public partial class PlanningCreateDraftDocumentDrawer
             var title = (Model.PlanningDocTitle ?? string.Empty).Trim();
             Model.PlanningDocTitle = title;
 
-            // Генеруємо ID тут, щоб не вимагати handler з return
-            var documentId = Guid.NewGuid();
-
-            await CreateDraft.HandleAsync(new CreateCombatTaskPlanDraftDocumentCommand(
-                DocumentId: documentId,
+            var docId = await CreateDraft.HandleAsync(new CreateCombatTaskPlanDraftDocumentCommand(
                 RecordedAt: Model.RecordedAt,
                 PlanningDate: Model.PlanningDate,
                 PlanningDocTitle: title,
                 Author: "ui",
-                NowUtc: DateTime.UtcNow
-            ));
+                NowUtc: DateTime.UtcNow));
 
             if (OnCreated.HasDelegate)
-                await OnCreated.InvokeAsync(documentId);
+                await OnCreated.InvokeAsync(docId);
 
             await IsOpenChanged.InvokeAsync(false);
         }

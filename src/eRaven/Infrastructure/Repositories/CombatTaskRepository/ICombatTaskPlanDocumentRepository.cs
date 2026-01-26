@@ -58,4 +58,8 @@ public interface ICombatTaskPlanDocumentRepository
     Task CancelAsync(Guid documentId, string reason, string author, DateTime nowUtc, CancellationToken ct = default);
 
     // (Read методи додамо пізніше під сторінки реєстру/плану, без "про запас".)
+
+    Task<Guid> AddLineToDraftAsync(Guid documentId, CombatTaskPlanLineInputDto line, string author, DateTime nowUtc, CancellationToken ct = default);
+    Task UpdateLineInDraftAsync(Guid documentId, Guid lineId, CombatTaskPlanLineInputDto line, string author, DateTime nowUtc, CancellationToken ct = default);
+    Task DeleteLineFromDraftAsync(Guid documentId, Guid lineId, string author, DateTime nowUtc, CancellationToken ct = default);
 }
