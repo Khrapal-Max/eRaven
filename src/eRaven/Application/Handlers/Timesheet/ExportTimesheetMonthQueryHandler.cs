@@ -182,26 +182,23 @@ public sealed class ExportTimesheetMonthQueryHandler(
     // Colors for codes
     // -------------------------
 
-    private static readonly XLColor BgEmpty = XLColor.White;
-    private static readonly XLColor FgEmpty = XLColor.FromHtml("#1f2937");
+    private static readonly XLColor BgNb = XLColor.FromHtml("#e7f5ff");// light blue
+    private static readonly XLColor FgNb = XLColor.FromHtml("#1864ab");
 
-    private static readonly XLColor BgNb = XLColor.FromHtml("#f1f3f5");
-    private static readonly XLColor FgNb = XLColor.FromHtml("#495057");
+    private static readonly XLColor Bg30 = XLColor.White;
+    private static readonly XLColor Fg30 = XLColor.FromHtml("#1f2937");// dark gray
 
-    private static readonly XLColor Bg30 = XLColor.FromHtml("#e6fcf5");
-    private static readonly XLColor Fg30 = XLColor.FromHtml("#0b7285");
+    private static readonly XLColor BgVac = XLColor.FromHtml("#fff9db");// light yellow
+    private static readonly XLColor FgVac = XLColor.FromHtml("#5f3dc4");
 
-    private static readonly XLColor BgVac = XLColor.FromHtml("#e7f5ff");
-    private static readonly XLColor FgVac = XLColor.FromHtml("#1864ab");
-
-    private static readonly XLColor BgAlert = XLColor.FromHtml("#fff5f5");
+    private static readonly XLColor BgAlert = XLColor.FromHtml("#fff5f5"); // light red
     private static readonly XLColor FgAlert = XLColor.FromHtml("#c92a2a");
 
-    private static readonly XLColor BgTask = XLColor.FromHtml("#f8f0fc");
-    private static readonly XLColor FgTask = XLColor.FromHtml("#862e9c");
+    private static readonly XLColor BgOther = XLColor.FromHtml("#e6fcf5");// light green
+    private static readonly XLColor FgOther = XLColor.FromHtml("#0b7285");
 
-    private static readonly XLColor BgOther = XLColor.FromHtml("#fff9db");
-    private static readonly XLColor FgOther = XLColor.FromHtml("#5f3dc4");
+    private static readonly XLColor BgTask = XLColor.FromHtml("#f8f0fc");// light purple
+    private static readonly XLColor FgTask = XLColor.FromHtml("#862e9c");
 
     private static void ApplyDayCellStyle(IXLCell cell, string? main, string? task)
     {
@@ -216,7 +213,7 @@ public sealed class ExportTimesheetMonthQueryHandler(
 
         if (!hasMain && !hasTask)
         {
-            SetCellColors(cell, BgEmpty, FgEmpty);
+            SetCellColors(cell, BgNb, FgNb);
             return;
         }
 
