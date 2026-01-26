@@ -73,7 +73,7 @@ public sealed class CombatTaskAssignmentRepository(IDbContextFactory<AppDbContex
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var a = await db.Set<CombatTaskAssignment>()
-            .FirstOrDefaultAsync(x => x.Id == assignmentId, ct) 
+            .FirstOrDefaultAsync(x => x.Id == assignmentId, ct)
             ?? throw new InvalidOperationException("Активне завдання не знайдено.");
 
         if (a.EndedAt is not null)

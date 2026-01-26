@@ -1,0 +1,210 @@
+﻿@page "/planning-documents/{DocumentId:guid}/line/new"
+@page "/planning-documents/{DocumentId:guid}/line/{LineId:guid}"
+
+@using System.ComponentModel.DataAnnotations
+@using eRaven.Domain.Enums
+@using eRaven.Components.Shared.Validation
+
+<PageTitle>Рядок плану</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid px-3 py-3">
+
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="← Назад до документа"
+                    OnClickButton="@(() => Nav.NavigateTo($"/planning-documents/{DocumentId}"))" />
+
+            <div class="fw-semibold">
+                @(IsEdit ? "Редагувати рядок" : "Додати рядок")
+            </div>
+
+            <div class="ms-auto d-flex gap-2">
+                <Button Class="btn-sm btn-outline-secondary rounded-0"
+                        Label="Оновити"
+                        IsDisabled="_loading"
+                        OnClickButton="LoadAsync" />
+            </div>
+        </div>
+
+        @if (_error is not null)
+        {
+            <div class="alert alert-danger rounded-0">@_error</div>
+        }
+
+        @if (_loading)
+        {
+            <p><em>Завантаження...</em></p>
+        }
+        else
+        {
+            <EditForm EditContext="@_editContext" OnValidSubmit="SubmitAsync" id="planning-line-form">
+                <DataAnnotationsValidator />
+
+                <div class="row g-2">
+
+                    <!-- PERSON PICKER -->
+                    <div class="col-12 col-lg-5">
+                        <div class="border p-2 bg-white">
+                            <div class="fw-semibold mb-2">Особа</div>
+
+                            <label class="form-label mb-1">Пошук (ПІБ / РНОКПП)</label>
+                            <input class="form-control rounded-0"
+                                   value="@_personSearch"
+                                   @oninput="OnPersonSearchInput"
+                                   placeholder="мін. 2 символи" />
+
+                            @if (_personResults is not null)
+                            {
+                                <div class="border mt-2">
+                                    @if (_personResults.Count == 0)
+                                    {
+                                        <div class="p-2 small"><em>Нічого не знайдено.</em></div>
+                                    }
+                                    else
+                                    {
+                                        <div class="list-group list-group-flush">
+                                            @foreach (var p in _personResults)
+                                            {
+                                                <button type="button"
+                                                        class="list-group-item list-group-item-action rounded-0"
+                                                        @onclick="(() => SelectPerson(p))">
+                                                    <div class="fw-semibold text-truncate">@p.FullName</div>
+                                                    <div class="small text-muted">
+                                                        РНОКПП: <span class="font-monospace">@p.RNOKPP</span>
+                                                        @if (!string.IsNullOrWhiteSpace(p.Callsign))
+                                                        {
+                                                            <span> · Позивний: @p.Callsign</span>
+                                                        }
+                                                    </div>
+                                                </button>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            @if (_selectedPerson is not null)
+                            {
+                                <div class="border p-2 bg-light mt-2">
+                                    <div class="fw-semibold text-truncate">@_selectedPerson.FullName</div>
+                                    <div class="small">
+                                        РНОКПП: <span class="font-monospace">@_selectedPerson.RNOKPP</span>
+                                        @if (!string.IsNullOrWhiteSpace(_selectedPerson.Rank))
+                                        {
+                                            <span> · @_selectedPerson.Rank</span>
+                                        }
+                                    </div>
+                                    <div class="small text-muted text-truncate">
+                                        @(string.IsNullOrWhiteSpace(_selectedPerson.Position) ? "" : _selectedPerson.Position)
+                                    </div>
+                                </div>
+                            }
+
+                            <ValidationMessage For="@(() => Model.PersonId)" />
+                        </div>
+                    </div>
+
+                    <!-- TASK FIELDS -->
+                    <div class="col-12 col-lg-7">
+                        <div class="border p-2 bg-white">
+                            <div class="fw-semibold mb-2">Поля завдання</div>
+
+                            <div class="row g-2">
+
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label mb-1">Дія</label>
+                                    <InputSelect class="form-select rounded-0" @bind-Value="Model.Kind">
+                                        <option value="@CombatTaskPlanLineKind.Start">Початок</option>
+                                        <option value="@CombatTaskPlanLineKind.End">Завершення</option>
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => Model.Kind)" />
+                                </div>
+
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label mb-1">Дата дії</label>
+                                    <InputDate class="form-control rounded-0 bg-dark text-white"
+                                               @bind-Value="Model.ActionDate" />
+                                    <ValidationMessage For="@(() => Model.ActionDate)" />
+                                </div>
+
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label mb-1">Позиційний район</label>
+                                    <InputText class="form-control rounded-0" @bind-Value="Model.PositionalArea" />
+                                    <ValidationMessage For="@(() => Model.PositionalArea)" />
+                                </div>
+
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label mb-1">Група</label>
+                                    <InputText class="form-control rounded-0" @bind-Value="Model.GroupName" />
+                                    <ValidationMessage For="@(() => Model.GroupName)" />
+                                </div>
+
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label mb-1">Тип засобу (опц.)</label>
+                                    <InputText class="form-control rounded-0" @bind-Value="Model.AssetType" />
+                                </div>
+
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label mb-1">Режим</label>
+                                    <InputSelect class="form-select rounded-0" @bind-Value="Model.Mode">
+                                        <option value="@CombatTaskMode.Day">День</option>
+                                        <option value="@CombatTaskMode.Night">Ніч</option>
+                                        <option value="@CombatTaskMode.FullDay">Добовий</option>
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => Model.Mode)" />
+                                </div>
+
+                                <div class="col-12">
+                                    <label class="form-label mb-1">Мета</label>
+                                    <InputText class="form-control rounded-0" @bind-Value="Model.Goal" />
+                                    <ValidationMessage For="@(() => Model.Goal)" />
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <InputCheckbox class="form-check-input" @bind-Value="Model.IsActual" />
+                                        <label class="form-check-label">Дійсний (для звітів)</label>
+                                    </div>
+                                </div>
+
+                                @if (Model.Kind == CombatTaskPlanLineKind.End)
+                                {
+                                    <div class="col-12">
+                                        <label class="form-label mb-1">AssignmentId (опц.)</label>
+                                        <InputText class="form-control rounded-0" @bind-Value="Model.AssignmentIdRaw"
+                                                   placeholder="порожньо = auto закрити активне" />
+                                        <div class="form-text">
+                                            Якщо не вказувати — при проведенні буде знайдено відкрите завдання по особі.
+                                        </div>
+                                    </div>
+                                }
+
+                                <div class="col-12">
+                                    <label class="form-label mb-1">Примітка (опц.)</label>
+                                    <InputText class="form-control rounded-0" @bind-Value="Model.Note" />
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </EditForm>
+
+            <div class="d-flex gap-2 mt-3">
+                <Button Class="btn-outline-secondary rounded-0"
+                        Label="Скасувати"
+                        IsDisabled="_busy"
+                        OnClickButton="@(() => Nav.NavigateTo($"/planning-documents/{DocumentId}"))" />
+
+                <button type="submit"
+                        form="planning-line-form"
+                        class="btn btn-primary rounded-0"
+                        disabled="@DisabledSave">
+                    Зберегти
+                </button>
+            </div>
+        }
+    </div>
+</div>

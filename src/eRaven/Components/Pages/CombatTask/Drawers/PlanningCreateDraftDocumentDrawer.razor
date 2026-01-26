@@ -1,0 +1,69 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using eRaven.Components.Shared.Validation
+
+<Drawer Title="Нова чернетка плану"
+        IsOpen="@IsOpen"
+        IsOpenChanged="@IsOpenChanged"
+        DisableClose="@_busy"
+        OnClosed="OnDrawerClosed">
+
+    <ChildContent>
+        @if (IsOpen)
+        {
+            <div class="drawer-grow">
+
+                @if (_error is not null)
+                {
+                    <div class="alert alert-danger rounded-0">@_error</div>
+                }
+
+                <EditForm EditContext="@_editContext" OnValidSubmit="SubmitAsync" id="planning-draft-form">
+                    <DataAnnotationsValidator />
+
+                    <div class="row g-2">
+
+                        <div class="col-12">
+                            <div class="border p-2 bg-white">
+                                <div class="small">Дата запису</div>
+                                <div class="font-monospace fw-semibold">@Model.RecordedAt.ToString("dd.MM.yyyy")</div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label mb-1">Дата планування</label>
+                            <InputDate class="form-control rounded-0 bg-dark text-white"
+                                       @bind-Value="Model.PlanningDate" />
+                            <ValidationMessage For="@(() => Model.PlanningDate)" />
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label mb-1">Назва/номер документа</label>
+                            <InputText class="form-control rounded-0"
+                                       @bind-Value="Model.PlanningDocTitle"
+                                       placeholder="Напр: План №12" />
+                            <ValidationMessage For="@(() => Model.PlanningDocTitle)" />
+                            <div class="form-text text-black">Мінімум 2 символи.</div>
+                        </div>
+
+                    </div>
+                </EditForm>
+
+            </div>
+        }
+    </ChildContent>
+
+    <FooterContent>
+        <Button Class="btn-outline-secondary rounded-0"
+                Label="Скасувати"
+                IsDisabled="@_busy"
+                OnClickButton="OnCancel" />
+
+        <button type="submit"
+                form="planning-draft-form"
+                class="btn btn-primary rounded-0"
+                disabled="@DisabledSave">
+            Створити
+        </button>
+    </FooterContent>
+
+</Drawer>

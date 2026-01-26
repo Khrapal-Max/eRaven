@@ -7,6 +7,7 @@
 
 using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.Commands;
+using eRaven.Application.Commands.CombatTask;
 using eRaven.Application.Commands.Excel;
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
@@ -85,6 +86,7 @@ builder.Services.AddScoped<ITimesheetPolicyRepository, TimesheetPolicyRepository
 builder.Services.AddScoped<ITimesheetMonthRepository, TimesheetMonthRepository>();
 builder.Services.AddScoped<ICombatTaskAssignmentRepository, CombatTaskAssignmentRepository>();
 builder.Services.AddScoped<ICombatTaskReadRepository, CombatTaskReadRepository>();
+builder.Services.AddScoped<ICombatTaskPlanDocumentRepository, CombatTaskPlanDocumentRepository>();
 
 // Command handlers
 builder.Services.AddScoped<ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult>, BootstrapPersonsCommandHandler>();
@@ -101,6 +103,10 @@ builder.Services.AddScoped<ICommandHandler<ChangeCallsignCommand>, ChangeCallsig
 builder.Services.AddScoped<ICommandHandler<VoidPersonEventCommand>, VoidPersonEventCommandHandler>();
 
 builder.Services.AddScoped<ICommandHandler<TransitionTimesheetStateCommand>, TransitionTimesheetStateCommandHandler>();
+
+builder.Services.AddScoped<ICommandHandler<CreateCombatTaskPlanDraftDocumentCommand, Guid>, CreateCombatTaskPlanDocumentCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<PostCombatTaskPlanDocumentCommand>, PostCombatTaskPlanDocumentCommandHandler>();
+builder.Services.AddScoped<ICommandHandler<CancelCombatTaskPlanDocumentCommand>, CancelCombatTaskPlanDocumentCommandHandler>();
 
 // Query handlers
 builder.Services.AddScoped<IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>>, GetPersonsPageQueryHandler>();

@@ -26,7 +26,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TimesheetEntry> TimesheetEntries { get; set; }
 
     // Combat Tasks
-    public DbSet<CombatTaskPlanLine> CombatTaskPlanLine { get; set; }
+    public DbSet<CombatTaskPlanLine> CombatTaskPlanLines { get; set; }
     public DbSet<CombatTaskAssignment> CombatTaskAssignments { get; set; }
     public DbSet<CombatTaskPlanDocument> CombatTaskPlanDocuments { get; set; }
 

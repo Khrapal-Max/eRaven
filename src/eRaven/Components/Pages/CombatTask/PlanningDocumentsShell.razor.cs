@@ -21,6 +21,9 @@ public partial class PlanningDocumentsShell
     private bool _loading;
     private string? _error;
 
+
+    private bool _createDraftOpen;
+
     private int _year = DateTime.Today.Year;
     private int _month = DateTime.Today.Month;
     private string _monthIso = DateTime.Today.ToString("yyyy-MM");
@@ -92,6 +95,21 @@ public partial class PlanningDocumentsShell
         _search = Convert.ToString(e.Value);
         if (string.IsNullOrWhiteSpace(_search) || _search.Trim().Length >= 2)
             await ReloadAsync();
+    }
+
+    private void OpenCreateDraft()
+        => _createDraftOpen = true;
+
+    private async Task HandleDraftCreated(Guid documentId)
+    {
+        // Закриваємо drawer одразу, якщо раптом не закрився
+        _createDraftOpen = false;
+
+        // Опційно: підвантажити список (щоб документ зʼявився одразу при Back)
+        await ReloadAsync();
+
+        // Переходимо в редактор чернетки
+        Nav.NavigateTo($"/planning-documents/{documentId}");
     }
 
     private static string StatusText(CombatTaskPlanDocumentStatus s)

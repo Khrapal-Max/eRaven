@@ -43,6 +43,11 @@
                        placeholder="Напр: План №12" />
             </div>
 
+            <Button Class="btn-sm btn-primary rounded-0"
+                    Label=" + Чернетка"
+                    IsDisabled="@_loading"
+                    OnClickButton="OpenCreateDraft" />
+
             <Button Class="btn-sm btn-outline-secondary rounded-0"
                     IsDisabled="@_loading"
                     OnClickButton="ReloadAsync">
@@ -51,14 +56,6 @@
                     Оновити
                 </span>
             </Button>
-
-            <Button Class="btn-sm btn-outline-secondary rounded-0"
-                    Label="Місяць"
-                    OnClickButton="@(() => Nav.NavigateTo("/planning"))" />
-
-            <Button Class="btn-sm btn-outline-secondary rounded-0"
-                    Label="День"
-                    OnClickButton="@(() => Nav.NavigateTo("/planning-day"))" />
         </div>
 
         @if (_loading)
@@ -80,23 +77,36 @@
 
                     <TableHeader>
                         <th class="text-center">Дата</th>
-                        <th>Назва</th>
+                        <th>№ документа</th>
                         <th class="text-center">Статус</th>
+                        <th class="text-center">№ розпорядження</th>
                         <th class="text-center">Осіб</th>
                         <th class="text-center">Діапазон</th>
+                        <th class="text-center">Дії</th>
                     </TableHeader>
 
                     <RowTemplate Context="r">
-                        <td class="text-center font-monospace">@r.DocumentDate.ToString("dd.MM.yyyy")</td>
-                        <td class="text-truncate">@r.Title</td>
+                        <td class="text-center">@r.DocumentDate.ToString("dd.MM.yyyy")</td>
+                        <td>@r.Title</td>
                         <td class="text-center">@StatusText(r.Status)</td>
+                        <td class="text-center">"-"</td>
                         <td class="text-center">@r.PersonsCount</td>
-                        <td class="text-center font-monospace">
+                        <td class="text-center">
                             @((r.MinStart?.ToString("dd.MM")) ?? "—") – @((r.MaxEnd?.ToString("dd.MM")) ?? "—")
+                        </td>
+                        <td class="text-center">
+                            <Button Class="btn-sm btn-success rounded-0"
+                                    Label="Відкрити"
+                                    OnClickButton="@(() => Nav.NavigateTo($"/planning-documents/{@r.DocumentId}"))" />
                         </td>
                     </RowTemplate>
                 </Table>
             </div>
         }
+
+        <!-- Drawer create draft -->
+        <PlanningCreateDraftDocumentDrawer IsOpen="_createDraftOpen"
+                                           IsOpenChanged="@(v => _createDraftOpen = v)"
+                                           OnCreated="HandleDraftCreated" />
     </div>
-</div>
+</div>                    
