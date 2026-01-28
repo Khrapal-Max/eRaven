@@ -18,9 +18,8 @@ namespace eRaven.Application.DTOs.CombatTask;
 public sealed record CombatTaskDocumentDto
 (
     Guid DocumentId,
-    string Title,
+    string OrderTitle,
     DocumentStatus Status,
-    string Order,
     DateOnly RecordedAt,
     string CanceledReason
 );

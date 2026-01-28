@@ -17,8 +17,8 @@ public class CreateCombatTaskDraftDto
 {
     [Required,
      MinLength(2, ErrorMessage = "Назва повина бути більше 2 літералів"),
-     MaxLength(250, ErrorMessage = "Назва повина бути не більше 250 літералі")]
-    public string Title { get; set; } = string.Empty;
+     MaxLength(512, ErrorMessage = "Назва повина бути не більше 512 літералі")]
+    public string OrderTitle { get; set; } = string.Empty;
 
     [Required]
     public DateOnly RecordedAt { get; set; }

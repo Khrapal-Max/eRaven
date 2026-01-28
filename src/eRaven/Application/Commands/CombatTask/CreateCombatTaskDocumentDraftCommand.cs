@@ -8,7 +8,7 @@
 namespace eRaven.Application.Commands.CombatTask;
 
 public sealed record CreateCombatTaskDocumentDraftCommand(
-    string Title,
+    string OrderTitle,
     DateOnly RecordedAt,
     string Author,
     DateTime NowUtc);

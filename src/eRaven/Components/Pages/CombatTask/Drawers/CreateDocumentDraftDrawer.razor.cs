@@ -38,7 +38,7 @@ public partial class CreateDocumentDraftDrawer
     private EditContext _editContext = default!;
     protected CreateCombatTaskDraftDto Model { get; set; } = new();
 
-    private bool DisabledSave => _busy || string.IsNullOrWhiteSpace(Model.Title);
+    private bool DisabledSave => _busy || string.IsNullOrWhiteSpace(Model.OrderTitle);
 
     //==========================
     // Lifecycle
@@ -71,7 +71,7 @@ public partial class CreateDocumentDraftDrawer
 
         Model = new CreateCombatTaskDraftDto()
         {
-            Title = string.Empty,
+            OrderTitle = string.Empty,
             RecordedAt = DateOnly.FromDateTime(DateTime.Today)
         };
 
@@ -86,11 +86,11 @@ public partial class CreateDocumentDraftDrawer
 
         try
         {
-            var title = (Model.Title ?? string.Empty).Trim();
-            Model.Title = title;
+            var title = (Model.OrderTitle ?? string.Empty).Trim();
+            Model.OrderTitle = title;
 
             var docId = await CreateHanler.HandleAsync(new CreateCombatTaskDocumentDraftCommand(
-                Title: Model.Title,
+                OrderTitle: Model.OrderTitle,
                 RecordedAt: Model.RecordedAt,
                 Author: "ui", // TODO auth user
                 NowUtc: DateTime.UtcNow));

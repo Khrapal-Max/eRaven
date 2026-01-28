@@ -45,7 +45,7 @@ public interface ICombatTaskDocumentRepository
     /// Використовується UI для підготовки документу.
     /// </summary>
     Task<Guid> CreateDraftAsync(
-        string documentTitle,
+        string orderTitle,
         DateOnly recordedAt,
         string author,
         DateTime nowUtc,
@@ -55,7 +55,7 @@ public interface ICombatTaskDocumentRepository
     /// Проводить документ (Draft -> Posted) і застосовує рядки до Assignment-стану.
     /// Після цього документ стає джерелом аудиту: "хто/коли/чим відкрив/закрив".
     /// </summary>
-    Task PostAsync(Guid documentId, string order, string author, DateTime nowUtc, CancellationToken ct = default);
+    Task PostAsync(Guid documentId, string author, DateTime nowUtc, CancellationToken ct = default);
 
     /// <summary>
     /// Відміняє Draft документ (Draft -> Canceled). Posted відміняти не можна.

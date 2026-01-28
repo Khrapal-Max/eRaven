@@ -5,7 +5,6 @@
 // CombatTaskDocumentRepository
 //-----------------------------------------------------------------------------
 
-
 using eRaven.Application.DTOs.CombatTask;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
@@ -35,30 +34,29 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim();
-            query = query.Where(d => d.DocumentTitle.Contains(search));
+            query = query.Where(d => d.OrderTitle.Contains(search));
         }
 
         return await query
             .Select(d => new CombatTaskDocumentDto
             (
                 DocumentId: d.Id,
-                Title: d.DocumentTitle,
+                OrderTitle: d.OrderTitle,
                 Status: d.Status,
-                Order: d.Order ?? string.Empty,
                 RecordedAt: d.RecordedAt,
                 CanceledReason: d.CanceledReason ?? string.Empty
             ))
             .ToListAsync(ct);
     }
 
-    public async Task<Guid> CreateDraftAsync(string documentTitle, DateOnly recordedAt, string author, DateTime nowUtc, CancellationToken ct = default)
+    public async Task<Guid> CreateDraftAsync(string orderTitle, DateOnly recordedAt, string author, DateTime nowUtc, CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var document = new CombatTaskDocument
         {
             Id = Guid.NewGuid(),
-            DocumentTitle = documentTitle,
+            OrderTitle = orderTitle,
             RecordedAt = recordedAt,
             Status = DocumentStatus.Draft,
             CreatedBy = author,
@@ -71,7 +69,7 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
         return document.Id;
     }
 
-    public async Task PostAsync(Guid documentId, string order, string author, DateTime nowUtc, CancellationToken ct = default)
+    public async Task PostAsync(Guid documentId, string author, DateTime nowUtc, CancellationToken ct = default)
     {
         if (documentId == Guid.Empty) throw new ArgumentException("DocumentId is required.", nameof(documentId));
 
@@ -88,7 +86,6 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
             throw new InvalidOperationException("Документ відмінений і не може бути проведений.");
 
         document.Status = DocumentStatus.Posted;
-        document.Order = order;
         document.UpdatedBy = author;
         document.UpdatedAtUtc = nowUtc;
 

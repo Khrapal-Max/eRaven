@@ -12,6 +12,6 @@ namespace eRaven.Domain.Enums;
 /// </summary>
 public enum ActionKind
 {
-    Start = 0, 
+    Start = 0,
     End = 1,
 }

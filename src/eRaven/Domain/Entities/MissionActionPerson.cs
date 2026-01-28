@@ -2,31 +2,14 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// MissionAssignment
+// MissionActionPerson
 //-----------------------------------------------------------------------------
 
 namespace eRaven.Domain.Entities;
 
-/// <summary>
-/// Призначення особи на місію
-/// </summary>
-public class MissionAssignment
+public class MissionActionPerson
 {
-    public Guid Id { get; set; }
-
-    public Guid MissionId { get; set; }
+    public Guid ActionId { get; set; }
 
     public Guid PersonId { get; set; }
-
-    public DateOnly StartedAt { get; set; }
-
-    public DateOnly? EndedAt { get; set; }
-
-    public Guid StartDocumentId { get; set; }
-
-    public Guid? EndDocumentId { get; set; }
-
-    public Guid StartActionId { get; set; }
-
-    public Guid? EndActionId { get; set; }
 }

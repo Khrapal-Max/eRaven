@@ -22,8 +22,8 @@ public class DefaultTypeDroneCatalog : ITypeDroneCatalog
         new TypeDroneOption("ISR groupe DJI Скиди Class I multirotor ISR GNSS-aided UAS"),
 
         new TypeDroneOption("FPV groupe Ударний Class I multirotor strike FPV-piloted UAS"),
-        new TypeDroneOption("LUCKY STRIKE Скиди Class I multirotor strike FPV-piloted UAS"),
-        new TypeDroneOption("INSOMNIA Скиди Class I multirotor strike FPV-piloted UAS"),
+        new TypeDroneOption("LUCKY STRIKE Скиди Class I multirotor bomber FPV-piloted UAS"),
+        new TypeDroneOption("INSOMNIA Скиди Class I multirotor bomber FPV-piloted UAS"),
 
         new TypeDroneOption("ЛЕЛЕКА-100 Розвідка крило Class I fixed-wing endurance UAS"),
         new TypeDroneOption("QS VECTOR Розвідка крило Class I fixed-wing endurance UAS"),

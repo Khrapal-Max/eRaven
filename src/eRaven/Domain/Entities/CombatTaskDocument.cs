@@ -21,25 +21,19 @@ public sealed class CombatTaskDocument
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Назва/номер документа планування.
-    /// </summary>
-    public string DocumentTitle { get; set; } = string.Empty;
-
-    /// <summary>
     /// Стан документа.
     /// </summary>
     public DocumentStatus Status { get; set; } = DocumentStatus.Draft;
 
     /// <summary>
+    /// Номер бойового розпорядження (наказ).
+    /// </summary>
+    public string OrderTitle { get; set; } = string.Empty;
+
+    /// <summary>
     /// Дата документа (коли проведено планування).
     /// </summary>
     public DateOnly RecordedAt { get; set; }
-
-    /// <summary>
-    /// Номер бойового розпорядження (документ проведений).
-    /// </summary>
-    public string? Order { get; set; }
-
 
     /// <summary>
     /// Причина скасування документа.
