@@ -101,11 +101,6 @@
                                         StopPropagation="true"
                                         OnClickButton="@(() => OpenEventDrawer(r, TimesheetLane.Main))" />
 
-                                <Button Class="btn-sm btn-success rounded-0"
-                                        Label="+ план"
-                                        StopPropagation="true"
-                                        OnClickButton="@(() => OpenEventDrawer(r, TimesheetLane.Task))" />
-
                                 <Button Class="btn-sm btn-warning rounded-0"
                                         Label="Особовий табель"
                                         OnClickButton="@(() => Nav.NavigateTo($"/timesheet/person/{r?.PersonId}"))" />

@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Timesheet;
 
+// TODO only citizen evets
 public partial class TimesheetDayShell
 {
     [Inject] public IQueryHandler<GetTimesheetDayQuery, IReadOnlyList<TimesheetPersonDayRowDto>> Query { get; set; } = default!;
