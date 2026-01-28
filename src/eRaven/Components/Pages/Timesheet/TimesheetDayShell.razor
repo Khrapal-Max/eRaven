@@ -4,14 +4,15 @@
 
 <PageTitle>Табель (стан на день)</PageTitle>
 
-<div class="page-content">
-    <div class="container-fluid px-3 py-3">
+<div class="page-content">  
 
-        <div class="border bg-secondary-subtle mb-3">
-            <div class="py-2 px-4 text-white">
-                Табель (стан на день)
-            </div>
+    <div class="border bg-secondary-subtle">
+        <div class="py-2 px-4 text-white">
+            Табель (стан на день)
         </div>
+    </div>
+
+    <div class="container-fluid px-3 py-3">
 
         <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
 
@@ -44,10 +45,6 @@
         @if (_loading)
         {
             <p class="px-1"><em>Завантаження...</em></p>
-        }
-        else if (_error is not null)
-        {
-            <div class="alert alert-danger rounded-0">@_error</div>
         }
         else
         {

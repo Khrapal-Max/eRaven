@@ -48,6 +48,7 @@ public sealed class RegistryImportExportTests : BunitContext
                         Lifecycle: PersonLifecycle.Enrolled,
                         EnrollmentKind: EnrollmentKind.Unit,
                         Rank: "Солдат",
+                        PositionSort:1,
                         Position: "Стрілець",
                         EnrolledAt: new DateOnly(2025, 1, 1),
                         ExcludedAt: null,

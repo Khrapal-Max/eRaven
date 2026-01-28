@@ -25,6 +25,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TimesheetTimeline> TimesheetTimelines { get; set; }
     public DbSet<TimesheetEntry> TimesheetEntries { get; set; }
 
+    // Combat Task
+    public DbSet<CombatTaskDocument> CombatTaskDocuments { get; set; }
+    public DbSet<Mission> Missions { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Postgres розширення для темпоральних обмежень

@@ -24,7 +24,6 @@ public partial class TimesheetDayShell
     [Inject] public ToastService Toasts { get; set; } = default!;
 
     private bool _loading;
-    private string? _error;
 
     private DateOnly _date = DateOnly.FromDateTime(DateTime.Today);
     private string _dateIso = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd");
@@ -48,7 +47,6 @@ public partial class TimesheetDayShell
     private async Task ReloadAsync()
     {
         _loading = true;
-        _error = null;
 
         try
         {
@@ -59,8 +57,8 @@ public partial class TimesheetDayShell
         }
         catch (Exception ex)
         {
-            _error = ex.Message;
             _rows = [];
+            Toasts.Error(ex.Message);
         }
         finally
         {
@@ -112,7 +110,7 @@ public partial class TimesheetDayShell
 
     private async Task HandleCreateEventAsync(TimesheetTransitionCreateDto dto)
     {
-        var author = "system"; // TODO: current user
+        var author = "system"; // TODO: auth user
         var nowUtc = DateTime.UtcNow;
 
         try

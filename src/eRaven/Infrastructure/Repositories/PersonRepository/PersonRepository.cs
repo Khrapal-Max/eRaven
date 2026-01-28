@@ -102,7 +102,7 @@ public sealed class PersonRepository(
         var skip = (page - 1) * size;
 
         var items = await q
-            .OrderBy(x => x.LastName).ThenBy(x => x.FirstName).ThenBy(x => x.MiddleName)
+            .OrderBy(x => x.PositionSort)
             .Skip(skip)
             .Take(size)
             .Select(x => new PersonListItemDto(
@@ -111,6 +111,7 @@ public sealed class PersonRepository(
                 x.Rnokpp,
                 x.Lifecycle,
                 x.Rank,
+                x.PositionSort,
                 x.Position,
                 x.EnrollmentKind,
                 x.EnrolledAt,

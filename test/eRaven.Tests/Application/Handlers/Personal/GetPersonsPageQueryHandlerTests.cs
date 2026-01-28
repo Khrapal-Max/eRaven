@@ -40,6 +40,7 @@ public sealed class GetPersonsPageQueryHandlerTests
                     Rnokpp: "1234567890",
                     Lifecycle: PersonLifecycle.Reserved,
                     Rank: "сержант",
+                    PositionSort: 5,
                     Position: "Оператор",
                     EnrollmentKind: null,
                     EnrolledAt: null,

@@ -1,0 +1,94 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using eRaven.Application.DTOs.Mission
+@using eRaven.Components.Shared.Validation
+@using eRaven.Domain.Enums
+
+<Drawer Title="Нова місія"
+        IsOpen="@IsOpen"
+        IsOpenChanged="@IsOpenChanged"
+        DisableClose="@_busy"
+        OnClosed="OnDrawerClosed">
+
+    <ChildContent>
+        @if (IsOpen)
+        {
+            <div class="drawer-grow">
+
+                <EditForm EditContext="@_editContext" OnValidSubmit="SubmitAsync" id="mission-create-form">
+                    <DataAnnotationsValidator />
+
+                    <div class="row g-2">
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label mb-1">Позиційний район</label>
+                            <InputText class="form-control rounded-0"
+                                       @bind-Value="Model.PositionArea" />
+                            <ValidationMessage For="@(() => Model.PositionArea)" />
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label mb-1">Точка</label>
+                            <InputText class="form-control rounded-0"
+                                       @bind-Value="Model.NamePoint" />
+                            <ValidationMessage For="@(() => Model.NamePoint)" />
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label mb-1">Мета</label>
+                            <InputSelect class="form-select rounded-0"
+                                         @bind-Value="Model.Target">
+                                <option value="">— оберіть —</option>
+                                @foreach (var t in _targetOptions)
+                                {
+                                    <option value="@t.Target">@t.Target</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => Model.Target)" />
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label mb-1">Режим</label>
+                            <InputSelect class="form-select rounded-0"
+                                         @bind-Value="Model.MissionMode">
+                                <option value="@MissionMode.Day">@GetMissionMode(MissionMode.Day)</option>
+                                <option value="@MissionMode.Night">@GetMissionMode(MissionMode.Night)</option>
+                                <option value="@MissionMode.FullTime">@GetMissionMode(MissionMode.FullTime)</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => Model.MissionMode)" />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label mb-1">Тип ураження (дрон)</label>
+                            <InputSelect class="form-select rounded-0"
+                                         @bind-Value="Model.DroneName">
+                                <option value="">— немає —</option>
+                                @foreach (var d in _typeDrones)
+                                {
+                                    <option value="@d.Name">@d.Name</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => Model.DroneName)" />
+                        </div>
+
+                    </div>
+                </EditForm>
+
+            </div>
+        }
+    </ChildContent>
+
+    <FooterContent>
+        <Button Class="btn-outline-secondary rounded-0"
+                Label="Скасувати"
+                IsDisabled="@_busy"
+                OnClickButton="OnCancel" />
+
+        <button type="submit"
+                form="mission-create-form"
+                class="btn btn-primary rounded-0"
+                disabled="@DisabledSave">
+            Створити
+        </button>
+    </FooterContent>
+
+</Drawer>

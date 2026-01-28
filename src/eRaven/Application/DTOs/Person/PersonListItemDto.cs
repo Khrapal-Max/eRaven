@@ -15,6 +15,7 @@ public sealed record PersonListItemDto(
     string Rnokpp,
     PersonLifecycle Lifecycle,
     string? Rank,
+    int? PositionSort,
     string? Position,
     EnrollmentKind? EnrollmentKind,
     DateOnly? EnrolledAt,

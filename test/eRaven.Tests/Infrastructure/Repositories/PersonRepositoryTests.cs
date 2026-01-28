@@ -192,6 +192,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             Assert.Equal(new DateOnly(2026, 01, 10), dto.EnrolledAt);
             Assert.Null(dto.ExcludedAt);
             Assert.Equal("Солдат", dto.Rank);
+            Assert.Equal(10, dto.PositionSort);
             Assert.Equal("Оператор", dto.Position);
             Assert.Equal(10, dto.PositionSort);
         }

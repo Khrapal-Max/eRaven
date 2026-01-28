@@ -1,0 +1,130 @@
+﻿@page "/task-document/{DocumentId:guid}"
+@using eRaven.Domain.Enums
+
+<PageTitle>Документ планування</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid px-3 py-3">
+
+       <div class="d-flex align-items-center gap-2 mb-3">
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="← Назад"
+                    OnClickButton="@(() => Nav.NavigateTo("/task-documents"))" />
+
+            <Button Class="btn-sm btn-primary rounded-0"
+                    Label="+ міссія"
+                    IsDisabled="@_loading"
+                    OnClickButton="OpenCreateDrawer" />
+
+       </div>
+            @*     <div class="fw-semibold">Документ планування</div>
+
+            <div class="ms-auto d-flex gap-2">
+                <Button Class="btn-sm btn-outline-secondary rounded-0"
+                        Label="Оновити"
+                        IsDisabled="_loading"
+                        OnClickButton="LoadAsync" />
+
+                <Button Class="btn-sm btn-primary rounded-0"
+                        Label="+ Додати рядок"
+                        IsDisabled="_loading"
+                        OnClickButton="GoAddLine" />
+            </div>
+        </div>
+
+        @if (_loading)
+        {
+            <p><em>Завантаження...</em></p>
+        }
+        else
+        {
+            <!-- Header -->
+            <div class="border p-2 bg-white mb-3">
+                <div class="d-flex flex-wrap gap-3 align-items-center">
+                    <div>
+                        <div class="small text-muted">Дата запису</div>
+                        <div class="font-monospace fw-semibold">@(_recordedAt?.ToString("dd.MM.yyyy") ?? "—")</div>
+                    </div>
+                    <div>
+                        <div class="small text-muted">Дата планування</div>
+                        <div class="font-monospace fw-semibold">@(_planningDate?.ToString("dd.MM.yyyy") ?? "—")</div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="small text-muted">Назва</div>
+                        <div class="fw-semibold text-truncate">@(_title ?? "—")</div>
+                    </div>
+                    <div>
+                        <div class="small text-muted">Статус</div>
+                        <div class="fw-semibold">@(_statusText ?? "—")</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lines -->
+            <div class="border mb-3">
+                <div class="p-2 border-bottom small text-muted">Рядки документа</div>
+
+                @if (_lines.Count == 0)
+                {
+                    <div class="p-2"><em>Рядків немає.</em></div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-center">Дія</th>
+                                    <th class="text-center">Дата</th>
+                                    <th>Особа</th>
+                                    <th>Район / Група</th>
+                                    <th class="text-center">Режим</th>
+                                    <th>Мета</th>
+                                    <th class="text-center">Дії</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var l in _lines)
+                                {
+                                    <tr>
+                                        <td class="text-center">@l.Kind</td>
+                                        <td class="text-center font-monospace">@l.ActionDate.ToString("dd.MM.yyyy")</td>
+                                        <td class="text-truncate">@l.FullName</td>
+                                        <td class="text-truncate">@l.PositionalArea / @l.GroupName</td>
+                                        <td class="text-center">@l.Mode</td>
+                                        <td class="text-truncate">@l.Goal</td>
+                                        <td class="text-center text-nowrap">
+                                            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                                                    Label="Ред."
+                                                    OnClickButton="@(() => GoEditLine(l.LineId))" />
+                                            <Button Class="btn-sm btn-outline-danger rounded-0"
+                                                    Label="Видал."
+                                                    OnClickButton="@(() => DeleteLine(l.LineId))" />
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <!-- Draft actions -->
+            <div class="d-flex gap-2">
+                <Button Class="btn-sm btn-success rounded-0"
+                        Label="Провести"
+                        IsDisabled="_loading || !IsDraft"
+                        OnClickButton="PostAsync" />
+
+                <Button Class="btn-sm btn-outline-danger rounded-0"
+                        Label="Відмінити"
+                        IsDisabled="_loading || !IsDraft"
+                        OnClickButton="CancelAsync" />
+            </div>
+        }*@
+
+        <MissionCreateDrawer IsOpen="@_createOpen"
+                             IsOpenChanged="@(v => _createOpen = v)"
+                             OnCreated="HandleCreatedAsync" />
+    </div> 
+</div>

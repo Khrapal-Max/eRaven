@@ -20,6 +20,7 @@ public sealed class PersonsTableTests : BunitContext
         DateOnly? excludedAt = null,
         DateOnly? enrolledAt = null,
         string? rank = "сержант",
+        int? positionSort = 1,
         string? position = "Оператор")
         => new(
             Id: Guid.NewGuid(),
@@ -27,6 +28,7 @@ public sealed class PersonsTableTests : BunitContext
             Rnokpp: "1234567890",
             Lifecycle: lc,
             Rank: rank,
+            PositionSort: positionSort,
             Position: position,
             EnrollmentKind: null,
             EnrolledAt: enrolledAt,

@@ -29,9 +29,19 @@
                         Табель
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navOblik">
-                        <li><NavLink class="dropdown-item" href="#">План на місяць</NavLink></li>
                         <li><NavLink class="dropdown-item" href="timesheet-day">Табель за день</NavLink></li>
                         <li><NavLink class="dropdown-item" href="timesheet">Табель за місяць</NavLink></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navOblik" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Планування
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navOblik">
+                        <li><NavLink class="dropdown-item" href="#">Плановий табель за місяць</NavLink></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><NavLink class="dropdown-item" href="task-documents">Документи (планування)</NavLink></li>
                     </ul>
                 </li>
 
@@ -40,6 +50,7 @@
                         Довідники
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navRefs">
+                        <li><NavLink class="dropdown-item" href="missions">Місії</NavLink></li>
                         <li><NavLink class="dropdown-item" href="timesheet/policy">Політика (статуси)</NavLink></li>
                         <li><hr class="dropdown-divider" /></li>
                         <li><NavLink class="dropdown-item" href="#">Про систему</NavLink></li>
