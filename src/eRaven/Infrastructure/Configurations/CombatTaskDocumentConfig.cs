@@ -19,17 +19,15 @@ public sealed class CombatTaskDocumentConfig : IEntityTypeConfiguration<CombatTa
         b.HasKey(x => x.Id);
 
         b.Property(x => x.Status)
-            .HasColumnName("status")
             .HasConversion<int>()
             .IsRequired();
 
         b.Property(x => x.OrderTitle)
             .HasColumnName("order_title")
-            .HasMaxLength(512)
+            .HasMaxLength(250)
             .IsRequired();
 
         b.Property(x => x.RecordedAt)
-            .HasColumnName("recorded_at")
             .HasColumnType("date")
             .IsRequired();
 
@@ -42,8 +40,9 @@ public sealed class CombatTaskDocumentConfig : IEntityTypeConfiguration<CombatTa
             .HasMaxLength(120)
             .IsRequired();
 
-        b.Property(x => x.CanceledAtUtc)
-            .HasColumnName("canceled_at_utc");
+        b.Property(x => x.CreatedAtUtc)
+            .HasColumnName("created_at_utc")
+            .IsRequired();
 
         b.Property(x => x.UpdatedBy)
             .HasColumnName("updated_by")
@@ -59,17 +58,14 @@ public sealed class CombatTaskDocumentConfig : IEntityTypeConfiguration<CombatTa
         b.Property(x => x.CanceledAtUtc)
             .HasColumnName("canceled_at_utc");
 
-        // Унікальний номер/назва наказу (В-документа)
+        // Унікальність номера наказу (якщо це твоя бізнес-домовленість).
         b.HasIndex(x => x.OrderTitle)
             .IsUnique();
 
-        // Фільтри/вивід
-        b.HasIndex(x => x.RecordedAt);
-        b.HasIndex(x => x.Status);
-
-        // (Опційно) базова узгодженість “скасовано”
+        // (Опційно) узгодженість “скасовано”: якщо Status=Canceled — потрібна причина або дата.
+        // Якщо не хочеш — прибери.
         b.ToTable(t => t.HasCheckConstraint(
             "ck_combat_task_documents_canceled",
-            "status <> 2 OR canceled_at_utc IS NOT NULL"));
+            "\"Status\" <> 2 OR \"canceled_at_utc\" IS NOT NULL"));
     }
 }

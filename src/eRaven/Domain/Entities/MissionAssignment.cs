@@ -8,9 +8,10 @@
 namespace eRaven.Domain.Entities;
 
 /// <summary>
-/// Призначення особи на місію
+/// Інтервал призначення особи на місію (від Start до End).
+/// Гарантія: на 1 особу може бути лише 1 "відкрите" призначення (EndedAt = NULL) у будь-який момент.
 /// </summary>
-public class MissionAssignment
+public sealed class MissionAssignment
 {
     public Guid Id { get; set; }
 

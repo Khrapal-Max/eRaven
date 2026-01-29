@@ -81,7 +81,7 @@ public sealed class GetMissionsQueryHandlerTests
             ClosedAt = null // не співпадає по search "Розвідка"/"DJI"/"Район-A"
         };
 
-        repo.Setup(r => r.GetMissionPointsAsync(It.IsAny<CancellationToken>()))
+        repo.Setup(r => r.GetMissionsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(
             [
                 openOld,
@@ -119,7 +119,7 @@ public sealed class GetMissionsQueryHandlerTests
         Assert.Equal(new DateOnly(2026, 01, 10), rows[0].CreatedAt);
         Assert.Null(rows[0].ClosedAt);
 
-        repo.Verify(r => r.GetMissionPointsAsync(It.IsAny<CancellationToken>()), Times.Once);
+        repo.Verify(r => r.GetMissionsAsync(It.IsAny<CancellationToken>()), Times.Once);
         repo.VerifyNoOtherCalls();
     }
 }

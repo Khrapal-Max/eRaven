@@ -10,11 +10,8 @@ using eRaven.Domain.Enums;
 namespace eRaven.Domain.Entities;
 
 /// <summary>
-/// Документ планування бойового завдання.
-/// - DocumentTitle: Назва/номер документа планування.
-/// - RecordedAt: Дата документа (коли проведено планування).
-/// - Status: Стан документа.
-/// - CanceledReason: Причина скасування документа (якщо застосовно).
+/// Документ планування бойового завдання (наказ/розпорядження).
+/// Містить послідовність дій (<see cref="MissionAction"/>) у межах одного документа.
 /// </summary>
 public sealed class CombatTaskDocument
 {
@@ -27,6 +24,7 @@ public sealed class CombatTaskDocument
 
     /// <summary>
     /// Номер бойового розпорядження (наказ).
+    /// Унікальний у межах доменної домовленості (рік/підрозділ тощо).
     /// </summary>
     public string OrderTitle { get; set; } = string.Empty;
 

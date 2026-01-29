@@ -28,7 +28,7 @@ public sealed class MissionActionConfig : IEntityTypeConfiguration<MissionAction
 
         b.Property(x => x.SourceDocNo)
             .HasColumnName("source_doc_no")
-            .HasMaxLength(120)
+            .HasMaxLength(250)
             .IsRequired();
 
         b.Property(x => x.Action)
@@ -45,29 +45,15 @@ public sealed class MissionActionConfig : IEntityTypeConfiguration<MissionAction
             .HasColumnType("date")
             .IsRequired();
 
-        // Порядок усередині документа — єдине джерело істини
+        // Порядок дій у документі: sequence унікальний в межах DocumentId.
         b.HasIndex(x => new { x.DocumentId, x.Sequence })
             .IsUnique();
 
-        b.HasIndex(x => x.DocumentId);
-        b.HasIndex(x => x.MissionId);
-        b.HasIndex(x => x.ActionDate);
+        // Фільтри/побудова “стрічки” документа
+        b.HasIndex(x => new { x.DocumentId, x.ActionDate });
 
-        // захист від 0/від’ємних sequence
-        b.ToTable(t => t.HasCheckConstraint(
-            "ck_mission_actions_sequence",
-            "\"sequence\" >= 1"));
-
-        // якщо в тебе є таблиця documents — FK (можна Restrict, щоб не видалити історію випадково)
-        b.HasOne<CombatTaskDocument>()
-            .WithMany()
-            .HasForeignKey(x => x.DocumentId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        // якщо Mission теж в цій БД
-        b.HasOne<Mission>()
-            .WithMany()
-            .HasForeignKey(x => x.MissionId)
-            .OnDelete(DeleteBehavior.Restrict);
+        // (Опційно) зв'язки (якщо хочеш навігації — додай властивості в сутності)
+        // b.HasOne<CombatTaskDocument>().WithMany().HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
+        // b.HasOne<Mission>().WithMany().HasForeignKey(x => x.MissionId).OnDelete(DeleteBehavior.Restrict);
     }
 }

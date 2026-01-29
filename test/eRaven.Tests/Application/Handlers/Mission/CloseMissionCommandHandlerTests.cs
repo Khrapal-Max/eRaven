@@ -20,7 +20,7 @@ public sealed class CloseMissionCommandHandlerTests
         // Arrange
         var repo = new Mock<IMissionRepository>(MockBehavior.Strict);
 
-        repo.Setup(r => r.CloseMissionPointAsync(
+        repo.Setup(r => r.CloseMissionAsync(
                 It.IsAny<Guid>(),
                 It.IsAny<DateOnly>(),
                 It.IsAny<CancellationToken>()))
@@ -37,7 +37,7 @@ public sealed class CloseMissionCommandHandlerTests
         await handler.HandleAsync(cmd, CancellationToken.None);
 
         // Assert
-        repo.Verify(r => r.CloseMissionPointAsync(
+        repo.Verify(r => r.CloseMissionAsync(
             cmd.MissionId,
             cmd.ClosedAt,
             It.IsAny<CancellationToken>()), Times.Once);
@@ -53,7 +53,7 @@ public sealed class CloseMissionCommandHandlerTests
 
         CancellationToken captured = default;
 
-        repo.Setup(r => r.CloseMissionPointAsync(
+        repo.Setup(r => r.CloseMissionAsync(
                 It.IsAny<Guid>(),
                 It.IsAny<DateOnly>(),
                 It.IsAny<CancellationToken>()))
@@ -75,7 +75,7 @@ public sealed class CloseMissionCommandHandlerTests
         // Assert
         Assert.Equal(cts.Token, captured);
 
-        repo.Verify(r => r.CloseMissionPointAsync(
+        repo.Verify(r => r.CloseMissionAsync(
             cmd.MissionId,
             cmd.ClosedAt,
             It.IsAny<CancellationToken>()), Times.Once);

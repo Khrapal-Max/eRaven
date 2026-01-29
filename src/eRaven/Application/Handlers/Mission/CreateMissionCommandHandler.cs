@@ -18,7 +18,7 @@ public sealed class CreateMissionCommandHandler(IMissionRepository repo)
 
     public async Task<Guid> HandleAsync(CreateMissionCommand command, CancellationToken ct = default)
     {
-        return await _repo.AddMissionPoint(
+        return await _repo.AddMission(
             positionArea: command.PositionArea,
             namePoint: command.NamePoint,
             typeDrone: command.DroneName,

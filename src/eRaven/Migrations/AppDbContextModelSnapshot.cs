@@ -44,7 +44,8 @@ namespace eRaven.Migrations
                         .HasColumnName("canceled_reason");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
 
                     b.Property<string>("CreatedBy")
                         .IsRequired()
@@ -54,17 +55,15 @@ namespace eRaven.Migrations
 
                     b.Property<string>("OrderTitle")
                         .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)")
                         .HasColumnName("order_title");
 
                     b.Property<DateOnly>("RecordedAt")
-                        .HasColumnType("date")
-                        .HasColumnName("recorded_at");
+                        .HasColumnType("date");
 
                     b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -80,13 +79,9 @@ namespace eRaven.Migrations
                     b.HasIndex("OrderTitle")
                         .IsUnique();
 
-                    b.HasIndex("RecordedAt");
-
-                    b.HasIndex("Status");
-
                     b.ToTable("combat_task_documents", null, t =>
                         {
-                            t.HasCheckConstraint("ck_combat_task_documents_canceled", "status <> 2 OR canceled_at_utc IS NOT NULL");
+                            t.HasCheckConstraint("ck_combat_task_documents_canceled", "\"Status\" <> 2 OR \"canceled_at_utc\" IS NOT NULL");
                         });
                 });
 
@@ -172,25 +167,18 @@ namespace eRaven.Migrations
 
                     b.Property<string>("SourceDocNo")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)")
                         .HasColumnName("source_doc_no");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ActionDate");
-
-                    b.HasIndex("DocumentId");
-
-                    b.HasIndex("MissionId");
+                    b.HasIndex("DocumentId", "ActionDate");
 
                     b.HasIndex("DocumentId", "Sequence")
                         .IsUnique();
 
-                    b.ToTable("mission_actions", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_mission_actions_sequence", "\"sequence\" >= 1");
-                        });
+                    b.ToTable("mission_actions", (string)null);
                 });
 
             modelBuilder.Entity("eRaven.Domain.Entities.MissionActionPerson", b =>
@@ -203,11 +191,49 @@ namespace eRaven.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("person_id");
 
+                    b.Property<string>("Callsign")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("callsign");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)")
+                        .HasColumnName("full_name");
+
+                    b.Property<string>("Position")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("position");
+
+                    b.Property<string>("RNOKPP")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("rnokpp");
+
+                    b.Property<string>("Rank")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("rank");
+
+                    b.Property<string>("Weapon")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("weapon");
+
                     b.HasKey("ActionId", "PersonId");
+
+                    b.HasIndex("ActionId");
 
                     b.HasIndex("PersonId");
 
-                    b.ToTable("mission_action_people", (string)null);
+                    b.ToTable("mission_action_persons", (string)null);
                 });
 
             modelBuilder.Entity("eRaven.Domain.Entities.MissionAssignment", b =>
@@ -254,8 +280,6 @@ namespace eRaven.Migrations
 
                     b.HasIndex("EndDocumentId");
 
-                    b.HasIndex("MissionId");
-
                     b.HasIndex("PersonId")
                         .IsUnique()
                         .HasFilter("\"ended_at\" IS NULL");
@@ -264,80 +288,14 @@ namespace eRaven.Migrations
 
                     b.HasIndex("StartDocumentId");
 
-                    b.HasIndex("StartedAt");
+                    b.HasIndex("MissionId", "StartedAt");
+
+                    b.HasIndex("PersonId", "StartedAt");
 
                     b.ToTable("mission_assignments", null, t =>
                         {
                             t.HasCheckConstraint("ck_mission_assignments_dates", "\"ended_at\" IS NULL OR \"ended_at\" >= \"started_at\"");
-
-                            t.HasCheckConstraint("ck_mission_assignments_end_links", "\"ended_at\" IS NULL OR (\"end_document_id\" IS NOT NULL AND \"end_action_id\" IS NOT NULL)");
-
-                            t.HasCheckConstraint("ck_mission_assignments_open_links", "\"ended_at\" IS NOT NULL OR (\"end_document_id\" IS NULL AND \"end_action_id\" IS NULL)");
                         });
-                });
-
-            modelBuilder.Entity("eRaven.Domain.Entities.MissionPersonSnapshot", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Callsign")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("callsign");
-
-                    b.Property<DateOnly>("CreatedAt")
-                        .HasColumnType("date")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid>("DocumentId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("document_id");
-
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("full_name");
-
-                    b.Property<Guid>("PersonId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("person_id");
-
-                    b.Property<string>("Position")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("position");
-
-                    b.Property<string>("RNOKPP")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("rnokpp");
-
-                    b.Property<string>("Rank")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("rank");
-
-                    b.Property<string>("Weapon")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("weapon");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PersonId");
-
-                    b.HasIndex("DocumentId", "PersonId")
-                        .IsUnique();
-
-                    b.ToTable("mission_person_snapshots", (string)null);
                 });
 
             modelBuilder.Entity("eRaven.Domain.Entities.PersonEventRecord", b =>
@@ -779,21 +737,6 @@ namespace eRaven.Migrations
                     b.ToTable("timesheet_timelines", (string)null);
                 });
 
-            modelBuilder.Entity("eRaven.Domain.Entities.MissionAction", b =>
-                {
-                    b.HasOne("eRaven.Domain.Entities.CombatTaskDocument", null)
-                        .WithMany()
-                        .HasForeignKey("DocumentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("eRaven.Domain.Entities.Mission", null)
-                        .WithMany()
-                        .HasForeignKey("MissionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("eRaven.Domain.Entities.MissionActionPerson", b =>
                 {
                     b.HasOne("eRaven.Domain.Entities.MissionAction", null)
@@ -815,12 +758,6 @@ namespace eRaven.Migrations
                         .HasForeignKey("EndDocumentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("eRaven.Domain.Entities.Mission", null)
-                        .WithMany()
-                        .HasForeignKey("MissionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("eRaven.Domain.Entities.MissionAction", null)
                         .WithMany()
                         .HasForeignKey("StartActionId")
@@ -830,15 +767,6 @@ namespace eRaven.Migrations
                     b.HasOne("eRaven.Domain.Entities.CombatTaskDocument", null)
                         .WithMany()
                         .HasForeignKey("StartDocumentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("eRaven.Domain.Entities.MissionPersonSnapshot", b =>
-                {
-                    b.HasOne("eRaven.Domain.Entities.CombatTaskDocument", null)
-                        .WithMany()
-                        .HasForeignKey("DocumentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

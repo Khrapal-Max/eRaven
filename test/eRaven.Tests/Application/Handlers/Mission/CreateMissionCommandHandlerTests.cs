@@ -23,7 +23,7 @@ public sealed class CreateMissionCommandHandlerTests
 
         var repo = new Mock<IMissionRepository>(MockBehavior.Strict);
 
-        repo.Setup(r => r.AddMissionPoint(
+        repo.Setup(r => r.AddMission(
                 It.IsAny<string>(),
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
@@ -50,7 +50,7 @@ public sealed class CreateMissionCommandHandlerTests
         // Assert
         Assert.Equal(expectedId, id);
 
-        repo.Verify(r => r.AddMissionPoint(
+        repo.Verify(r => r.AddMission(
             positionArea: cmd.PositionArea,
             namePoint: cmd.NamePoint,
             typeDrone: cmd.DroneName,
@@ -72,7 +72,7 @@ public sealed class CreateMissionCommandHandlerTests
 
         CancellationToken captured = default;
 
-        repo.Setup(r => r.AddMissionPoint(
+        repo.Setup(r => r.AddMission(
                 It.IsAny<string>(),
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
@@ -102,7 +102,7 @@ public sealed class CreateMissionCommandHandlerTests
         // Assert
         Assert.Equal(cts.Token, captured);
 
-        repo.Verify(r => r.AddMissionPoint(
+        repo.Verify(r => r.AddMission(
             cmd.PositionArea,
             cmd.NamePoint,
             cmd.DroneName,

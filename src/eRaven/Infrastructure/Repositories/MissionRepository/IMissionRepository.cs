@@ -22,15 +22,15 @@ public interface IMissionRepository
     /// <summary>
     /// Повертає всі записи місій
     /// </summary>
-    Task<IReadOnlyList<Mission>> GetMissionPointsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<Mission>> GetMissionsAsync(CancellationToken ct = default);
 
     /// <summary>
     /// Додати місію
     /// </summary>
-    Task<Guid> AddMissionPoint(string positionArea, string? namePoint, string? typeDrone, string target, MissionMode missionMode, DateTime todayLocal, CancellationToken ct = default);
+    Task<Guid> AddMission(string positionArea, string? namePoint, string? typeDrone, string target, MissionMode missionMode, DateTime todayLocal, CancellationToken ct = default);
 
     /// <summary>
     /// Закриває місію, шляхом запису поля CloseAt
     /// </summary>
-    Task CloseMissionPointAsync(Guid id, DateOnly closeAt, CancellationToken ct = default);
+    Task CloseMissionAsync(Guid id, DateOnly closeAt, CancellationToken ct = default);
 }

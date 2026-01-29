@@ -41,6 +41,11 @@ public interface ICombatTaskDocumentRepository
     Task<IReadOnlyList<CombatTaskDocumentDto>> GetDocumentsAsync(int year, int month, DocumentStatus? status, string? search, CancellationToken ct = default);
 
     /// <summary>
+    /// Повертає документ + дії (для редактора).
+    /// </summary>
+    Task<CombatTaskDocumentDetailsDto?> GetByIdAsync(Guid documentId, CancellationToken ct = default);
+
+    /// <summary>
     /// Створює Draft документ з рядками. Не змінює Assignments.
     /// Використовується UI для підготовки документу.
     /// </summary>
@@ -62,4 +67,24 @@ public interface ICombatTaskDocumentRepository
     /// Відмінені документи не показуємо у плані/звітності.
     /// </summary>
     Task CancelAsync(Guid documentId, string reason, string author, DateTime nowUtc, CancellationToken ct = default);
+
+    /// <summary>
+    /// Додає групову дію (Start/End) по місії + список осіб.
+    /// Sequence виставляється автоматично (max+1) в межах документа.
+    /// </summary>
+    Task<Guid> AddActionAsync(
+        Guid documentId,
+        string sourceDocNo,
+        ActionKind action,
+        Guid missionId,
+        DateOnly actionDate,
+        IReadOnlyCollection<Guid> personIds,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Видаляє дію з документа (разом з MissionActionPerson).
+    /// </summary>
+    Task DeleteActionAsync(Guid documentId, Guid actionId, CancellationToken ct = default);
 }

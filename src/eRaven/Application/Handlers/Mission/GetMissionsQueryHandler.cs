@@ -19,7 +19,7 @@ public sealed class GetMissionsQueryHandler(IMissionRepository repo)
 
     public async Task<IReadOnlyList<MissionDto>> HandleAsync(GetMissionsQuery query, CancellationToken ct = default)
     {
-        var all = await _repo.GetMissionPointsAsync(ct);
+        var all = await _repo.GetMissionsAsync(ct);
 
         var q = all.AsEnumerable();
 

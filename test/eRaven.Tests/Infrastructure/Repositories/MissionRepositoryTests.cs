@@ -24,7 +24,7 @@ public sealed class MissionRepositoryTests
         var typeDrone = "DJI";
         var target = "Розвідка";
 
-        var id = await repo.AddMissionPoint(
+        var id = await repo.AddMission(
             positionArea: "  Район-1  ",
             namePoint: "  Точка-А  ",
             typeDrone: typeDrone,
@@ -54,7 +54,7 @@ public sealed class MissionRepositoryTests
         await using var testDb = new SqliteTestDb();
         var repo = new MissionRepository(testDb.Factory);
 
-        var id = await repo.AddMissionPoint(
+        var id = await repo.AddMission(
             positionArea: "Район-1",
             namePoint: "   ",
             typeDrone: null,
@@ -78,7 +78,7 @@ public sealed class MissionRepositoryTests
         await using var testDb = new SqliteTestDb();
         var repo = new MissionRepository(testDb.Factory);
 
-        await repo.AddMissionPoint(
+        await repo.AddMission(
             positionArea: "A",
             namePoint: "P1",
             typeDrone: null,
@@ -86,7 +86,7 @@ public sealed class MissionRepositoryTests
             missionMode: MissionMode.Day,
             todayLocal: new DateTime(2026, 01, 01));
 
-        await repo.AddMissionPoint(
+        await repo.AddMission(
             positionArea: "B",
             namePoint: null,
             typeDrone: "N",
@@ -94,7 +94,7 @@ public sealed class MissionRepositoryTests
             missionMode: MissionMode.FullTime,
             todayLocal: new DateTime(2026, 01, 02));
 
-        var all = await repo.GetMissionPointsAsync();
+        var all = await repo.GetMissionsAsync();
 
         Assert.Equal(2, all.Count);
         Assert.Contains(all, x => x.PositionArea == "A" && x.NamePoint == "P1");
@@ -108,7 +108,7 @@ public sealed class MissionRepositoryTests
         var repo = new MissionRepository(testDb.Factory);
 
         var todayLocal = new DateTime(2026, 01, 05);
-        var id = await repo.AddMissionPoint(
+        var id = await repo.AddMission(
             positionArea: "Район-1",
             namePoint: "Точка",
             typeDrone: null,
@@ -118,8 +118,8 @@ public sealed class MissionRepositoryTests
 
         var closeAt = new DateOnly(2026, 01, 10);
 
-        await repo.CloseMissionPointAsync(id, closeAt);
-        await repo.CloseMissionPointAsync(id, closeAt); // вдруге — не має падати
+        await repo.CloseMissionAsync(id, closeAt);
+        await repo.CloseMissionAsync(id, closeAt); // вдруге — не має падати
 
         await using var db = await testDb.Factory.CreateDbContextAsync();
         var m = await db.Missions.SingleAsync(x => x.Id == id);
@@ -134,7 +134,7 @@ public sealed class MissionRepositoryTests
         var repo = new MissionRepository(testDb.Factory);
 
         var todayLocal = new DateTime(2026, 01, 10);
-        var id = await repo.AddMissionPoint(
+        var id = await repo.AddMission(
             positionArea: "Район-1",
             namePoint: null,
             typeDrone: null,
@@ -143,7 +143,7 @@ public sealed class MissionRepositoryTests
             todayLocal: todayLocal);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => repo.CloseMissionPointAsync(id, new DateOnly(2026, 01, 09)));
+            () => repo.CloseMissionAsync(id, new DateOnly(2026, 01, 09)));
 
         Assert.Contains("Дата закриття не може бути раніше дати створення", ex.Message);
     }
@@ -155,7 +155,7 @@ public sealed class MissionRepositoryTests
         var repo = new MissionRepository(testDb.Factory);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => repo.CloseMissionPointAsync(Guid.NewGuid(), new DateOnly(2026, 01, 01)));
+            () => repo.CloseMissionAsync(Guid.NewGuid(), new DateOnly(2026, 01, 01)));
 
         Assert.Contains("Міссія не знайдена", ex.Message);
     }
@@ -166,7 +166,7 @@ public sealed class MissionRepositoryTests
         await using var testDb = new SqliteTestDb();
         var repo = new MissionRepository(testDb.Factory);
 
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() => repo.AddMissionPoint(
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => repo.AddMission(
             positionArea: "  ",
             namePoint: null,
             typeDrone: null,
@@ -186,7 +186,7 @@ public sealed class MissionRepositoryTests
         var today = new DateTime(2026, 01, 10);
 
         // 1-ша (відкрита)
-        await repo.AddMissionPoint(
+        await repo.AddMission(
             positionArea: "A",
             namePoint: "P",
             typeDrone: "DJI",
@@ -195,7 +195,7 @@ public sealed class MissionRepositoryTests
             todayLocal: today);
 
         // 2-га (та сама комбінація, теж відкрита) -> має впасти
-        await Assert.ThrowsAsync<DbUpdateException>(() => repo.AddMissionPoint(
+        await Assert.ThrowsAsync<DbUpdateException>(() => repo.AddMission(
             positionArea: "A",
             namePoint: "P",
             typeDrone: "ANY",
@@ -211,7 +211,7 @@ public sealed class MissionRepositoryTests
         var repo = new MissionRepository(testDb.Factory);
 
         var today = new DateTime(2026, 01, 10);
-        var id = await repo.AddMissionPoint(
+        var id = await repo.AddMission(
             positionArea: "A",
             namePoint: "P",
             typeDrone: null,
@@ -219,10 +219,10 @@ public sealed class MissionRepositoryTests
             missionMode: MissionMode.Day,
             todayLocal: today);
 
-        await repo.CloseMissionPointAsync(id, new DateOnly(2026, 01, 11));
+        await repo.CloseMissionAsync(id, new DateOnly(2026, 01, 11));
 
         // тепер такий самий ключ — має пройти
-        var id2 = await repo.AddMissionPoint(
+        var id2 = await repo.AddMission(
             positionArea: "A",
             namePoint: "P",
             typeDrone: null,
