@@ -75,30 +75,31 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
         if (header is null)
             return null;
 
-        // 1) Дії + місія
-        var actions = await db.MissionActions
+        var rows = await db.CombatTaskEntries
             .AsNoTracking()
-            .Where(a => a.DocumentId == documentId)
-            .Join(db.Missions.AsNoTracking(),
-                a => a.MissionId,
-                m => m.Id,
-                (a, m) => new
-                {
-                    a.Id,
-                    a.Sequence,
-                    a.SourceDocNo,
-                    a.Action,
-                    a.MissionId,
-                    a.ActionDate,
-                    MissionDisplay = m.PositionArea
-                        + (m.NamePoint != null ? $" / {m.NamePoint}" : "")
-                        + $" / {m.Target} / {m.MissionMode}"
-                        + (m.TypeDrone != null ? $" / {m.TypeDrone}" : "")
-                })
-            .OrderBy(x => x.Sequence)
+            .Where(x => x.DocumentId == documentId)
+            .Select(x => new
+            {
+                x.GroupId,
+                x.GroupSequence,
+                x.SourceDocNo,
+                x.Action,
+                x.ActionDate,
+                x.MissionId,
+                x.MissionDisplaySnapshot,
+
+                x.PersonId,
+                x.RNOKPP,
+                x.FullName,
+                x.Rank,
+                x.Position,
+                x.Weapon,
+                x.Callsign
+            })
+            .OrderBy(x => x.GroupSequence)
             .ToListAsync(ct);
 
-        if (actions.Count == 0)
+        if (rows.Count == 0)
         {
             return new CombatTaskDocumentDetailsDto(
                 DocumentId: header.Id,
@@ -106,42 +107,42 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
                 Status: header.Status,
                 RecordedAt: header.RecordedAt,
                 CanceledReason: header.CanceledReason ?? string.Empty,
-                Actions: []);
+                Entries: []);
         }
 
-        var actionIds = actions.Select(x => x.Id).ToArray();
-
-        // 2) action -> persons + SNAPSHOT FIELDS ARE HERE NOW
-        var links = await db.MissionActionPersons
-            .AsNoTracking()
-            .Where(x => actionIds.Contains(x.ActionId))
-            .ToListAsync(ct);
-
-        // 3) Групування: одна дія -> список людей (беремо прямо зі снапшота в join-table)
-        var details = actions
-            .Select(a =>
+        var groups = rows
+            .GroupBy(x => new
             {
-                var persons = links
-                    .Where(l => l.ActionId == a.Id)
-                    .Select(l => new MissionActionPersonDto(
-                        PersonId: l.PersonId,
-                        RNOKPP: l.RNOKPP,
-                        FullName: l.FullName,
-                        Rank: l.Rank,
-                        Position: l.Position,
-                        Weapon: l.Weapon,
-                        Callsign: l.Callsign))
-                    .OrderBy(p => p.FullName)
-                    .ToList();
+                x.GroupId,
+                x.GroupSequence,
+                x.SourceDocNo,
+                x.Action,
+                x.ActionDate,
+                x.MissionId,
+                x.MissionDisplaySnapshot
+            })
+            .OrderBy(g => g.Key.GroupSequence)
+            .Select(g =>
+            {
+                var persons = (IReadOnlyList<CombatEntryPersonDto>)[.. g
+                .Select(p => new CombatEntryPersonDto(
+                    PersonId: p.PersonId,
+                    RNOKPP: p.RNOKPP,
+                    FullName: p.FullName,
+                    Rank: p.Rank,
+                    Position: p.Position,
+                    Weapon: p.Weapon,
+                    Callsign: p.Callsign))
+                .OrderBy(p => p.FullName)];
 
-                return new MissionActionDetailsDto(
-                    ActionId: a.Id,
-                    Sequence: a.Sequence,
-                    SourceDocNo: a.SourceDocNo,
-                    Action: a.Action,
-                    MissionId: a.MissionId,
-                    MissionDisplay: a.MissionDisplay,
-                    ActionDate: a.ActionDate,
+                return new CombatEntryDetailsDto(
+                    GroupId: g.Key.GroupId,
+                    GroupSequence: g.Key.GroupSequence,
+                    SourceDocNo: g.Key.SourceDocNo,
+                    Action: g.Key.Action,
+                    MissionId: g.Key.MissionId,
+                    MissionDisplay: g.Key.MissionDisplaySnapshot,
+                    ActionDate: g.Key.ActionDate,
                     Persons: persons);
             })
             .ToList();
@@ -152,7 +153,7 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
             Status: header.Status,
             RecordedAt: header.RecordedAt,
             CanceledReason: header.CanceledReason ?? string.Empty,
-            Actions: details);
+            Entries: groups);
     }
 
     public async Task<Guid> CreateDraftAsync(
@@ -221,137 +222,8 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
 
         document.Status = DocumentStatus.Canceled;
         document.CanceledReason = reason;
-        document.CreatedBy = author;
+        document.CanceledBy = author;
         document.CanceledAtUtc = nowUtc;
-
-        await db.SaveChangesAsync(ct);
-    }
-
-    public async Task<Guid> AddActionAsync(
-        Guid documentId,
-        string sourceDocNo,
-        ActionKind action,
-        Guid missionId,
-        DateOnly actionDate,
-        IReadOnlyCollection<Guid> personIds,
-        string author,
-        DateTime nowUtc,
-        CancellationToken ct = default)
-    {
-        if (documentId == Guid.Empty) throw new ArgumentException("DocumentId is required.", nameof(documentId));
-        if (missionId == Guid.Empty) throw new ArgumentException("MissionId is required.", nameof(missionId));
-        if (string.IsNullOrWhiteSpace(sourceDocNo)) throw new ArgumentException("SourceDocNo is required.", nameof(sourceDocNo));
-        if (personIds is null || personIds.Count == 0) throw new ArgumentException("At least one person is required.", nameof(personIds));
-
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        var doc = await db.CombatTaskDocuments
-            .FirstOrDefaultAsync(x => x.Id == documentId, ct)
-            ?? throw new InvalidOperationException("Документ не знайдено.");
-
-        if (doc.Status != DocumentStatus.Draft)
-            throw new InvalidOperationException("Редагувати можна лише чернетку.");
-
-        var distinctPersonIds = personIds
-            .Where(x => x != Guid.Empty)
-            .Distinct()
-            .ToArray();
-
-        if (distinctPersonIds.Length == 0)
-            throw new ArgumentException("At least one valid person is required.", nameof(personIds));
-
-        // 1) Наступний sequence
-        var nextSeq = await db.MissionActions
-            .Where(x => x.DocumentId == documentId)
-            .Select(x => (int?)x.Sequence)
-            .MaxAsync(ct) ?? 0;
-
-        // 2) Створюємо action
-        var act = new MissionAction
-        {
-            Id = Guid.NewGuid(),
-            DocumentId = documentId,
-            Sequence = nextSeq + 1,
-            SourceDocNo = sourceDocNo.Trim(),
-            Action = action,
-            MissionId = missionId,
-            ActionDate = actionDate
-        };
-
-        db.MissionActions.Add(act);
-
-        // 3) SNAPSHOT на Action×Person: беремо поточні дані особи і пишемо у join-table
-        // !!! заміни PersonReadModel на свій реальний read-model (DbSet)
-        var persons = await db.PersonRead
-            .AsNoTracking()
-            .Where(p => distinctPersonIds.Contains(p.Id))
-            .Select(p => new
-            {
-                p.Id,
-                p.Rnokpp,
-                p.FullName,
-                p.Rank,
-                p.Position,
-                p.Weapon,
-                p.Callsign
-            })
-            .ToListAsync(ct);
-
-        var found = persons.Select(x => x.Id).ToHashSet();
-        var notFound = distinctPersonIds.Where(x => !found.Contains(x)).ToArray();
-        if (notFound.Length > 0)
-            throw new InvalidOperationException("Не знайдені особи: " + string.Join(", ", notFound));
-
-        foreach (var p in persons)
-        {
-            db.MissionActionPersons.Add(new MissionActionPerson
-            {
-                ActionId = act.Id,
-                PersonId = p.Id,
-
-                // snapshot fields
-                RNOKPP = p.Rnokpp ?? string.Empty,
-                FullName = p.FullName ?? string.Empty,
-                Rank = p.Rank ?? string.Empty,
-                Position = p.Position ?? string.Empty,
-                Weapon = p.Weapon ?? string.Empty,
-                Callsign = p.Callsign ?? string.Empty
-            });
-        }
-
-        // 4) Audit
-        doc.UpdatedBy = author.Trim();
-        doc.UpdatedAtUtc = nowUtc;
-
-        await db.SaveChangesAsync(ct);
-        return act.Id;
-    }
-
-    public async Task DeleteActionAsync(Guid documentId, Guid actionId, CancellationToken ct = default)
-    {
-        if (documentId == Guid.Empty) throw new ArgumentException("DocumentId is required.", nameof(documentId));
-        if (actionId == Guid.Empty) throw new ArgumentException("ActionId is required.", nameof(actionId));
-
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        var doc = await db.CombatTaskDocuments
-            .FirstOrDefaultAsync(x => x.Id == documentId, ct)
-            ?? throw new InvalidOperationException("Документ не знайдено.");
-
-        if (doc.Status != DocumentStatus.Draft)
-            throw new InvalidOperationException("Редагувати можна лише чернетку.");
-
-        var act = await db.MissionActions
-            .FirstOrDefaultAsync(x => x.Id == actionId && x.DocumentId == documentId, ct)
-            ?? throw new InvalidOperationException("Дію не знайдено.");
-
-        // remove join rows first (навіть якщо є cascade — так прозоріше)
-        var links = await db.MissionActionPersons
-            .Where(x => x.ActionId == act.Id)
-            .ToListAsync(ct);
-
-        db.MissionActionPersons.RemoveRange(links);
-        db.MissionActions.Remove(act);
 
         await db.SaveChangesAsync(ct);
     }

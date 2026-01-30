@@ -2,26 +2,20 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// MissionActionDetailsDto
+// AddCombatTaskGroupCommand
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Enums;
 
-namespace eRaven.Application.DTOs.CombatTask;
+namespace eRaven.Application.Commands.CombatTask;
 
-/// <summary>
-/// DTO змісту місії в документі ланування.
-///
-/// Призначення:
-/// - деталі місії документа.
-/// - швидкий список осіб в місії.
-/// </summary>
-public sealed record MissionActionDetailsDto(
-    Guid ActionId,
-    int Sequence,
+public sealed record AddCombatTaskGroupCommand(
+    Guid DocumentId,
     string SourceDocNo,
     ActionKind Action,
     Guid MissionId,
-    string MissionDisplay,
+    string MissionDisplaySnapshot,
     DateOnly ActionDate,
-    IReadOnlyList<MissionActionPersonDto> Persons);
+    IReadOnlyCollection<Guid> PersonIds,
+    string Author,
+    DateTime NowUtc);

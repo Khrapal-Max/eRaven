@@ -2,22 +2,17 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// MissionActionPersonDto
+// CreateCombatGroupModel
 //-----------------------------------------------------------------------------
+
+using eRaven.Domain.Enums;
 
 namespace eRaven.Application.DTOs.CombatTask;
 
-/// <summary>
-/// DTO особи.
-///
-/// Призначення:
-/// - використовується як частина активної місії в документі планування.
-/// </summary>
-public sealed record MissionActionPersonDto(
-    Guid PersonId,
-    string RNOKPP,
-    string FullName,
-    string Rank,
-    string Position,
-    string Weapon,
-    string Callsign);
+public sealed record CreateCombatGroupModel(
+    string SourceDocNo,
+    ActionKind Action,
+    Guid MissionId,
+    string MissionDisplaySnapshot,
+    DateOnly ActionDate,
+    IReadOnlyList<Guid> PersonIds);

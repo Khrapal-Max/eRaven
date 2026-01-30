@@ -27,10 +27,7 @@ namespace eRaven.Infrastructure.Repositories.CombatTaskRepository;
 /// - Для однієї людини в одному документі: індекс (DocumentId, PersonId, Kind) забороняє дубль Start/End.
 /// 
 /// КРИТИЧНО:
-/// - Assignment оновлюємо тільки на PostAsync().
 /// - CancelAsync() дозволений тільки для Draft (бо Posted вже вплинув на стан).
-/// - Порядок застосування: OrderBy(ActionDate) + End before Start на одну дату,
-///   щоб дозволити "закрив і відкрив того ж дня".
 /// </summary>
 public interface ICombatTaskDocumentRepository
 {
@@ -67,24 +64,4 @@ public interface ICombatTaskDocumentRepository
     /// Відмінені документи не показуємо у плані/звітності.
     /// </summary>
     Task CancelAsync(Guid documentId, string reason, string author, DateTime nowUtc, CancellationToken ct = default);
-
-    /// <summary>
-    /// Додає групову дію (Start/End) по місії + список осіб.
-    /// Sequence виставляється автоматично (max+1) в межах документа.
-    /// </summary>
-    Task<Guid> AddActionAsync(
-        Guid documentId,
-        string sourceDocNo,
-        ActionKind action,
-        Guid missionId,
-        DateOnly actionDate,
-        IReadOnlyCollection<Guid> personIds,
-        string author,
-        DateTime nowUtc,
-        CancellationToken ct = default);
-
-    /// <summary>
-    /// Видаляє дію з документа (разом з MissionActionPerson).
-    /// </summary>
-    Task DeleteActionAsync(Guid documentId, Guid actionId, CancellationToken ct = default);
 }

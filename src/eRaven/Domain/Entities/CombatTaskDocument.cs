@@ -11,30 +11,37 @@ namespace eRaven.Domain.Entities;
 
 /// <summary>
 /// Документ планування бойового завдання (наказ/розпорядження).
-/// Містить послідовність дій (<see cref="MissionAction"/>) у межах одного документа.
+///
+/// Роль в системі:
+/// - Контейнер (header) для введення та аудиту.
+/// - Має статус Draft/Posted/Canceled.
+/// - Містить набір "рядків" (CombatTaskEntry), які введені користувачем.
 /// </summary>
 public sealed class CombatTaskDocument
 {
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Стан документа.
+    /// Стан документа:
+    /// - Draft: редагується
+    /// - Posted: зафіксований (джерело аудиту)
+    /// - Canceled: відмінений (не застосовується)
     /// </summary>
     public DocumentStatus Status { get; set; } = DocumentStatus.Draft;
 
     /// <summary>
     /// Номер бойового розпорядження (наказ).
-    /// Унікальний у межах доменної домовленості (рік/підрозділ тощо).
+    /// У бізнесі ти вважаєш його унікальним (наприклад включає рік/підрозділ).
     /// </summary>
     public string OrderTitle { get; set; } = string.Empty;
 
     /// <summary>
-    /// Дата документа (коли проведено планування).
+    /// Дата документа (дата планування).
     /// </summary>
     public DateOnly RecordedAt { get; set; }
 
     /// <summary>
-    /// Причина скасування документа.
+    /// Причина скасування (якщо документ Canceled).
     /// </summary>
     public string? CanceledReason { get; set; }
 
@@ -44,4 +51,10 @@ public sealed class CombatTaskDocument
     public DateTime? UpdatedAtUtc { get; set; }
     public string? CanceledBy { get; set; }
     public DateTime? CanceledAtUtc { get; set; }
+
+    /// <summary>
+    /// Рядки документа (денормалізовані записи).
+    /// Важливо: тип має бути ICollection/List для EF Core.
+    /// </summary>
+    public ICollection<CombatTaskEntry> CombatTasks { get; set; } = [];
 }

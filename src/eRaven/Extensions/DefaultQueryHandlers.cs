@@ -43,6 +43,8 @@ public static class DefaultQueryHandlers
 
         services.AddScoped<IQueryHandler<GetMissionsQuery, IReadOnlyList<MissionDto>>, GetMissionsQueryHandler>();
 
+        services.AddScoped<IQueryHandler<GetCombatTaskDocumentByIdQuery, CombatTaskDocumentDetailsDto?>, GetCombatTaskDocumentByIdQueryHandler>();
+
         return services;
     }
 }

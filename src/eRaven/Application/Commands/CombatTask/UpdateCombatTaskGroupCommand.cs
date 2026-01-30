@@ -2,16 +2,21 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// GetCombatTaskDocumentsQuery
+// UpdateCombatTaskGroupCommand
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Enums;
 
-namespace eRaven.Application.Queries.CombatTask;
+namespace eRaven.Application.Commands.CombatTask;
 
-public sealed record GetCombatTaskDocumentsQuery
-(
-    int Year,
-    int Month,
-    DocumentStatus? Status = null,
-    string? Search = null);
+public sealed record UpdateCombatTaskGroupCommand(
+    Guid DocumentId,
+    Guid GroupId,
+    string SourceDocNo,
+    ActionKind Action,
+    Guid MissionId,
+    string MissionDisplaySnapshot,
+    DateOnly ActionDate,
+    string Author,
+    DateTime NowUtc
+);

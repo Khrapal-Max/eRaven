@@ -1,0 +1,44 @@
+﻿<Drawer IsOpen="@IsOpen"
+        IsOpenChanged="@IsOpenChanged"
+        Title="Особи в місії">
+
+    <div class="p-2">
+        <div class="small mb-2">Вибрано: @_selected.Count</div>
+
+        <input class="form-control form-control-sm rounded-0 mb-2"
+               placeholder="Пошук..."
+               @bind="_search"
+               @bind:event="oninput" />
+
+        <div class="border" style="max-height: 360px; overflow:auto;">
+            @if (_persons.Count == 0)
+            {
+                <div class="p-2 small"><em>Немає результатів.</em></div>
+            }
+            else
+            {
+                @foreach (var p in _persons)
+                {
+                    <label class="d-flex gap-2 align-items-center p-2 border-bottom small">
+                        <input type="checkbox"
+                               checked="@_selected.Contains(p.Id)"
+                               @onchange="(e => Toggle(p.Id, (bool)e.Value!))" />
+
+                        <span class="text-truncate">@p.Display</span>
+                    </label>
+                }
+            }
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="Закрити"
+                    OnClickButton="Close" />
+
+            <Button Class="btn-sm btn-success rounded-0"
+                    Label="Зберегти"
+                    IsDisabled="@(_selected.Count == 0)"
+                    OnClickButton="Save" />
+        </div>
+    </div>
+</Drawer>

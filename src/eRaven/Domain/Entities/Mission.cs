@@ -40,9 +40,9 @@ public sealed class Mission
     public DateOnly? ClosedAt { get; set; }
 
     public string DisplayMission =>
-        $"{PositionArea} + " +
-        $"' {NamePoint}' + " +
-        $"' {TypeDrone}' + " +
-        $"' {Target}' + " +
-        $"' {MissionMode}";
+        $"{PositionArea}" +
+        $" {NamePoint}" +
+        $" {TypeDrone}" +
+        $" {Target}" +
+        $" {MissionMode}";
 }

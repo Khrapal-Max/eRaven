@@ -5,11 +5,52 @@
 namespace eRaven.Migrations
 {
     /// <inheritdoc />
-    public partial class AddTimessheetLine : Migration
+    public partial class AddCombatTask : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.CreateTable(
+                name: "combat_task_documents",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    status = table.Column<int>(type: "integer", nullable: false),
+                    order_title = table.Column<string>(type: "character varying(250)", maxLength: 250, nullable: false),
+                    recorded_at = table.Column<DateOnly>(type: "date", nullable: false),
+                    canceled_reason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    created_by = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: false),
+                    created_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_by = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: true),
+                    updated_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    canceled_by = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: true),
+                    canceled_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_combat_task_documents", x => x.Id);
+                    table.CheckConstraint("ck_combat_task_documents_canceled", "status <> 2 OR canceled_at_utc IS NOT NULL");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "missions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    PositionArea = table.Column<string>(type: "character varying(140)", maxLength: 140, nullable: false),
+                    NamePoint = table.Column<string>(type: "character varying(140)", maxLength: 140, nullable: false, defaultValue: ""),
+                    TypeDrone = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
+                    Target = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    MissionMode = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<DateOnly>(type: "date", nullable: false),
+                    ClosedAt = table.Column<DateOnly>(type: "date", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_missions", x => x.Id);
+                    table.CheckConstraint("ck_missions_dates", "\"ClosedAt\" IS NULL OR \"ClosedAt\" >= \"CreatedAt\"");
+                });
+
             migrationBuilder.CreateTable(
                 name: "timesheet_codes",
                 columns: table => new
@@ -55,6 +96,38 @@ namespace eRaven.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_timesheet_timelines", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "combat_task_entries",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    document_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    group_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    group_sequence = table.Column<int>(type: "integer", nullable: false),
+                    source_doc_no = table.Column<string>(type: "character varying(250)", maxLength: 250, nullable: false),
+                    action_kind = table.Column<int>(type: "integer", nullable: false),
+                    action_date = table.Column<DateOnly>(type: "date", nullable: false),
+                    mission_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    mission_display = table.Column<string>(type: "character varying(600)", maxLength: 600, nullable: false),
+                    person_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    rnokpp = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
+                    full_name = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
+                    rank = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: false),
+                    position = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
+                    weapon = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    callsign = table.Column<string>(type: "character varying(80)", maxLength: 80, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_combat_task_entries", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_combat_task_entries_combat_task_documents_document_id",
+                        column: x => x.document_id,
+                        principalTable: "combat_task_documents",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -119,6 +192,45 @@ namespace eRaven.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_combat_task_documents_order_title",
+                table: "combat_task_documents",
+                column: "order_title",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_combat_task_entries_document_id_group_id_person_id",
+                table: "combat_task_entries",
+                columns: new[] { "document_id", "group_id", "person_id" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_combat_task_entries_document_id_group_sequence",
+                table: "combat_task_entries",
+                columns: new[] { "document_id", "group_sequence" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_missions_MissionMode",
+                table: "missions",
+                column: "MissionMode");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_missions_PositionArea",
+                table: "missions",
+                column: "PositionArea");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_missions_PositionArea_CreatedAt_ClosedAt",
+                table: "missions",
+                columns: new[] { "PositionArea", "CreatedAt", "ClosedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_missions_PositionArea_NamePoint_MissionMode_Target",
+                table: "missions",
+                columns: new[] { "PositionArea", "NamePoint", "MissionMode", "Target" },
+                unique: true,
+                filter: "\"ClosedAt\" IS NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_timesheet_code_transitions_to_code_id",
                 table: "timesheet_code_transitions",
                 column: "to_code_id");
@@ -160,10 +272,19 @@ namespace eRaven.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                name: "combat_task_entries");
+
+            migrationBuilder.DropTable(
+                name: "missions");
+
+            migrationBuilder.DropTable(
                 name: "timesheet_code_transitions");
 
             migrationBuilder.DropTable(
                 name: "timesheet_entries");
+
+            migrationBuilder.DropTable(
+                name: "combat_task_documents");
 
             migrationBuilder.DropTable(
                 name: "timesheet_codes");

@@ -2,16 +2,11 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// GetCombatTaskDocumentsQuery
+// ReplaceGroupPersonsModel
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+namespace eRaven.Application.DTOs.CombatTask;
 
-namespace eRaven.Application.Queries.CombatTask;
-
-public sealed record GetCombatTaskDocumentsQuery
-(
-    int Year,
-    int Month,
-    DocumentStatus? Status = null,
-    string? Search = null);
+public sealed record ReplaceGroupPersonsModel(
+    Guid GroupId,
+    IReadOnlyList<Guid> PersonIds);
