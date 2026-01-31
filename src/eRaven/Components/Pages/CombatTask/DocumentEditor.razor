@@ -5,125 +5,193 @@
 <PageTitle>Документ планування</PageTitle>
 
 <div class="page-content">
-    <div class="container-fluid px-3 py-3">
+    <div class="container-fluid px-0">
 
-        <div class="d-flex align-items-center gap-2 mb-3">
-            <Button Class="btn-sm btn-outline-secondary rounded-0"
-                    Label="← Назад"
-                    OnClickButton="@(() => Nav.NavigateTo("/task-documents"))" />
-
-            <Button Class="btn-sm btn-primary rounded-0"
-                    Label="+ Завдання групи"
-                    IsDisabled="@(_loading || !IsDraft)"
-                    OnClickButton="OpenCreateDrawer" />
-        </div>
-
+        <!-- ========================================================= -->
+        <!-- Loading / Not found / Content -->
+        <!-- ========================================================= -->
         @if (_loading)
         {
-            <p class="px-2"><em>Завантаження...</em></p>
+            <p class="px-2 py-2"><em>Завантаження...</em></p>
         }
         else if (_doc is null)
         {
-            <p class="px-2"><em>Документ не знайдено.</em></p>
+            <p class="px-2 py-2"><em>Документ не знайдено.</em></p>
         }
         else
         {
-            <div class="border p-2 mb-3">
-                <div class="d-flex flex-wrap gap-3 align-items-center">
-                    <div>
-                        <div class="small">Дата</div>
-                        <div class="font-monospace fs-semibold">@_doc.RecordedAt.ToString("dd.MM.yyyy")</div>
+            <!-- ========================================================= -->
+            <!-- Document header (fixed) -->
+            <!-- - fixed at top while groups scroll -->
+            <!-- ========================================================= -->
+            <div class="sticky-top border-bottom shadow-sm bg-success-subtle text-white mb-2">
+                <div class="container-fluid px-3 py-2">
+
+                    <div class="d-flex gap-3 flex-wrap">
+
+                        <!-- Left: Date -->
+                        <div class="text-nowrap">
+                            <div class="small opacity-75">Дата</div>
+                            <div class="font-monospace fw-semibold">
+                                @_doc.RecordedAt.ToString("dd.MM.yyyy")
+                            </div>
+                        </div>
+
+                        <!-- Center: Order title (fixed row, truncation) -->
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="small opacity-75">Розпорядження</div>
+                            <div class="fw-semibold text-truncate">
+                                @_doc.OrderTitle
+                            </div>
+                        </div>
+                        <!-- Status -->
+                        <div class="text-nowrap">
+                            <div class="small opacity-75">Статус</div>
+                            <div class="fw-semibold">
+                                @_doc.Status
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="d-flex align-content-center gap-2 p-2">
+                            <Button Class="btn-sm btn-light rounded-0"
+                                    Label="← Назад"
+                                    OnClickButton="@(() => Nav.NavigateTo("/task-documents"))" />
+
+                            <Button Class="btn-sm btn-primary rounded-0"
+                                    Label="+ Завдання групи"
+                                    IsDisabled="@(!IsDraft)"
+                                    OnClickButton="OpenCreateDrawer" />
+                        </div>
                     </div>
-                    <div class="flex-grow-1">
-                        <div class="small">Наказ</div>
-                        <div class="fw-semibold">@_doc.OrderTitle</div>
-                    </div>
-                    <div>
-                        <div class="small">Статус</div>
-                        <div class="font-monospace fs-semibold">@_doc.Status</div>
-                    </div>
+
                 </div>
             </div>
 
-            @if (_entries.Count == 0)
-            {
-                <div class="border p-2"><em>Місій поки немає.</em></div>
-            }
-            else
-            {
-                @foreach (var g in _entries)
-                {
-                    <div class="border p-2 mb-2">
-                        <div class="d-flex align-items-start gap-2">
-                            <div class="small font-monospace">#@g.GroupSequence</div>
+            <!-- ========================================================= -->
+            <!-- Groups area (scroll container) -->
+            <!-- ========================================================= -->
+            <div class="container-fluid px-0 border"
+                 style="max-height: calc(100vh - 200px); overflow:auto;">
 
-                            <div class="flex-grow-1 min-w-0">
-                                <div class="fw-semibold text-truncate">
-                                    @g.Action (@g.ActionDate.ToString("dd.MM.yyyy")) — @g.MissionDisplay
+                @if (_entries.Count == 0)
+                {
+                    <div class="border p-2"><em>Місій поки немає.</em></div>
+                }
+                else
+                {
+                    @foreach (var g in _entries)
+                    {
+                        <div class="border mb-2">
+
+                            <!-- ========================================================= -->
+                            <!-- Group header: left = # + meta + mission, right = buttons -->
+                            <!-- ========================================================= -->
+                            <div class="p-2 d-flex align-items-start gap-2 border bg-warning">
+
+                                <!-- Left block -->
+                                <div class="d-flex align-items-start gap-3 flex-grow-1 min-w-0">
+
+                                    <!-- Group number -->
+                                    <div class="small font-monospace text-nowrap">
+                                        #@g.GroupSequence
+                                    </div>
+
+                                    <!-- Action/Date + DocNo -->
+                                    <div class="small text-nowrap">
+                                        <div class="fw-semibold">@ActionKindLabel(g.Action) @g.ActionDate.ToString("dd.MM.yyyy")</div>
+                                        <div>№ документа ініціатора: @g.SourceDocNo</div>
+                                    </div>
+
+                                    <!-- Mission display -->
+                                    <div class="fw-semibold min-w-0">
+                                        <div class="text-wrap" style="white-space: normal; overflow-wrap:anywhere;">
+                                            @g.MissionDisplay
+                                        </div>
+                                    </div>
+
                                 </div>
-                                <div class="small text-truncate">
-                                    Джерело: @g.SourceDocNo
-                                </div>
+
+                                <!-- Right actions -->
+                                @if (IsDraft)
+                                {
+                                    <div class="d-flex gap-2 flex-shrink-0">
+                                        <Button Class="btn-sm btn-secondary rounded-0"
+                                                Label="Мета"
+                                                IsDisabled="_loading"
+                                                OnClickButton="@(() => OpenEditGroupDrawer(g))" />
+
+                                        <Button Class="btn-sm btn-primary rounded-0"
+                                                Label="Склад"
+                                                IsDisabled="_loading"
+                                                OnClickButton="@(() => OpenPersonsDrawer(g))" />
+
+                                        <Button Class="btn-sm btn-danger rounded-0"
+                                                Label="Видалити"
+                                                IsDisabled="_loading"
+                                                OnClickButton="@(() => DeleteGroupAsync(g.GroupId))" />
+                                    </div>
+                                }
+
                             </div>
 
-                            @if (IsDraft)
-                            {
-                                <div class="d-flex gap-2">
-                                    <Button Class="btn-sm btn-outline-secondary rounded-0"
-                                            Label="Ред."
-                                            IsDisabled="_loading"
-                                            OnClickButton="@(() => OpenEditGroupDrawer(g))" />
-
-                                    <Button Class="btn-sm btn-outline-secondary rounded-0"
-                                            Label="Особи"
-                                            IsDisabled="_loading"
-                                            OnClickButton="@(() => OpenPersonsDrawer(g))" />
-
-                                    <Button Class="btn-sm btn-outline-danger rounded-0"
-                                            Label="Вид."
-                                            IsDisabled="_loading"
-                                            OnClickButton="@(() => DeleteGroupAsync(g.GroupId))" />
-                                </div>
-                            }
-                        </div>
-
-                        <div class="mt-2">
+                            <!-- ========================================================= -->
+                            <!-- Group body: persons table -->
+                            <!-- ========================================================= -->
                             @if (g.Persons.Count == 0)
                             {
                                 <div class="small"><em>Осіб немає.</em></div>
                             }
                             else
                             {
-                                <div class="small">
-                                    @foreach (var p in g.Persons)
-                                    {
-                                        <div class="text-truncate">
-                                            @p.FullName — @p.Rank — @p.Position @(!string.IsNullOrWhiteSpace(p.Callsign) ? $" ({p.Callsign})" : "")
-                                        </div>
-                                    }
+                                <div class="table-responsive">
+                                    <Table TItem="CombatEntryPersonDto"
+                                           Items="g.Persons"
+                                           IsClickable="false"
+                                           Class="table-sm table-bordered small mb-0">
+
+                                        <TableHeader>
+                                            <th style="width:100px;">РНОКПП</th>
+                                            <th style="width:100px;">Звання</th>
+                                            <th style="width:260px;">ПІБ</th>
+                                            <th style="width:420px;">Посада</th>
+                                            <th style="width:160px;">Зброя</th>
+                                            <th style="width:120px;">Позивний</th>
+                                        </TableHeader>
+
+                                        <RowTemplate Context="p">
+                                            <td class="font-monospace text-nowrap">@p.RNOKPP</td>
+                                            <td>@p.Rank</td>
+                                            <td style="white-space: normal; overflow-wrap:anywhere;">@p.FullName</td>
+                                            <td style="white-space: normal; overflow-wrap:anywhere;">@p.Position</td>
+                                            <td>@p.Weapon</td>
+                                            <td>@p.Callsign</td>
+                                        </RowTemplate>
+
+                                    </Table>
                                 </div>
                             }
-                        </div>
-                    </div>
-                }
-            }
-        }
 
-        <!-- Drawer: Create -->
-        <CombatGroupUpsertDrawer IsOpen="@_createOpen"
+                        </div>
+                    }
+                }
+
+            </div>
+        }
+        <!-- ========================================================= -->
+        <!-- Drawers -->
+        <!-- ========================================================= -->
+
+        <CombatGroupCreateDrawer IsOpen="@_createOpen"
                                  IsOpenChanged="@(v => _createOpen = v)"
-                                 Mode="create"
                                  OnCreated="HandleCreatedAsync" />
 
-        <!-- Drawer: Edit group meta -->
-        <CombatGroupUpsertDrawer IsOpen="@_editOpen"
-                                 IsOpenChanged="@(v => _editOpen = v)"
-                                 Mode="edit"
-                                 GroupId="@_activeGroupId"
-                                 Initial="@_editInitial"
-                                 OnUpdated="HandleUpdatedAsync" />
+        <CombatGroupEditDrawer IsOpen="@_editOpen"
+                               IsOpenChanged="@(v => _editOpen = v)"
+                               GroupId="@_activeGroupId"
+                               Initial="@_editInitial"
+                               OnUpdated="HandleUpdatedAsync" />
 
-        <!-- Drawer: Replace persons -->
         <CombatGroupPersonsDrawer IsOpen="@_personsOpen"
                                   IsOpenChanged="@(v => _personsOpen = v)"
                                   GroupId="@_activeGroupId"

@@ -361,7 +361,7 @@ public sealed class PersonRepository(
         if (set.Length == 0)
             return new HashSet<string>(StringComparer.Ordinal);
 
-        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var existing = await db.PersonRead
             .AsNoTracking()

@@ -72,6 +72,7 @@ public sealed class MissionCloseDrawerTests : BunitContext
             Target: "Розвідка",
             MissionMode: MissionMode.Day,
             DroneName: "DJI",
+            DisplayMisssion: "Район-1 Точка-А Розвідка DJI",
             CreatedAt: new DateOnly(2026, 01, 10),
             ClosedAt: null,
             IsOpen: true);
@@ -121,6 +122,7 @@ public sealed class MissionCloseDrawerTests : BunitContext
             Target: "Розвідка",
             MissionMode: MissionMode.Day,
             DroneName: "DJI",
+            DisplayMisssion: "Район-1 Точка-А Розвідка DJI",
             CreatedAt: new DateOnly(2026, 01, 01),
             ClosedAt: null,
             IsOpen: true);

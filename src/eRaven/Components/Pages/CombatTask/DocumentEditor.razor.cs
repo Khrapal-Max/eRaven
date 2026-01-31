@@ -219,4 +219,12 @@ public partial class DocumentEditor
         _personsOpen = true;
         return Task.CompletedTask;
     }
+
+    private static string ActionKindLabel(ActionKind action)
+         => action switch
+         {
+             ActionKind.Start => "Почати виконання",
+             ActionKind.End => "Закінчити виконання",
+             _ => action.ToString()
+         };
 }

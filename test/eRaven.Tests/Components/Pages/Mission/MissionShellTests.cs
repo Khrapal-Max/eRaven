@@ -105,6 +105,7 @@ public sealed class MissionShellTests : BunitContext
                 Target: "Розвідка",
                 MissionMode: MissionMode.Day,
                 DroneName: "DJI",
+                DisplayMisssion: "Район-1 Точка-А Розвідка DJI",
                 CreatedAt: new DateOnly(2026, 01, 10),
                 ClosedAt: null,
                 IsOpen: true)
