@@ -20,6 +20,7 @@ public sealed record MissionDto(
     string Target,
     MissionMode MissionMode,
     string? DroneName,
+    string DisplayMisssion,
     DateOnly CreatedAt,
     DateOnly? ClosedAt,
     bool IsOpen);

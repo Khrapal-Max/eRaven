@@ -13,7 +13,7 @@
                     OnClickButton="@(() => Nav.NavigateTo("/task-documents"))" />
 
             <Button Class="btn-sm btn-primary rounded-0"
-                    Label="+ місія"
+                    Label="+ Завдання групи"
                     IsDisabled="@(_loading || !IsDraft)"
                     OnClickButton="OpenCreateDrawer" />
         </div>
@@ -28,7 +28,7 @@
         }
         else
         {
-            <div class="border p-2 bg-white mb-3">
+            <div class="border p-2 mb-3">
                 <div class="d-flex flex-wrap gap-3 align-items-center">
                     <div>
                         <div class="small">Дата</div>
@@ -53,15 +53,15 @@
             {
                 @foreach (var g in _entries)
                 {
-                    <div class="border p-2 mb-2 bg-white">
+                    <div class="border p-2 mb-2">
                         <div class="d-flex align-items-start gap-2">
-                            <div class="text-muted small font-monospace">#@g.GroupSequence</div>
+                            <div class="small font-monospace">#@g.GroupSequence</div>
 
                             <div class="flex-grow-1 min-w-0">
                                 <div class="fw-semibold text-truncate">
                                     @g.Action (@g.ActionDate.ToString("dd.MM.yyyy")) — @g.MissionDisplay
                                 </div>
-                                <div class="small text-muted text-truncate">
+                                <div class="small text-truncate">
                                     Джерело: @g.SourceDocNo
                                 </div>
                             </div>

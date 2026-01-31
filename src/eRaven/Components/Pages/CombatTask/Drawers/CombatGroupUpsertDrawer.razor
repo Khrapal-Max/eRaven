@@ -5,12 +5,15 @@
         Title="@(Mode == "create" ? "Додати місію" : "Редагувати місію")">
 
     <div class="p-2">
+
+        <!-- Source -->
         <div class="mb-2">
             <label class="form-label small">Джерело (номер документа A / рапорт)</label>
             <input class="form-control form-control-sm rounded-0"
                    @bind="_sourceDocNo" />
         </div>
 
+        <!-- Action + Date -->
         <div class="row g-2 mb-2">
             <div class="col-6">
                 <label class="form-label small">Дія</label>
@@ -19,31 +22,56 @@
                     <option value="@ActionKind.End">Закінчити виконання</option>
                 </select>
             </div>
+
             <div class="col-6">
                 <label class="form-label small">Дата</label>
                 <input type="date"
-                       class="form-control form-control-sm rounded-0 bg-dark text-white"
+                       class="form-control form-control-sm rounded-0"
                        @bind="_actionDate" />
             </div>
         </div>
 
+        <!-- Mission Picker (без select) -->
         <div class="mb-2">
             <label class="form-label small">Місія</label>
 
-            <select class="form-select form-select-sm rounded-0" @bind="_missionId">
-                <option value="">— обери —</option>
-                @foreach (var m in _missions)
+            <input class="form-control form-control-sm rounded-0 mb-2"
+                   placeholder="Пошук місії..."
+                   @bind="_missionSearch"
+                   @oninput="OnMissionSearchInput" />
+
+            <div class="border" style="max-height: 220px; overflow:auto;">
+                @if (_missionsFiltered.Count == 0)
                 {
-                    <option value="@m.Id">@m.Display</option>
+                    <div class="p-2 small"><em>Немає результатів.</em></div>
                 }
-            </select>
+                else
+                {
+                    @foreach (var m in _missionsFiltered)
+                    {
+                        <button type="button"
+                                class="btn btn-sm w-100 text-start rounded-0 border-bottom"
+                                @onclick="@(() => SelectMission(m))">
+                            <div style="white-space: normal; overflow-wrap:anywhere;">
+                                @m.DisplayMisssion
+                            </div>
+                        </button>
+                    }
+                }
+            </div>
 
             @if (!string.IsNullOrWhiteSpace(_missionDisplay))
             {
-                <div class="small mt-1">@_missionDisplay</div>
+                <div class="mt-2 p-2 border bg-light">
+                    <div class="small">Обрана місія</div>
+                    <div class="small" style="white-space: normal; overflow-wrap:anywhere;">
+                        @_missionDisplay
+                    </div>
+                </div>
             }
         </div>
 
+        <!-- Persons (тільки Create) -->
         @if (Mode == "create")
         {
             <div class="mt-3 border-top pt-2">
@@ -53,27 +81,41 @@
                 </div>
 
                 <input class="form-control form-control-sm rounded-0 mb-2"
-                       placeholder="Пошук..."
-                       @bind="_search"
-                       @bind:event="oninput" />
+                       placeholder="Пошук (мін. 2 символи): ПІБ / РНОКПП / позивний..."
+                       @bind="_personSearch"
+                       @oninput="@OnPersonSearchInput" />
 
-                <div class="border" style="max-height: 260px; overflow:auto;">
-                    @if (_persons.Count == 0)
+                <div class="border" style="max-height: 280px; overflow:auto;">
+                    @if (_personResults.Count == 0)
                     {
-                        <div class="p-2 small"><em>Немає результатів.</em></div>
+                        <div class="p-2 small"><em>Введи пошук для вибору осіб.</em></div>
                     }
                     else
                     {
-                        @foreach (var p in _persons)
+                        @foreach (var p in _personResults)
                         {
-                            <label class="d-flex gap-2 align-items-center p-2 border-bottom small">
+                            <label class="d-flex gap-2 align-items-start p-2 border-bottom small">
                                 <input type="checkbox"
-                                       checked="@_selected.Contains(p.Id)"
-                                       @onchange="(e => TogglePerson(p.Id, (bool)e.Value!))" />
+                                       class="mt-1"
+                                       checked="@_selected.Contains(p.PersonId)"
+                                       @onchange="(e => TogglePerson(p.PersonId, (bool)e.Value!))" />
 
-                                <span class="text-truncate">
-                                    @p.Display
-                                </span>
+                                <div class="min-w-0">
+                                    <div class="fw-semibold text-truncate">@p.FullName</div>
+                                    <div style="white-space: normal; overflow-wrap:anywhere;">
+                                        РНОКПП: <span class="font-monospace">@p.RNOKPP</span>
+                                        · @p.Rank
+                                        · @p.Position
+                                        @if (!string.IsNullOrWhiteSpace(p.Weapon))
+                                        {
+                                            <span> · @p.Weapon</span>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(p.Callsign))
+                                        {
+                                            <span> · @p.Callsign</span>
+                                        }
+                                    </div>
+                                </div>
                             </label>
                         }
                     }
@@ -81,6 +123,7 @@
             </div>
         }
 
+        <!-- Buttons -->
         <div class="d-flex gap-2 mt-3">
             <Button Class="btn-sm btn-danger rounded-0"
                     Label="Закрити"
@@ -91,10 +134,5 @@
                     IsDisabled="@(!CanSave)"
                     OnClickButton="Save" />
         </div>
-
-        @if (!string.IsNullOrWhiteSpace(_error))
-        {
-            <div class="text-danger small mt-2">@_error</div>
-        }
     </div>
 </Drawer>

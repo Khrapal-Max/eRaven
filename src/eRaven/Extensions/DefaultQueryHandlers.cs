@@ -22,6 +22,7 @@ using eRaven.Application.Queries.Dashboard;
 using eRaven.Application.Queries.Mission;
 using eRaven.Application.Queries.Personal;
 using eRaven.Application.Queries.Timesheet;
+using System.Collections.Generic;
 
 namespace eRaven.Extensions;
 
@@ -44,6 +45,7 @@ public static class DefaultQueryHandlers
         services.AddScoped<IQueryHandler<GetMissionsQuery, IReadOnlyList<MissionDto>>, GetMissionsQueryHandler>();
 
         services.AddScoped<IQueryHandler<GetCombatTaskDocumentByIdQuery, CombatTaskDocumentDetailsDto?>, GetCombatTaskDocumentByIdQueryHandler>();
+        services.AddScoped<IQueryHandler<SearchPersonsForCombatTaskQuery, IReadOnlyList<CombatTaskPersonLookupDto>>, SearchPersonsForCombatTaskQueryHandler>();
 
         return services;
     }

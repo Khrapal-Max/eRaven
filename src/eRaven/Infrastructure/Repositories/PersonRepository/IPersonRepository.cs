@@ -7,6 +7,7 @@
 
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
+using eRaven.Application.DTOs.CombatTask;
 using eRaven.Application.DTOs.Excel;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries.Personal;
@@ -17,6 +18,7 @@ public interface IPersonRepository
 {
     // Read-side
     Task<PagedResult<PersonListItemDto>> GetPageAsync(GetPersonsPageQuery query, CancellationToken ct = default);
+    Task<IReadOnlyList<CombatTaskPersonLookupDto>> GetPersonsSearchAsync(string search, int takePersons, CancellationToken ct = default);
     Task<PersonDetailsDto?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<IReadOnlyList<PersonEventDto>> GetHistoryAsync(Guid id, CancellationToken ct = default);
 

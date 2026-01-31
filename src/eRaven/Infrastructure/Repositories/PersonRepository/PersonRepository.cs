@@ -7,6 +7,7 @@
 
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
+using eRaven.Application.DTOs.CombatTask;
 using eRaven.Application.DTOs.Excel;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries.Personal;
@@ -29,6 +30,8 @@ public sealed class PersonRepository(
     IDbContextFactory<AppDbContext> dbFactory,
     IPersonReadModelProjector projector) : IPersonRepository
 {
+    private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
+
     // =========================
     // JSON
     // =========================
@@ -60,7 +63,7 @@ public sealed class PersonRepository(
 
     public async Task<PagedResult<PersonListItemDto>> GetPageAsync(GetPersonsPageQuery query, CancellationToken ct = default)
     {
-        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var q = db.PersonRead.AsNoTracking().AsQueryable();
 
@@ -122,9 +125,48 @@ public sealed class PersonRepository(
         return new PagedResult<PersonListItemDto>(items, page, size, total);
     }
 
+    public async Task<IReadOnlyList<CombatTaskPersonLookupDto>> GetPersonsSearchAsync(string search, int takePersons, CancellationToken ct = default)
+    {
+        // TODO need tests
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var take = takePersons <= 0 ? 50 : Math.Min(takePersons, 200);
+        var s = (search ?? string.Empty).Trim();
+
+        var q = db.PersonRead.AsNoTracking();
+
+        // Мінімум 2 символи — інакше не вантажимо список (щоб не вбивати UI)
+        if (s.Length >= 2)
+        {
+            q = q.Where(p =>
+                (p.FullName != null && EF.Functions.ILike(p.FullName, $"%{s}%")) ||
+                (p.Rnokpp != null && EF.Functions.ILike(p.Rnokpp, $"%{s}%")) ||
+                (p.Callsign != null && EF.Functions.ILike(p.Callsign, $"%{s}%"))
+            );
+        }
+        else
+        {
+            // Порожній пошук: повертаємо пусто — юзер має почати вводити
+            return [];
+        }
+
+        return await q
+            .OrderBy(p => p.FullName)
+            .Select(p => new CombatTaskPersonLookupDto(
+                PersonId: p.Id,
+                RNOKPP: p.Rnokpp ?? string.Empty,
+                FullName: p.FullName ?? string.Empty,
+                Rank: p.Rank ?? string.Empty,
+                Position: p.Position ?? string.Empty,
+                Weapon: p.Weapon ?? string.Empty,
+                Callsign: p.Callsign ?? string.Empty))
+            .Take(take)
+            .ToListAsync(ct);
+    }
+
     public async Task<PersonDetailsDto?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
-        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var rm = await db.PersonRead.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
         if (rm is null) return null;
@@ -154,7 +196,7 @@ public sealed class PersonRepository(
 
     public async Task<IReadOnlyList<PersonEventDto>> GetHistoryAsync(Guid id, CancellationToken ct = default)
     {
-        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var rows = await db.PersonEvents
             .AsNoTracking()
@@ -282,7 +324,7 @@ public sealed class PersonRepository(
 
     private async Task<PersonAggregate> LoadAggregateAsync(Guid id, CancellationToken ct)
     {
-        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var records = await db.PersonEvents
             .AsNoTracking()
@@ -397,7 +439,7 @@ public sealed class PersonRepository(
         if (changes.Count == 0)
             return;
 
-        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         // optimistic concurrency: last persisted version must equal expectedVersion
