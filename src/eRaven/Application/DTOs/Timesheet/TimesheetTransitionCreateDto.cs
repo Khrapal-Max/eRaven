@@ -5,8 +5,6 @@
 // TimesheetTransitionCreateDto
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
-
 namespace eRaven.Application.DTOs.Timesheet;
 
 /// <summary>
@@ -14,7 +12,6 @@ namespace eRaven.Application.DTOs.Timesheet;
 /// </summary>
 public sealed record TimesheetTransitionCreateDto(
     Guid PersonId,
-    TimesheetLane Lane,
     DateOnly AnchorDate,   // дата, з якої відкрили дравер (стан "на день")
     DateOnly InputDate,    // дата, яку вводить юзер (meaning залежить від поточного коду)
     string NextCode,

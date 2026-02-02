@@ -1,5 +1,4 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
@@ -57,8 +56,7 @@ namespace eRaven.Migrations
                 name: "timesheet_codes",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    lane = table.Column<int>(type: "integer", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
                     code = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     title = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     end_mode = table.Column<int>(type: "integer", nullable: false),
@@ -78,16 +76,15 @@ namespace eRaven.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_timesheet_codes", x => x.Id);
+                    table.PrimaryKey("PK_timesheet_codes", x => x.id);
                 });
 
             migrationBuilder.CreateTable(
                 name: "timesheet_timelines",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
                     person_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    lane = table.Column<int>(type: "integer", nullable: false),
                     opened_at = table.Column<DateOnly>(type: "date", nullable: false),
                     closed_at = table.Column<DateOnly>(type: "date", nullable: true),
                     created_by = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
@@ -97,7 +94,7 @@ namespace eRaven.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_timesheet_timelines", x => x.Id);
+                    table.PrimaryKey("PK_timesheet_timelines", x => x.id);
                 });
 
             migrationBuilder.CreateTable(
@@ -138,8 +135,7 @@ namespace eRaven.Migrations
                 name: "timesheet_code_transitions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    lane = table.Column<int>(type: "integer", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
                     from_code_id = table.Column<Guid>(type: "uuid", nullable: false),
                     to_code_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_by = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
@@ -147,18 +143,18 @@ namespace eRaven.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_timesheet_code_transitions", x => x.Id);
+                    table.PrimaryKey("PK_timesheet_code_transitions", x => x.id);
                     table.ForeignKey(
                         name: "FK_timesheet_code_transitions_timesheet_codes_from_code_id",
                         column: x => x.from_code_id,
                         principalTable: "timesheet_codes",
-                        principalColumn: "Id",
+                        principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_timesheet_code_transitions_timesheet_codes_to_code_id",
                         column: x => x.to_code_id,
                         principalTable: "timesheet_codes",
-                        principalColumn: "Id",
+                        principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -166,13 +162,12 @@ namespace eRaven.Migrations
                 name: "timesheet_entries",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
                     timeline_id = table.Column<Guid>(type: "uuid", nullable: false),
                     person_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    lane = table.Column<int>(type: "integer", nullable: false),
                     code = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
-                    from = table.Column<DateOnly>(type: "date", nullable: false),
-                    to = table.Column<DateOnly>(type: "date", nullable: true),
+                    from_date = table.Column<DateOnly>(type: "date", nullable: false),
+                    to_date = table.Column<DateOnly>(type: "date", nullable: true),
                     reference = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     note = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: true),
                     created_by = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
@@ -186,12 +181,12 @@ namespace eRaven.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_timesheet_entries", x => x.Id);
+                    table.PrimaryKey("PK_timesheet_entries", x => x.id);
                     table.ForeignKey(
                         name: "FK_timesheet_entries_timesheet_timelines_timeline_id",
                         column: x => x.timeline_id,
                         principalTable: "timesheet_timelines",
-                        principalColumn: "Id",
+                        principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -251,9 +246,9 @@ namespace eRaven.Migrations
                 column: "to_code_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_ts_transitions_lane_from",
+                name: "ix_ts_transitions_from",
                 table: "timesheet_code_transitions",
-                columns: new[] { "lane", "from_code_id" });
+                column: "from_code_id");
 
             migrationBuilder.CreateIndex(
                 name: "ux_ts_transitions_from_to",
@@ -262,25 +257,32 @@ namespace eRaven.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "ux_ts_codes_lane_code",
+                name: "ux_ts_codes_code",
                 table: "timesheet_codes",
-                columns: new[] { "lane", "code" },
+                column: "code",
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "ix_ts_entries_person_lane_range",
+                name: "ix_ts_entries_person_range",
                 table: "timesheet_entries",
-                columns: new[] { "person_id", "lane", "from", "to" });
+                columns: new[] { "person_id", "from_date", "to_date" });
 
             migrationBuilder.CreateIndex(
-                name: "ix_ts_entries_timeline_lane_from",
+                name: "ix_ts_entries_timeline_from",
                 table: "timesheet_entries",
-                columns: new[] { "timeline_id", "lane", "from" });
+                columns: new[] { "timeline_id", "from_date" });
 
             migrationBuilder.CreateIndex(
-                name: "ix_ts_timeline_person_lane_closed",
+                name: "ix_ts_timelines_person_closed",
                 table: "timesheet_timelines",
-                columns: new[] { "person_id", "lane", "closed_at" });
+                columns: new[] { "person_id", "closed_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "ux_ts_timelines_person_active",
+                table: "timesheet_timelines",
+                column: "person_id",
+                unique: true,
+                filter: "closed_at IS NULL");
         }
 
         /// <inheritdoc />

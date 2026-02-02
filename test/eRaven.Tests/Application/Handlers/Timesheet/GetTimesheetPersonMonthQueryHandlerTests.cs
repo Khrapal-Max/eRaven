@@ -35,9 +35,8 @@ public sealed class GetTimesheetPersonMonthQueryHandlerTests
             EnrollmentKind: EnrollmentKind.Unit,
             EnrolledAt: new DateOnly(2026, 1, 1),
             ExcludedAt: null,
-            MainCodes: [.. Enumerable.Repeat("30", 31)],
-            MainRef: [.. Enumerable.Repeat<string?>(null, 31)],
-            TaskCodes: [.. Enumerable.Repeat("", 31)]
+            Codes: [.. Enumerable.Repeat("30", 31)],
+            Referenses: [.. Enumerable.Repeat<string?>(null, 31)]
         );
 
         var expected = new TimesheetPersonMonthDto(

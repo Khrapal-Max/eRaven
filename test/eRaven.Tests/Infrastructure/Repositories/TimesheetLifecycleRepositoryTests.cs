@@ -6,7 +6,6 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
-using eRaven.Domain.Enums;
 using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using eRaven.Tests.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +15,7 @@ namespace eRaven.Tests.Infrastructure.Repositories;
 public sealed class TimesheetLifecycleRepositoryTests
 {
     [Fact]
-    public async Task OpenOnEnrollAsync_creates_timelines_and_default_main_30()
+    public async Task OpenOnEnrollAsync_creates_timeline_and_default_30()
     {
         await using var tdb = new SqliteTestDb();
         var repo = new TimesheetLifecycleRepository(tdb.Factory);
@@ -34,11 +33,11 @@ public sealed class TimesheetLifecycleRepositoryTests
             .Where(x => x.PersonId == personId)
             .ToListAsync();
 
-        Assert.Equal(2, timelines.Count);
-        Assert.Contains(timelines, x => x.Lane == TimesheetLane.Main && x.OpenedAt == enrollDate && x.ClosedAt == null);
-        Assert.Contains(timelines, x => x.Lane == TimesheetLane.Task && x.OpenedAt == enrollDate && x.ClosedAt == null);
+        Assert.Single(timelines);
 
-        var mainTimelineId = timelines.Single(x => x.Lane == TimesheetLane.Main).Id;
+        var tl = timelines[0];
+        Assert.Equal(enrollDate, tl.OpenedAt);
+        Assert.Null(tl.ClosedAt);
 
         var entries = await db.TimesheetEntries
             .AsNoTracking()
@@ -46,9 +45,9 @@ public sealed class TimesheetLifecycleRepositoryTests
             .ToListAsync();
 
         Assert.Single(entries);
+
         var e = entries[0];
-        Assert.Equal(mainTimelineId, e.TimelineId);
-        Assert.Equal(TimesheetLane.Main, e.Lane);
+        Assert.Equal(tl.Id, e.TimelineId);
         Assert.Equal("30", e.Code);
         Assert.Equal(enrollDate, e.From);
         Assert.Null(e.To);
@@ -68,12 +67,12 @@ public sealed class TimesheetLifecycleRepositoryTests
         await repo.OpenOnEnrollAsync(personId, enrollDate, author: "ui", nowUtc: DateTime.UtcNow);
 
         await using var db = await tdb.Factory.CreateDbContextAsync();
-        Assert.Equal(2, await db.TimesheetTimelines.CountAsync(x => x.PersonId == personId));
+        Assert.Equal(1, await db.TimesheetTimelines.CountAsync(x => x.PersonId == personId));
         Assert.Equal(1, await db.TimesheetEntries.CountAsync(x => x.PersonId == personId && !x.IsDeleted));
     }
 
     [Fact]
-    public async Task ValidateCanCloseOnExcludeAsync_throws_when_main_code_not_allowed()
+    public async Task ValidateCanCloseOnExcludeAsync_throws_when_code_not_allowed()
     {
         await using var tdb = new SqliteTestDb();
         var repo = new TimesheetLifecycleRepository(tdb.Factory);
@@ -84,9 +83,17 @@ public sealed class TimesheetLifecycleRepositoryTests
 
         await using (var db = await tdb.Factory.CreateDbContextAsync())
         {
-            var mainTl = NewTimeline(personId, TimesheetLane.Main, openedAt, nowUtc);
-            db.TimesheetTimelines.Add(mainTl);
-            db.TimesheetEntries.Add(NewEntry(mainTl.Id, personId, TimesheetLane.Main, "ВП", openedAt, null, nowUtc));
+            var tl = NewTimeline(personId, openedAt, nowUtc);
+            db.TimesheetTimelines.Add(tl);
+
+            db.TimesheetEntries.Add(NewEntry(
+                timelineId: tl.Id,
+                personId: personId,
+                code: "ВП",
+                from: openedAt,
+                to: null,
+                nowUtc: nowUtc));
+
             await db.SaveChangesAsync();
         }
 
@@ -99,7 +106,7 @@ public sealed class TimesheetLifecycleRepositoryTests
     }
 
     [Fact]
-    public async Task CloseOnExcludeAsync_closes_timelines_clamps_and_deletes_future_entries()
+    public async Task CloseOnExcludeAsync_closes_timeline_clamps_and_deletes_future_entries()
     {
         await using var tdb = new SqliteTestDb();
         var repo = new TimesheetLifecycleRepository(tdb.Factory);
@@ -110,24 +117,21 @@ public sealed class TimesheetLifecycleRepositoryTests
         var openedAt = new DateOnly(2026, 1, 1);
         var closeTo = new DateOnly(2026, 1, 15);
 
-        Guid mainTlId;
-        Guid taskTlId;
+        Guid tlId;
 
         await using (var db = await tdb.Factory.CreateDbContextAsync())
         {
-            var mainTl = NewTimeline(personId, TimesheetLane.Main, openedAt, nowUtc);
-            var taskTl = NewTimeline(personId, TimesheetLane.Task, openedAt, nowUtc);
-            mainTlId = mainTl.Id;
-            taskTlId = taskTl.Id;
+            var tl = NewTimeline(personId, openedAt, nowUtc);
+            tlId = tl.Id;
 
-            db.TimesheetTimelines.AddRange(mainTl, taskTl);
+            db.TimesheetTimelines.Add(tl);
 
-            // main: 30 [1..4], РОЗПОР [5..∞] (allowed to close)
-            db.TimesheetEntries.Add(NewEntry(mainTl.Id, personId, TimesheetLane.Main, "30", openedAt, new DateOnly(2026, 1, 4), nowUtc));
-            db.TimesheetEntries.Add(NewEntry(mainTl.Id, personId, TimesheetLane.Main, "РОЗПОР", new DateOnly(2026, 1, 5), null, nowUtc));
+            // 30 [1..4], РОЗПОР [5..∞] (allowed to close)
+            db.TimesheetEntries.Add(NewEntry(tl.Id, personId, "30", openedAt, new DateOnly(2026, 1, 4), nowUtc));
+            db.TimesheetEntries.Add(NewEntry(tl.Id, personId, "РОЗПОР", new DateOnly(2026, 1, 5), null, nowUtc));
 
-            // task: future plan must be deleted
-            db.TimesheetEntries.Add(NewEntry(taskTl.Id, personId, TimesheetLane.Task, "ПЛАН", new DateOnly(2026, 1, 16), new DateOnly(2026, 1, 20), nowUtc));
+            // future plan must be deleted
+            db.TimesheetEntries.Add(NewEntry(tl.Id, personId, "ПЛАН", new DateOnly(2026, 1, 16), new DateOnly(2026, 1, 20), nowUtc));
 
             await db.SaveChangesAsync();
         }
@@ -136,42 +140,45 @@ public sealed class TimesheetLifecycleRepositoryTests
 
         await using (var db = await tdb.Factory.CreateDbContextAsync())
         {
-            var mainTl = await db.TimesheetTimelines.AsNoTracking().SingleAsync(x => x.Id == mainTlId);
-            var taskTl = await db.TimesheetTimelines.AsNoTracking().SingleAsync(x => x.Id == taskTlId);
-
-            Assert.Equal(closeTo, mainTl.ClosedAt);
-            Assert.Equal(closeTo, taskTl.ClosedAt);
+            var tl = await db.TimesheetTimelines.AsNoTracking().SingleAsync(x => x.Id == tlId);
+            Assert.Equal(closeTo, tl.ClosedAt);
 
             var rozpor = await db.TimesheetEntries.AsNoTracking()
-                .SingleAsync(x => x.TimelineId == mainTlId && x.Code == "РОЗПОР");
+                .SingleAsync(x => x.TimelineId == tlId && x.Code == "РОЗПОР");
+
             Assert.Equal(closeTo, rozpor.To);
 
             var futurePlan = await db.TimesheetEntries.AsNoTracking()
-                .SingleAsync(x => x.TimelineId == taskTlId && x.Code == "ПЛАН");
+                .SingleAsync(x => x.TimelineId == tlId && x.Code == "ПЛАН");
+
             Assert.True(futurePlan.IsDeleted);
             Assert.Contains("excluded", futurePlan.DeleteReason ?? "");
         }
     }
 
-    private static TimesheetTimeline NewTimeline(Guid personId, TimesheetLane lane, DateOnly openedAt, DateTime nowUtc)
+    private static TimesheetTimeline NewTimeline(Guid personId, DateOnly openedAt, DateTime nowUtc)
         => new()
         {
             Id = Guid.NewGuid(),
             PersonId = personId,
-            Lane = lane,
             OpenedAt = openedAt,
             ClosedAt = null,
             CreatedBy = "seed",
             CreatedAtUtc = nowUtc
         };
 
-    private static TimesheetEntry NewEntry(Guid timelineId, Guid personId, TimesheetLane lane, string code, DateOnly from, DateOnly? to, DateTime nowUtc)
+    private static TimesheetEntry NewEntry(
+        Guid timelineId,
+        Guid personId,
+        string code,
+        DateOnly from,
+        DateOnly? to,
+        DateTime nowUtc)
         => new()
         {
             Id = Guid.NewGuid(),
             TimelineId = timelineId,
             PersonId = personId,
-            Lane = lane,
             Code = code,
             From = from,
             To = to,

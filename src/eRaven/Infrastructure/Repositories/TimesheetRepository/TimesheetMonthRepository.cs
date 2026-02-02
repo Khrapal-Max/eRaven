@@ -7,16 +7,19 @@
 
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Domain.Entities;
-using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 /// <summary>
 /// Read-repo:
-/// 1) Місячна матриця табеля по всім особам (UI grid): rows із MainCodes/TaskCodes.
+/// 1) Місячна матриця табеля по всім особам (UI grid).
 /// 2) Місячний табель однієї особи: Person + Entries (source of truth).
-/// Оптимізація: JOIN по timelines (без витягування timelineIds в памʼять де це можливо).
+///
+/// IMPORTANT (current stage):
+/// - Timesheet is a "fact" only.
+/// - TimesheetLane is removed => all entries are treated as a single fact stream.
+/// - TaskCodes are returned as empty strings (reserved for future task subsystem).
 /// </summary>
 public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbFactory)
     : ITimesheetMonthRepository
@@ -38,12 +41,10 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // 1) “Хто в табелі в цьому місяці” => по MAIN timeline (перетин з місяцем)
-        var mainInMonthQ = Overlapping(
-            db.TimesheetTimelines.AsNoTracking().Where(t => t.Lane == TimesheetLane.Main),
-            monthStart, monthEnd);
+        // 1) “Хто в табелі в цьому місяці” => будь-який timeline, який перетинає місяць
+        var inMonthQ = Overlapping(db.TimesheetTimelines.AsNoTracking(), monthStart, monthEnd);
 
-        var personIdsQ = mainInMonthQ
+        var personIdsQ = inMonthQ
             .Select(t => t.PersonId)
             .Distinct();
 
@@ -81,7 +82,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
 
         var selectedPersonIds = persons.Select(x => x.Id).ToArray();
 
-        // 3) Timelines (MAIN+TASK) для вибраних осіб, що перетинають місяць
+        // 3) Timelines для вибраних осіб, що перетинають місяць
         var timelinesInMonthQ = Overlapping(
             db.TimesheetTimelines.AsNoTracking()
                 .Where(t => selectedPersonIds.Contains(t.PersonId)),
@@ -94,11 +95,10 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
             where !e.IsDeleted
                   && e.From <= monthEnd
                   && (!e.To.HasValue || e.To.Value >= monthStart)
-            orderby e.PersonId, e.Lane, e.From, e.Id
+            orderby e.PersonId, e.From, e.Id
             select new
             {
                 e.PersonId,
-                e.Lane,
                 e.Code,
                 e.From,
                 e.To,
@@ -110,19 +110,17 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
             .GroupBy(e => e.PersonId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // 5) Будуємо матрицю (Main default = "НБ", Task default = "")
+        // 5) Будуємо матрицю: default code = "НБ", task = ""
         var rows = new List<TimesheetPersonMonthRowDto>(persons.Count);
 
         foreach (var p in persons)
         {
-            var main = new string[daysInMonth];
-            var task = new string[daysInMonth];
-            var mainRef100 = new string?[daysInMonth];
+            var dayCodes = new string[daysInMonth];
+            var referenses = new string?[daysInMonth];
 
             for (var i = 0; i < daysInMonth; i++)
             {
-                main[i] = "НБ";
-                task[i] = "";
+                dayCodes[i] = "НБ";
             }
 
             if (byPerson.TryGetValue(p.Id, out var list))
@@ -141,17 +139,10 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
                         var idx = d.Day - 1;
                         if ((uint)idx >= (uint)daysInMonth) continue;
 
-                        if (e.Lane == TimesheetLane.Main)
-                        {
-                            main[idx] = code;
-                            mainRef100[idx] = IsAlert(code)
-                                 ? (string.IsNullOrWhiteSpace(e.Reference) ? null : e.Reference.Trim())
-                                 : null;
-                        }
-                        else if (e.Lane == TimesheetLane.Task)
-                        {
-                            task[idx] = code;
-                        }
+                        dayCodes[idx] = code;
+                        referenses[idx] = IsAlert(code)
+                            ? (string.IsNullOrWhiteSpace(e.Reference) ? null : e.Reference.Trim())
+                            : null;
                     }
                 }
             }
@@ -165,9 +156,8 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
                 EnrollmentKind: p.EnrollmentKind,
                 EnrolledAt: p.EnrolledAt,
                 ExcludedAt: p.ExcludedAt,
-                MainCodes: main,
-                MainRef: mainRef100,
-                TaskCodes: task
+                Codes: dayCodes,
+                Referenses: referenses
             ));
         }
 
@@ -210,7 +200,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         if (p is null)
             return null;
 
-        // 2) Timelines that overlap the month (both lanes) — as query
+        // 2) Timelines that overlap the month — as query
         var timelinesInMonthQ = Overlapping(
             db.TimesheetTimelines.AsNoTracking().Where(t => t.PersonId == personId),
             monthStart, monthEnd);
@@ -222,10 +212,9 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
             where !e.IsDeleted
                   && e.From <= monthEnd
                   && (!e.To.HasValue || e.To.Value >= monthStart)
-            orderby e.Lane, e.From, e.Id
+            orderby e.From, e.Id
             select new
             {
-                e.Lane,
                 e.Code,
                 e.From,
                 e.To,
@@ -240,15 +229,13 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
             ? DateTime.MinValue
             : entries.Max(x => x.UpdatedAtUtc ?? x.CreatedAtUtc);
 
-        // 4) Day codes (grid) defaults
-        var main = new string[daysInMonth];
-        var task = new string[daysInMonth];
-        var mainRef100 = new string?[daysInMonth];
+        // 4) Day codes defaults
+        var dayCodes = new string[daysInMonth];
+        var referenses = new string?[daysInMonth];
 
         for (var i = 0; i < daysInMonth; i++)
         {
-            main[i] = "НБ";
-            task[i] = "";
+            dayCodes[i] = "НБ";
         }
 
         foreach (var e in entries)
@@ -263,18 +250,10 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
                 var idx = d.Day - 1;
                 if ((uint)idx >= (uint)daysInMonth) continue;
 
-                if (e.Lane == TimesheetLane.Main)
-                {
-                    main[idx] = code;
-
-                    mainRef100[idx] = IsAlert(code)
-                         ? (string.IsNullOrWhiteSpace(e.Reference) ? null : e.Reference.Trim())
-                         : null;
-                }
-                else if (e.Lane == TimesheetLane.Task)
-                {
-                    task[idx] = code;
-                }
+                dayCodes[idx] = code;
+                referenses[idx] = IsAlert(code)
+                    ? (string.IsNullOrWhiteSpace(e.Reference) ? null : e.Reference.Trim())
+                    : null;
             }
         }
 
@@ -287,13 +266,11 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
             EnrollmentKind: p.EnrollmentKind,
             EnrolledAt: p.EnrolledAt,
             ExcludedAt: p.ExcludedAt,
-            MainCodes: main,
-            MainRef: mainRef100,
-            TaskCodes: task
+            Codes: dayCodes,
+            Referenses: referenses
         );
 
         var entryRows = entries.Select(e => new TimesheetPersonEntryRowDto(
-            Lane: e.Lane,
             Code: TrimCode(e.Code),
             From: e.From,
             To: e.To,
@@ -318,14 +295,13 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // 1) who is "in timesheet" on this date (by MAIN timeline overlap)
-        var mainTimelinesQ = db.TimesheetTimelines
+        // 1) who is "in timesheet" on this date (by timeline overlap)
+        var timelinesOnDateQ = db.TimesheetTimelines
             .AsNoTracking()
-            .Where(t => t.Lane == TimesheetLane.Main
-                        && t.OpenedAt <= date
+            .Where(t => t.OpenedAt <= date
                         && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= date));
 
-        var personIdsQ = mainTimelinesQ
+        var personIdsQ = timelinesOnDateQ
             .Select(t => t.PersonId)
             .Distinct();
 
@@ -364,7 +340,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
 
         var selectedPersonIds = persons.Select(x => x.Id).ToArray();
 
-        // 3) timelines overlapping the date (both lanes)
+        // 3) timelines for selected persons on date
         var timelinesQ = db.TimesheetTimelines
             .AsNoTracking()
             .Where(t => selectedPersonIds.Contains(t.PersonId)
@@ -378,44 +354,34 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
             where !e.IsDeleted
                   && e.From <= date
                   && (!e.To.HasValue || e.To.Value >= date)
-            orderby e.PersonId, e.Lane, e.From, e.Id
+            orderby e.PersonId, e.From, e.Id
             select new
             {
                 e.PersonId,
-                e.Lane,
                 e.Code,
                 e.Reference,
-                e.Note,
-                e.From,
-                e.To
+                e.Note
             }
         ).ToListAsync(ct);
 
-        // pick "latest" active per (person,lane)
-        var activeByKey = entries
-            .GroupBy(x => (x.PersonId, x.Lane))
+        // latest active per person (single stream)
+        var lastByPerson = entries
+            .GroupBy(x => x.PersonId)
             .ToDictionary(g => g.Key, g => g.Last());
 
-        // NOTE: using dynamic above is ugly in IDE, so let's rebuild the map strongly:
-        var map2 = new Dictionary<(Guid PersonId, TimesheetLane Lane), (string Code, string? Ref, string? Note)>();
-        foreach (var kv in activeByKey)
+        TimesheetDayStateDto DayState(Guid pid)
         {
-            var v = kv.Value;
-            map2[kv.Key] = (
-                ((string?)v.Code ?? "").Trim(),
-                string.IsNullOrWhiteSpace((string?)v.Reference) ? null : ((string)v.Reference).Trim(),
-                string.IsNullOrWhiteSpace((string?)v.Note) ? null : ((string)v.Note).Trim()
-            );
-        }
-
-        TimesheetDayLaneStateDto State(Guid pid, TimesheetLane lane, string def)
-        {
-            if (map2.TryGetValue((pid, lane), out var v))
+            if (lastByPerson.TryGetValue(pid, out var v))
             {
-                var code = (v.Code ?? "").Trim();
-                return new TimesheetDayLaneStateDto(code.Length == 0 ? def : code, v.Ref, v.Note);
+                var code = TrimCode(v.Code);
+                return new TimesheetDayStateDto(
+                    Code: code.Length == 0 ? "НБ" : code,
+                    Reference: string.IsNullOrWhiteSpace(v.Reference) ? null : v.Reference.Trim(),
+                    Note: string.IsNullOrWhiteSpace(v.Note) ? null : v.Note.Trim()
+                );
             }
-            return new TimesheetDayLaneStateDto(def, null, null);
+
+            return new TimesheetDayStateDto("НБ", null, null);
         }
 
         var rows = new List<TimesheetPersonDayRowDto>(persons.Count);
@@ -430,8 +396,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
                 EnrollmentKind: p.EnrollmentKind,
                 EnrolledAt: p.EnrolledAt,
                 ExcludedAt: p.ExcludedAt,
-                Main: State(p.Id, TimesheetLane.Main, "НБ"),
-                Task: State(p.Id, TimesheetLane.Task, "")
+                DayState: DayState(p.Id)
             ));
         }
 

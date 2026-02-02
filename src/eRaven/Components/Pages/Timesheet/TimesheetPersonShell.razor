@@ -1,11 +1,5 @@
 ﻿@page "/timesheet/person/{PersonId:guid}"
 
-@using eRaven.Application.DTOs.Timesheet
-@using eRaven.Application.Queries
-@using eRaven.Application.Queries.Timesheet
-@using eRaven.Components.Shared.Button
-@using eRaven.Domain.Enums
-
 <PageTitle>Табель особи</PageTitle>
 
 <div class="page-content">
@@ -43,7 +37,7 @@
                     }
                 </div>
 
-                <div class="ms-auto d-flex align-items-center gap-2">    
+                <div class="ms-auto d-flex align-items-center gap-2">
                     <a class="btn btn-sm btn-primary rounded-0" href="/timesheet-day">← Табель на день</a>
                     <a class="btn btn-sm btn-primary rounded-0" href="/timesheet">← Табель за місяць</a>
                 </div>
@@ -53,10 +47,6 @@
         @if (_loading)
         {
             <p class="px-1"><em>Завантаження...</em></p>
-        }
-        else if (_error is not null)
-        {
-            <div class="alert alert-danger rounded-0">@_error</div>
         }
         else if (_dto is null)
         {
@@ -98,10 +88,12 @@
                             <div class="ms-auto px-2 small">
                                 @_month / @_year · Updated: @_dto.UpdatedAtUtc.ToString("u")
                             </div>
+
                             <Button Class="btn-sm btn-warning rounded-0"
                                     Label="Оновити"
                                     IsDisabled="@_loading"
                                     OnClickButton="ReloadAsync" />
+
                             <Button Class="btn-sm btn-success rounded-0"
                                     Label="Подія (сьогодні)"
                                     IsDisabled="@_loading"
@@ -121,24 +113,18 @@
                                 {
                                     var day = i - _offset + 1;
 
-                                    if (day < 1 || day > _dto.DaysInMonth)
+                                    if (day < 1 || day > _daysInMonth)
                                     {
                                         <div class="ts-cal-cell ts-cal-cell--empty"></div>
                                     }
                                     else
                                     {
-                                        var main = GetDayCode(day, TimesheetLane.Main);
-                                        var task = GetDayCode(day, TimesheetLane.Task);
+                                        var dayCode = GetDayCode(day);
+                                        var title = IsAlert(dayCode) ? GetRef(day) : dayCode;
 
                                         <div class="ts-cal-cell">
                                             <div class="ts-cal-daynum">@day</div>
-
-                                            <div class="ts-cal-main" title="@main">@main</div>
-
-                                            @if (!string.IsNullOrWhiteSpace(task))
-                                            {
-                                                <div class="ts-cal-task" title="@task">@task</div>
-                                            }
+                                            <div class="ts-cal-main" title="@title">@dayCode</div>
                                         </div>
                                     }
                                 }
@@ -154,7 +140,7 @@
                             <div class="ms-auto small">source of truth</div>
                         </div>
 
-                        @if (_dto.Entries.Count == 0)
+                        @if (_entries.Count == 0)
                         {
                             <div class="small"><em>Записів немає.</em></div>
                         }
@@ -164,7 +150,6 @@
                                 <table class="table table-sm table-bordered mb-0">
                                     <thead>
                                         <tr class="text-center">
-                                            <th style="width:60px">Рівень</th>
                                             <th style="width:70px">Код</th>
                                             <th style="width:110px">Від</th>
                                             <th style="width:110px">До</th>
@@ -173,10 +158,9 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @foreach (var e in _dto.Entries)
+                                        @foreach (var e in _entries)
                                         {
                                             <tr class="text-center">
-                                                <td>@e.Lane</td>
                                                 <td class="fw-semibold">@e.Code</td>
                                                 <td class="text-nowrap">@e.From.ToString("dd.MM.yyyy")</td>
                                                 <td class="text-nowrap">@((e.To.HasValue) ? e.To.Value.ToString("dd.MM.yyyy") : "∞")</td>
@@ -195,10 +179,8 @@
     </div>
 </div>
 
-
 <TimesheetEventDrawer IsOpen="@_eventDrawerOpen"
                       IsOpenChanged="@(v => _eventDrawerOpen = v)"
                       Person="@_eventDrawerPerson"
-                      Lane="@_eventDrawerLane"
                       Date="@_eventDrawerDate"
                       OnSubmit="HandleCreateEventAsync" />

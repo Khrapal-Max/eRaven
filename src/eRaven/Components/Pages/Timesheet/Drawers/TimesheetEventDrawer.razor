@@ -13,15 +13,16 @@
 
                 @if (Person is not null)
                 {
+                    <!-- Person snapshot -->
                     <div class="border p-2 bg-white mb-3">
                         <div class="d-flex justify-content-between align-items-start gap-3">
                             <div class="min-w-0">
                                 <div class="fw-semibold text-truncate">@Person.FullName</div>
                                 <div class="small text-nowrap">
                                     РНОКПП: <span class="font-monospace">@Person.RNOKPP</span>
-                                    · Lane: <span class="fw-semibold">@LaneTitle(Lane)</span>
                                 </div>
                             </div>
+
                             <div class="small text-end text-nowrap">
                                 <div class="font-monospace">@Person.PersonId</div>
                                 <div>Anchor: <span class="fw-semibold">@Date.ToString("dd.MM.yyyy")</span></div>
@@ -53,10 +54,15 @@
                         else
                         {
                             <div class="small">
-                                В табелі з: <span class="font-monospace">@_timeline.OpenedAt.ToString("dd.MM.yyyy")</span>
+                                В табелі з:
+                                <span class="font-monospace">@_timeline.OpenedAt.ToString("dd.MM.yyyy")</span>
+
                                 @if (_timeline.ClosedAt is not null)
                                 {
-                                    <span> · Виключений з табелю: <span class="font-monospace">@_timeline.ClosedAt.Value.ToString("dd.MM.yyyy")</span></span>
+                                    <span>
+                                        · Виключений з табелю:
+                                        <span class="font-monospace">@_timeline.ClosedAt.Value.ToString("dd.MM.yyyy")</span>
+                                    </span>
                                 }
                             </div>
                         }
@@ -73,21 +79,21 @@
                     <EditForm EditContext="@_editContext" OnValidSubmit="SubmitAsync" id="ts-event-form">
                         <DataAnnotationsValidator />
 
-                        <!-- Main transition block -->
                         <div class="border p-2 mb-3">
                             <div class="row g-2">
 
-                                <!-- Left: Next -->
+                                <!-- Next state -->
                                 <div class="col-12 col-md-6">
                                     <div class="border p-2">
                                         <div class="small">Початок події з:</div>
                                         <div class="font-monospace fw-semibold">
                                             @_computedNextFrom.ToString("dd.MM.yyyy")
                                         </div>
+
                                         <div class="fw-semibold">Наступний статус</div>
 
                                         <div class="mt-2">
-                                            <label class="form-label mb-1">Дозволені коди ()</label>
+                                            <label class="form-label mb-1">Дозволені коди</label>
 
                                             <InputSelect class="form-select rounded-0 bg-warning text-black"
                                                          @bind-Value="Model.NextCode"
@@ -109,7 +115,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Right: Active -->
+                                <!-- Active state -->
                                 <div class="col-12 col-md-6">
                                     <div class="border p-2">
                                         <div class="fw-semibold">Активний статус</div>
@@ -126,6 +132,7 @@
                                                     (код <span class="font-monospace fw-semibold">@Normalize(_active.Code)</span>)
                                                 </span>
                                             </div>
+
                                             <div class="small">
                                                 з <span class="font-monospace">@_active.From.ToString("dd.MM.yyyy")</span>
                                                 @if (_active.To is not null)
@@ -136,7 +143,7 @@
                                         }
 
                                         <div class="mt-2">
-                                            <label class="form-label mb-1">Встановити дату останнього дня</label>
+                                            <label class="form-label mb-1">Дата “по/закінчення”</label>
 
                                             <InputDate class="form-control rounded-0 bg-dark text-white"
                                                        @bind-Value="Model.InputDate"
@@ -147,13 +154,14 @@
                                             @if (_active is not null)
                                             {
                                                 <div class="form-text text-black">
-                                                    Не раніше: <span class="font-monospace">@_active.From.ToString("dd.MM.yyyy")</span>
+                                                    Не раніше:
+                                                    <span class="font-monospace">@_active.From.ToString("dd.MM.yyyy")</span>
                                                 </div>
                                             }
                                         </div>
                                     </div>
                                 </div>
-                                
+
                             </div>
                         </div>
 

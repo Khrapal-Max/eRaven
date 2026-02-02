@@ -16,13 +16,35 @@ using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Timesheet;
 
-// TODO only citizen evets
+/// <summary>
+/// Сторінка "Табель (стан на день)".
+/// Показує поточний стан (факт/Main) на обрану дату для всіх осіб у табелі.
+/// 
+/// TODO (пізніше): у цій таблиці з'явиться "План" з документів (бойові/планові документи),
+/// але зараз це заглушка без бізнес-логіки.
+/// </summary>
 public partial class TimesheetDayShell
 {
+    //======================================================================
+    // DI
+    //======================================================================
+
+    /// <summary>
+    /// Read-query: повертає денний зріз табеля.
+    /// </summary>
     [Inject] public IQueryHandler<GetTimesheetDayQuery, IReadOnlyList<TimesheetPersonDayRowDto>> Query { get; set; } = default!;
+
+    /// <summary>
+    /// Command-handler: policy-driven transition стану табеля (update+insert).
+    /// </summary>
     [Inject] public ICommandHandler<TransitionTimesheetStateCommand> CreateEntryHandler { get; set; } = default!;
+
     [Inject] public NavigationManager Nav { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
+
+    //======================================================================
+    // UI state
+    //======================================================================
 
     private bool _loading;
 
@@ -34,17 +56,28 @@ public partial class TimesheetDayShell
     private IReadOnlyList<TimesheetPersonDayRowDto>? _rows;
     private TimesheetPersonDayRowDto? _selected;
 
-    // drawer
+    //======================================================================
+    // Drawer state (create event)
+    //======================================================================
+
     private bool _eventDrawerOpen;
     private TimesheetPersonMonthRowDto? _eventDrawerPerson;
     private DateOnly _eventDrawerDate;
-    private TimesheetLane _eventDrawerLane;
+
+    //======================================================================
+    // Lifecycle
+    //======================================================================
 
     protected override async Task OnInitializedAsync()
-    {
-        await ReloadAsync();
-    }
+        => await ReloadAsync();
 
+    //======================================================================
+    // Data loading
+    //======================================================================
+
+    /// <summary>
+    /// Завантажує денний зріз табеля з урахуванням пошуку.
+    /// </summary>
     private async Task ReloadAsync()
     {
         _loading = true;
@@ -67,6 +100,13 @@ public partial class TimesheetDayShell
         }
     }
 
+    //======================================================================
+    // Filters
+    //======================================================================
+
+    /// <summary>
+    /// Зміна дати (input[type=date]) та перезавантаження.
+    /// </summary>
     private async Task OnDateChanged(ChangeEventArgs e)
     {
         var s = Convert.ToString(e.Value) ?? "";
@@ -78,6 +118,9 @@ public partial class TimesheetDayShell
         }
     }
 
+    /// <summary>
+    /// Пошук по ПІБ або РНОКПП (мін. 2 символи для автоперезавантаження).
+    /// </summary>
     private async Task OnSearchInput(ChangeEventArgs e)
     {
         _search = Convert.ToString(e.Value);
@@ -86,12 +129,18 @@ public partial class TimesheetDayShell
             await ReloadAsync();
     }
 
-    private void OpenEventDrawer(TimesheetPersonDayRowDto row, TimesheetLane lane)
+    //======================================================================
+    // Actions
+    //======================================================================
+
+    /// <summary>
+    /// Відкриває drawer створення події (факт/Main) на поточну дату таблиці.
+    /// </summary>
+    private void OpenEventDrawer(TimesheetPersonDayRowDto row)
     {
-        _eventDrawerLane = lane;
         _eventDrawerDate = _date;
 
-        // Minimal person snapshot to satisfy existing TimesheetEventDrawer signature
+        // Мінімальний snapshot для drawer'а (зараз drawer очікує PersonMonthRowDto).
         _eventDrawerPerson = new TimesheetPersonMonthRowDto(
             PersonId: row.PersonId,
             FullName: row.FullName,
@@ -101,14 +150,17 @@ public partial class TimesheetDayShell
             EnrollmentKind: row.EnrollmentKind,
             EnrolledAt: row.EnrolledAt,
             ExcludedAt: row.ExcludedAt,
-            MainCodes: [],
-            MainRef: [],
-            TaskCodes: []
+            Codes: [],
+            Referenses: []
         );
 
         _eventDrawerOpen = true;
     }
 
+    /// <summary>
+    /// Обробляє submit з drawer:
+    /// виконує перехід стану табеля та перезавантажує денний зріз.
+    /// </summary>
     private async Task HandleCreateEventAsync(TimesheetTransitionCreateDto dto)
     {
         var author = "system"; // TODO: auth user
@@ -116,9 +168,9 @@ public partial class TimesheetDayShell
 
         try
         {
+            // Lane прибрали: завжди "факт" (Main) у чистому табелі.
             await CreateEntryHandler.HandleAsync(new TransitionTimesheetStateCommand(
                 PersonId: dto.PersonId,
-                Lane: dto.Lane,
                 AnchorDate: dto.AnchorDate,
                 InputDate: dto.InputDate,
                 NextCode: dto.NextCode,
@@ -148,6 +200,13 @@ public partial class TimesheetDayShell
         }
     }
 
+    //======================================================================
+    // UI helpers
+    //======================================================================
+
+    /// <summary>
+    /// Повертає коротку “позначку типу” для EnrollmentKind.
+    /// </summary>
     private static string GetSign(EnrollmentKind? kind)
         => kind switch
         {

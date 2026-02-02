@@ -24,35 +24,45 @@ public sealed class TransitionTimesheetStateCommandHandler(
 
     public async Task HandleAsync(TransitionTimesheetStateCommand command, CancellationToken ct = default)
     {
-        if (command.PersonId == Guid.Empty) throw new ArgumentException("PersonId is required.", nameof(command.PersonId));
-        if (string.IsNullOrWhiteSpace(command.NextCode)) throw new ArgumentException("NextCode is required.", nameof(command.NextCode));
+        ArgumentException.ThrowIfNullOrEmpty(nameof(command.PersonId));
+        ArgumentException.ThrowIfNullOrWhiteSpace(nameof(command.NextCode));
 
         var author = string.IsNullOrWhiteSpace(command.Author) ? "system" : command.Author.Trim();
         var nextCodeNorm = NormalizeCode(command.NextCode);
 
         // 1) anchor: current active state on AnchorDate
-        var prev = await _repo.GetActiveEntryOnDateAsync(command.PersonId, command.Lane, command.AnchorDate, ct)
-            ?? throw new InvalidOperationException("Не можна застосувати перехід: на цю дату немає активної події (немає історії / поза табелем).");
-
-        // 2) load policy definitions for lane
-        var defs = await _policyRepo.GetCodesAsync(command.Lane, ct);
+        var prev = await _repo.GetActiveEntryOnDateAsync(command.PersonId, command.AnchorDate, ct)
+            ?? throw new InvalidOperationException(
+                "Не можна застосувати перехід: на цю дату немає активної події (немає історії / поза табелем).");
 
         var prevCodeNorm = NormalizeCode(prev.Code);
+
+        // 2) load policy definitions (global, без lane)
+        var defs = await _policyRepo.GetCodesAsync(ct);
+
         var prevDef = defs.FirstOrDefault(x => NormalizeCode(x.Code) == prevCodeNorm)
-            ?? throw new InvalidOperationException($"Policy: не знайдено код '{prevCodeNorm}' для lane {command.Lane}.");
+            ?? throw new InvalidOperationException($"Policy: не знайдено код '{prevCodeNorm}' у довіднику.");
 
         var nextDef = defs.FirstOrDefault(x => NormalizeCode(x.Code) == nextCodeNorm)
-            ?? throw new InvalidOperationException($"Policy: не знайдено код '{nextCodeNorm}' для lane {command.Lane}.");
+            ?? throw new InvalidOperationException($"Policy: не знайдено код '{nextCodeNorm}' у довіднику.");
 
-        // 3) policy graph: prev => next must be reachable (same-code allowed)
-        if (prevDef.Id != nextDef.Id)
-        {
-            var ok = await IsReachableAsync(prevDef.Id, nextDef.Id, ct);
-            if (!ok)
-                throw new InvalidOperationException($"Перехід '{prevCodeNorm}' до '{nextCodeNorm}' заборонений політикою.");
-        }
+        // same-code transition usually makes garbage (split same code into two entries)
+        if (prevDef.Id == nextDef.Id)
+            throw new InvalidOperationException($"Перехід у той самий код '{nextCodeNorm}' не має сенсу.");
 
-        // 4) Interpret user's InputDate by CURRENT state's meaning (prevDef.EndDateMeaning)
+        // 3) policy graph: prev => next must be reachable
+        var ok = await IsReachableAsync(prevDef.Id, nextDef.Id, ct);
+        if (!ok)
+            throw new InvalidOperationException($"Перехід '{prevCodeNorm}' до '{nextCodeNorm}' заборонений політикою.");
+
+        // 4) Validate required fields for NEXT state
+        if (nextDef.RequiresReference && string.IsNullOrWhiteSpace(command.Reference))
+            throw new InvalidOperationException($"Для коду '{nextCodeNorm}' обов'язково заповнити Reference.");
+
+        if (nextDef.RequiresNote && string.IsNullOrWhiteSpace(command.Note))
+            throw new InvalidOperationException($"Для коду '{nextCodeNorm}' обов'язково заповнити Note.");
+
+        // 5) Interpret user's InputDate by CURRENT state's meaning (prevDef.EndDateMeaning)
         DateOnly prevLastDay;
         DateOnly nextFrom;
 
@@ -69,35 +79,37 @@ public sealed class TransitionTimesheetStateCommandHandler(
             prevLastDay = command.InputDate.AddDays(-1);
         }
 
-        // 5) Validate boundaries (no silent "cancel")
+        // 6) Validate boundaries (no silent "cancel")
         if (prevLastDay < prev.From)
-            throw new InvalidOperationException("Неможливо: дата завершення поточного стану раніше початку поточної події.");
+            throw new InvalidOperationException(
+                "Неможливо: дата завершення поточного стану раніше початку поточної події.");
 
-        // (додатково можна заборонити "обрізати" так, щоб anchor став поза діапазоном)
-        // if (command.AnchorDate > prevLastDay) throw ...
+        // (опційно) якщо хочеш заборонити “перехід”, який викидає AnchorDate з діапазону:
+        // if (command.AnchorDate > prevLastDay)
+        //     throw new InvalidOperationException("Неможливо: AnchorDate опиняється поза поточною подією після обрізання.");
 
-        // 6) Update prev (close it)
+        // 7) Update prev (close it)
         prev.To = prevLastDay;
         prev.UpdatedBy = author;
         prev.UpdatedAtUtc = command.NowUtc;
 
-        // 7) Add next as open-ended
+        // 8) Add next as open-ended in same timeline
         var next = new TimesheetEntry
         {
             Id = Guid.NewGuid(),
             TimelineId = prev.TimelineId,
             PersonId = command.PersonId,
-            Lane = command.Lane,
             Code = nextCodeNorm,
             From = nextFrom,
             To = null,
             Reference = TrimOrNull(command.Reference),
             Note = TrimOrNull(command.Note),
             CreatedBy = author,
-            CreatedAtUtc = command.NowUtc
+            CreatedAtUtc = command.NowUtc,
+            IsDeleted = false
         };
 
-        // 8) Atomic save (update+insert)
+        // 9) Atomic save (update+insert)
         await _repo.SaveTransitionAsync(prev, next, ct);
     }
 
@@ -118,6 +130,7 @@ public sealed class TransitionTimesheetStateCommandHandler(
                 if (visited.Add(n)) q.Enqueue(n);
             }
         }
+
         return false;
     }
 

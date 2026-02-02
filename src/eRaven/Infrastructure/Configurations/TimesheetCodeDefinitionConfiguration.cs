@@ -18,8 +18,8 @@ public sealed class TimesheetCodeDefinitionConfiguration : IEntityTypeConfigurat
         e.ToTable("timesheet_codes");
         e.HasKey(x => x.Id);
 
-        e.Property(x => x.Lane)
-            .HasColumnName("lane")
+        e.Property(x => x.Id)
+            .HasColumnName("id")
             .IsRequired();
 
         e.Property(x => x.Code)
@@ -88,8 +88,8 @@ public sealed class TimesheetCodeDefinitionConfiguration : IEntityTypeConfigurat
         e.Property(x => x.UpdatedAtUtc)
             .HasColumnName("updated_at_utc");
 
-        e.HasIndex(x => new { x.Lane, x.Code })
+        e.HasIndex(x => x.Code)
             .IsUnique()
-            .HasDatabaseName("ux_ts_codes_lane_code");
+            .HasDatabaseName("ux_ts_codes_code");
     }
 }

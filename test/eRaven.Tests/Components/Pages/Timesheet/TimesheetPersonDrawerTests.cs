@@ -49,9 +49,8 @@ public sealed class TimesheetPersonDrawerTests : BunitContext
             EnrollmentKind: EnrollmentKind.Unit,
             EnrolledAt: new DateOnly(2026, 01, 10),
             ExcludedAt: null,
-            MainCodes: [],
-            MainRef: [],
-            TaskCodes: []
+            Codes: [],
+            Referenses: []
         );
 
         var cut = Render<TimesheetPersonDrawer>(ps => ps
@@ -92,9 +91,8 @@ public sealed class TimesheetPersonDrawerTests : BunitContext
             EnrollmentKind: EnrollmentKind.Unit,
             EnrolledAt: null,
             ExcludedAt: null,
-            MainCodes: [],
-            MainRef: [],
-            TaskCodes: []
+            Codes: [],
+            Referenses: []
         );
 
         var cut = Render<TimesheetPersonDrawer>(ps => ps
@@ -128,9 +126,8 @@ public sealed class TimesheetPersonDrawerTests : BunitContext
             EnrollmentKind: EnrollmentKind.Unit,
             EnrolledAt: null,
             ExcludedAt: null,
-            MainCodes: [],
-            MainRef: [],
-            TaskCodes: []
+            Codes: [],
+            Referenses: []
         );
 
         bool? newIsOpen = null;

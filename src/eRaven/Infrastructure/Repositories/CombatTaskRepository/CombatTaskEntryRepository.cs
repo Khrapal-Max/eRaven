@@ -138,13 +138,11 @@ public sealed class CombatTaskEntryRepository(IDbContextFactory<AppDbContext> db
         //
         // Мінімальне правило для доступності:
         // - дозволяємо тільки "30" (В районі)
-        // - все інше в MAIN => не доступний для планування групи
         //
         // Якщо захочеш — можна розширити дозволені коди (наприклад "0").
         // ---------------------------------------------------------------
         var notAvailableByTimesheet = db.TimesheetEntries
             .AsNoTracking()
-            .Where(t => t.Lane == TimesheetLane.Main)
             .Where(t => t.From <= asOfDate)
             .Where(t => t.To == null || t.To >= asOfDate)
             .Where(t => t.Code != freeMainCode)

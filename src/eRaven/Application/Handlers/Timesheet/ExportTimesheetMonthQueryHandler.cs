@@ -120,7 +120,7 @@ public sealed class ExportTimesheetMonthQueryHandler(
 
             for (var day = 1; day <= daysInMonth; day++)
             {
-                var main = GetCode(r.MainCodes, day);
+                var main = GetCode(r.Codes, day);
 
                 var cell = ws.Cell(rIdx, c++);
                 cell.Value = main ?? "";
@@ -131,7 +131,7 @@ public sealed class ExportTimesheetMonthQueryHandler(
                 // comment for 100
                 if (IsAlert(NormalizeCode(main)))
                 {
-                    var ref100 = GetText(r.MainRef, day); // потрібно поле в DTO
+                    var ref100 = GetText(r.Referenses, day); // потрібно поле в DTO
                     if (!string.IsNullOrWhiteSpace(ref100))
                     {
                         var comment = cell.CreateComment();   // replaces existing comment

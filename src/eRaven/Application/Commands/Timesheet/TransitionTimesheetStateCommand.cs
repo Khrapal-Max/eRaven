@@ -5,13 +5,10 @@
 // TransitionTimesheetStateCommand
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
-
 namespace eRaven.Application.Commands.Timesheet;
 
 public sealed record TransitionTimesheetStateCommand(
     Guid PersonId,
-    TimesheetLane Lane,
     DateOnly AnchorDate,
     DateOnly InputDate,
     string NextCode,

@@ -34,8 +34,7 @@ public sealed class GetTimesheetDayQueryHandlerTests
                 EnrollmentKind: EnrollmentKind.Unit,
                 EnrolledAt: new DateOnly(2026, 01, 01),
                 ExcludedAt: null,
-                Main: new TimesheetDayLaneStateDto("30", "REF", "NOTE"),
-                Task: new TimesheetDayLaneStateDto("", null, null)
+                DayState: new TimesheetDayStateDto("30", "REF", "NOTE")
             )
         };
 

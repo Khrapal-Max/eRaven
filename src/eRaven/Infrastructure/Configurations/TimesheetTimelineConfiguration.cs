@@ -18,12 +18,12 @@ public sealed class TimesheetTimelineConfiguration : IEntityTypeConfiguration<Ti
         e.ToTable("timesheet_timelines");
         e.HasKey(x => x.Id);
 
-        e.Property(x => x.PersonId)
-            .HasColumnName("person_id")
+        e.Property(x => x.Id)
+            .HasColumnName("id")
             .IsRequired();
 
-        e.Property(x => x.Lane)
-            .HasColumnName("lane")
+        e.Property(x => x.PersonId)
+            .HasColumnName("person_id")
             .IsRequired();
 
         e.Property(x => x.OpenedAt)
@@ -49,7 +49,21 @@ public sealed class TimesheetTimelineConfiguration : IEntityTypeConfiguration<Ti
         e.Property(x => x.ClosedAtUtc)
             .HasColumnName("closed_at_utc");
 
-        e.HasIndex(x => new { x.PersonId, x.Lane, x.ClosedAt })
-            .HasDatabaseName("ix_ts_timeline_person_lane_closed");
+        // 1) Fast lookup of timelines by person + state
+        e.HasIndex(x => new { x.PersonId, x.ClosedAt })
+            .HasDatabaseName("ix_ts_timelines_person_closed");
+
+        // 2) Guarantee: only one active timeline per person (ClosedAt == null)
+        // Npgsql supports filtered indexes.
+        e.HasIndex(x => x.PersonId)
+            .IsUnique()
+            .HasFilter("closed_at IS NULL")
+            .HasDatabaseName("ux_ts_timelines_person_active");
+
+        // Navigation (optional): TimesheetTimeline.Entries
+        e.HasMany(x => x.Entries)
+            .WithOne(x => x.Timeline)
+            .HasForeignKey(x => x.TimelineId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

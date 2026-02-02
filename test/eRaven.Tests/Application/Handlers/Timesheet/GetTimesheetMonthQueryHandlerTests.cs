@@ -36,9 +36,8 @@ public sealed class GetTimesheetMonthQueryHandlerTests
             EnrollmentKind: EnrollmentKind.Unit,
             EnrolledAt: new DateOnly(2026, 1, 1),
             ExcludedAt: null,
-            MainCodes: ["30"],
-            MainRef: [null],
-            TaskCodes: [""]
+            Codes: ["30"],
+            Referenses: [null]
         );
 
         IReadOnlyList<TimesheetPersonMonthRowDto> expected = [row];

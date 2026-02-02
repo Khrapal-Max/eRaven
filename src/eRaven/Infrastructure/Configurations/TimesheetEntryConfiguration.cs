@@ -18,6 +18,10 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
         e.ToTable("timesheet_entries");
         e.HasKey(x => x.Id);
 
+        e.Property(x => x.Id)
+            .HasColumnName("id")
+            .IsRequired();
+
         e.Property(x => x.TimelineId)
             .HasColumnName("timeline_id")
             .IsRequired();
@@ -26,21 +30,19 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
             .HasColumnName("person_id")
             .IsRequired();
 
-        e.Property(x => x.Lane)
-            .HasColumnName("lane")
-            .IsRequired();
-
         e.Property(x => x.Code)
             .HasColumnName("code")
             .HasMaxLength(32)
             .IsRequired();
 
+        // NOTE: "from"/"to" можуть бути незручними іменами в SQL.
+        // Якщо ти вже робиш міграцію — краще одразу мати from_date/to_date.
         e.Property(x => x.From)
-            .HasColumnName("from")
+            .HasColumnName("from_date")
             .IsRequired();
 
         e.Property(x => x.To)
-            .HasColumnName("to");
+            .HasColumnName("to_date");
 
         e.Property(x => x.Reference)
             .HasColumnName("reference")
@@ -82,14 +84,14 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
             .HasMaxLength(512);
 
         e.HasOne(x => x.Timeline)
-            .WithMany()
+            .WithMany(x => x.Entries)
             .HasForeignKey(x => x.TimelineId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        e.HasIndex(x => new { x.PersonId, x.Lane, x.From, x.To })
-            .HasDatabaseName("ix_ts_entries_person_lane_range");
+        e.HasIndex(x => new { x.PersonId, x.From, x.To })
+            .HasDatabaseName("ix_ts_entries_person_range");
 
-        e.HasIndex(x => new { x.TimelineId, x.Lane, x.From })
-            .HasDatabaseName("ix_ts_entries_timeline_lane_from");
+        e.HasIndex(x => new { x.TimelineId, x.From })
+            .HasDatabaseName("ix_ts_entries_timeline_from");
     }
 }

@@ -10,37 +10,84 @@ using eRaven.Application.Commands.Timesheet;
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheet;
-using eRaven.Domain.Enums;
+using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace eRaven.Components.Pages.Timesheet;
 
+/// <summary>
+/// Сторінка табеля конкретної особи за місяць:
+/// - календар (derived з day-codes: Person.Codes),
+/// - список записів (source of truth: Entries).
+/// Планів/Task-рівня немає: табель = факт.
+/// </summary>
 public partial class TimesheetPersonShell
 {
-    [Inject] public IQueryHandler<GetTimesheetPersonMonthQuery, TimesheetPersonMonthDto> Query { get; set; } = default!;
+    //======================================================================
+    // DI + Route params
+    //======================================================================
+
+    /// <summary>
+    /// Read-query: місяць конкретної особи (day-codes + entries).
+    /// </summary>
+    [Inject]
+    public IQueryHandler<GetTimesheetPersonMonthQuery, TimesheetPersonMonthDto?> Query { get; set; } = default!;
+
     [Inject] public NavigationManager Nav { get; set; } = default!;
+
+    [Inject] public ToastService ToastService { get; set; } = default!;
+
+    /// <summary>
+    /// Ідентифікатор особи з маршруту.
+    /// </summary>
     [Parameter] public Guid PersonId { get; set; }
 
+    /// <summary>
+    /// Команда переходу стану для створення події (transition).
+    /// </summary>
+    [Inject] public ICommandHandler<TransitionTimesheetStateCommand> Handler { get; set; } = default!;
+
+    //======================================================================
+    // State
+    //======================================================================
+
     private bool _loading;
-    private string? _error;
 
     private int _year;
     private int _month;
+    private int _daysInMonth;
 
     private TimesheetPersonMonthDto? _dto;
 
+    // Calendar grid:
     private readonly string[] _weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
-
     private int _offset;
     private int _gridCellCount;
 
+    // Source of truth (entries for the month)
+    private List<TimesheetPersonEntryRowDto> _entries = [];
+
+    //======================================================================
+    // Lifecycle
+    //======================================================================
+
+    /// <summary>
+    /// Викликається при зміні параметрів (PersonId / query string).
+    /// </summary>
     protected override async Task OnParametersSetAsync()
     {
         ReadYearMonthFromQueryString();
         await ReloadAsync();
     }
 
+    //======================================================================
+    // Query string (year/month)
+    //======================================================================
+
+    /// <summary>
+    /// Зчитує year/month з query string. Якщо нема — ставить поточну дату.
+    /// </summary>
     private void ReadYearMonthFromQueryString()
     {
         var uri = Nav.ToAbsoluteUri(Nav.Uri);
@@ -57,10 +104,51 @@ public partial class TimesheetPersonShell
             _month = Math.Clamp(m, 1, 12);
     }
 
+    /// <summary>
+    /// Навігація на інший місяць шляхом оновлення query string.
+    /// </summary>
+    private void NavigateToMonth(int year, int month)
+    {
+        _year = Math.Clamp(year, 2000, 2100);
+        _month = Math.Clamp(month, 1, 12);
+
+        var url = Nav.GetUriWithQueryParameters(new Dictionary<string, object?>
+        {
+            ["year"] = _year,
+            ["month"] = _month
+        });
+
+        Nav.NavigateTo(url);
+    }
+
+    private Task OnYearChanged(ChangeEventArgs e)
+    {
+        if (!int.TryParse(Convert.ToString(e.Value), out var y))
+            return Task.CompletedTask;
+
+        NavigateToMonth(y, _month);
+        return Task.CompletedTask;
+    }
+
+    private Task OnMonthChanged(ChangeEventArgs e)
+    {
+        if (!int.TryParse(Convert.ToString(e.Value), out var m))
+            return Task.CompletedTask;
+
+        NavigateToMonth(_year, m);
+        return Task.CompletedTask;
+    }
+
+    //======================================================================
+    // Data loading
+    //======================================================================
+
+    /// <summary>
+    /// Завантажує табель особи за місяць, перебудовує календар та список entries.
+    /// </summary>
     private async Task ReloadAsync()
     {
         _loading = true;
-        _error = null;
 
         try
         {
@@ -69,12 +157,27 @@ public partial class TimesheetPersonShell
                 Year: _year,
                 Month: _month));
 
+            if (_dto is null)
+            {
+                _daysInMonth = DateTime.DaysInMonth(_year, _month);
+                _entries = [];
+                _offset = 0;
+                _gridCellCount = 0;
+                return;
+            }
+
+            _daysInMonth = _dto.DaysInMonth;
+
             BuildCalendarGrid(_dto.Year, _dto.Month, _dto.DaysInMonth);
+
+            // fact-only: беремо все як є (entries вже тільки фактичні)
+            _entries = [.. _dto.Entries];
         }
         catch (Exception ex)
         {
-            _error = ex.Message;
+            ToastService.Error(ex.Message);
             _dto = null;
+            _entries = [];
             _offset = 0;
             _gridCellCount = 0;
         }
@@ -84,22 +187,9 @@ public partial class TimesheetPersonShell
         }
     }
 
-    private string GetDayCode(int day, TimesheetLane lane)
-    {
-        if (_dto is null) return lane == TimesheetLane.Main ? "НБ" : "";
-
-        var idx = day - 1;
-        if (idx < 0 || idx >= _dto.DaysInMonth)
-            return lane == TimesheetLane.Main ? "НБ" : "";
-
-        var src = lane == TimesheetLane.Main ? _dto.Person.MainCodes : _dto.Person.TaskCodes;
-
-        if (src is null || idx >= src.Count)
-            return lane == TimesheetLane.Main ? "НБ" : "";
-
-        return (src[idx] ?? "").Trim();
-    }
-
+    /// <summary>
+    /// Формує параметри календарної сітки: Monday-first.
+    /// </summary>
     private void BuildCalendarGrid(int year, int month, int daysInMonth)
     {
         var first = new DateOnly(year, month, 1);
@@ -113,78 +203,89 @@ public partial class TimesheetPersonShell
         _gridCellCount = rows * 7;
     }
 
-    private Task OnYearChanged(ChangeEventArgs e)
-    {
-        if (!int.TryParse(Convert.ToString(e.Value), out var y))
-            return Task.CompletedTask;
+    //======================================================================
+    // Calendar helpers (fact-only)
+    //======================================================================
 
-        y = Math.Clamp(y, 2000, 2100);
-        NavigateToMonth(y, _month);
-        return Task.CompletedTask;
+    /// <summary>
+    /// Повертає код табеля для конкретного day (1-based) з Person.Codes.
+    /// Якщо даних немає — "НБ".
+    /// </summary>
+    private string GetDayCode(int day)
+    {
+        if (_dto?.Person.Codes is null) return "НБ";
+
+        var idx = day - 1;
+        if (idx < 0 || idx >= _dto.Person.Codes.Count) return "НБ";
+
+        return (_dto.Person.Codes[idx] ?? "").Trim();
     }
 
-    private Task OnMonthChanged(ChangeEventArgs e)
+    /// <summary>
+    /// Повертає довідковий текст для tooltip (1-based) з Person.Referenses.
+    /// Має сенс для “alert/fact” кодів (100/ПБД/Ф100).
+    /// </summary>
+    private string? GetRef(int day)
     {
-        if (!int.TryParse(Convert.ToString(e.Value), out var m))
-            return Task.CompletedTask;
+        if (_dto?.Person.Referenses is null) return null;
 
-        m = Math.Clamp(m, 1, 12);
-        NavigateToMonth(_year, m);
-        return Task.CompletedTask;
+        var idx = day - 1;
+        if (idx < 0 || idx >= _dto.Person.Referenses.Count) return null;
+
+        var v = _dto.Person.Referenses[idx];
+        return string.IsNullOrWhiteSpace(v) ? null : v.Trim();
     }
 
-    private void NavigateToMonth(int year, int month)
+    /// <summary>
+    /// Коди, які вимагають уваги/пояснення (tooltip/ref).
+    /// 100 тепер факт — тому лишається тут.
+    /// </summary>
+    private static bool IsAlert(string? code)
     {
-        _year = year;
-        _month = month;
-
-        var url = Nav.GetUriWithQueryParameters(new Dictionary<string, object?>
-        {
-            ["year"] = _year,
-            ["month"] = _month
-        });
-
-        Nav.NavigateTo(url);
+        var c = (code ?? "").Trim().ToUpperInvariant();
+        return c == "100" || c == "ПБД" || c == "Ф100";
     }
 
-    // ЧИСТО ДЛЯ ТЕСТА: открытие боковой панели создания события на сегодня
+    //======================================================================
+    // Event drawer (створення події)
+    //======================================================================
+
     private bool _eventDrawerOpen;
     private TimesheetPersonMonthRowDto? _eventDrawerPerson;
     private DateOnly _eventDrawerDate;
-    private TimesheetLane _eventDrawerLane = TimesheetLane.Main;
 
-    [Inject] public ICommandHandler<TransitionTimesheetStateCommand> Handler { get; set; } = default!;
-
+    /// <summary>
+    /// Відкриває drawer створення події на сьогодні.
+    /// </summary>
     private void OpenEventDrawerToday()
     {
         if (_dto?.Person is null) return;
 
         _eventDrawerPerson = _dto.Person;
-
-        // current date (today)
         _eventDrawerDate = DateOnly.FromDateTime(DateTime.Today);
-
-        _eventDrawerLane = TimesheetLane.Main; // for quick tests
         _eventDrawerOpen = true;
     }
 
-    // optional: if your drawer requires OnSubmit callback
+    /// <summary>
+    /// Обробляє submit з drawer:
+    /// виконує transition та перезавантажує дані.
+    /// </summary>
     private async Task HandleCreateEventAsync(TimesheetTransitionCreateDto dto)
     {
-        // quick test stub: just close drawer; wiring save can be added later
         var command = new TransitionTimesheetStateCommand(
             PersonId: dto.PersonId,
-            Lane: dto.Lane,
             AnchorDate: dto.AnchorDate,
             InputDate: dto.InputDate,
             NextCode: dto.NextCode,
             Reference: dto.Reference,
             Note: dto.Note,
             Author: "test.user",
-            NowUtc: DateTime.UtcNow);
-
+            NowUtc: DateTime.UtcNow
+        );
 
         await Handler.HandleAsync(command, default);
+
         _eventDrawerOpen = false;
+        await ReloadAsync();
     }
 }

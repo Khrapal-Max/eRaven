@@ -26,19 +26,14 @@ public sealed class ExportTimesheetMonthQueryHandlerTests
         var year = 2026;
         var month = 1;
 
-        var main = new string[31];
-        var task = new string[31];
-        var ref100 = new string?[31];
+        var dayCode = new string[31];
+        var referenses = new string?[31];
 
         for (var i = 0; i < 31; i++)
         {
-            main[i] = "30";
-            task[i] = "";      // ignored by export, still present in DTO
-            ref100[i] = null;  // no alert refs
+            dayCode[i] = "30";
+            referenses[i] = null;  // no alert refs
         }
-
-        // Day 1: task exists, but export should ignore it
-        task[0] = "ПБД";
 
         var row = new TimesheetPersonMonthRowDto(
             PersonId: Guid.NewGuid(),
@@ -49,9 +44,8 @@ public sealed class ExportTimesheetMonthQueryHandlerTests
             EnrollmentKind: EnrollmentKind.Unit,
             EnrolledAt: new DateOnly(2026, 1, 1),
             ExcludedAt: null,
-            MainCodes: main,
-            MainRef: ref100,
-            TaskCodes: task);
+            Codes: dayCode,
+            Referenses: referenses);
 
         IReadOnlyList<TimesheetPersonMonthRowDto> rows = [row];
 
@@ -117,20 +111,18 @@ public sealed class ExportTimesheetMonthQueryHandlerTests
         var year = 2026;
         var month = 1;
 
-        var main = new string[31];
-        var task = new string[31];
-        var ref100 = new string?[31];
+        var dayCode = new string[31];
+        var referenses = new string?[31];
 
         for (var i = 0; i < 31; i++)
         {
-            main[i] = "30";
-            task[i] = "";
-            ref100[i] = null;
+            dayCode[i] = "30";
+            referenses[i] = null;  // no alert refs
         }
 
         // Day 1 => 100 with reference
-        main[0] = "100";
-        ref100[0] = "REF-ABC";
+        dayCode[0] = "100";
+        referenses[0] = "REF-ABC";
 
         var row = new TimesheetPersonMonthRowDto(
             PersonId: Guid.NewGuid(),
@@ -141,9 +133,8 @@ public sealed class ExportTimesheetMonthQueryHandlerTests
             EnrollmentKind: EnrollmentKind.Unit,
             EnrolledAt: new DateOnly(2026, 1, 1),
             ExcludedAt: null,
-            MainCodes: main,
-            MainRef: ref100,
-            TaskCodes: task);
+            Codes: dayCode,
+            Referenses: referenses);
 
         IReadOnlyList<TimesheetPersonMonthRowDto> rows = [row];
 

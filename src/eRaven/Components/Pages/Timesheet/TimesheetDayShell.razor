@@ -1,10 +1,11 @@
 ﻿@page "/timesheet-day"
+
 @using eRaven.Application.DTOs.Timesheet
 @using eRaven.Domain.Enums
 
 <PageTitle>Табель (стан на день)</PageTitle>
 
-<div class="page-content">  
+<div class="page-content">
 
     <div class="border bg-secondary-subtle">
         <div class="py-2 px-4 text-white">
@@ -18,7 +19,7 @@
 
             <div class="d-flex flex-column">
                 <label class="form-label mb-1">Дата</label>
-                <input class="form-control form-control-sm rounded-0  bg-dark text-white"
+                <input class="form-control form-control-sm rounded-0 bg-dark text-white"
                        type="date"
                        value="@_dateIso"
                        @onchange="OnDateChanged" />
@@ -63,12 +64,12 @@
                     <TableHeader>
                         <th class="text-center">Тип</th>
                         <th>ПІБ</th>
+
                         <th class="text-center">Факт</th>
                         <th class="text-center">Підстава</th>
                         <th class="text-center">Примітка</th>
-                        <th class="text-center">Завдання (план)</th>
-                        <th class="text-center">Підстава</th>
-                        <th class="text-center">Примітка</th>
+
+                        <th class="text-center">План</th>
                         <th class="text-center">Дія</th>
                     </TableHeader>
 
@@ -86,24 +87,23 @@
                             }
                         </td>
 
-                        <td class="text-center fw-semibold">@r.Main.Code</td>
-                        <td class="text-center">@r.Main.Reference</td>
-                        <td class="text-truncate">@r.Main.Note</td>
+                        <td class="text-center fw-semibold">@r.DayState.Code</td>
+                        <td class="text-center text-truncate" style="max-width:160px">@r.DayState.Reference</td>
+                        <td class="text-truncate" style="max-width:220px">@r.DayState.Note</td>
 
-                        <td class="text-center fw-semibold">@r.Task.Code</td>
-                        <td class="text-truncate">@r.Task.Reference</td>
-                        <td class="text-truncate">@r.Task.Note</td>
+                        <!-- TODO: documents integration (plans/tasks) -->
+                        <td class="text-center">—</td>
 
                         <td class="text-center">
                             <div class="d-inline-flex gap-1">
                                 <Button Class="btn-sm btn-primary rounded-0"
                                         Label="+ подія"
                                         StopPropagation="true"
-                                        OnClickButton="@(() => OpenEventDrawer(r, TimesheetLane.Main))" />
+                                        OnClickButton="@(() => OpenEventDrawer(r))" />
 
                                 <Button Class="btn-sm btn-warning rounded-0"
                                         Label="Особовий табель"
-                                        OnClickButton="@(() => Nav.NavigateTo($"/timesheet/person/{r?.PersonId}"))" />
+                                        OnClickButton="@(() => Nav.NavigateTo($"/timesheet/person/{r.PersonId}"))" />
                             </div>
                         </td>
                     </RowTemplate>
@@ -117,6 +117,5 @@
 <TimesheetEventDrawer IsOpen="@_eventDrawerOpen"
                       IsOpenChanged="@(v => _eventDrawerOpen = v)"
                       Person="@_eventDrawerPerson"
-                      Lane="@_eventDrawerLane"
                       Date="@_eventDrawerDate"
                       OnSubmit="HandleCreateEventAsync" />

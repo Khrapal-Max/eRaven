@@ -1,5 +1,7 @@
 ﻿@page "/timesheet/policy"
+
 @using eRaven.Domain.Enums
+@using eRaven.Components.Shared.Button
 
 <div class="page-flex">
 
@@ -10,7 +12,6 @@
         @if (_selected is not null)
         {
             <div class="ms-2 small text-muted">
-                Lane: <span class="fw-semibold text-body">@_selectedLane</span>,
                 Код: <span class="font-monospace fw-semibold text-body">@_selected.Code</span> — @_selected.Title
             </div>
         }
@@ -25,19 +26,18 @@
         <div class="border rounded-2 overflow-hidden h-100">
             <div class="row g-0 h-100">
 
-                <!-- Left: list (Main + Task) -->
+                <!-- Left: list of codes -->
                 <div class="col-4 border-end h-100 overflow-auto">
 
                     <div class="p-2 border-bottom small">
                         Оберіть код зліва. Справа налаштовуються дозволені переходи та правило трактування дати “по/закінчення”.
-                        <div class="mt-1">
-                            <span class="badge text-bg-secondary me-1">Main</span> факт табеля
-                            <span class="badge text-bg-warning text-dark ms-2 me-1">Task</span> план/чернетка
+                        <div class="mt-1 text-muted">
+                            <span class="fw-semibold">НБ</span> — системний стан “поза табелем”, не є подією і тут не налаштовується.
                         </div>
                     </div>
 
                     <div class="list-group list-group-flush">
-                        @foreach (var s in _mainCodes)
+                        @foreach (var s in _codes)
                         {
                             if (IsNB(s)) { continue; }
 
@@ -45,27 +45,9 @@
 
                             <button type="button"
                                     class="list-group-item list-group-item-action list-group-item-secondary @(selected ? "active" : "")"
-                                    @onclick="() => SelectAsync(TimesheetLane.Main, s)">
+                                    @onclick="() => SelectAsync(s)">
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <span class="text-truncate me-2">Main: @s.Title</span>
-                                    <span class="font-monospace">@s.Code</span>
-                                </div>
-                            </button>
-                        }
-                    </div>
-
-                    <div class="list-group list-group-flush border-top">
-                        @foreach (var s in _taskCodes)
-                        {
-                            if (IsNB(s)) { continue; }
-
-                            var selected = _selected?.Id == s.Id;
-
-                            <button type="button"
-                                    class="list-group-item list-group-item-action list-group-item-secondary @(selected ? "active" : "")"
-                                    @onclick="() => SelectAsync(TimesheetLane.Task, s)">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="text-truncate me-2">Task: @s.Title</span>
+                                    <span class="text-truncate me-2">@s.Title</span>
                                     <span class="font-monospace">@s.Code</span>
                                 </div>
                             </button>
@@ -78,7 +60,7 @@
                 <div class="col-8 h-100 overflow-auto">
                     @if (_selected is null)
                     {
-                        <div class="p-3">Оберіть статус зліва (Main або Task).</div>
+                        <div class="p-3">Оберіть код зліва.</div>
                     }
                     else
                     {
@@ -86,23 +68,16 @@
 
                             <!-- Header -->
                             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                                <span class="badge @( _selectedLane == TimesheetLane.Main ? "text-bg-secondary" : "text-bg-warning text-dark")">
-                                    @_selectedLane
-                                </span>
                                 <div class="fw-semibold">
                                     <span class="font-monospace">@_selected.Code</span> — @_selected.Title
                                 </div>
                             </div>
 
-                            <!-- Business rules for user/admin -->
+                            <!-- Business rules -->
                             <div class="alert alert-light border small mb-3">
                                 <div class="fw-semibold mb-1">Бізнес-правила</div>
 
                                 <ul class="mb-0 ps-3">
-                                    <li>
-                                        Переходи налаштовуються <span class="fw-semibold">тільки в межах одного lane</span>.
-                                        Main ↔ Task тут не змішуємо.
-                                    </li>
                                     <li>
                                         <span class="fw-semibold">НБ</span> — системний стан “поза табелем”.
                                         Його <span class="fw-semibold">не можна</span> виставляти як подію і тут він не налаштовується.
@@ -113,7 +88,7 @@
                                     </li>
                                 </ul>
 
-                                @if (_selectedLane == TimesheetLane.Main && _endDateMeaning == TimesheetEndDateMeaning.FirstDayOfNextCode)
+                                @if (_endDateMeaning == TimesheetEndDateMeaning.FirstDayOfNextCode)
                                 {
                                     <div class="mt-2 text-muted">
                                         “Наступний код на дату повернення”:
@@ -123,9 +98,10 @@
                             </div>
 
                             <!-- Settings -->
-                            <div class="d-flex align-items-center justify-content-between">
-                                <div class="col-12 col-lg-4 px-2">
-                                    <label class="form-label small px-2">Семантика дати “по/закінчення”</label>
+                            <div class="d-flex align-items-end justify-content-between flex-wrap gap-2 mb-2">
+
+                                <div class="col-12 col-lg-5 px-2">
+                                    <label class="form-label small px-1">Семантика дати “по/закінчення”</label>
                                     <select class="form-select form-select-sm"
                                             value="@_endDateMeaning"
                                             @onchange="OnMeaningChanged">
@@ -134,14 +110,14 @@
                                     </select>
                                 </div>
 
-                                @if (_selectedLane == TimesheetLane.Main && _endDateMeaning == TimesheetEndDateMeaning.FirstDayOfNextCode)
+                                @if (_endDateMeaning == TimesheetEndDateMeaning.FirstDayOfNextCode)
                                 {
                                     <div class="col-12 col-lg-4 px-2">
-                                        <label class="form-label small">Наступний код на дату (зазвичай 30)</label>
+                                        <label class="form-label small px-1">Наступний код на дату (зазвичай 30)</label>
                                         <select class="form-select form-select-sm"
                                                 value="@(_nextCodeOnEnd ?? "30")"
                                                 @onchange="OnNextCodeChanged">
-                                            @foreach (var c in _mainCodes)
+                                            @foreach (var c in _codes)
                                             {
                                                 if (IsNB(c)) { continue; }
                                                 <option value="@c.Code">@c.Code — @c.Title</option>
@@ -151,7 +127,7 @@
                                 }
 
                                 <!-- Bulk actions -->
-                                <div class="col-12 col-lg-4 px-2">
+                                <div class="col-12 col-lg-3 px-2 d-flex gap-2">
                                     <Button Class="btn-sm btn-outline-secondary"
                                             Label="Вибрати всі"
                                             OnClickButton="SelectAll" />
@@ -162,17 +138,14 @@
                                 </div>
                             </div>
 
-
                             <div class="small text-muted mb-2">
-                                Дозволені переходи (в межах цього lane):
+                                Дозволені переходи:
                             </div>
 
                             <!-- Allowed transitions -->
                             <div class="row g-2">
                                 @foreach (var t in RightPanelTargets())
                                 {
-                                    if (IsNB(t)) { continue; }
-
                                     var checkedVal = _allowedTo.Contains(t.Id);
 
                                     <div class="col-12 col-md-6 col-lg-4">

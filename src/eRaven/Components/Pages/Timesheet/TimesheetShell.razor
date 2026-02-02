@@ -69,10 +69,6 @@
         {
             <p class="px-1"><em>Завантаження...</em></p>
         }
-        else if (_error is not null)
-        {
-            <div class="alert alert-danger rounded-0">@_error</div>
-        }
         else
         {
             <div class="small mb-2">
@@ -116,22 +112,16 @@
 
                         @for (var day = 1; day <= _daysInMonth; day++)
                         {
-                            var main = GetCode(r.MainCodes, day);
-                            var task = GetCode(r.TaskCodes, day);
-                            var tdClass = GetCellClass(main, task);
+                            var main = GetCode(r.Codes, day);
+                            var tdClass = GetCellClass(main);
 
                             <td class="text-center ts-cell @tdClass">
                                 @if (!string.IsNullOrWhiteSpace(main))
                                 {
                                     <div class="ts-main"
-                                         title="@(IsAlert(main) ? r.MainRef[day - 1] : null)">
+                                         title="@(IsAlert(main) ? r.Referenses[day - 1] : null)">
                                         @ShortCode(main)
                                     </div>
-                                }
-
-                                @if (!string.IsNullOrWhiteSpace(task))
-                                {
-                                    <span class="ts-task-flag" title="@($"Task: {task}")"></span>
                                 }
                             </td>
                         }

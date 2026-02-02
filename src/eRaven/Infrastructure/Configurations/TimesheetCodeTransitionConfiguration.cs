@@ -18,8 +18,8 @@ public sealed class TimesheetCodeTransitionConfiguration : IEntityTypeConfigurat
         e.ToTable("timesheet_code_transitions");
         e.HasKey(x => x.Id);
 
-        e.Property(x => x.Lane)
-            .HasColumnName("lane")
+        e.Property(x => x.Id)
+            .HasColumnName("id")
             .IsRequired();
 
         e.Property(x => x.FromCodeId)
@@ -53,7 +53,7 @@ public sealed class TimesheetCodeTransitionConfiguration : IEntityTypeConfigurat
             .IsUnique()
             .HasDatabaseName("ux_ts_transitions_from_to");
 
-        e.HasIndex(x => new { x.Lane, x.FromCodeId })
-            .HasDatabaseName("ix_ts_transitions_lane_from");
+        e.HasIndex(x => x.FromCodeId)
+            .HasDatabaseName("ix_ts_transitions_from");
     }
 }

@@ -5,15 +5,15 @@
 // TimesheetCodeTransition
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
-
 namespace eRaven.Domain.Entities;
 
+/// <summary>
+/// Allowed transition between codes.
+/// Example: From "100" -> To "30".
+/// </summary>
 public sealed class TimesheetCodeTransition
 {
     public Guid Id { get; set; }
-
-    public TimesheetLane Lane { get; set; }
 
     public Guid FromCodeId { get; set; }
     public TimesheetCodeDefinition FromCode { get; set; } = null!;

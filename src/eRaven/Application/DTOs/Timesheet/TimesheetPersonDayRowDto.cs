@@ -18,6 +18,4 @@ public sealed record TimesheetPersonDayRowDto(
     EnrollmentKind? EnrollmentKind,
     DateOnly? EnrolledAt,
     DateOnly? ExcludedAt,
-    TimesheetDayLaneStateDto Main,
-    TimesheetDayLaneStateDto Task
-);
+    TimesheetDayStateDto DayState);

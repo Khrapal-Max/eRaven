@@ -416,7 +416,8 @@ namespace eRaven.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -453,10 +454,6 @@ namespace eRaven.Migrations
                     b.Property<bool>("IsTerminal")
                         .HasColumnType("boolean")
                         .HasColumnName("is_terminal");
-
-                    b.Property<int>("Lane")
-                        .HasColumnType("integer")
-                        .HasColumnName("lane");
 
                     b.Property<string>("NextCodeOnEnd")
                         .HasMaxLength(32)
@@ -496,9 +493,9 @@ namespace eRaven.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Lane", "Code")
+                    b.HasIndex("Code")
                         .IsUnique()
-                        .HasDatabaseName("ux_ts_codes_lane_code");
+                        .HasDatabaseName("ux_ts_codes_code");
 
                     b.ToTable("timesheet_codes", (string)null);
                 });
@@ -507,7 +504,8 @@ namespace eRaven.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -523,24 +521,20 @@ namespace eRaven.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("from_code_id");
 
-                    b.Property<int>("Lane")
-                        .HasColumnType("integer")
-                        .HasColumnName("lane");
-
                     b.Property<Guid>("ToCodeId")
                         .HasColumnType("uuid")
                         .HasColumnName("to_code_id");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("FromCodeId")
+                        .HasDatabaseName("ix_ts_transitions_from");
+
                     b.HasIndex("ToCodeId");
 
                     b.HasIndex("FromCodeId", "ToCodeId")
                         .IsUnique()
                         .HasDatabaseName("ux_ts_transitions_from_to");
-
-                    b.HasIndex("Lane", "FromCodeId")
-                        .HasDatabaseName("ix_ts_transitions_lane_from");
 
                     b.ToTable("timesheet_code_transitions", (string)null);
                 });
@@ -549,7 +543,8 @@ namespace eRaven.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -583,15 +578,11 @@ namespace eRaven.Migrations
 
                     b.Property<DateOnly>("From")
                         .HasColumnType("date")
-                        .HasColumnName("from");
+                        .HasColumnName("from_date");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
-
-                    b.Property<int>("Lane")
-                        .HasColumnType("integer")
-                        .HasColumnName("lane");
 
                     b.Property<string>("Note")
                         .HasMaxLength(1024)
@@ -613,7 +604,7 @@ namespace eRaven.Migrations
 
                     b.Property<DateOnly?>("To")
                         .HasColumnType("date")
-                        .HasColumnName("to");
+                        .HasColumnName("to_date");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -626,11 +617,11 @@ namespace eRaven.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TimelineId", "Lane", "From")
-                        .HasDatabaseName("ix_ts_entries_timeline_lane_from");
+                    b.HasIndex("TimelineId", "From")
+                        .HasDatabaseName("ix_ts_entries_timeline_from");
 
-                    b.HasIndex("PersonId", "Lane", "From", "To")
-                        .HasDatabaseName("ix_ts_entries_person_lane_range");
+                    b.HasIndex("PersonId", "From", "To")
+                        .HasDatabaseName("ix_ts_entries_person_range");
 
                     b.ToTable("timesheet_entries", (string)null);
                 });
@@ -639,7 +630,8 @@ namespace eRaven.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
 
                     b.Property<DateOnly?>("ClosedAt")
                         .HasColumnType("date")
@@ -664,10 +656,6 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("created_by");
 
-                    b.Property<int>("Lane")
-                        .HasColumnType("integer")
-                        .HasColumnName("lane");
-
                     b.Property<DateOnly>("OpenedAt")
                         .HasColumnType("date")
                         .HasColumnName("opened_at");
@@ -678,8 +666,13 @@ namespace eRaven.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PersonId", "Lane", "ClosedAt")
-                        .HasDatabaseName("ix_ts_timeline_person_lane_closed");
+                    b.HasIndex("PersonId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_ts_timelines_person_active")
+                        .HasFilter("closed_at IS NULL");
+
+                    b.HasIndex("PersonId", "ClosedAt")
+                        .HasDatabaseName("ix_ts_timelines_person_closed");
 
                     b.ToTable("timesheet_timelines", (string)null);
                 });
@@ -717,7 +710,7 @@ namespace eRaven.Migrations
             modelBuilder.Entity("eRaven.Domain.Entities.TimesheetEntry", b =>
                 {
                     b.HasOne("eRaven.Domain.Entities.TimesheetTimeline", "Timeline")
-                        .WithMany()
+                        .WithMany("Entries")
                         .HasForeignKey("TimelineId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -728,6 +721,11 @@ namespace eRaven.Migrations
             modelBuilder.Entity("eRaven.Domain.Entities.CombatTaskDocument", b =>
                 {
                     b.Navigation("CombatTasks");
+                });
+
+            modelBuilder.Entity("eRaven.Domain.Entities.TimesheetTimeline", b =>
+                {
+                    b.Navigation("Entries");
                 });
 #pragma warning restore 612, 618
         }

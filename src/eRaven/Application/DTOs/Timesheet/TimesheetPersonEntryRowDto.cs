@@ -5,12 +5,9 @@
 // TimesheetPersonEntryRowDto
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
-
 namespace eRaven.Application.DTOs.Timesheet;
 
 public sealed record TimesheetPersonEntryRowDto(
-TimesheetLane Lane,
 string Code,
 DateOnly From,
 DateOnly? To,
