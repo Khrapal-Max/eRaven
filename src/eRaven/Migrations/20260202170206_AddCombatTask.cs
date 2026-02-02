@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -103,6 +105,8 @@ namespace eRaven.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    row_no = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     document_id = table.Column<Guid>(type: "uuid", nullable: false),
                     group_id = table.Column<Guid>(type: "uuid", nullable: false),
                     group_sequence = table.Column<int>(type: "integer", nullable: false),
@@ -207,6 +211,17 @@ namespace eRaven.Migrations
                 name: "IX_combat_task_entries_document_id_group_sequence",
                 table: "combat_task_entries",
                 columns: new[] { "document_id", "group_sequence" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_combat_task_entries_person_id_action_date_row_no",
+                table: "combat_task_entries",
+                columns: new[] { "person_id", "action_date", "row_no" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_combat_task_entries_row_no",
+                table: "combat_task_entries",
+                column: "row_no",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_missions_MissionMode",

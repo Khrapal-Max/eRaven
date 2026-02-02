@@ -12,7 +12,7 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260130221125_AddCombatTask")]
+    [Migration("20260202170206_AddCombatTask")]
     partial class AddCombatTask
     {
         /// <inheritdoc />
@@ -160,6 +160,13 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(120)")
                         .HasColumnName("rank");
 
+                    b.Property<long>("RowNo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("row_no");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("RowNo"));
+
                     b.Property<string>("SourceDocNo")
                         .IsRequired()
                         .HasMaxLength(250)
@@ -174,10 +181,15 @@ namespace eRaven.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("RowNo")
+                        .IsUnique();
+
                     b.HasIndex("DocumentId", "GroupSequence");
 
                     b.HasIndex("DocumentId", "GroupId", "PersonId")
                         .IsUnique();
+
+                    b.HasIndex("PersonId", "ActionDate", "RowNo");
 
                     b.ToTable("combat_task_entries", (string)null);
                 });

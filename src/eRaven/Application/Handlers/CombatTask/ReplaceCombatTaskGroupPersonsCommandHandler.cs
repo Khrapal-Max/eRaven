@@ -16,7 +16,7 @@ public sealed class ReplaceCombatTaskGroupPersonsCommandHandler(
     : ICommandHandler<ReplaceCombatTaskGroupPersonsCommand>
 {
     public async Task HandleAsync(ReplaceCombatTaskGroupPersonsCommand cmd, CancellationToken ct = default)
-        => await entries.ReplacePersonsInGroupAsync(
+        => await entries.ReplaceGroupPersonsAsync(
             cmd.DocumentId,
             cmd.GroupId,
             cmd.PersonIds,
