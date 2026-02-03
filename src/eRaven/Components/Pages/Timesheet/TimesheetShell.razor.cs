@@ -15,7 +15,7 @@ namespace eRaven.Components.Pages.Timesheet;
 
 /// <summary>
 /// UI shell сторінки місячного табеля.
-/// Показує "факт" (MainCodes) для осіб, які входять в табель в межах обраного місяця.
+/// Показує "факт" для осіб, які входять в табель в межах обраного місяця.
 /// </summary>
 public partial class TimesheetShell : IDisposable
 {

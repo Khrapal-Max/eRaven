@@ -18,7 +18,6 @@ namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 ///
 /// IMPORTANT (current stage):
 /// - Timesheet is a "fact" only.
-/// - TimesheetLane is removed => all entries are treated as a single fact stream.
 /// - TaskCodes are returned as empty strings (reserved for future task subsystem).
 /// </summary>
 public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbFactory)

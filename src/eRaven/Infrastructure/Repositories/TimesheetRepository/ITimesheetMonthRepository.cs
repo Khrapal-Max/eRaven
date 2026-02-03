@@ -15,7 +15,7 @@ namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 /// Призначення:
 /// - Побудова місячної матриці по всім особам (grid для сторінки /timesheet).
 /// - Побудова місячного табеля однієї особи (calendar + список entries).
-/// - Побудова денного зрізу (стани Main/Task на дату).
+/// - Побудова денного зрізу.
 ///
 /// Джерело істини:
 /// - Дані читаються з <c>TimesheetTimelines</c> та <c>TimesheetEntries</c>.

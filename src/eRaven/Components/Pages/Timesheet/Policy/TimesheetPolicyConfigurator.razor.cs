@@ -13,8 +13,6 @@
 //    - Allowed transitions (to IDs)
 //    - EndDateMeaning (як трактувати дату "по/закінчення")
 //    - NextCodeOnEnd (тільки для Main + FirstDayOfNextCode; зазвичай "30")
-//
-// 3) Переходи конфігуруються тільки в межах одного lane (Main або Task).
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
