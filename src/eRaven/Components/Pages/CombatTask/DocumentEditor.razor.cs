@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -25,7 +25,7 @@ public partial class DocumentEditor
     [Inject] public IQueryHandler<GetCombatTaskDocumentByIdQuery, CombatTaskDocumentDetailsDto?> GetById { get; set; } = default!;
 
     [Inject] public ICommandHandler<StartCombatTaskGroupCommand, Guid> StartGroup { get; set; } = default!;
-    [Inject] public ICommandHandler<EndCombatTaskGroupCommand> EndGroup { get; set; } = default!;
+    [Inject] public ICommandHandler<EndCombatTaskMissionCommand, Guid> EndMission { get; set; } = default!;
     [Inject] public ICommandHandler<DeleteCombatTaskGroupCommand> DeleteGroup { get; set; } = default!;
 
     [Inject] public NavigationManager Nav { get; set; } = default!;
@@ -115,24 +115,24 @@ public partial class DocumentEditor
         }
     }
 
-    private async Task HandleEndedAsync(EndCombatTaskGroupModel model)
+    private async Task HandleEndedAsync(EndCombatMissionModel model)
     {
         _loading = true;
-
         try
         {
-            var author = "system"; //TODO auth user
+            var author = "system";
             var nowUtc = DateTime.UtcNow;
 
-            await EndGroup.HandleAsync(new EndCombatTaskGroupCommand(
+            await EndMission.HandleAsync(new EndCombatTaskMissionCommand(
                 DocumentId: DocumentId,
-                GroupId: model.GroupId,
+                MissionId: model.MissionId,
+                PersonIds: model.PersonIds,
                 To: model.To,
                 EndSourceDocNo: model.EndSourceDocNo,
                 Author: author,
                 NowUtc: nowUtc));
 
-            Toasts.Success("Групу участей закрито.");
+            Toasts.Success("Участь завершено.");
             await LoadAsync();
         }
         catch (Exception ex)
@@ -177,4 +177,4 @@ public partial class DocumentEditor
         => to is null
             ? $"{from:dd.MM.yyyy} → …"
             : $"{from:dd.MM.yyyy} → {to.Value:dd.MM.yyyy}";
-}
+}*/

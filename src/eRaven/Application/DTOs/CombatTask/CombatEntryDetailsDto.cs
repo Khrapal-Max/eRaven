@@ -14,7 +14,6 @@ namespace eRaven.Application.DTOs.CombatTask;
 /// </summary>
 public sealed record CombatEntryDetailsDto(
     Guid GroupId,
-    int GroupSequence,
     string SourceDocNo,
     Guid MissionId,
     string MissionDisplay,

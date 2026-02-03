@@ -7,7 +7,6 @@
 
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
-using eRaven.Application.DTOs.CombatTask;
 using eRaven.Application.DTOs.Excel;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries.Personal;

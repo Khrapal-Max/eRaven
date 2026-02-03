@@ -59,14 +59,5 @@ public sealed class CombatTaskDocumentConfiguration : IEntityTypeConfiguration<C
         // TODO: якщо унікальність залежить від підрозділу/року — зробити складений індекс.
         builder.HasIndex(x => x.OrderTitle)
             .IsUnique();
-
-        // ----------------------------
-        // Relationships
-        // ----------------------------
-
-        builder.HasMany(x => x.MissionParticipations)
-            .WithOne(x => x.Document)
-            .HasForeignKey(x => x.DocumentId)
-            .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -5,7 +5,7 @@
 // CombatTaskPersonLookupDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs.CombatTask;
+namespace eRaven.Application.DTOs.Person;
 
 /// <summary>
 /// Полегшений DTO для picker-а осіб у документі CombatTask.

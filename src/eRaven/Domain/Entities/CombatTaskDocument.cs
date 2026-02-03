@@ -58,9 +58,4 @@ public sealed class CombatTaskDocument
 
     /// <summary>Коли скасовано (UTC).</summary>
     public DateTime? CanceledAtUtc { get; set; }
-
-    /// <summary>
-    /// Участі осіб у місіях в межах цього документа (інтервали).
-    /// </summary>
-    public ICollection<MissionParticipation> MissionParticipations { get; set; } = [];
 }

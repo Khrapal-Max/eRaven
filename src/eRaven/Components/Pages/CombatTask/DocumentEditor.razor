@@ -1,4 +1,4 @@
-﻿@page "/task-document/{DocumentId:guid}"
+﻿@* @page "/task-document/{DocumentId:guid}"
 @using eRaven.Domain.Enums
 @using eRaven.Application.DTOs.CombatTask
 
@@ -44,6 +44,11 @@
                                     Label="+ Група участей"
                                     IsDisabled="@(!IsDraft)"
                                     OnClickButton="OpenCreateDrawer" />
+
+                            <Button Class="btn-sm btn-dark rounded-0"
+                                    Label="Завершити участь"
+                                    IsDisabled="@(!IsDraft)"
+                                    OnClickButton="@(() => _endOpen = true)" />
                         </div>
                     </div>
                 </div>
@@ -65,7 +70,6 @@
                             <div class="p-2 d-flex align-items-start gap-2 border bg-warning">
 
                                 <div class="d-flex align-items-start gap-3 flex-grow-1 min-w-0">
-                                    <div class="small font-monospace text-nowrap">#@g.GroupSequence</div>
 
                                     <div class="small text-nowrap">
                                         <div class="fw-semibold">@IntervalLabel(g.From, g.To)</div>
@@ -145,7 +149,7 @@
 
         <CombatGroupEndDrawer IsOpen="@_endOpen"
                               IsOpenChanged="@(v => _endOpen = v)"
-                              Group="@_endTarget"
                               OnEnded="HandleEndedAsync" />
     </div>
 </div>
+ *@

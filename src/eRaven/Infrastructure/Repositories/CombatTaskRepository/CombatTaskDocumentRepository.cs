@@ -75,81 +75,13 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
         if (header is null)
             return null;
 
-        // rows по документу
-        var rows = await db.MissionParticipations
-            .AsNoTracking()
-            .Where(x => x.DocumentId == documentId)
-            .Select(x => new
-            {
-                x.GroupId,
-                x.GroupSequence,
-                x.SourceDocNo,
-
-                x.MissionId,
-                x.MissionDisplaySnapshot,
-
-                x.From,
-                x.To,
-                x.EndSourceDocNo,
-
-                x.PersonId,
-                x.RNOKPP,
-                x.FullName,
-                x.Rank,
-                x.Position,
-                x.Weapon,
-                x.Callsign
-            })
-            .OrderBy(x => x.GroupSequence)
-            .ThenBy(x => x.FullName)
-            .ToListAsync(ct);
-
-        var groups = rows
-            .GroupBy(x => new
-            {
-                x.GroupId,
-                x.GroupSequence,
-                x.SourceDocNo,
-                x.MissionId,
-                x.MissionDisplaySnapshot,
-                x.From,
-                x.To,
-                x.EndSourceDocNo
-            })
-            .OrderBy(g => g.Key.GroupSequence)
-            .Select(g =>
-            {
-                var persons = (IReadOnlyList<CombatEntryPersonDto>)[.. g
-            .Select(p => new CombatEntryPersonDto(
-                PersonId: p.PersonId,
-                RNOKPP: p.RNOKPP,
-                FullName: p.FullName,
-                Rank: p.Rank,
-                Position: p.Position,
-                Weapon: p.Weapon,
-                Callsign: p.Callsign))
-            .OrderBy(p => p.FullName)];
-
-                return new CombatEntryDetailsDto(
-                    GroupId: g.Key.GroupId,
-                    GroupSequence: g.Key.GroupSequence,
-                    SourceDocNo: g.Key.SourceDocNo,
-                    MissionId: g.Key.MissionId,
-                    MissionDisplay: g.Key.MissionDisplaySnapshot,
-                    From: g.Key.From,
-                    To: g.Key.To,
-                    EndSourceDocNo: g.Key.EndSourceDocNo,
-                    Persons: persons);
-            })
-            .ToList();
-
         return new CombatTaskDocumentDetailsDto(
             DocumentId: header.Id,
             OrderTitle: header.OrderTitle,
             Status: header.Status,
             RecordedAt: header.RecordedAt,
             CanceledReason: header.CanceledReason ?? string.Empty,
-            Entries: groups);
+            Entries: null);
     }
 
     public async Task<Guid> CreateDraftAsync(

@@ -43,10 +43,6 @@ public static class DefaultCommandHandlers
         services.AddScoped<ICommandHandler<CreateMissionCommand, Guid>, CreateMissionCommandHandler>();
         services.AddScoped<ICommandHandler<CloseMissionCommand>, CloseMissionCommandHandler>();
 
-        services.AddScoped<ICommandHandler<StartCombatTaskGroupCommand, Guid>, StartCombatTaskGroupCommandHandler>();
-        services.AddScoped<ICommandHandler<EndCombatTaskGroupCommand>, EndCombatTaskGroupCommandHandler>();
-        services.AddScoped<ICommandHandler<DeleteCombatTaskGroupCommand>, DeleteCombatTaskGroupCommandHandler>();
-
         return services;
     }
 }
