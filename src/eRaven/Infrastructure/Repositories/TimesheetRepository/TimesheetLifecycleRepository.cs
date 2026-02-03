@@ -32,7 +32,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
     /// </summary>
     private static readonly HashSet<string> AllowedCloseCodes = new(StringComparer.Ordinal)
     {
-        "30",
+        "Т",
         "РОЗПОР"
     };
 
@@ -89,7 +89,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
                 "Неможливо відкрити табель: знайдено декілька активних шкал (дані пошкоджені).");
         }
 
-        // Default "30" covering enroll date (idempotent)
+        // Default "Т" covering enroll date (idempotent)
         var hasEntryOnEnrollDate = await db.TimesheetEntries
             .AsNoTracking()
             .Where(x => !x.IsDeleted)
@@ -104,10 +104,10 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
                 Id = Guid.NewGuid(),
                 TimelineId = timeline.Id,
                 PersonId = personId,
-                Code = "30",
+                Code = "Т",
                 From = enrollDate,
                 To = null,
-                Reference = "Auto: Enroll",
+                Reference = "Auto: system",
                 Note = null,
                 CreatedBy = author.Trim(),
                 CreatedAtUtc = nowUtc,

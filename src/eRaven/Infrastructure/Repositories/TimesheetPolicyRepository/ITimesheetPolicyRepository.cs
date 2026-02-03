@@ -18,7 +18,7 @@ namespace eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
 /// - <see cref="TimesheetCodeTransition"/> — дозволені переходи (FromCodeId → ToCodeId).
 ///
 /// Примітка:
-/// - Lane прибрано, тому політика застосовується глобально.
+/// -Політика застосовується глобально.
 /// </summary>
 public interface ITimesheetPolicyRepository
 {

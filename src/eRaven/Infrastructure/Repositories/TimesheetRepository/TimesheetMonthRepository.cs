@@ -109,7 +109,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
             .GroupBy(e => e.PersonId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // 5) Будуємо матрицю: default code = "НБ", task = ""
+        // 5) Будуємо матрицю: default code = "НБ"
         var rows = new List<TimesheetPersonMonthRowDto>(persons.Count);
 
         foreach (var p in persons)
