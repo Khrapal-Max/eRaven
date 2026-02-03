@@ -2,20 +2,17 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// AddCombatTaskGroupCommand
+// StartCombatTaskGroupModel
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+namespace eRaven.Application.DTOs.CombatTask;
 
-namespace eRaven.Application.Commands.CombatTask;
-
-public sealed record AddCombatTaskGroupCommand(
-    Guid DocumentId,
+/// <summary>
+/// UI-модель створення групи участей.
+/// </summary>
+public sealed record StartCombatTaskGroupModel(
     string SourceDocNo,
-    ActionKind Action,
     Guid MissionId,
     string MissionDisplaySnapshot,
-    DateOnly ActionDate,
-    IReadOnlyCollection<Guid> PersonIds,
-    string Author,
-    DateTime NowUtc);
+    DateOnly From,
+    IReadOnlyList<CombatTaskPersonLookupDto> Persons);

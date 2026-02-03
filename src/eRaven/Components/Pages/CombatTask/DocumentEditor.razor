@@ -7,9 +7,6 @@
 <div class="page-content">
     <div class="container-fluid px-0">
 
-        <!-- ========================================================= -->
-        <!-- Loading / Not found / Content -->
-        <!-- ========================================================= -->
         @if (_loading)
         {
             <p class="px-2 py-2"><em>Завантаження...</em></p>
@@ -20,63 +17,44 @@
         }
         else
         {
-            <!-- ========================================================= -->
-            <!-- Document header (fixed) -->
-            <!-- - fixed at top while groups scroll -->
-            <!-- ========================================================= -->
             <div class="sticky-top border-bottom shadow-sm bg-success-subtle text-white mb-2">
                 <div class="container-fluid px-3 py-2">
-
                     <div class="d-flex gap-3 flex-wrap">
-
-                        <!-- Left: Date -->
                         <div class="text-nowrap">
                             <div class="small opacity-75">Дата</div>
-                            <div class="font-monospace fw-semibold">
-                                @_doc.RecordedAt.ToString("dd.MM.yyyy")
-                            </div>
+                            <div class="font-monospace fw-semibold">@_doc.RecordedAt.ToString("dd.MM.yyyy")</div>
                         </div>
 
-                        <!-- Center: Order title (fixed row, truncation) -->
                         <div class="flex-grow-1 min-w-0">
                             <div class="small opacity-75">Розпорядження</div>
-                            <div class="fw-semibold text-truncate">
-                                @_doc.OrderTitle
-                            </div>
-                        </div>
-                        <!-- Status -->
-                        <div class="text-nowrap">
-                            <div class="small opacity-75">Статус</div>
-                            <div class="fw-semibold">
-                                @_doc.Status
-                            </div>
+                            <div class="fw-semibold text-truncate">@_doc.OrderTitle</div>
                         </div>
 
-                        <!-- Actions -->
+                        <div class="text-nowrap">
+                            <div class="small opacity-75">Статус</div>
+                            <div class="fw-semibold">@_doc.Status</div>
+                        </div>
+
                         <div class="d-flex align-content-center gap-2 p-2">
                             <Button Class="btn-sm btn-light rounded-0"
                                     Label="← Назад"
                                     OnClickButton="@(() => Nav.NavigateTo("/task-documents"))" />
 
                             <Button Class="btn-sm btn-primary rounded-0"
-                                    Label="+ Завдання групи"
+                                    Label="+ Група участей"
                                     IsDisabled="@(!IsDraft)"
                                     OnClickButton="OpenCreateDrawer" />
                         </div>
                     </div>
-
                 </div>
             </div>
 
-            <!-- ========================================================= -->
-            <!-- Groups area (scroll container) -->
-            <!-- ========================================================= -->
             <div class="container-fluid px-0 border"
                  style="max-height: calc(100vh - 200px); overflow:auto;">
 
                 @if (_entries.Count == 0)
                 {
-                    <div class="border p-2"><em>Місій поки немає.</em></div>
+                    <div class="border p-2"><em>Груп поки немає.</em></div>
                 }
                 else
                 {
@@ -84,47 +62,37 @@
                     {
                         <div class="border mb-2">
 
-                            <!-- ========================================================= -->
-                            <!-- Group header: left = # + meta + mission, right = buttons -->
-                            <!-- ========================================================= -->
                             <div class="p-2 d-flex align-items-start gap-2 border bg-warning">
 
-                                <!-- Left block -->
                                 <div class="d-flex align-items-start gap-3 flex-grow-1 min-w-0">
+                                    <div class="small font-monospace text-nowrap">#@g.GroupSequence</div>
 
-                                    <!-- Group number -->
-                                    <div class="small font-monospace text-nowrap">
-                                        #@g.GroupSequence
-                                    </div>
-
-                                    <!-- Action/Date + DocNo -->
                                     <div class="small text-nowrap">
-                                        <div class="fw-semibold">@ActionKindLabel(g.Action) @g.ActionDate.ToString("dd.MM.yyyy")</div>
-                                        <div>№ документа ініціатора: @g.SourceDocNo</div>
+                                        <div class="fw-semibold">@IntervalLabel(g.From, g.To)</div>
+                                        <div>№ джерела: @g.SourceDocNo</div>
+                                        @if (!string.IsNullOrWhiteSpace(g.EndSourceDocNo))
+                                        {
+                                            <div>№ закриття: @g.EndSourceDocNo</div>
+                                        }
                                     </div>
 
-                                    <!-- Mission display -->
                                     <div class="fw-semibold min-w-0">
                                         <div class="text-wrap" style="white-space: normal; overflow-wrap:anywhere;">
                                             @g.MissionDisplay
                                         </div>
                                     </div>
-
                                 </div>
 
-                                <!-- Right actions -->
                                 @if (IsDraft)
                                 {
                                     <div class="d-flex gap-2 flex-shrink-0">
-                                        <Button Class="btn-sm btn-secondary rounded-0"
-                                                Label="Мета"
-                                                IsDisabled="_loading"
-                                                OnClickButton="@(() => OpenEditGroupDrawer(g))" />
-
-                                        <Button Class="btn-sm btn-primary rounded-0"
-                                                Label="Склад"
-                                                IsDisabled="_loading"
-                                                OnClickButton="@(() => OpenPersonsDrawer(g))" />
+                                        @if (g.To is null)
+                                        {
+                                            <Button Class="btn-sm btn-dark rounded-0"
+                                                    Label="Закрити"
+                                                    IsDisabled="_loading"
+                                                    OnClickButton="@(() => OpenEndDrawer(g))" />
+                                        }
 
                                         <Button Class="btn-sm btn-danger rounded-0"
                                                 Label="Видалити"
@@ -132,15 +100,11 @@
                                                 OnClickButton="@(() => DeleteGroupAsync(g.GroupId))" />
                                     </div>
                                 }
-
                             </div>
 
-                            <!-- ========================================================= -->
-                            <!-- Group body: persons table -->
-                            <!-- ========================================================= -->
                             @if (g.Persons.Count == 0)
                             {
-                                <div class="small"><em>Осіб немає.</em></div>
+                                <div class="p-2 small"><em>Осіб немає.</em></div>
                             }
                             else
                             {
@@ -149,7 +113,6 @@
                                            Items="g.Persons"
                                            IsClickable="false"
                                            Class="table-sm table-bordered small mb-0">
-
                                         <TableHeader>
                                             <th style="width:100px;">РНОКПП</th>
                                             <th style="width:100px;">Звання</th>
@@ -158,7 +121,6 @@
                                             <th style="width:160px;">Зброя</th>
                                             <th style="width:120px;">Позивний</th>
                                         </TableHeader>
-
                                         <RowTemplate Context="p">
                                             <td class="font-monospace text-nowrap">@p.RNOKPP</td>
                                             <td>@p.Rank</td>
@@ -167,36 +129,23 @@
                                             <td>@p.Weapon</td>
                                             <td>@p.Callsign</td>
                                         </RowTemplate>
-
                                     </Table>
                                 </div>
                             }
-
                         </div>
                     }
                 }
-
             </div>
         }
-        <!-- ========================================================= -->
-        <!-- Drawers -->
-        <!-- ========================================================= -->
 
+        <!-- Drawers -->
         <CombatGroupCreateDrawer IsOpen="@_createOpen"
                                  IsOpenChanged="@(v => _createOpen = v)"
                                  OnCreated="HandleCreatedAsync" />
 
-        <CombatGroupEditDrawer IsOpen="@_editOpen"
-                               IsOpenChanged="@(v => _editOpen = v)"
-                               GroupId="@_activeGroupId"
-                               Initial="@_editInitial"
-                               OnUpdated="HandleUpdatedAsync" />
-
-        <CombatGroupPersonsDrawer IsOpen="@_personsOpen"
-                                  IsOpenChanged="@(v => _personsOpen = v)"
-                                  GroupId="@_activeGroupId"
-                                  InitialPersonIds="@_personsInitial"
-                                  OnSaved="HandlePersonsSavedAsync" />
-
+        <CombatGroupEndDrawer IsOpen="@_endOpen"
+                              IsOpenChanged="@(v => _endOpen = v)"
+                              Group="@_endTarget"
+                              OnEnded="HandleEndedAsync" />
     </div>
 </div>

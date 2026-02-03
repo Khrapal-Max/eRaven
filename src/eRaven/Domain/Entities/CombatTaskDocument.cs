@@ -12,49 +12,55 @@ namespace eRaven.Domain.Entities;
 /// <summary>
 /// Документ планування бойового завдання (наказ/розпорядження).
 ///
-/// Роль в системі:
-/// - Контейнер (header) для введення та аудиту.
-/// - Має статус Draft/Posted/Canceled.
-/// - Містить набір "рядків" (CombatTaskEntry), які введені користувачем.
+/// Роль у системі:
+/// - Header + аудит (хто/коли створив/змінив/скасував).
+/// - Контейнер для participation-рядків (участь осіб у місіях як інтервали).
 /// </summary>
 public sealed class CombatTaskDocument
 {
+    /// <summary>PK документа.</summary>
     public Guid Id { get; set; }
 
     /// <summary>
     /// Стан документа:
-    /// - Draft: редагується
-    /// - Posted: зафіксований (джерело аудиту)
-    /// - Canceled: відмінений (не застосовується)
+    /// Draft — редагується,
+    /// Posted — зафіксований (джерело аудиту),
+    /// Canceled — скасований.
     /// </summary>
     public DocumentStatus Status { get; set; } = DocumentStatus.Draft;
 
     /// <summary>
-    /// Номер бойового розпорядження (наказ).
-    /// У бізнесі ти вважаєш його унікальним (наприклад включає рік/підрозділ).
+    /// Номер/назва бойового розпорядження (наказу).
+    /// Рекомендація: зробити унікальним індексом (за потреби з RecordedAt/Unit).
     /// </summary>
     public string OrderTitle { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Дата документа (дата планування).
-    /// </summary>
+    /// <summary>Дата документа (дата планування/реєстрації).</summary>
     public DateOnly RecordedAt { get; set; }
 
-    /// <summary>
-    /// Причина скасування (якщо документ Canceled).
-    /// </summary>
+    /// <summary>Причина скасування (якщо Status = Canceled).</summary>
     public string? CanceledReason { get; set; }
 
+    /// <summary>Хто створив документ.</summary>
     public string CreatedBy { get; set; } = string.Empty;
+
+    /// <summary>Коли створено (UTC).</summary>
     public DateTime CreatedAtUtc { get; set; }
+
+    /// <summary>Хто востаннє оновив.</summary>
     public string? UpdatedBy { get; set; }
+
+    /// <summary>Коли востаннє оновлено (UTC).</summary>
     public DateTime? UpdatedAtUtc { get; set; }
+
+    /// <summary>Хто скасував.</summary>
     public string? CanceledBy { get; set; }
+
+    /// <summary>Коли скасовано (UTC).</summary>
     public DateTime? CanceledAtUtc { get; set; }
 
     /// <summary>
-    /// Рядки документа (денормалізовані записи).
-    /// Важливо: тип має бути ICollection/List для EF Core.
+    /// Участі осіб у місіях в межах цього документа (інтервали).
     /// </summary>
-    public ICollection<CombatTaskEntry> CombatTasks { get; set; } = [];
+    public ICollection<MissionParticipation> MissionParticipations { get; set; } = [];
 }

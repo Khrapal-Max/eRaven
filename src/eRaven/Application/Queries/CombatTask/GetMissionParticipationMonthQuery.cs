@@ -2,16 +2,18 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// SearchPersonsForCombatTaskQuery
+// GetMissionParticipationMonthQuery
 //-----------------------------------------------------------------------------
 
 namespace eRaven.Application.Queries.CombatTask;
 
 /// <summary>
-/// Пошук осіб для вибору у CombatTask drawer.
-/// Повертає невеликий список (top N) з потрібними полями.
+/// Повертає всі участі, що перетинають місяць (overlap).
+/// Підходить для month-report: хто/яка місія/з яких дат.
 /// </summary>
-public sealed record SearchPersonsForCombatTaskQuery(
-    string? Search,
-    int Take = 50
+public sealed record GetMissionParticipationMonthQuery(
+    int Year,
+    int Month,
+    Guid? MissionId = null,
+    string? Search = null
 );

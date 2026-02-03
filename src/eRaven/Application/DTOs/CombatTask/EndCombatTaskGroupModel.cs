@@ -2,17 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CreateCombatGroupModel
+// EndCombatTaskGroupModel
 //-----------------------------------------------------------------------------
-
-using eRaven.Domain.Enums;
 
 namespace eRaven.Application.DTOs.CombatTask;
 
-public sealed record CreateCombatGroupModel(
-    string SourceDocNo,
-    ActionKind Action,
-    Guid MissionId,
-    string MissionDisplaySnapshot,
-    DateOnly ActionDate,
-    IReadOnlyList<Guid> PersonIds);
+/// <summary>
+/// UI-модель закриття групи участей.
+/// </summary>
+public sealed record EndCombatTaskGroupModel(
+    Guid GroupId,
+    DateOnly To,
+    string EndSourceDocNo);

@@ -2,14 +2,17 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// ReplaceCombatTaskGroupPersonsCommand
+// SearchFreePersonsForCombatTaskQuery
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Commands.CombatTask;
+namespace eRaven.Application.Queries.CombatTask;
 
-public sealed record ReplaceCombatTaskGroupPersonsCommand(
-    Guid DocumentId,
-    Guid GroupId,
-    IReadOnlyCollection<Guid> PersonIds,
-    string Author,
-    DateTime NowUtc);
+/// <summary>
+/// Повертає осіб, які НЕ мають активної участі в місії на дату.
+/// Використовується для picker-а.
+/// </summary>
+public sealed record SearchFreePersonsForCombatTaskQuery(
+    DateOnly Date,
+    string? Search,
+    int Take = 50
+);

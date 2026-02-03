@@ -5,11 +5,13 @@
 // MissionMode
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Entities;
+
 namespace eRaven.Domain.Enums;
 
 /// <summary>
 /// Режим готовності для виконання завдань
-/// Використовується в <see href="MissionPoint"/>
+/// Використовується в <see cref="Mission"/>
 /// 
 /// Режими:
 /// - день

@@ -12,22 +12,30 @@ using eRaven.Infrastructure.Repositories.CombatTaskRepository;
 namespace eRaven.Application.Handlers.CombatTask;
 
 /// <summary>
-/// Handler фізичного видалення групи участей у документі.
+/// Закриття активних участей.
 /// </summary>
-public sealed class DeleteCombatTaskGroupCommandHandler(
+public sealed class EndCombatTaskGroupCommandHandler(
     IMissionParticipationRepository repo)
-    : ICommandHandler<DeleteCombatTaskGroupCommand>
+    : ICommandHandler<EndCombatTaskGroupCommand>
 {
     private readonly IMissionParticipationRepository _repo = repo;
 
-    public async Task HandleAsync(DeleteCombatTaskGroupCommand cmd, CancellationToken ct = default)
+    public async Task HandleAsync(EndCombatTaskGroupCommand cmd, CancellationToken ct = default)
     {
         if (cmd.DocumentId == Guid.Empty)
             throw new ArgumentException("DocumentId is required.", nameof(cmd));
-
         if (cmd.GroupId == Guid.Empty)
             throw new ArgumentException("GroupId is required.", nameof(cmd));
+        if (string.IsNullOrWhiteSpace(cmd.EndSourceDocNo))
+            throw new ArgumentException("EndSourceDocNo is required.", nameof(cmd));
 
-        await _repo.DeleteGroupAsync(cmd.DocumentId, cmd.GroupId, ct);
+        await _repo.EndGroupAsync(
+              documentId: cmd.DocumentId,
+              groupId: cmd.GroupId,
+              to: cmd.To,
+              endSourceDocNo: cmd.EndSourceDocNo,
+              author: cmd.Author,
+              nowUtc: cmd.NowUtc,
+              ct: ct);
     }
 }

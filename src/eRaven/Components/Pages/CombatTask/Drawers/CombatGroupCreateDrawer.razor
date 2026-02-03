@@ -1,15 +1,11 @@
 ﻿@using eRaven.Application.DTOs.CombatTask
-@using eRaven.Domain.Enums
 
 <Drawer IsOpen="@IsOpen"
         IsOpenChanged="@IsOpenChanged"
-        Title="Додати місію">
+        Title="Додати групу участей">
 
     <div class="p-2">
 
-        <!-- ========================================================= -->
-        <!-- Source + Action + Date -->
-        <!-- ========================================================= -->
         <div class="row g-2 mb-2">
             <div class="col-4">
                 <label class="form-label small">Джерело (номер документа A / рапорт)</label>
@@ -18,78 +14,16 @@
             </div>
 
             <div class="col-4">
-                <label class="form-label small">Дія</label>
-                <select class="form-select form-select-sm rounded-0"
-                        @bind="_action">
-                    <option value="@ActionKind.Start">Почати виконання</option>
-                    <option value="@ActionKind.End">Закінчити виконання</option>
-                </select>
-            </div>
-
-            <div class="col-4">
-                <label class="form-label small">Дата</label>
+                <label class="form-label small">Дата початку (From)</label>
                 <input type="date"
                        class="form-control form-control-sm rounded-0"
-                       @bind-value="_actionDate" />
+                       @bind-value="_from"
+                       @bind-value:after="OnFromChangedAsync" />
             </div>
         </div>
 
-        <!-- ========================================================= -->
-        <!-- Mission picker: grouped select + scroll (3-4 items) -->
-        <!-- ========================================================= -->
-        <div class="mb-2">
-            <label class="form-label small">Місія</label>
+        <!-- Mission picker (як було) ... -->
 
-            <div class="border">
-                <select class="form-select form-select-sm rounded-0"
-                        size="4"
-                        value="@_missionId"
-                        @onchange="OnMissionChanged">
-
-                    @if (_missionsLoading)
-                    {
-                        <option disabled>Завантаження...</option>
-                    }
-                    else if (_missionOptions.Count == 0)
-                    {
-                        <option disabled>Немає місій.</option>
-                    }
-                    else
-                    {
-                        @foreach (var g in MissionGroups)
-                        {
-                            <optgroup label="@GetMissionGroupLabel(g.Mode, g.Count)">
-                                @foreach (var m in g.Items)
-                                {
-                                    <option value="@m.MissionId">@FormatMissionOption(m)</option>
-                                }
-                            </optgroup>
-                        }
-                    }
-                </select>
-            </div>
-
-            @if (!string.IsNullOrWhiteSpace(_missionDisplay))
-            {
-                <div class="mt-2 p-2 border">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="small me-auto">Обрана місія</div>
-
-                        <Button Class="btn-sm btn-warning rounded-0"
-                                Label="Очистити"
-                                OnClickButton="ClearMission" />
-                    </div>
-
-                    <div class="small mt-1" style="white-space: normal; overflow-wrap:anywhere;">
-                        @_missionDisplay
-                    </div>
-                </div>
-            }
-        </div>
-
-        <!-- ========================================================= -->
-        <!-- Persons (create only) -->
-        <!-- ========================================================= -->
         <div class="mt-3 border-top pt-2">
             <div class="d-flex align-items-center gap-2 mb-2">
                 <div class="fw-semibold">Особи</div>
@@ -110,7 +44,7 @@
                 else
                 {
                     <Table TItem="CombatTaskPersonLookupDto"
-                           Items="@(_personResults ?? [])"
+                           Items="@_personResults"
                            Class="table-sm table-bordered small mb-0">
 
                         <TableHeader>
@@ -126,8 +60,8 @@
                         <RowTemplate Context="r">
                             <td>
                                 <input type="checkbox"
-                                       checked="@_selected.Contains(r.PersonId)"
-                                       @onchange="(e => TogglePerson(r.PersonId, e))" />
+                                       checked="@_selected.ContainsKey(r.PersonId)"
+                                       @onchange="(e => TogglePerson(r, e))" />
                             </td>
                             <td>@r.FullName</td>
                             <td>@r.RNOKPP</td>
@@ -141,9 +75,6 @@
             </div>
         </div>
 
-        <!-- ========================================================= -->
-        <!-- Buttons -->
-        <!-- ========================================================= -->
         <div class="d-flex gap-2 mt-3">
             <Button Class="btn-sm btn-danger rounded-0"
                     Label="Закрити"

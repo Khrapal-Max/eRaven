@@ -44,7 +44,9 @@ public static class DefaultQueryHandlers
         services.AddScoped<IQueryHandler<GetMissionsQuery, IReadOnlyList<MissionDto>>, GetMissionsQueryHandler>();
 
         services.AddScoped<IQueryHandler<GetCombatTaskDocumentByIdQuery, CombatTaskDocumentDetailsDto?>, GetCombatTaskDocumentByIdQueryHandler>();
-        services.AddScoped<IQueryHandler<SearchPersonsForCombatTaskQuery, IReadOnlyList<CombatTaskPersonLookupDto>>, SearchPersonsForCombatTaskQueryHandler>();
+        services.AddScoped<IQueryHandler<GetMissionParticipationDayQuery, IReadOnlyList<MissionParticipationRowDto>>, GetMissionParticipationDayQueryHandler>();
+        services.AddScoped<IQueryHandler<GetMissionParticipationMonthQuery, IReadOnlyList<MissionParticipationRowDto>>, GetMissionParticipationMonthQueryHandler>();
+        services.AddScoped<IQueryHandler<SearchFreePersonsForCombatTaskQuery, IReadOnlyList<CombatTaskPersonLookupDto>>, SearchFreePersonsForCombatTaskQueryHandler>();
 
         return services;
     }

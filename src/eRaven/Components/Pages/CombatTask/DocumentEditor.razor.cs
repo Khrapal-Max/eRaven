@@ -18,30 +18,37 @@ namespace eRaven.Components.Pages.CombatTask;
 
 public partial class DocumentEditor
 {
-    // query/command handlers
+    //======================================================================
+    // DI: query/command handlers
+    //======================================================================
+
     [Inject] public IQueryHandler<GetCombatTaskDocumentByIdQuery, CombatTaskDocumentDetailsDto?> GetById { get; set; } = default!;
-    [Inject] public ICommandHandler<AddCombatTaskGroupCommand, Guid> AddGroup { get; set; } = default!;
+
+    [Inject] public ICommandHandler<StartCombatTaskGroupCommand, Guid> StartGroup { get; set; } = default!;
+    [Inject] public ICommandHandler<EndCombatTaskGroupCommand> EndGroup { get; set; } = default!;
     [Inject] public ICommandHandler<DeleteCombatTaskGroupCommand> DeleteGroup { get; set; } = default!;
-    [Inject] public ICommandHandler<UpdateCombatTaskGroupCommand> UpdateGroup { get; set; } = default!;
-    [Inject] public ICommandHandler<ReplaceCombatTaskGroupPersonsCommand> ReplacePersons { get; set; } = default!;
+
     [Inject] public NavigationManager Nav { get; set; } = default!;
-    [Inject] public ToastService ToastService { get; set; } = default!;
+    [Inject] public ToastService Toasts { get; set; } = default!;
+
+    //======================================================================
+    // Parameters
+    //======================================================================
 
     [Parameter] public Guid DocumentId { get; set; }
 
-    // state для drawer-ів
-    private bool _editOpen;
-    private bool _personsOpen;
-
-    private Guid _activeGroupId;
-    private CreateCombatGroupModel? _editInitial;
-    private IReadOnlyList<Guid> _personsInitial = [];
+    //======================================================================
+    // UI state
+    //======================================================================
 
     private bool _loading;
-    private bool _createOpen;
-
     private CombatTaskDocumentDetailsDto? _doc;
     private IReadOnlyList<CombatEntryDetailsDto> _entries = [];
+
+    private bool _createOpen;
+
+    private bool _endOpen;
+    private CombatEntryDetailsDto? _endTarget;
 
     private bool IsDraft => _doc?.Status == DocumentStatus.Draft;
 
@@ -68,35 +75,39 @@ public partial class DocumentEditor
         return Task.CompletedTask;
     }
 
-    // Drawer повертає CreateCombatGroupModel
-    private async Task HandleCreatedAsync(CreateCombatGroupModel model)
+    private Task OpenEndDrawer(CombatEntryDetailsDto g)
+    {
+        _endTarget = g;
+        _endOpen = true;
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleCreatedAsync(StartCombatTaskGroupModel model)
     {
         _loading = true;
+
         try
         {
-            // TODO author/nowUtc підстав свої (з auth context)
+            // TODO: author/nowUtc підстав з auth context
             var author = "system";
             var nowUtc = DateTime.UtcNow;
 
-            await AddGroup.HandleAsync(new AddCombatTaskGroupCommand(
+            await StartGroup.HandleAsync(new StartCombatTaskGroupCommand(
                 DocumentId: DocumentId,
                 SourceDocNo: model.SourceDocNo,
-                Action: model.Action,
                 MissionId: model.MissionId,
                 MissionDisplaySnapshot: model.MissionDisplaySnapshot,
-                ActionDate: model.ActionDate,
-                PersonIds: model.PersonIds,
+                From: model.From,
+                Persons: model.Persons,
                 Author: author,
-                NowUtc: nowUtc
-            ));
+                NowUtc: nowUtc));
 
-            ToastService.Success("Місія додана.");
-
+            Toasts.Success("Групу участей створено.");
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            ToastService.Error(ex.Message);
+            Toasts.Error(ex.Message);
         }
         finally
         {
@@ -104,32 +115,29 @@ public partial class DocumentEditor
         }
     }
 
-    private async Task HandleUpdatedAsync(UpdateCombatGroupModel model)
+    private async Task HandleEndedAsync(EndCombatTaskGroupModel model)
     {
         _loading = true;
+
         try
         {
-            var author = "system";
+            var author = "system"; //TODO auth user
             var nowUtc = DateTime.UtcNow;
 
-            await UpdateGroup.HandleAsync(new UpdateCombatTaskGroupCommand(
+            await EndGroup.HandleAsync(new EndCombatTaskGroupCommand(
                 DocumentId: DocumentId,
                 GroupId: model.GroupId,
-                SourceDocNo: model.SourceDocNo,
-                Action: model.Action,
-                MissionId: model.MissionId,
-                MissionDisplaySnapshot: model.MissionDisplaySnapshot,
-                ActionDate: model.ActionDate,
+                To: model.To,
+                EndSourceDocNo: model.EndSourceDocNo,
                 Author: author,
-                NowUtc: nowUtc
-            ));
+                NowUtc: nowUtc));
 
-            ToastService.Success("Місію оновлено.");
+            Toasts.Success("Групу участей закрито.");
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            ToastService.Error(ex.Message);
+            Toasts.Error(ex.Message);
         }
         finally
         {
@@ -140,49 +148,24 @@ public partial class DocumentEditor
     private async Task DeleteGroupAsync(Guid groupId)
     {
         _loading = true;
+
         try
         {
-            await DeleteGroup.HandleAsync(new DeleteCombatTaskGroupCommand(DocumentId, groupId));
-
-            ToastService.Success("Місія відалена.");
-
-            await LoadAsync();
-        }
-        catch (Exception ex)
-        {
-            ToastService.Error(ex.Message);
-        }
-        finally
-        {
-            _loading = false;
-        }
-    }
-
-    // Викликається після person picker drawer (він повертає список personIds)
-    private async Task ReplaceGroupPersonsAsync(Guid groupId, IReadOnlyList<Guid> personIds)
-    {
-        _loading = true;
-        try
-        {
-            // TODO author/nowUtc підстав свої (з auth context)
-            var author = "system";
+            var author = "system"; //TODO auth user
             var nowUtc = DateTime.UtcNow;
 
-            await ReplacePersons.HandleAsync(new ReplaceCombatTaskGroupPersonsCommand(
+            await DeleteGroup.HandleAsync(new DeleteCombatTaskGroupCommand(
                 DocumentId: DocumentId,
                 GroupId: groupId,
-                PersonIds: personIds,
                 Author: author,
-                NowUtc: nowUtc
-            ));
+                NowUtc: nowUtc));
 
-            ToastService.Success("Місія оновлена.");
-
+            Toasts.Success("Групу видалено.");
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            ToastService.Error(ex.Message);
+            Toasts.Error(ex.Message);
         }
         finally
         {
@@ -190,41 +173,8 @@ public partial class DocumentEditor
         }
     }
 
-    private async Task HandlePersonsSavedAsync(ReplaceGroupPersonsModel model)
-    {
-        await ReplaceGroupPersonsAsync(model.GroupId, model.PersonIds);
-    }
-
-    private Task OpenEditGroupDrawer(CombatEntryDetailsDto g)
-    {
-        _activeGroupId = g.GroupId;
-
-        // prefill (для drawer)
-        _editInitial = new CreateCombatGroupModel(
-            SourceDocNo: g.SourceDocNo,
-            Action: g.Action,
-            MissionId: g.MissionId,
-            MissionDisplaySnapshot: g.MissionDisplay,
-            ActionDate: g.ActionDate,
-            PersonIds: []); // людей редагуємо окремим drawer
-
-        _editOpen = true;
-        return Task.CompletedTask;
-    }
-
-    private Task OpenPersonsDrawer(CombatEntryDetailsDto g)
-    {
-        _activeGroupId = g.GroupId;
-        _personsInitial = [.. g.Persons.Select(p => p.PersonId).Distinct()];
-        _personsOpen = true;
-        return Task.CompletedTask;
-    }
-
-    private static string ActionKindLabel(ActionKind action)
-         => action switch
-         {
-             ActionKind.Start => "Почати виконання",
-             ActionKind.End => "Закінчити виконання",
-             _ => action.ToString()
-         };
+    private static string IntervalLabel(DateOnly from, DateOnly? to)
+        => to is null
+            ? $"{from:dd.MM.yyyy} → …"
+            : $"{from:dd.MM.yyyy} → {to.Value:dd.MM.yyyy}";
 }

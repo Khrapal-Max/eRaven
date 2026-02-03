@@ -75,7 +75,8 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
         if (header is null)
             return null;
 
-        var rows = await db.CombatTaskEntries
+        // rows по документу
+        var rows = await db.MissionParticipations
             .AsNoTracking()
             .Where(x => x.DocumentId == documentId)
             .Select(x => new
@@ -83,10 +84,13 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
                 x.GroupId,
                 x.GroupSequence,
                 x.SourceDocNo,
-                x.Action,
-                x.ActionDate,
+
                 x.MissionId,
                 x.MissionDisplaySnapshot,
+
+                x.From,
+                x.To,
+                x.EndSourceDocNo,
 
                 x.PersonId,
                 x.RNOKPP,
@@ -97,18 +101,8 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
                 x.Callsign
             })
             .OrderBy(x => x.GroupSequence)
+            .ThenBy(x => x.FullName)
             .ToListAsync(ct);
-
-        if (rows.Count == 0)
-        {
-            return new CombatTaskDocumentDetailsDto(
-                DocumentId: header.Id,
-                OrderTitle: header.OrderTitle,
-                Status: header.Status,
-                RecordedAt: header.RecordedAt,
-                CanceledReason: header.CanceledReason ?? string.Empty,
-                Entries: []);
-        }
 
         var groups = rows
             .GroupBy(x => new
@@ -116,33 +110,35 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
                 x.GroupId,
                 x.GroupSequence,
                 x.SourceDocNo,
-                x.Action,
-                x.ActionDate,
                 x.MissionId,
-                x.MissionDisplaySnapshot
+                x.MissionDisplaySnapshot,
+                x.From,
+                x.To,
+                x.EndSourceDocNo
             })
             .OrderBy(g => g.Key.GroupSequence)
             .Select(g =>
             {
                 var persons = (IReadOnlyList<CombatEntryPersonDto>)[.. g
-                .Select(p => new CombatEntryPersonDto(
-                    PersonId: p.PersonId,
-                    RNOKPP: p.RNOKPP,
-                    FullName: p.FullName,
-                    Rank: p.Rank,
-                    Position: p.Position,
-                    Weapon: p.Weapon,
-                    Callsign: p.Callsign))
-                .OrderBy(p => p.FullName)];
+            .Select(p => new CombatEntryPersonDto(
+                PersonId: p.PersonId,
+                RNOKPP: p.RNOKPP,
+                FullName: p.FullName,
+                Rank: p.Rank,
+                Position: p.Position,
+                Weapon: p.Weapon,
+                Callsign: p.Callsign))
+            .OrderBy(p => p.FullName)];
 
                 return new CombatEntryDetailsDto(
                     GroupId: g.Key.GroupId,
                     GroupSequence: g.Key.GroupSequence,
                     SourceDocNo: g.Key.SourceDocNo,
-                    Action: g.Key.Action,
                     MissionId: g.Key.MissionId,
                     MissionDisplay: g.Key.MissionDisplaySnapshot,
-                    ActionDate: g.Key.ActionDate,
+                    From: g.Key.From,
+                    To: g.Key.To,
+                    EndSourceDocNo: g.Key.EndSourceDocNo,
                     Persons: persons);
             })
             .ToList();

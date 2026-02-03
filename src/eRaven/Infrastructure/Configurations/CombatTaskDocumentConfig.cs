@@ -1,8 +1,7 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// CombatTaskDocumentConfig
+// CombatTaskDocumentConfiguration
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
@@ -11,65 +10,63 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
-public sealed class CombatTaskDocumentConfig : IEntityTypeConfiguration<CombatTaskDocument>
+public sealed class CombatTaskDocumentConfiguration : IEntityTypeConfiguration<CombatTaskDocument>
 {
-    public void Configure(EntityTypeBuilder<CombatTaskDocument> b)
+    public void Configure(EntityTypeBuilder<CombatTaskDocument> builder)
     {
-        b.ToTable("combat_task_documents");
-        b.HasKey(x => x.Id);
+        builder.ToTable("CombatTaskDocuments");
 
-        b.Property(x => x.Status)
-            .HasColumnName("status")
-            .HasConversion<int>()
+        builder.HasKey(x => x.Id);
+
+        // ----------------------------
+        // Properties
+        // ----------------------------
+
+        builder.Property(x => x.Status)
             .IsRequired();
 
-        b.Property(x => x.OrderTitle)
-            .HasColumnName("order_title")
-            .HasMaxLength(250)
+        builder.Property(x => x.OrderTitle)
+            .IsRequired()
+            .HasMaxLength(128);
+
+        builder.Property(x => x.RecordedAt)
             .IsRequired();
 
-        b.Property(x => x.RecordedAt)
-            .HasColumnName("recorded_at")
-            .HasColumnType("date")
+        builder.Property(x => x.CanceledReason)
+            .HasMaxLength(512);
+
+        builder.Property(x => x.CreatedBy)
+            .IsRequired()
+            .HasMaxLength(64);
+
+        builder.Property(x => x.CreatedAtUtc)
             .IsRequired();
 
-        b.Property(x => x.CanceledReason)
-            .HasColumnName("canceled_reason")
-            .HasMaxLength(500);
+        builder.Property(x => x.UpdatedBy)
+            .HasMaxLength(64);
 
-        b.Property(x => x.CreatedBy)
-            .HasColumnName("created_by")
-            .HasMaxLength(120)
-            .IsRequired();
+        builder.Property(x => x.CanceledBy)
+            .HasMaxLength(64);
 
-        b.Property(x => x.CreatedAtUtc)
-            .HasColumnName("created_at_utc")
-            .IsRequired();
+        // ----------------------------
+        // Indexes (for lists / filters)
+        // ----------------------------
 
-        b.Property(x => x.UpdatedBy)
-            .HasColumnName("updated_by")
-            .HasMaxLength(120);
+        builder.HasIndex(x => x.RecordedAt);
+        builder.HasIndex(x => x.Status);
 
-        b.Property(x => x.UpdatedAtUtc)
-            .HasColumnName("updated_at_utc");
+        // Якщо OrderTitle справді унікальний в домені — лишаємо.
+        // TODO: якщо унікальність залежить від підрозділу/року — зробити складений індекс.
+        builder.HasIndex(x => x.OrderTitle)
+            .IsUnique();
 
-        b.Property(x => x.CanceledBy)
-            .HasColumnName("canceled_by")
-            .HasMaxLength(120);
+        // ----------------------------
+        // Relationships
+        // ----------------------------
 
-        b.Property(x => x.CanceledAtUtc)
-            .HasColumnName("canceled_at_utc");
-
-        b.HasIndex(x => x.OrderTitle).IsUnique();
-
-        b.HasMany(x => x.CombatTasks)
+        builder.HasMany(x => x.MissionParticipations)
             .WithOne(x => x.Document)
             .HasForeignKey(x => x.DocumentId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        // Узгодженість "Canceled": якщо status=2 (Canceled) — canceled_at_utc має бути
-        b.ToTable(t => t.HasCheckConstraint(
-            "ck_combat_task_documents_canceled",
-            "status <> 2 OR canceled_at_utc IS NOT NULL"));
     }
 }

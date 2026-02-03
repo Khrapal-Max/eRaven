@@ -2,23 +2,33 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CombatEntryDetailsDto
+// MissionParticipationRowDto
 //-----------------------------------------------------------------------------
 
 namespace eRaven.Application.DTOs.CombatTask;
 
 /// <summary>
-/// DTO "групи" участей у документі планування.
-/// Група = один старт (From + SourceDocNo + Mission) та список осіб.
-/// Закриття групи відображається через To/EndSourceDocNo.
+/// Рядок звіту участі в місії (на дату або за період).
+/// Дані беруться з MissionParticipation snapshot (без JOIN-ів).
 /// </summary>
-public sealed record CombatEntryDetailsDto(
+public sealed record MissionParticipationRowDto(
+    Guid DocumentId,
     Guid GroupId,
     int GroupSequence,
-    string SourceDocNo,
+
     Guid MissionId,
-    string MissionDisplay,
+    string MissionDisplaySnapshot,
+
+    Guid PersonId,
+    string RNOKPP,
+    string FullName,
+    string Rank,
+    string Position,
+    string Weapon,
+    string Callsign,
+
     DateOnly From,
     DateOnly? To,
-    string? EndSourceDocNo,
-    IReadOnlyList<CombatEntryPersonDto> Persons);
+    string SourceDocNo,
+    string? EndSourceDocNo
+);
