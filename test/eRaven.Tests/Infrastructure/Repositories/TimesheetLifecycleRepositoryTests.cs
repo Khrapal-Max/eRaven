@@ -15,7 +15,7 @@ namespace eRaven.Tests.Infrastructure.Repositories;
 public sealed class TimesheetLifecycleRepositoryTests
 {
     [Fact]
-    public async Task OpenOnEnrollAsync_creates_timeline_and_default_30()
+    public async Task OpenOnEnrollAsync_creates_timeline_and_default_T()
     {
         await using var tdb = new SqliteTestDb();
         var repo = new TimesheetLifecycleRepository(tdb.Factory);
@@ -48,10 +48,10 @@ public sealed class TimesheetLifecycleRepositoryTests
 
         var e = entries[0];
         Assert.Equal(tl.Id, e.TimelineId);
-        Assert.Equal("30", e.Code);
+        Assert.Equal("Т", e.Code);
         Assert.Equal(enrollDate, e.From);
         Assert.Null(e.To);
-        Assert.Equal("Auto: Enroll", e.Reference);
+        Assert.Equal("Auto: system", e.Reference);
     }
 
     [Fact]
