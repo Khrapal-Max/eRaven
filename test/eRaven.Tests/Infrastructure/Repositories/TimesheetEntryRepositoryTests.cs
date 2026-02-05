@@ -419,13 +419,12 @@ public sealed class TimesheetEntryRepositoryTests
 
         var personId = Guid.NewGuid();
         var tl1 = NewTimeline(personId, new DateOnly(2026, 1, 1));
-        var tl2 = NewTimeline(personId, new DateOnly(2026, 2, 1));
 
         TimesheetEntry prev;
 
         using (var db = tdb.Factory.CreateDbContext())
         {
-            db.TimesheetTimelines.AddRange(tl1, tl2);
+            db.TimesheetTimelines.Add(tl1);
 
             prev = NewEntry(tl1.Id, personId, "30", new DateOnly(2026, 1, 1), null);
             db.TimesheetEntries.Add(prev);
@@ -437,11 +436,12 @@ public sealed class TimesheetEntryRepositoryTests
         prev.UpdatedBy = "ui";
         prev.UpdatedAtUtc = NowUtc;
 
-        // next in different timeline (should be rejected)
-        var next = NewEntry(tl2.Id, personId, "100", new DateOnly(2026, 1, 10), null);
+        // next "в іншому timeline" — НЕ потрібно створювати 2-й timeline в БД
+        var next = NewEntry(Guid.NewGuid(), personId, "100", new DateOnly(2026, 1, 10), null);
 
         var repo = new TimesheetEntryRepository(tdb.Factory);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.SaveTransitionAsync(prev, next));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => repo.SaveTransitionAsync(prev, next));
+        Assert.Contains("одного таймлайну", ex.Message);
     }
 }

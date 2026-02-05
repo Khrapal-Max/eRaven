@@ -51,7 +51,7 @@ public sealed class TimesheetLifecycleRepositoryTests
         Assert.Equal("Т", e.Code);
         Assert.Equal(enrollDate, e.From);
         Assert.Null(e.To);
-        Assert.Equal("Auto: system", e.Reference);
+        Assert.Equal("Auto: enroll", e.Reference);
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public sealed class TimesheetLifecycleRepositoryTests
             await repo.ValidateCanCloseOnExcludeAsync(personId, closeTo: new DateOnly(2026, 1, 5)));
 
         Assert.Contains("ВП", ex.Message);
-        Assert.Contains("30", ex.Message);
+        Assert.Contains("Т", ex.Message);
         Assert.Contains("РОЗПОР", ex.Message);
     }
 

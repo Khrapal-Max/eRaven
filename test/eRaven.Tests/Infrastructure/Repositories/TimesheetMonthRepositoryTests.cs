@@ -277,6 +277,72 @@ public sealed class TimesheetMonthRepositoryTests
         Assert.Equal("222", byName[0].RNOKPP);
     }
 
+    [Fact]
+    public async Task GetTimesheetMonthAsync_includes_multiple_episodes_in_month_and_keeps_gaps_as_NB()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        Guid personId;
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            // PersonRead потрібен лише щоб репо побудувало row.
+            // EnrolledAt/ExcludedAt тут не критичні для матриці кодів (вона будується з timelines+entries).
+            var p = NewPerson("444", "Episode Person", EnrollmentKind.Unit, enrolledAt: new DateOnly(2026, 02, 28));
+            personId = p.Id;
+            db.PersonRead.Add(p);
+
+            // Епізод 1: 02.02–07.02
+            var tl1 = NewTimeline(personId, openedAt: new DateOnly(2026, 02, 02), closedAt: new DateOnly(2026, 02, 07));
+
+            // Епізод 2: 28.02–(open)
+            var tl2 = NewTimeline(personId, openedAt: new DateOnly(2026, 02, 28), closedAt: null);
+
+            db.TimesheetTimelines.AddRange(tl1, tl2);
+
+            // Entry-сегменти в межах кожного епізоду
+            db.TimesheetEntries.AddRange(
+                NewEntry(tl1, personId, "Т", from: new DateOnly(2026, 02, 02), to: new DateOnly(2026, 02, 07)),
+                NewEntry(tl2, personId, "Т", from: new DateOnly(2026, 02, 28), to: null)
+            );
+
+            db.SaveChanges();
+        }
+
+        var repo = new TimesheetMonthRepository(tdb.Factory);
+
+        // act (grid)
+        var rows = await repo.GetTimesheetMonthAsync(2026, 2, search: "444");
+
+        // assert
+        Assert.Single(rows);
+        var r = rows[0];
+
+        Assert.Equal(28, r.Codes.Count);
+
+        // 01.02 => NB
+        Assert.Equal("НБ", r.Codes[0]);
+
+        // 02..07 => "Т" (indexes 1..6)
+        for (var i = 1; i <= 6; i++)
+            Assert.Equal("Т", r.Codes[i]);
+
+        // 08..27 => NB (indexes 7..26)
+        for (var i = 7; i <= 26; i++)
+            Assert.Equal("НБ", r.Codes[i]);
+
+        // 28 => "Т" (index 27)
+        Assert.Equal("Т", r.Codes[27]);
+
+        // додатково: person-month details також має містити обидва сегменти
+        var pm = await repo.GetTimesheetPersonMonthAsync(personId, 2026, 2);
+        Assert.NotNull(pm);
+        Assert.Equal(2, pm!.Entries.Count);
+
+        Assert.Contains(pm.Entries, e => e.Code == "Т" && e.From == new DateOnly(2026, 02, 02) && e.To == new DateOnly(2026, 02, 07));
+        Assert.Contains(pm.Entries, e => e.Code == "Т" && e.From == new DateOnly(2026, 02, 28) && e.To is null);
+    }
+
     // -------------------------
     // Test data helpers
     // -------------------------

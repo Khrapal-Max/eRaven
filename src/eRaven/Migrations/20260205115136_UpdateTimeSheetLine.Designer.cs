@@ -12,8 +12,8 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260203203638_AddCombatTask")]
-    partial class AddCombatTask
+    [Migration("20260205115136_UpdateTimeSheetLine")]
+    partial class UpdateTimeSheetLine
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -564,7 +564,13 @@ namespace eRaven.Migrations
                     b.HasIndex("PersonId", "ClosedAt")
                         .HasDatabaseName("ix_ts_timelines_person_closed");
 
-                    b.ToTable("timesheet_timelines", (string)null);
+                    b.HasIndex("PersonId", "OpenedAt")
+                        .HasDatabaseName("ix_ts_timelines_person_opened");
+
+                    b.ToTable("timesheet_timelines", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_ts_timelines_closed_gte_opened", "closed_at IS NULL OR closed_at >= opened_at");
+                        });
                 });
 
             modelBuilder.Entity("eRaven.Domain.Entities.TimesheetCodeTransition", b =>

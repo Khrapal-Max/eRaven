@@ -6,11 +6,17 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace eRaven.Migrations
 {
     /// <inheritdoc />
-    public partial class AddCombatTask : Migration
+    public partial class UpdateTimeSheetLine : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<int>(
+                name: "position_sort",
+                table: "person_read",
+                type: "integer",
+                nullable: true);
+
             migrationBuilder.CreateTable(
                 name: "CombatTaskDocuments",
                 columns: table => new
@@ -94,6 +100,7 @@ namespace eRaven.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_timesheet_timelines", x => x.id);
+                    table.CheckConstraint("ck_ts_timelines_closed_gte_opened", "closed_at IS NULL OR closed_at >= opened_at");
                 });
 
             migrationBuilder.CreateTable(
@@ -154,6 +161,11 @@ namespace eRaven.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_person_read_kind_possort_last",
+                table: "person_read",
+                columns: new[] { "enrollment_kind", "position_sort", "last_name" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_CombatTaskDocuments_OrderTitle",
@@ -231,6 +243,11 @@ namespace eRaven.Migrations
                 columns: new[] { "person_id", "closed_at" });
 
             migrationBuilder.CreateIndex(
+                name: "ix_ts_timelines_person_opened",
+                table: "timesheet_timelines",
+                columns: new[] { "person_id", "opened_at" });
+
+            migrationBuilder.CreateIndex(
                 name: "ux_ts_timelines_person_active",
                 table: "timesheet_timelines",
                 column: "person_id",
@@ -258,6 +275,14 @@ namespace eRaven.Migrations
 
             migrationBuilder.DropTable(
                 name: "timesheet_timelines");
+
+            migrationBuilder.DropIndex(
+                name: "ix_person_read_kind_possort_last",
+                table: "person_read");
+
+            migrationBuilder.DropColumn(
+                name: "position_sort",
+                table: "person_read");
         }
     }
 }

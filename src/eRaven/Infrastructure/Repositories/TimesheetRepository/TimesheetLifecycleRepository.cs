@@ -11,25 +11,34 @@ using Microsoft.EntityFrameworkCore;
 namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 /// <summary>
-/// Write-repo для життєвого циклу табеля (facts-only).
+/// Write-repo для життєвого циклу табеля (епізоди).
+///
+/// Ключова ідея:
+/// - Один епізод "в табелі" = один <see cref="TimesheetTimeline"/> (OpenedAt..ClosedAt).
+/// - На кожне нове зарахування (після виключення) створюється НОВИЙ таймлайн.
+/// - Старі таймлайни не перезаписуються і не "перевідкриваються".
 ///
 /// Правила:
 /// - "НБ" не записуємо як entry — це derived стан (немає активного entry на дату).
-/// - При Enroll: відкриваємо timeline (якщо немає активного) і забезпечуємо код "30" на дату.
-/// - При Exclude: дозволяємо закривати табель тільки з певних кодів на дату (наприклад 30/РОЗПОР),
-///   далі:
-///   - закриваємо timeline (inclusive)
-///   - clamping відкритих/довгих entry до closeTo
-///   - soft-delete future entries (From > closeTo)
+/// - При Enroll:
+///   - якщо активного епізоду немає — створюємо новий таймлайн (OpenedAt=enrollDate),
+///     додаємо дефолтний код "Т" (open-ended) на enrollЕЮ дату (ідемпотентно).
+///   - якщо активний епізод є — НЕ змінюємо OpenedAt і НЕ створюємо новий епізод (ідемпотентність для повторів).
+/// - При Exclude:
+///   - дозволяємо закривати табель лише з певних кодів на дату (наприклад "Т"/"РОЗПОР").
+///   - закриваємо РІВНО один активний таймлайн (inclusive),
+///   - clamping відкритих/довгих entry до closeTo,
+///   - soft-delete future entries (From > closeTo).
 /// </summary>
 public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext> dbFactory)
     : ITimesheetLifecycleRepository
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
-    /// <summary>
-    /// Коди, з яких дозволено закривати табель при Exclude.
-    /// </summary>
+    /// <summary>Дефолтний код на дату зарахування (перший факт у новому епізоді).</summary>
+    private const string DefaultEnrollCode = "Т";
+
+    /// <summary>Коди, з яких дозволено закривати табель при Exclude.</summary>
     private static readonly HashSet<string> AllowedCloseCodes = new(StringComparer.Ordinal)
     {
         "Т",
@@ -48,10 +57,12 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
         if (personId == Guid.Empty)
             throw new ArgumentException("PersonId is required.", nameof(personId));
 
+        var by = author.Trim();
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        // Active timeline (ClosedAt == null). Expect максимум 1.
+        // 1) Active episode (ClosedAt == null) — очікуємо максимум 1
         var active = await db.TimesheetTimelines
             .Where(x => x.PersonId == personId && x.ClosedAt == null)
             .OrderByDescending(x => x.OpenedAt)
@@ -60,36 +71,53 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
 
         TimesheetTimeline timeline;
 
-        if (active.Count == 0)
+        if (active.Count == 1)
         {
+            timeline = active[0];
+
+            // Ідемпотентний повтор: нічого не "перезаписуємо"
+            if (timeline.OpenedAt > enrollDate)
+                throw new InvalidOperationException(
+                    $"Неможливо відкрити табель на {enrollDate:yyyy-MM-dd}: активний епізод відкритий пізніше ({timeline.OpenedAt:yyyy-MM-dd}).");
+        }
+        else if (active.Count == 0)
+        {
+            // 2) Заборона відкривати НОВИЙ епізод "у минулому", який накладається на вже закриті епізоди.
+            // Епізоди мають бути часово послідовні: enrollDate > lastClosedAt (якщо існує).
+            var lastClosed = await db.TimesheetTimelines
+                .AsNoTracking()
+                .Where(x => x.PersonId == personId && x.ClosedAt != null)
+                .OrderByDescending(x => x.ClosedAt)
+                .Select(x => x.ClosedAt)
+                .FirstOrDefaultAsync(ct);
+
+            if (lastClosed.HasValue && enrollDate <= lastClosed.Value)
+            {
+                throw new InvalidOperationException(
+                    $"Неможливо відкрити новий табель на {enrollDate:yyyy-MM-dd}: " +
+                    $"вже існує закритий табель до {lastClosed.Value:yyyy-MM-dd}. " +
+                    "Табелі не можна накладати або відкривати 'заднім числом'.");
+            }
+
             timeline = new TimesheetTimeline
             {
                 Id = Guid.NewGuid(),
                 PersonId = personId,
                 OpenedAt = enrollDate,
                 ClosedAt = null,
-                CreatedBy = author.Trim(),
+                CreatedBy = by,
                 CreatedAtUtc = nowUtc
             };
 
             db.TimesheetTimelines.Add(timeline);
         }
-        else if (active.Count == 1)
-        {
-            timeline = active[0];
-
-            // Enroll не може бути раніше відкриття активної шкали (це означає неконсистентність даних).
-            if (timeline.OpenedAt > enrollDate)
-                throw new InvalidOperationException(
-                    $"Неможливо відкрити табель на {enrollDate:yyyy-MM-dd}: активна шкала відкрита пізніше ({timeline.OpenedAt:yyyy-MM-dd}).");
-        }
         else
         {
             throw new InvalidOperationException(
-                "Неможливо відкрити табель: знайдено декілька активних шкал (дані пошкоджені).");
+                "Неможливо відкрити табель: знайдено декілька активних епізодів (дані пошкоджені).");
         }
 
-        // Default "Т" covering enroll date (idempotent)
+        // 3) Default code covering enroll date (ідемпотентно)
         var hasEntryOnEnrollDate = await db.TimesheetEntries
             .AsNoTracking()
             .Where(x => !x.IsDeleted)
@@ -104,12 +132,12 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
                 Id = Guid.NewGuid(),
                 TimelineId = timeline.Id,
                 PersonId = personId,
-                Code = "Т",
+                Code = DefaultEnrollCode,
                 From = enrollDate,
                 To = null,
-                Reference = "Auto: system",
+                Reference = "Auto: enroll",
                 Note = null,
-                CreatedBy = author.Trim(),
+                CreatedBy = by,
                 CreatedAtUtc = nowUtc,
                 IsDeleted = false
             });
@@ -142,33 +170,41 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
         if (personId == Guid.Empty)
             throw new ArgumentException("PersonId is required.", nameof(personId));
 
+        var by = author.Trim();
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        // Validate predecessor state (code must be 30/РОЗПОР on closeTo)
+        // 1) Validate predecessor state (allowed code on closeTo)
         await ValidateCanCloseOnExcludeCoreAsync(db, personId, closeTo, ct);
 
+        // 2) Load EXACTLY one active episode (не "закриваємо все підряд")
         var active = await db.TimesheetTimelines
             .Where(x => x.PersonId == personId && x.ClosedAt == null)
+            .OrderByDescending(x => x.OpenedAt)
+            .ThenByDescending(x => x.Id)
             .ToListAsync(ct);
 
         if (active.Count == 0)
+            throw new InvalidOperationException("Неможливо виключити з табелю: немає активного епізоду.");
+
+        if (active.Count > 1)
+            throw new InvalidOperationException("Неможливо виключити з табелю: декілька активних епізодів (дані пошкоджені).");
+
+        var tl = active[0];
+
+        if (closeTo < tl.OpenedAt)
             throw new InvalidOperationException(
-                "Неможливо виключити з табелю: немає активної шкали (особа вже поза табелем).");
+                $"Неможливо закрити табель на {closeTo:yyyy-MM-dd}: він відкритий з {tl.OpenedAt:yyyy-MM-dd}.");
 
-        var activeTimelineIds = active.Select(x => x.Id).ToArray();
+        // 3) Close timeline (inclusive)
+        tl.ClosedAt = closeTo;
+        tl.ClosedBy = by;
+        tl.ClosedAtUtc = nowUtc;
 
-        // 1) Close timelines (inclusive)
-        foreach (var tl in active)
-        {
-            tl.ClosedAt = closeTo;
-            tl.ClosedBy = author.Trim();
-            tl.ClosedAtUtc = nowUtc;
-        }
-
-        // 2) Clamp entries that extend beyond closeTo (or are open-ended)
+        // 4) Clamp entries that extend beyond closeTo (or are open-ended)
         var toClamp = await db.TimesheetEntries
-            .Where(x => activeTimelineIds.Contains(x.TimelineId) && !x.IsDeleted)
+            .Where(x => x.TimelineId == tl.Id && !x.IsDeleted)
             .Where(x => x.From <= closeTo)
             .Where(x => x.To == null || x.To > closeTo)
             .ToListAsync(ct);
@@ -176,13 +212,13 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
         foreach (var e in toClamp)
         {
             e.To = closeTo;
-            e.UpdatedBy = author.Trim();
+            e.UpdatedBy = by;
             e.UpdatedAtUtc = nowUtc;
         }
 
-        // 3) Soft-delete future entries (From > closeTo)
+        // 5) Soft-delete future entries (From > closeTo)
         var future = await db.TimesheetEntries
-            .Where(x => activeTimelineIds.Contains(x.TimelineId) && !x.IsDeleted)
+            .Where(x => x.TimelineId == tl.Id && !x.IsDeleted)
             .Where(x => x.From > closeTo)
             .ToListAsync(ct);
 
@@ -192,7 +228,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
             foreach (var e in future)
             {
                 e.IsDeleted = true;
-                e.DeletedBy = author.Trim();
+                e.DeletedBy = by;
                 e.DeletedAtUtc = nowUtc;
                 e.DeleteReason = msg;
             }
@@ -216,12 +252,10 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
             .ToListAsync(ct);
 
         if (active.Count == 0)
-            throw new InvalidOperationException(
-                "Неможливо виключити з табелю: немає активної шкали (особа вже поза табелем).");
+            throw new InvalidOperationException("Неможливо виключити з табелю: немає активного епізоду.");
 
         if (active.Count > 1)
-            throw new InvalidOperationException(
-                "Неможливо виключити з табелю: знайдено декілька активних шкал (дані пошкоджені).");
+            throw new InvalidOperationException("Неможливо виключити з табелю: декілька активних епізодів (дані пошкоджені).");
 
         var timeline = active[0];
 
@@ -231,8 +265,8 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
             .Where(x => x.From <= closeTo && (!x.To.HasValue || x.To.Value >= closeTo))
             .OrderByDescending(x => x.From)
             .ThenByDescending(x => x.Id)
-            .FirstOrDefaultAsync(ct) ??
-            throw new InvalidOperationException(
+            .FirstOrDefaultAsync(ct)
+            ?? throw new InvalidOperationException(
                 $"Неможливо виключити з табелю: на дату {closeTo:yyyy-MM-dd} немає активного запису (дані пошкоджені).");
 
         var code = (onDate.Code ?? string.Empty).Trim();
@@ -240,7 +274,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
         if (!AllowedCloseCodes.Contains(code))
         {
             throw new InvalidOperationException(
-                $"Неможливо виключити з табелю зі стану '{code}'. Дозволено тільки з '30' або 'РОЗПОР'. " +
+                $"Неможливо виключити з табелю зі стану '{code}'. Дозволено тільки з 'Т' або 'РОЗПОР'. " +
                 $"Спочатку приведіть табель до дозволеного стану на {closeTo:yyyy-MM-dd}.");
         }
     }

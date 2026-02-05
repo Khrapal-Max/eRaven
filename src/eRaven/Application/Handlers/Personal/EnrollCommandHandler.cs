@@ -25,7 +25,7 @@ public sealed class EnrollCommandHandler(
         // 1) Person lifecycle
         await _repo.EnrollAsync(command, ct);
 
-        // 2) Timesheet lifecycle: відкриваємо шкали + ставимо Main=30
+        // 2) Timesheet lifecycle: відкриваємо шкали + ставимо Main=Т
         await _timesheet.OpenOnEnrollAsync(
             personId: command.PersonId,
             enrollDate: command.EnrollDate,

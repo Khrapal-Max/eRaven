@@ -15,7 +15,14 @@ public sealed class TimesheetTimelineConfiguration : IEntityTypeConfiguration<Ti
 {
     public void Configure(EntityTypeBuilder<TimesheetTimeline> e)
     {
-        e.ToTable("timesheet_timelines");
+        e.ToTable("timesheet_timelines", t =>
+        {
+            // Hard invariant: closed_at must be >= opened_at (when present)
+            t.HasCheckConstraint(
+                "ck_ts_timelines_closed_gte_opened",
+                "closed_at IS NULL OR closed_at >= opened_at");
+        });
+
         e.HasKey(x => x.Id);
 
         e.Property(x => x.Id)
@@ -49,18 +56,20 @@ public sealed class TimesheetTimelineConfiguration : IEntityTypeConfiguration<Ti
         e.Property(x => x.ClosedAtUtc)
             .HasColumnName("closed_at_utc");
 
-        // 1) Fast lookup of timelines by person + state
+        // Fast lookup by person + state
         e.HasIndex(x => new { x.PersonId, x.ClosedAt })
             .HasDatabaseName("ix_ts_timelines_person_closed");
 
-        // 2) Guarantee: only one active timeline per person (ClosedAt == null)
-        // Npgsql supports filtered indexes.
+        // Fast lookup for "last closed episode" / ordering by opened
+        e.HasIndex(x => new { x.PersonId, x.OpenedAt })
+            .HasDatabaseName("ix_ts_timelines_person_opened");
+
+        // Guarantee: only one active timeline per person (ClosedAt == null)
         e.HasIndex(x => x.PersonId)
             .IsUnique()
             .HasFilter("closed_at IS NULL")
             .HasDatabaseName("ux_ts_timelines_person_active");
 
-        // Navigation (optional): TimesheetTimeline.Entries
         e.HasMany(x => x.Entries)
             .WithOne(x => x.Timeline)
             .HasForeignKey(x => x.TimelineId)

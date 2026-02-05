@@ -5,30 +5,34 @@
 // ITimesheetLifecycleRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Entities;
+
 namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 /// <summary>
-/// Репозиторій життєвого циклу табеля (відкриття/закриття шкал та базові інваріанти).
+/// Репозиторій життєвого циклу табеля (епізоди зарахування/виключення).
 ///
-/// Призначення:
-/// - При зарахуванні (Enroll): гарантувати наявність активних шкал (timelines) та дефолтного Main=30.
-/// - При виключенні (Exclude): перевірити, що закриття дозволено, і виконати закриття з нормалізацією записів.
+/// Модель:
+/// - Кожне зарахування (Enroll) створює НОВИЙ <see cref="TimesheetTimeline"/> (епізод),
+///   якщо немає активного епізоду.
+/// - Старі (закриті) таймлайни НЕ перезаписуються і не "перевідкриваються".
+/// - Одночасно дозволено мати не більше одного активного таймлайну (ClosedAt == null).
 ///
-/// Важливі правила домену:
-/// - Табель є фактом (source of truth) для "стану" особи по датах.
-/// - NB ("НБ") не зберігаємо як entry — це derived-стан, коли немає активного Main entry на дату.
-/// - Діапазони інклюзивні: [From..To]. Якщо To == null — запис відкритий у майбутнє.
-/// - Закриття timeline на дату D означає: наступний день (D+1) вже поза табелем.
+/// Важливо:
+/// - "НБ" не зберігаємо як entry — це derived-стан, коли немає активного запису на дату.
+/// - Діапазони інклюзивні: [From..To]. Якщо To == null — запис відкритий у майбутнє (лише для активного епізоду).
 /// </summary>
 public interface ITimesheetLifecycleRepository
 {
     /// <summary>
-    /// Відкриває табель при зарахуванні особи:
-    /// - створює активну шкалу для особи, якщо її ще немає;
-    /// - додає дефолтний запис з кодом "30" (open-ended), який покриває <paramref name="enrollDate"/>,
-    ///   якщо такого запису ще немає.
+    /// Відкриває табель при зарахуванні особи (створює епізод).
     ///
-    /// Очікувана поведінка: операція ідемпотентна (повторний виклик не створює дублікати).
+    /// Правила:
+    /// - Якщо активного епізоду немає — створюється новий <see cref="TimesheetTimeline"/> з OpenedAt=enrollDate
+    ///   і додається дефолтний запис з кодом "Т", який покриває enrollDate.
+    /// - Якщо активний епізод є — операція має бути ідемпотентною (не створює дублікати),
+    ///   але НЕ змінює OpenedAt і НЕ створює новий епізод поверх старого.
+    /// - Заборонено відкривати новий епізод "у минулому", який перетинається/накладається на закриті епізоди.
     /// </summary>
     Task OpenOnEnrollAsync(
         Guid personId,
@@ -38,13 +42,11 @@ public interface ITimesheetLifecycleRepository
         CancellationToken ct = default);
 
     /// <summary>
-    /// Перевіряє (без внесення змін), чи дозволено закривати табель при виключенні на дату <paramref name="closeTo"/>.
+    /// Перевіряє (без внесення змін), чи дозволено закривати активний епізод на дату <paramref name="closeTo"/>.
     ///
     /// Правило:
-    /// - На дату <paramref name="closeTo"/> активний Main-запис має бути у дозволеному стані
-    ///   (наприклад, "30" або "РОЗПОР" — визначається реалізацією).
-    ///
-    /// Якщо умови не виконані — кидає <see cref="InvalidOperationException"/> з поясненням.
+    /// - На дату closeTo активний запис має бути у дозволеному стані
+    ///   (наприклад, "Т" або "РОЗПОР" — визначається реалізацією).
     /// </summary>
     Task ValidateCanCloseOnExcludeAsync(
         Guid personId,
@@ -52,18 +54,15 @@ public interface ITimesheetLifecycleRepository
         CancellationToken ct = default);
 
     /// <summary>
-    /// Закриває табель при виключенні особи:
-    /// - закриває всі активні шкали (ClosedAt = <paramref name="closeTo"/>, audit-поля ClosedBy/ClosedAtUtc);
-    /// - обрізає записи, що тягнуться за <paramref name="closeTo"/> (To == null або To &gt; closeTo) до closeTo;
-    /// - soft-delete майбутніх записів (From &gt; closeTo) з заповненням Deleted* і причини.
-    ///
-    /// Реалізація повинна виконувати операцію в транзакції і перед внесенням змін
-    /// перевірити дозволеність стану (еквівалентно <see cref="ValidateCanCloseOnExcludeAsync"/>).
+    /// Закриває активний епізод табеля на дату <paramref name="closeTo"/> (inclusive):
+    /// - Закриває РІВНО один активний таймлайн (ClosedAt, ClosedBy, ClosedAtUtc).
+    /// - Обрізає записи, що тягнуться за closeTo (To == null або To &gt; closeTo) до closeTo.
+    /// - Soft-delete майбутніх записів (From &gt; closeTo) з заповненням Deleted* і причини.
     /// </summary>
     Task CloseOnExcludeAsync(
         Guid personId,
         DateOnly closeTo,
-        string reason,
+        string? reason,
         string author,
         DateTime nowUtc,
         CancellationToken ct = default);

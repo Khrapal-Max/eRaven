@@ -22,7 +22,7 @@ public sealed class ExcludeCommandHandler(
 
     public async Task HandleAsync(ExcludeCommand command, CancellationToken ct = default)
     {
-        // 0) Валідація ДО виключення: на дату EffectiveDate Main має бути 30 або РОЗПОР
+        // 0) Валідація ДО виключення: на дату EffectiveDate Main має бути Т або РОЗПОР
         // (щоб не було кейсу "звільнили у відпустці")
         await _timesheet.ValidateCanCloseOnExcludeAsync(
             personId: command.PersonId,
