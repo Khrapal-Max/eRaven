@@ -148,7 +148,7 @@ public sealed class TimesheetEntryRepositoryTests
 
         var repo = new TimesheetEntryRepository(tdb.Factory);
 
-        var active = await repo.GetActiveEntryOnDateAsync(personId, new DateOnly(2026, 1, 15));
+        var active = await repo.GetActiveEntryOnDateAsync(tl.Id, personId, new DateOnly(2026, 1, 15));
 
         Assert.NotNull(active);
         Assert.Equal("ВП", active!.Code);
@@ -281,5 +281,167 @@ public sealed class TimesheetEntryRepositoryTests
             Assert.Equal("100", all[1].Code);
             Assert.Equal(new DateOnly(2026, 1, 10), all[1].From);
         }
+    }
+
+    // ----------------------------------------------------------------------
+    // NEW: repository invariants (p.1 / p.2)
+    // ----------------------------------------------------------------------
+
+    [Fact]
+    public async Task AddAsync_throws_when_timeline_closed()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var personId = Guid.NewGuid();
+        var tl = NewTimeline(personId, openedAt: new DateOnly(2026, 1, 1), closedAt: new DateOnly(2026, 1, 5));
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetTimelines.Add(tl);
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+        var entry = NewEntry(tl.Id, personId, "30", new DateOnly(2026, 1, 2), null);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.AddAsync(entry));
+    }
+
+    [Fact]
+    public async Task SaveTransitionAsync_throws_when_timeline_closed()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var personId = Guid.NewGuid();
+        var tl = NewTimeline(personId, openedAt: new DateOnly(2026, 1, 1), closedAt: new DateOnly(2026, 1, 5));
+
+        TimesheetEntry prev;
+
+        // Seed existing data directly (represents history before timeline got closed)
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetTimelines.Add(tl);
+
+            prev = NewEntry(tl.Id, personId, "30", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5));
+            db.TimesheetEntries.Add(prev);
+
+            await db.SaveChangesAsync();
+        }
+
+        prev.To = new DateOnly(2026, 1, 5);
+        prev.UpdatedBy = "ui";
+        prev.UpdatedAtUtc = NowUtc;
+
+        var next = NewEntry(tl.Id, personId, "100", new DateOnly(2026, 1, 6), null);
+        next.CreatedBy = "ui";
+        next.CreatedAtUtc = NowUtc;
+
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.SaveTransitionAsync(prev, next));
+    }
+
+    [Fact]
+    public async Task AddAsync_throws_when_entry_starts_before_openedAt()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var personId = Guid.NewGuid();
+        var tl = NewTimeline(personId, openedAt: new DateOnly(2026, 1, 10));
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetTimelines.Add(tl);
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        var entry = NewEntry(tl.Id, personId, "30", from: new DateOnly(2026, 1, 9), to: null);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.AddAsync(entry));
+    }
+
+    [Fact]
+    public async Task AddAsync_throws_when_To_before_From()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var personId = Guid.NewGuid();
+        var tl = NewTimeline(personId, openedAt: new DateOnly(2026, 1, 1));
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetTimelines.Add(tl);
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        var entry = NewEntry(tl.Id, personId, "30", from: new DateOnly(2026, 1, 10), to: new DateOnly(2026, 1, 9));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.AddAsync(entry));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_throws_when_open_ended_in_closed_timeline()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var personId = Guid.NewGuid();
+        var tl = NewTimeline(personId, openedAt: new DateOnly(2026, 1, 1), closedAt: new DateOnly(2026, 1, 5));
+
+        TimesheetEntry e;
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetTimelines.Add(tl);
+
+            // Seed an entry that violates closed-timeline invariant (open-ended).
+            // UpdateAsync should reject it (guard for data integrity).
+            e = NewEntry(tl.Id, personId, "30", new DateOnly(2026, 1, 1), to: null);
+            db.TimesheetEntries.Add(e);
+
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        e.Note = "try update";
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.UpdateAsync(e));
+    }
+
+    [Fact]
+    public async Task SaveTransitionAsync_throws_when_next_in_other_timeline()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var personId = Guid.NewGuid();
+        var tl1 = NewTimeline(personId, new DateOnly(2026, 1, 1));
+        var tl2 = NewTimeline(personId, new DateOnly(2026, 2, 1));
+
+        TimesheetEntry prev;
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetTimelines.AddRange(tl1, tl2);
+
+            prev = NewEntry(tl1.Id, personId, "30", new DateOnly(2026, 1, 1), null);
+            db.TimesheetEntries.Add(prev);
+
+            await db.SaveChangesAsync();
+        }
+
+        prev.To = new DateOnly(2026, 1, 9);
+        prev.UpdatedBy = "ui";
+        prev.UpdatedAtUtc = NowUtc;
+
+        // next in different timeline (should be rejected)
+        var next = NewEntry(tl2.Id, personId, "100", new DateOnly(2026, 1, 10), null);
+
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.SaveTransitionAsync(prev, next));
     }
 }

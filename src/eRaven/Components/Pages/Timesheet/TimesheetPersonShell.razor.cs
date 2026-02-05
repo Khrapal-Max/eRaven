@@ -31,8 +31,12 @@ public partial class TimesheetPersonShell
     /// <summary>
     /// Read-query: місяць конкретної особи (day-codes + entries).
     /// </summary>
-    [Inject]
-    public IQueryHandler<GetTimesheetPersonMonthQuery, TimesheetPersonMonthDto?> Query { get; set; } = default!;
+    [Inject] public IQueryHandler<GetTimesheetPersonMonthQuery, TimesheetPersonMonthDto?> Query { get; set; } = default!;
+
+    /// <summary>
+    /// Команда переходу стану для створення події (transition).
+    /// </summary>
+    [Inject] public ICommandHandler<TransitionTimesheetStateCommand> Handler { get; set; } = default!;
 
     [Inject] public NavigationManager Nav { get; set; } = default!;
 
@@ -42,11 +46,6 @@ public partial class TimesheetPersonShell
     /// Ідентифікатор особи з маршруту.
     /// </summary>
     [Parameter] public Guid PersonId { get; set; }
-
-    /// <summary>
-    /// Команда переходу стану для створення події (transition).
-    /// </summary>
-    [Inject] public ICommandHandler<TransitionTimesheetStateCommand> Handler { get; set; } = default!;
 
     //======================================================================
     // State
@@ -206,7 +205,6 @@ public partial class TimesheetPersonShell
     //======================================================================
     // Calendar helpers (fact-only)
     //======================================================================
-
     /// <summary>
     /// Повертає код табеля для конкретного day (1-based) з Person.Codes.
     /// Якщо даних немає — "НБ".
@@ -244,48 +242,5 @@ public partial class TimesheetPersonShell
     {
         var c = (code ?? "").Trim().ToUpperInvariant();
         return c == "100" || c == "ПБД" || c == "Ф100";
-    }
-
-    //======================================================================
-    // Event drawer (створення події)
-    //======================================================================
-
-    private bool _eventDrawerOpen;
-    private TimesheetPersonMonthRowDto? _eventDrawerPerson;
-    private DateOnly _eventDrawerDate;
-
-    /// <summary>
-    /// Відкриває drawer створення події на сьогодні.
-    /// </summary>
-    private void OpenEventDrawerToday()
-    {
-        if (_dto?.Person is null) return;
-
-        _eventDrawerPerson = _dto.Person;
-        _eventDrawerDate = DateOnly.FromDateTime(DateTime.Today);
-        _eventDrawerOpen = true;
-    }
-
-    /// <summary>
-    /// Обробляє submit з drawer:
-    /// виконує transition та перезавантажує дані.
-    /// </summary>
-    private async Task HandleCreateEventAsync(TimesheetTransitionCreateDto dto)
-    {
-        var command = new TransitionTimesheetStateCommand(
-            PersonId: dto.PersonId,
-            AnchorDate: dto.AnchorDate,
-            InputDate: dto.InputDate,
-            NextCode: dto.NextCode,
-            Reference: dto.Reference,
-            Note: dto.Note,
-            Author: "test.user",
-            NowUtc: DateTime.UtcNow
-        );
-
-        await Handler.HandleAsync(command, default);
-
-        _eventDrawerOpen = false;
-        await ReloadAsync();
     }
 }

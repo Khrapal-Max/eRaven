@@ -55,12 +55,15 @@ public interface ITimesheetEntryRepository
         CancellationToken ct = default);
 
     /// <summary>
-    /// Повертає активний (той, що покриває дату) запис табеля для вказаної особи на <paramref name="date"/>.
-    /// Якщо існує кілька перекривань — повертається "найсвіжіший" за найбільшим From,
-    /// далі tie-breaker за Id.
+    /// Повертає активний (той, що покриває дату) запис табеля в межах конкретного таймлайну.
     /// Soft-deleted записи (IsDeleted=true) ігноруються.
     /// </summary>
+    /// <remarks>
+    /// Важливо для write-path: будь-яка зміна/перехід має працювати тільки в межах таймлайну,
+    /// який покриває дату, і ніколи не має "виходити" за межі OpenedAt/ClosedAt.
+    /// </remarks>
     Task<TimesheetEntry?> GetActiveEntryOnDateAsync(
+        Guid timelineId,
         Guid personId,
         DateOnly date,
         CancellationToken ct = default);
@@ -94,11 +97,13 @@ public interface ITimesheetEntryRepository
         CancellationToken ct = default);
 
     /// <summary>
-    /// Атомарна операція "перехід":
-    /// - оновити попередній запис (наприклад, закрити To / виставити Updated*)
+    ///  /// Атомарна операція "перехід":
+    /// - оновити попередній запис (закрити To / Updated*)
     /// - додати новий запис
-    ///
-    /// Виконується в транзакції.
+    /// Інваріанти:
+    /// 1. Вставки/переходи заборонені, якщо таймлайн закритий (ClosedAt != null).
+    /// 2. prev/next мають належати одному таймлайну і не виходити за його межі:
+    ///    From >= OpenedAt, а якщо ClosedAt != null то To <= ClosedAt і To не може бути null.
     /// </summary>
     Task SaveTransitionAsync(
         TimesheetEntry prevUpdated,

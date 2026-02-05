@@ -57,14 +57,6 @@ public partial class TimesheetDayShell
     private TimesheetPersonDayRowDto? _selected;
 
     //======================================================================
-    // Drawer state (create event)
-    //======================================================================
-
-    private bool _eventDrawerOpen;
-    private TimesheetPersonMonthRowDto? _eventDrawerPerson;
-    private DateOnly _eventDrawerDate;
-
-    //======================================================================
     // Lifecycle
     //======================================================================
 
@@ -130,79 +122,19 @@ public partial class TimesheetDayShell
     }
 
     //======================================================================
-    // Actions
-    //======================================================================
-
-    /// <summary>
-    /// Відкриває drawer створення події (факт/Main) на поточну дату таблиці.
-    /// </summary>
-    private void OpenEventDrawer(TimesheetPersonDayRowDto row)
-    {
-        _eventDrawerDate = _date;
-
-        // Мінімальний snapshot для drawer'а (зараз drawer очікує PersonMonthRowDto).
-        _eventDrawerPerson = new TimesheetPersonMonthRowDto(
-            PersonId: row.PersonId,
-            FullName: row.FullName,
-            RNOKPP: row.RNOKPP,
-            Rank: row.Rank,
-            Position: row.Position,
-            EnrollmentKind: row.EnrollmentKind,
-            EnrolledAt: row.EnrolledAt,
-            ExcludedAt: row.ExcludedAt,
-            Codes: [],
-            Referenses: []
-        );
-
-        _eventDrawerOpen = true;
-    }
-
-    /// <summary>
-    /// Обробляє submit з drawer:
-    /// виконує перехід стану табеля та перезавантажує денний зріз.
-    /// </summary>
-    private async Task HandleCreateEventAsync(TimesheetTransitionCreateDto dto)
-    {
-        var author = "system"; // TODO: auth user
-        var nowUtc = DateTime.UtcNow;
-
-        try
-        {
-            // Lane прибрали: завжди "факт" (Main) у чистому табелі.
-            await CreateEntryHandler.HandleAsync(new TransitionTimesheetStateCommand(
-                PersonId: dto.PersonId,
-                AnchorDate: dto.AnchorDate,
-                InputDate: dto.InputDate,
-                NextCode: dto.NextCode,
-                Reference: dto.Reference,
-                Note: dto.Note,
-                Author: author,
-                NowUtc: nowUtc
-            ));
-
-            Toasts.Success("Збережено", "Подію додано/оновлено");
-            await ReloadAsync();
-        }
-        catch (InvalidOperationException ex)
-        {
-            Toasts.Warning("Неможливо зберегти", ex.Message);
-            throw;
-        }
-        catch (ArgumentException ex)
-        {
-            Toasts.Warning("Невірні дані", ex.Message);
-            throw;
-        }
-        catch
-        {
-            Toasts.Error("Помилка", "Сталася неочікувана помилка. Спробуйте ще раз.");
-            throw;
-        }
-    }
-
-    //======================================================================
     // UI helpers
     //======================================================================
+
+    /// <summary>
+    /// Дозволяє відкривати drawer лише якщо для особи є діючий (активний) timeline на поточну дату сторінки.
+    /// Узгодження з правилом p.1: якщо timeline закритий (особа виключена) — вставки заборонені, тому UI також блокуємо.
+    /// </summary>
+    private bool CanOpenEventDrawer(TimesheetPersonDayRowDto row)
+    {
+        if (!row.EnrolledAt.HasValue) return false;
+        if (row.ExcludedAt.HasValue) return false;          // НЕ активний timeline
+        return _date >= row.EnrolledAt.Value;               // дата в межах активного (від EnrolledAt і далі)
+    }
 
     /// <summary>
     /// Повертає коротку “позначку типу” для EnrollmentKind.

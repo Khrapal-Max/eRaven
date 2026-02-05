@@ -91,16 +91,11 @@
                         <td class="text-center text-truncate" style="max-width:160px">@r.DayState.Reference</td>
                         <td class="text-truncate" style="max-width:220px">@r.DayState.Note</td>
 
-                        <!-- TODO: documents integration (plans/tasks) -->
+                        <!-- documents integration (plans/tasks) -->
                         <td class="text-center">—</td>
 
                         <td class="text-center">
                             <div class="d-inline-flex gap-1">
-                                <Button Class="btn-sm btn-primary rounded-0"
-                                        Label="+ подія"
-                                        StopPropagation="true"
-                                        OnClickButton="@(() => OpenEventDrawer(r))" />
-
                                 <Button Class="btn-sm btn-warning rounded-0"
                                         Label="Особовий табель"
                                         OnClickButton="@(() => Nav.NavigateTo($"/timesheet/person/{r.PersonId}"))" />
@@ -113,9 +108,3 @@
         }
     </div>
 </div>
-
-<TimesheetEventDrawer IsOpen="@_eventDrawerOpen"
-                      IsOpenChanged="@(v => _eventDrawerOpen = v)"
-                      Person="@_eventDrawerPerson"
-                      Date="@_eventDrawerDate"
-                      OnSubmit="HandleCreateEventAsync" />

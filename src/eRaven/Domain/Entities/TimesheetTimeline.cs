@@ -13,6 +13,12 @@ namespace eRaven.Domain.Entities;
 ///
 /// Timeline визначає “контекст” для записів табеля (TimesheetEntry).
 /// </summary>
+/// <remarks>
+/// Інваріанти:
+/// - Будь-які вставки/переходи заборонені, якщо ClosedAt != null.
+/// - TimesheetEntry має існувати тільки в межах [OpenedAt..ClosedAt] (inclusive),
+///   а open-ended (To == null) дозволений тільки для активного таймлайну (ClosedAt == null).
+/// </remarks>
 public sealed class TimesheetTimeline
 {
     /// <summary>Primary key.</summary>

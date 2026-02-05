@@ -93,11 +93,6 @@
                                     Label="Оновити"
                                     IsDisabled="@_loading"
                                     OnClickButton="ReloadAsync" />
-
-                            <Button Class="btn-sm btn-success rounded-0"
-                                    Label="Подія (сьогодні)"
-                                    IsDisabled="@_loading"
-                                    OnClickButton="OpenEventDrawerToday" />
                         </div>
 
                         <div class="ts-cal">
@@ -178,9 +173,3 @@
         }
     </div>
 </div>
-
-<TimesheetEventDrawer IsOpen="@_eventDrawerOpen"
-                      IsOpenChanged="@(v => _eventDrawerOpen = v)"
-                      Person="@_eventDrawerPerson"
-                      Date="@_eventDrawerDate"
-                      OnSubmit="HandleCreateEventAsync" />
