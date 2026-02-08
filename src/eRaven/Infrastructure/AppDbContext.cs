@@ -27,7 +27,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     // Combat Task
     public DbSet<Mission> Missions { get; set; }
+
     public DbSet<CombatTaskDocument> CombatTaskDocuments { get; set; }
+    public DbSet<CombatTask> CombatTasks { get; set; }
+    public DbSet<CombatTaskDetails> CombatTaskDetails { get; set; }
+    public DbSet<MissionAssignment> MissionAssignments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

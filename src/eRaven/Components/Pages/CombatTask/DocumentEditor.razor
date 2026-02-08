@@ -1,4 +1,5 @@
-﻿@* @page "/task-document/{DocumentId:guid}"
+﻿@page "/task-document/{DocumentId:guid}"
+
 @using eRaven.Domain.Enums
 @using eRaven.Application.DTOs.CombatTask
 
@@ -11,9 +12,15 @@
         {
             <p class="px-2 py-2"><em>Завантаження...</em></p>
         }
-        else if (_doc is null)
+        else if (_combatTaskDocument is null)
         {
-            <p class="px-2 py-2"><em>Документ не знайдено.</em></p>
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Документ не знайдено.</div>
+
+                <Button Class="btn-sm btn-light rounded-0"
+                        Label="← Назад"
+                        OnClickButton="@(() => Nav.NavigateTo("/task-documents"))" />
+            </div>
         }
         else
         {
@@ -22,33 +29,31 @@
                     <div class="d-flex gap-3 flex-wrap">
                         <div class="text-nowrap">
                             <div class="small opacity-75">Дата</div>
-                            <div class="font-monospace fw-semibold">@_doc.RecordedAt.ToString("dd.MM.yyyy")</div>
+                            <div class="font-monospace fw-semibold">
+                                @_combatTaskDocument.RecordedAt.ToString("dd.MM.yyyy")
+                            </div>
                         </div>
 
                         <div class="flex-grow-1 min-w-0">
                             <div class="small opacity-75">Розпорядження</div>
-                            <div class="fw-semibold text-truncate">@_doc.OrderTitle</div>
+                            <div class="fw-semibold text-truncate">@_combatTaskDocument.DocumentName</div>
                         </div>
 
                         <div class="text-nowrap">
                             <div class="small opacity-75">Статус</div>
-                            <div class="fw-semibold">@_doc.Status</div>
+                            <div class="fw-semibold">@_combatTaskDocument.Status</div>
                         </div>
 
                         <div class="d-flex align-content-center gap-2 p-2">
-                            <Button Class="btn-sm btn-light rounded-0"
-                                    Label="← Назад"
-                                    OnClickButton="@(() => Nav.NavigateTo("/task-documents"))" />
 
-                            <Button Class="btn-sm btn-primary rounded-0"
-                                    Label="+ Група участей"
-                                    IsDisabled="@(!IsDraft)"
+                            <Button Class="btn-sm btn-success rounded-0"
+                                    Label="+ Призначення"
+                                    IsDisabled="@(IsDraft)"
                                     OnClickButton="OpenCreateDrawer" />
 
-                            <Button Class="btn-sm btn-dark rounded-0"
-                                    Label="Завершити участь"
-                                    IsDisabled="@(!IsDraft)"
-                                    OnClickButton="@(() => _endOpen = true)" />
+                            <Button Class="btn-sm btn-light rounded-0"
+                                    Label="← Назад"
+                                    OnClickButton="@(() => Nav.NavigateTo("/task-documents"))" />                         
                         </div>
                     </div>
                 </div>
@@ -57,99 +62,61 @@
             <div class="container-fluid px-0 border"
                  style="max-height: calc(100vh - 200px); overflow:auto;">
 
-                @if (_entries.Count == 0)
+                @if (_missions.Count == 0)
                 {
-                    <div class="border p-2"><em>Груп поки немає.</em></div>
+                    <div class="border p-2"><em>Груп (місій) поки немає.</em></div>
                 }
                 else
                 {
-                    @foreach (var g in _entries)
+                    @foreach (var g in _missions)
                     {
+                        var starts = g.CombatTaskDetails.Count(x => x.Kind == CombatTaskDetailsKind.Start);
+                        var ends = g.CombatTaskDetails.Count(x => x.Kind == CombatTaskDetailsKind.End);
+
                         <div class="border mb-2">
 
-                            <div class="p-2 d-flex align-items-start gap-2 border bg-warning">
-
-                                <div class="d-flex align-items-start gap-3 flex-grow-1 min-w-0">
-
-                                    <div class="small text-nowrap">
-                                        <div class="fw-semibold">@IntervalLabel(g.From, g.To)</div>
-                                        <div>№ джерела: @g.SourceDocNo</div>
-                                        @if (!string.IsNullOrWhiteSpace(g.EndSourceDocNo))
-                                        {
-                                            <div>№ закриття: @g.EndSourceDocNo</div>
-                                        }
-                                    </div>
-
-                                    <div class="fw-semibold min-w-0">
-                                        <div class="text-wrap" style="white-space: normal; overflow-wrap:anywhere;">
-                                            @g.MissionDisplay
-                                        </div>
-                                    </div>
+                            <!-- Header mission block -->
+                            <div class="d-flex flex-row align-items-center gap-2 border">
+                                <div class="p-2 bg-info text-wrap fw-bold">
+                                    Документ підстава: @g.SourceDocument
                                 </div>
-
-                                @if (IsDraft)
-                                {
-                                    <div class="d-flex gap-2 flex-shrink-0">
-                                        @if (g.To is null)
-                                        {
-                                            <Button Class="btn-sm btn-dark rounded-0"
-                                                    Label="Закрити"
-                                                    IsDisabled="_loading"
-                                                    OnClickButton="@(() => OpenEndDrawer(g))" />
-                                        }
-
-                                        <Button Class="btn-sm btn-danger rounded-0"
-                                                Label="Видалити"
-                                                IsDisabled="_loading"
-                                                OnClickButton="@(() => DeleteGroupAsync(g.GroupId))" />
-                                    </div>
-                                }
+                                <div class="text-wrap fw-bold">
+                                    @g.MissionName
+                                </div>
                             </div>
 
-                            @if (g.Persons.Count == 0)
-                            {
-                                <div class="p-2 small"><em>Осіб немає.</em></div>
-                            }
-                            else
-                            {
-                                <div class="table-responsive">
-                                    <Table TItem="CombatEntryPersonDto"
-                                           Items="g.Persons"
-                                           IsClickable="false"
-                                           Class="table-sm table-bordered small mb-0">
-                                        <TableHeader>
-                                            <th style="width:100px;">РНОКПП</th>
-                                            <th style="width:100px;">Звання</th>
-                                            <th style="width:260px;">ПІБ</th>
-                                            <th style="width:420px;">Посада</th>
-                                            <th style="width:160px;">Зброя</th>
-                                            <th style="width:120px;">Позивний</th>
-                                        </TableHeader>
-                                        <RowTemplate Context="p">
-                                            <td class="font-monospace text-nowrap">@p.RNOKPP</td>
-                                            <td>@p.Rank</td>
-                                            <td style="white-space: normal; overflow-wrap:anywhere;">@p.FullName</td>
-                                            <td style="white-space: normal; overflow-wrap:anywhere;">@p.Position</td>
-                                            <td>@p.Weapon</td>
-                                            <td>@p.Callsign</td>
-                                        </RowTemplate>
-                                    </Table>
-                                </div>
-                            }
+                            <!-- Details table -->
+                            <div class="table-responsive">
+                                <Table TItem="CombatTaskDetailsDto"
+                                       Items="g.CombatTaskDetails"
+                                       IsClickable="false"
+                                       Class="table-sm table-bordered small mb-0">
+                                    <TableHeader>
+                                        <th style="width:120px;">Дата</th>
+                                        <th style="width:120px;">Подія</th>
+                                        <th style="width:120px;">РНОКПП</th>
+                                        <th>ПІБ</th>
+                                        <th style="width:140px;">Позивний</th>
+                                    </TableHeader>
+
+                                    <RowTemplate Context="d">
+                                        <td class="font-monospace text-nowrap">@d.EffectiveAt.ToString("dd.MM.yyyy")</td>
+                                        <td class="text-nowrap">@KindLabel(d.Kind)</td>
+                                        <td class="font-monospace text-nowrap">@d.Rnokpp</td>
+                                        <td style="white-space: normal; overflow-wrap:anywhere;">@d.FullName</td>
+                                        <td class="text-nowrap">@d.Callsign</td>
+                                    </RowTemplate>
+                                </Table>
+                            </div>
                         </div>
                     }
                 }
             </div>
         }
 
-        <!-- Drawers -->
-        <CombatGroupCreateDrawer IsOpen="@_createOpen"
-                                 IsOpenChanged="@(v => _createOpen = v)"
-                                 OnCreated="HandleCreatedAsync" />
-
-        <CombatGroupEndDrawer IsOpen="@_endOpen"
-                              IsOpenChanged="@(v => _endOpen = v)"
-                              OnEnded="HandleEndedAsync" />
+         <!-- Drawers -->
+        <CreateCombatTaskDrawer IsOpen="@_createOpen"
+                                IsOpenChanged="@(v => _createOpen = v)"
+                                OnCreated="HandleCreatedAsync" />
     </div>
 </div>
- *@

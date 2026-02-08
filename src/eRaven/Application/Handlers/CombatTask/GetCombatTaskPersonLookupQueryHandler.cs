@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// GetCombatTaskDocumentByIdQueryHandler
+// GetCombatTaskPersonLookupQueryHandler
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs.CombatTask;
@@ -12,10 +12,12 @@ using eRaven.Infrastructure.Repositories.CombatTaskRepository;
 
 namespace eRaven.Application.Handlers.CombatTask;
 
-public sealed class GetCombatTaskDocumentByIdQueryHandler(
-    ICombatTaskDocumentRepository repo)
-    : IQueryHandler<GetCombatTaskDocumentByIdQuery, CombatTaskDocumentDetailsDto?>
+public sealed class GetCombatTaskPersonLookupQueryHandler(
+    IMissionAssignmentRepository repo)
+    : IQueryHandler<GetCombatTaskPersonLookupQuery, IReadOnlyList<ReadyCombatTaskPersonDto>>
 {
-    public async Task<CombatTaskDocumentDetailsDto?> HandleAsync(GetCombatTaskDocumentByIdQuery query, CancellationToken ct = default)
-        => await repo.GetByIdAsync(query.DocumentId, ct);
+    private readonly IMissionAssignmentRepository _repo = repo;
+
+    public async Task<IReadOnlyList<ReadyCombatTaskPersonDto>> HandleAsync(GetCombatTaskPersonLookupQuery query, CancellationToken ct = default)
+        => await _repo.GetFreePersonForMissionsAsync(query.onDate, ct);
 }

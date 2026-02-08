@@ -58,4 +58,6 @@ public sealed class CombatTaskDocument
 
     /// <summary>Коли скасовано (UTC).</summary>
     public DateTime? CanceledAtUtc { get; set; }
+
+    public ICollection<CombatTask> CombatTasks { get; set; } = [];
 }

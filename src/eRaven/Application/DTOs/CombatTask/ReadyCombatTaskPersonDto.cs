@@ -2,22 +2,16 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CombatEntryPersonDto
+// ReadyPersonDto
 //-----------------------------------------------------------------------------
 
 namespace eRaven.Application.DTOs.CombatTask;
 
 /// <summary>
-/// DTO особи.
-///
-/// Призначення:
-/// - використовується як частина активної місії в документі планування.
+/// Персона, готовий до участі у CombatTask. Видається при пошуку учасників для CombatTask.
 /// </summary>
-public sealed record CombatEntryPersonDto(
+public sealed record ReadyCombatTaskPersonDto(
     Guid PersonId,
-    string RNOKPP,
+    string Rnokpp,
     string FullName,
-    string Rank,
-    string Position,
-    string Weapon,
-    string Callsign);
+    string? Callsign);

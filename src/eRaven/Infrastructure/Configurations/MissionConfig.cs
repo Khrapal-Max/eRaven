@@ -13,54 +13,57 @@ namespace eRaven.Infrastructure.Configurations;
 
 public sealed class MissionConfig : IEntityTypeConfiguration<Mission>
 {
-    public void Configure(EntityTypeBuilder<Mission> b)
+    public void Configure(EntityTypeBuilder<Mission> e)
     {
-        b.ToTable("missions");
-        b.HasKey(x => x.Id);
+        e.ToTable("missions");
+        e.HasKey(x => x.Id);
 
-        b.Property(x => x.PositionArea)
+        e.Property(x => x.PositionArea)
+            .HasColumnName("position_area")
             .HasMaxLength(140)
             .IsRequired();
 
-        b.Property(x => x.NamePoint)
+        e.Property(x => x.NamePoint)
+            .HasColumnName("name_point")
             .HasMaxLength(140)
             .IsRequired()
             .HasDefaultValue("");
 
-        b.Property(x => x.TypeDrone)
+        e.Property(x => x.TypeDrone)
+            .HasColumnName("type_drone")
             .HasMaxLength(512);
 
-        b.Property(x => x.Target)
+        e.Property(x => x.Target)
             .HasMaxLength(200)
             .IsRequired();
 
-        b.Property(x => x.MissionMode)
+        e.Property(x => x.MissionMode)
+            .HasColumnName("mission_mode")
             .HasConversion<int>()
             .IsRequired();
 
-        b.Property(x => x.CreatedAt)
+        e.Property(x => x.CreatedAt)
+            .HasColumnName("created_at")
             .HasColumnType("date")
             .IsRequired();
 
-        b.Property(x => x.ClosedAt)
+        e.Property(x => x.ClosedAt)
+            .HasColumnName("closed_at")
             .HasColumnType("date"); // nullable
 
         // ClosedAt >= CreatedAt (якщо ClosedAt задано)
-        b.ToTable(t => t.HasCheckConstraint(
+        e.ToTable(t => t.HasCheckConstraint(
             "ck_missions_dates",
-            "\"ClosedAt\" IS NULL OR \"ClosedAt\" >= \"CreatedAt\""));
-
-        // UI-only
-        b.Ignore(x => x.DisplayMission);
+            "\"closed_at\" IS NULL OR \"closed_at\" >= \"created_at\""));
 
         // індекси під "активні на дату" і фільтри
-        b.HasIndex(x => x.PositionArea);
-        b.HasIndex(x => x.MissionMode);
-        b.HasIndex(x => new { x.PositionArea, x.CreatedAt, x.ClosedAt });
+        e.HasIndex(x => x.PositionArea);
+        e.HasIndex(x => x.MissionMode);
+        e.HasIndex(x => new { x.PositionArea, x.CreatedAt, x.ClosedAt });
 
         // Одна відкрита точка з локацією, назвою, режимом, метою.
-        b.HasIndex(x => new { x.PositionArea, x.NamePoint, x.MissionMode, x.Target })
+        e.HasIndex(x => new { x.PositionArea, x.NamePoint, x.MissionMode, x.Target })
              .IsUnique()
-             .HasFilter("\"ClosedAt\" IS NULL");
+             .HasFilter("\"closed_at\" IS NULL");
     }
 }

@@ -27,6 +27,8 @@ public static class DefaultRepository
         services.AddScoped<ITimesheetMonthRepository, TimesheetMonthRepository>();
         services.AddScoped<ICombatTaskDocumentRepository, CombatTaskDocumentRepository>();
         services.AddScoped<IMissionRepository, MissionRepository>();
+        services.AddScoped<ICombatTaskRepository, CombatTaskRepository>();
+        services.AddScoped<IMissionAssignmentRepository, MissionAssignmentRepository>();
 
         return services;
     }

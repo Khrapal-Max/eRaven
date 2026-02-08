@@ -38,11 +38,6 @@ public interface ICombatTaskDocumentRepository
     Task<IReadOnlyList<CombatTaskDocumentDto>> GetDocumentsAsync(int year, int month, DocumentStatus? status, string? search, CancellationToken ct = default);
 
     /// <summary>
-    /// Повертає документ + дії (для редактора).
-    /// </summary>
-    Task<CombatTaskDocumentDetailsDto?> GetByIdAsync(Guid documentId, CancellationToken ct = default);
-
-    /// <summary>
     /// Створює Draft документ з рядками. Не змінює Assignments.
     /// Використовується UI для підготовки документу.
     /// </summary>

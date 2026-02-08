@@ -12,52 +12,67 @@ namespace eRaven.Infrastructure.Configurations;
 
 public sealed class CombatTaskDocumentConfiguration : IEntityTypeConfiguration<CombatTaskDocument>
 {
-    public void Configure(EntityTypeBuilder<CombatTaskDocument> builder)
+    public void Configure(EntityTypeBuilder<CombatTaskDocument> e)
     {
-        builder.ToTable("CombatTaskDocuments");
+        e.ToTable("combat_task_documents");
 
-        builder.HasKey(x => x.Id);
+        e.HasKey(x => x.Id);
 
-        // ----------------------------
-        // Properties
-        // ----------------------------
-
-        builder.Property(x => x.Status)
+        e.Property(x => x.Id)
+            .HasColumnName("id")
             .IsRequired();
 
-        builder.Property(x => x.OrderTitle)
-            .IsRequired()
-            .HasMaxLength(128);
-
-        builder.Property(x => x.RecordedAt)
+        e.Property(x => x.Status)
+            .HasColumnName("status")
             .IsRequired();
 
-        builder.Property(x => x.CanceledReason)
+        e.Property(x => x.OrderTitle)
+            .HasColumnName("order_title")
+            .HasMaxLength(128)
+            .IsRequired();
+
+        e.Property(x => x.RecordedAt)
+            .HasColumnName("recorded_at")
+            .IsRequired();
+
+        e.Property(x => x.CanceledReason)
+            .HasColumnName("canceled_reason")
             .HasMaxLength(512);
 
-        builder.Property(x => x.CreatedBy)
-            .IsRequired()
-            .HasMaxLength(64);
-
-        builder.Property(x => x.CreatedAtUtc)
+        e.Property(x => x.CreatedBy)
+            .HasColumnName("created_by")
+            .HasMaxLength(64)
             .IsRequired();
 
-        builder.Property(x => x.UpdatedBy)
+        e.Property(x => x.CreatedAtUtc)
+            .HasColumnName("created_at_utc")
+            .IsRequired();
+
+        e.Property(x => x.UpdatedBy)
+            .HasColumnName("updated_by")
             .HasMaxLength(64);
 
-        builder.Property(x => x.CanceledBy)
+        e.Property(x => x.UpdatedAtUtc)
+            .HasColumnName("updated_at_utc");
+
+        e.Property(x => x.CanceledBy)
+            .HasColumnName("canceled_by")
             .HasMaxLength(64);
 
-        // ----------------------------
-        // Indexes (for lists / filters)
-        // ----------------------------
+        e.Property(x => x.CanceledAtUtc)
+            .HasColumnName("canceled_at_utc");
 
-        builder.HasIndex(x => x.RecordedAt);
-        builder.HasIndex(x => x.Status);
+        // Relations
+        e.HasMany(x => x.CombatTasks)
+            .WithOne(x => x.CombatTaskDocument)
+            .HasForeignKey(x => x.CombatTaskDocumentId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-        // Якщо OrderTitle справді унікальний в домені — лишаємо.
-        // TODO: якщо унікальність залежить від підрозділу/року — зробити складений індекс.
-        builder.HasIndex(x => x.OrderTitle)
-            .IsUnique();
+        // Indexes
+        e.HasIndex(x => x.RecordedAt);
+        e.HasIndex(x => x.Status);
+
+        // TODO: краще зробити складений індекс (UnitId/Year/OrderTitle) коли додасте UnitId.
+        e.HasIndex(x => x.OrderTitle).IsUnique();
     }
 }

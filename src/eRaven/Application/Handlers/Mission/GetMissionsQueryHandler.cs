@@ -50,7 +50,7 @@ public sealed class GetMissionsQueryHandler(IMissionRepository repo)
                 Target: x.Target,
                 MissionMode: x.MissionMode,
                 DroneName: x.TypeDrone,
-                DisplayMisssion: x.DisplayMission,
+                DisplayMisssion: x.ToString(),
                 CreatedAt: x.CreatedAt,
                 ClosedAt: x.ClosedAt,
                 IsOpen: x.ClosedAt is null

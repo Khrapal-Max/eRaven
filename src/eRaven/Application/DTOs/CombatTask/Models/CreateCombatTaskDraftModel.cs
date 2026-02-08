@@ -7,13 +7,13 @@
 
 using System.ComponentModel.DataAnnotations;
 
-namespace eRaven.Application.DTOs.CombatTask;
+namespace eRaven.Application.DTOs.CombatTask.Models;
 
 /// <summary>
 /// Nodel DTO для створення чернетки документу плану бойових завдань.
 /// Викликається з PlanningCreateDraftDocumentDrawer.
 /// </summary>
-public class CreateCombatTaskDraftDto
+public class CreateCombatTaskDraftModel
 {
     [Required,
      MinLength(2, ErrorMessage = "Назва повина бути більше 2 літералів"),

@@ -7,7 +7,7 @@
 
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.CombatTask;
-using eRaven.Application.DTOs.CombatTask;
+using eRaven.Application.DTOs.CombatTask.Models;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -36,7 +36,7 @@ public partial class CreateDocumentDraftDrawer
     private bool _wasOpen;
 
     private EditContext _editContext = default!;
-    protected CreateCombatTaskDraftDto Model { get; set; } = new();
+    protected CreateCombatTaskDraftModel Model { get; set; } = new();
 
     private bool DisabledSave => _busy || string.IsNullOrWhiteSpace(Model.OrderTitle);
 
@@ -69,7 +69,7 @@ public partial class CreateDocumentDraftDrawer
     {
         _busy = false;
 
-        Model = new CreateCombatTaskDraftDto()
+        Model = new CreateCombatTaskDraftModel()
         {
             OrderTitle = string.Empty,
             RecordedAt = DateOnly.FromDateTime(DateTime.Today)

@@ -52,38 +52,6 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
             .ToListAsync(ct);
     }
 
-    public async Task<CombatTaskDocumentDetailsDto?> GetByIdAsync(Guid documentId, CancellationToken ct = default)
-    {
-        if (documentId == Guid.Empty)
-            throw new ArgumentException("DocumentId is required.", nameof(documentId));
-
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        var header = await db.CombatTaskDocuments
-            .AsNoTracking()
-            .Where(x => x.Id == documentId)
-            .Select(x => new
-            {
-                x.Id,
-                x.OrderTitle,
-                x.Status,
-                x.RecordedAt,
-                x.CanceledReason
-            })
-            .FirstOrDefaultAsync(ct);
-
-        if (header is null)
-            return null;
-
-        return new CombatTaskDocumentDetailsDto(
-            DocumentId: header.Id,
-            OrderTitle: header.OrderTitle,
-            Status: header.Status,
-            RecordedAt: header.RecordedAt,
-            CanceledReason: header.CanceledReason ?? string.Empty,
-            Entries: null);
-    }
-
     public async Task<Guid> CreateDraftAsync(
         string orderTitle,
         DateOnly recordedAt,

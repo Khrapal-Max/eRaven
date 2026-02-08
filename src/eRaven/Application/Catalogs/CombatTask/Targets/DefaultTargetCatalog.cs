@@ -17,12 +17,12 @@ public sealed class DefaultTargetCatalog : ITargetCatalog
 {
     private static readonly IReadOnlyList<TargetOption> _all = new ReadOnlyCollection<TargetOption>(
     [
-        new TargetOption("Бойовий екіпаж СтП БпАК з розвідки"),
-        new TargetOption("Бойовий екіпаж СтП БпАК з ураження"),
-        new TargetOption("Охорона екіпажу СтП БпАК"),
+        new TargetOption("БЕ СтП БпАК з розвідки"),
+        new TargetOption("БЕ СтП БпАК з ураження"),
+        new TargetOption("Охорона БЕ СтП БпАК"),
         new TargetOption("Охорона РТЗ"),
         new TargetOption("Інженерні роботи"),
-        new TargetOption("Забезпечення екіпажу СтП БпАК(водії)")
+        new TargetOption("Забезпечення БЕ СтП БпАК(водії)")
     ]);
 
     public IReadOnlyList<TargetOption> GetActive()

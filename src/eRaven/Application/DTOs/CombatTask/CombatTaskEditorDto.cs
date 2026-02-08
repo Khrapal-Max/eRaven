@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CombatTaskDocumentDetailsDto
+// CombatTaskEditorDto
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Enums;
@@ -10,15 +10,13 @@ using eRaven.Domain.Enums;
 namespace eRaven.Application.DTOs.CombatTask;
 
 /// <summary>
-/// DTO змісту документа ланування.
-///
-/// Призначення:
-/// - швидкий список місій в документі.
+/// DTO для редактора документа бойових завдань:
+/// - групування по місії (CombatTask),
+/// - всередині рядки Start/End по особам.
 /// </summary>
-public sealed record CombatTaskDocumentDetailsDto(
+public sealed record CombatTaskEditorDto(
     Guid DocumentId,
-    string OrderTitle,
+    string DocumentName,
     DocumentStatus Status,
     DateOnly RecordedAt,
-    string CanceledReason,
-    IReadOnlyList<CombatEntryDetailsDto> Entries);
+    IReadOnlyList<CombatTaskMissionBlockDto> Missions);

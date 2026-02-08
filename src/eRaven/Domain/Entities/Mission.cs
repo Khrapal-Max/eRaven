@@ -39,10 +39,20 @@ public sealed class Mission
 
     public DateOnly? ClosedAt { get; set; }
 
-    public string DisplayMission =>
-        $"{PositionArea}" +
-        $" {NamePoint}" +
-        $" {TypeDrone}" +
-        $" {Target}" +
-        $" {MissionMode}";
+    public override string ToString()
+    {
+        var mode = MissionMode switch
+        {
+            MissionMode.Day => "День",
+            MissionMode.Night => "Ніч",
+            MissionMode.FullTime => "Цілодобово",
+            _ => "_"
+        };
+
+        return $"⬡ {PositionArea}" +
+        $" СтП {NamePoint}" +
+        $" ⧉ {TypeDrone}" +
+        $" ⧗ {mode}" +
+        $" ◈ {Target}";
+    }
 }
