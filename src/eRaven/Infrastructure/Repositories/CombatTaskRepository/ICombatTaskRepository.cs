@@ -37,16 +37,6 @@ public interface ICombatTaskRepository
         ICollection<CombatTaskDetails> combatTaskDetails, CancellationToken ct = default);
 
     /// <summary>
-    /// Оновлює існуюче бойове завдання, яке належить до певного документа та місії,
-    /// </summary>
-    /// <param name="documentId"></param>
-    /// <param name="combatTaskId"></param>
-    /// <param name="missionId"></param>
-    /// <param name="combatTaskDetails"></param>
-    Task<Guid> UpdateCombatTask(Guid documentId, Guid combatTaskId, Guid missionId,
-        ICollection<CombatTaskDetails> combatTaskDetails, CancellationToken ct = default);
-
-    /// <summary>
     /// Видаляє бойове завдання, яке належить до певного документа та місії,
     /// </summary>
     /// <param name="documentId"></param>

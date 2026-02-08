@@ -46,10 +46,17 @@
 
                         <div class="d-flex align-content-center gap-2 p-2">
 
-                            <Button Class="btn-sm btn-success rounded-0"
-                                    Label="+ Призначення"
+                            <Button Class="btn btn-success rounded-0"
                                     IsDisabled="@(IsDraft)"
-                                    OnClickButton="OpenCreateDrawer" />
+                                    OnClickButton="OpenCreateDrawer">
+                                <i class="bi bi-file-earmark-plus"></i>
+                                </Button>
+
+                            <Button Class="btn btn-warning rounded-0"
+                                    IsDisabled="@(IsDraft)"
+                                    OnClickButton="OpenCloseDrawer">
+                                <i class="bi bi-file-earmark-minus"></i>
+                                </Button>
 
                             <Button Class="btn-sm btn-light rounded-0"
                                     Label="← Назад"
@@ -115,8 +122,12 @@
         }
 
          <!-- Drawers -->
-        <CreateCombatTaskDrawer IsOpen="@_createOpen"
-                                IsOpenChanged="@(v => _createOpen = v)"
-                                OnCreated="HandleCreatedAsync" />
+        <StartCombatTaskDrawer IsOpen="@_createOpen"
+                               IsOpenChanged="@(v => _createOpen = v)"
+                               OnCreated="HandleCreatedAsync" />
+
+        <CloseCombatTaskDrawer IsOpen="@_closeOpen"
+                               IsOpenChanged="@(v => _closeOpen = v)"
+                               OnCreated="HandleCreatedAsync" />
     </div>
 </div>

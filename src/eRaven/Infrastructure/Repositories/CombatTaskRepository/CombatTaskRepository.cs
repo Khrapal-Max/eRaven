@@ -130,49 +130,6 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
     }
 
     //======================================================================
-    // Write: Update
-    //======================================================================
-
-    /// <inheritdoc />
-    public async Task<Guid> UpdateCombatTask(
-        Guid documentId,
-        Guid combatTaskId,
-        Guid missionId,
-        ICollection<CombatTaskDetails> combatTaskDetails,
-        CancellationToken ct = default)
-    {
-        if (documentId == Guid.Empty)
-            throw new ArgumentException("DocumentId is required.", nameof(documentId));
-        if (combatTaskId == Guid.Empty)
-            throw new ArgumentException("CombatTaskId is required.", nameof(combatTaskId));
-        if (missionId == Guid.Empty)
-            throw new ArgumentException("MissionId is required.", nameof(missionId));
-
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        var task = await db.CombatTasks
-            .Include(x => x.CombatTaskDetails)
-            .FirstOrDefaultAsync(x => x.Id == combatTaskId && x.CombatTaskDocumentId == documentId, ct)
-            ?? throw new KeyNotFoundException("Бойове завдання не знайдено в межах документа.");
-
-        ValidateDetails(combatTaskDetails);
-
-        // 1) оновлюємо місію
-        task.MissionId = missionId;
-
-        // 2) ОДНА стратегія заміни рядків: явне видалення старих + вставка нових.
-        // НЕ чіпаємо navigation через Clear()/переприсвоєння — це і породжувало double-delete → concurrency.
-        if (task.CombatTaskDetails.Count > 0)
-            db.CombatTaskDetails.RemoveRange(task.CombatTaskDetails);
-
-        PrepareLinesForInsert(task.Id, combatTaskDetails);
-        db.CombatTaskDetails.AddRange(combatTaskDetails);
-
-        await db.SaveChangesAsync(ct);
-        return task.Id;
-    }
-
-    //======================================================================
     // Write: Delete
     //======================================================================
 

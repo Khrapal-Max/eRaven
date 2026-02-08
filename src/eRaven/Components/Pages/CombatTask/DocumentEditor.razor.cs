@@ -37,13 +37,14 @@ public partial class DocumentEditor
     //======================================================================
 
     private bool _createOpen;
+    private bool _closeOpen;
 
     //======================================================================
     // UI state
     //======================================================================
 
     private bool _loading;
-    private bool IsDraft => _combatTaskDocument?.Status == DocumentStatus.Draft ? false : true;
+    private bool IsDraft => (_combatTaskDocument?.Status) != DocumentStatus.Draft;
     private CombatTaskEditorDto? _combatTaskDocument;
     private IReadOnlyCollection<CombatTaskMissionBlockDto> _missions = [];
 
@@ -114,6 +115,12 @@ public partial class DocumentEditor
     private Task OpenCreateDrawer()
     {
         _createOpen = true;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenCloseDrawer()
+    {
+        _closeOpen = true;
         return Task.CompletedTask;
     }
 

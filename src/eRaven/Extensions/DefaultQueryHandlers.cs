@@ -44,6 +44,7 @@ public static class DefaultQueryHandlers
         services.AddScoped<IQueryHandler<GetCombatTaskPersonLookupQuery, IReadOnlyList<ReadyCombatTaskPersonDto>>, GetCombatTaskPersonLookupQueryHandler>();
         services.AddScoped<IQueryHandler<GetCombatTaskDocumentsQuery, IReadOnlyList<CombatTaskDocumentDto>>, GetCombatTaskDocumentsQueryHandler>();
         services.AddScoped<IQueryHandler<GetCombatTaskDetailsByDocumentIdQuery, CombatTaskEditorDto?>, GetCombatTaskDetailsByDocumentIdQueryHandler>();
+        services.AddScoped<IQueryHandler<GetCombatTaskMissionPersonsQuery, IReadOnlyList<ActiveMissionPersonDto>>, GetCombatTaskMissionPersonsQueryHandler>();
 
         return services;
     }

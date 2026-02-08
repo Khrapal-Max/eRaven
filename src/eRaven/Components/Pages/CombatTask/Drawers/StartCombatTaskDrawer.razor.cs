@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CreateCombatTaskDrawer
+// StartCombatTaskDrawer
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs.CombatTask;
@@ -11,6 +11,7 @@ using eRaven.Application.DTOs.Mission;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.CombatTask;
 using eRaven.Application.Queries.Mission;
+using eRaven.Components.Shared.ConfirmModal;
 using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
@@ -21,7 +22,7 @@ namespace eRaven.Components.Pages.CombatTask.Drawers;
 /// Drawer для створення CombatTask (групи участей) у межах документа.
 /// Підтягує "вільних на дату" один раз і фільтрує локально по пошуку.
 /// </summary>
-public partial class CreateCombatTaskDrawer
+public partial class StartCombatTaskDrawer
 {
     //======================================================================
     // DI
@@ -266,21 +267,6 @@ public partial class CreateCombatTaskDrawer
     private static bool ContainsIgnoreCase(string value, string search)
         => value?.Contains(search, StringComparison.OrdinalIgnoreCase) == true;
 
-    private void TogglePerson(ReadyCombatTaskPersonDto r, ChangeEventArgs e)
-    {
-        var isChecked = e.Value switch
-        {
-            bool b => b,
-            string s => s.Equals("true", StringComparison.OrdinalIgnoreCase) || s.Equals("on", StringComparison.OrdinalIgnoreCase),
-            _ => false
-        };
-
-        if (isChecked)
-            _selected[r.PersonId] = r;
-        else
-            _selected.Remove(r.PersonId);
-    }
-
     private string PersonsEmptyHint
     {
         get
@@ -337,4 +323,29 @@ public partial class CreateCombatTaskDrawer
 
     private Task Close()
         => IsOpenChanged.InvokeAsync(false);
+
+    private ConfirmModal<ReadyCombatTaskPersonDto>? _personConfirm;
+
+    private async Task ToggleWithConfirmAsync(ReadyCombatTaskPersonDto p)
+    {
+        if (_personConfirm is null) return;
+
+        var willSelect = !_selected.ContainsKey(p.PersonId);
+
+        var ok = await _personConfirm.ShowAsync(
+            p,
+            bodyText: willSelect
+                ? "Додати особу до списку?"
+                : "Прибрати особу зі списку?");
+
+        if (!ok) return;
+
+        if (willSelect) _selected[p.PersonId] = p;
+        else _selected.Remove(p.PersonId);
+    }
+
+    private string GetToggleBtnClass(ReadyCombatTaskPersonDto r)
+       => _selected.ContainsKey(r.PersonId)
+           ? "fw-bold btn-sm btn-success rounded-0"   // вибраний -> мінус (прибрати)
+           : "fw-bold btn-sm btn-light rounded-0"; // не вибраний -> плюс (додати)
 }

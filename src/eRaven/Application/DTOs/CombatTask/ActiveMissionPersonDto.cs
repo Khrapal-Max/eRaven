@@ -1,20 +1,25 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// ReadyPersonDto
+// ActiveMissionPersonDto
 //-----------------------------------------------------------------------------
 
 namespace eRaven.Application.DTOs.CombatTask;
 
 /// <summary>
-/// Персона, готовий до участі у CombatTask. Видається при пошуку учасників для CombatTask.
+/// Використовується для відображення осіб, 
+/// які були активними у місії на певну дату 
+/// (для вибору осіб при завершенні участі в місії).
+/// 
+/// В CloseCombatTaskDrawer
 /// </summary>
-public sealed record ReadyCombatTaskPersonDto(
+public sealed record ActiveMissionPersonDto(
     Guid PersonId,
     string Rnokpp,
     string FullName,
+    string? Callsign,
     string? Rank,
     string? Position,
     string? Weapon,
-    string? Callsign);
+    DateOnly From
+);

@@ -24,22 +24,69 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
     // Reads
     //======================================================================
     /// <inheritdoc />
-    public async Task<IReadOnlyList<MissionAssignment>> GetActiveByMissionAsync(
+    public async Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveByMissionAsync(
         Guid missionId,
         DateOnly onDate,
         CancellationToken ct = default)
     {
-        if (missionId == Guid.Empty) throw new ArgumentException("MissionId is required.", nameof(missionId));
+        if (missionId == Guid.Empty)
+            throw new ArgumentException("MissionId is required.", nameof(missionId));
+        if (onDate == default)
+            throw new ArgumentException("onDate must be set.", nameof(onDate));
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        return await db.MissionAssignments
+        // 1) Active на дату = open-ended (To == null) + вже стартувало (From <= onDate)
+        var assignments = await db.MissionAssignments
             .AsNoTracking()
-            .Where(x => x.MissionId == missionId)
-            .Where(x => x.From <= onDate && (!x.To.HasValue || x.To.Value >= onDate))
+            .Where(a => a.MissionId == missionId)
+            .Where(a => a.To == null)
+            .Where(a => a.From <= onDate)
+            .Select(a => new { a.PersonId, a.From })
+            .ToListAsync(ct);
+
+        if (assignments.Count == 0)
+            return [];
+
+        // Якщо раптом є дублікати open-ended по PersonId — беремо останній старт (max From)
+        var active = assignments
+            .GroupBy(x => x.PersonId)
+            .Select(g => g.OrderByDescending(x => x.From).First())
             .OrderBy(x => x.From)
             .ThenBy(x => x.PersonId)
+            .ToList();
+
+        var personIds = active.Select(x => x.PersonId).ToList();
+
+        // 2) Добираємо персон одним запитом
+        var persons = await db.PersonRead
+            .AsNoTracking()
+            .Where(p => personIds.Contains(p.Id))
             .ToListAsync(ct);
+
+        var map = persons.ToDictionary(x => x.Id);
+
+        // 3) Склеюємо у DTO в потрібному порядку
+        var result = new List<ActiveMissionPersonDto>(active.Count);
+
+        foreach (var a in active)
+        {
+            if (!map.TryGetValue(a.PersonId, out var p))
+                continue; // або throw, якщо PersonRead гарантується
+
+            result.Add(new ActiveMissionPersonDto(
+                PersonId: p.Id,
+                Rnokpp: p.Rnokpp,
+                FullName: p.FullName,
+                Callsign: p.Callsign,
+                Rank: p.Rank,
+                Position: p.Position,
+                Weapon: p.Weapon,
+                From: a.From
+            ));
+        }
+
+        return result;
     }
 
     /// <inheritdoc />
@@ -107,6 +154,9 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
                 PersonId: p.Id,
                 Rnokpp: p.Rnokpp,
                 FullName: p.FullName,
+                Rank: p.Rank,
+                Position: p.Position,
+                Weapon: p.Weapon,
                 Callsign: p.Callsign
             ))
             .ToListAsync(ct);

@@ -27,7 +27,7 @@ public interface IMissionAssignmentRepository
     /// <summary>
     /// Хто активний на місії <paramref name="missionId"/> на дату <paramref name="onDate"/>.
     /// </summary>
-    Task<IReadOnlyList<MissionAssignment>> GetActiveByMissionAsync(
+    Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveByMissionAsync(
         Guid missionId,
         DateOnly onDate,
         CancellationToken ct = default);
