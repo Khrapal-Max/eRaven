@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.CombatTask;
 
-public partial class DocumentsShell
+public partial class DocumentsShell : ComponentBase
 {
     //======================
     // DI

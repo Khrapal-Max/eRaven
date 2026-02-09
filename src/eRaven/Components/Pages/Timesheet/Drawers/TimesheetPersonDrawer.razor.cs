@@ -17,7 +17,7 @@ namespace eRaven.Components.Pages.Timesheet.Drawers;
 /// показує snapshot особи (ПІБ/РНОКПП/звання/посада/дати)
 /// і дає перехід на “Особовий табель” цієї особи.
 /// </summary>
-public partial class TimesheetPersonDrawer
+public partial class TimesheetPersonDrawer : ComponentBase
 {
     //======================================================================
     // DI

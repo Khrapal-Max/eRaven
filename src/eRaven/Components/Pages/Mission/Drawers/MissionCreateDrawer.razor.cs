@@ -17,7 +17,7 @@ using Microsoft.AspNetCore.Components.Forms;
 
 namespace eRaven.Components.Pages.Mission.Drawers;
 
-public partial class MissionCreateDrawer
+public partial class MissionCreateDrawer : ComponentBase
 {
     //=======================
     // DI

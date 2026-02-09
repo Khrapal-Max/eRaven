@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Mission;
 
-public partial class MissionShell
+public partial class MissionShell : ComponentBase
 {
     //=======================
     // DI

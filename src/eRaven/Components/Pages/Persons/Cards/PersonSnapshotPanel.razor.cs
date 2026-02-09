@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Persons.Cards;
 
-public partial class PersonSnapshotPanel
+public partial class PersonSnapshotPanel : ComponentBase
 {
     [Parameter, EditorRequired] public PersonDetailsDto Person { get; set; } = default!;
 

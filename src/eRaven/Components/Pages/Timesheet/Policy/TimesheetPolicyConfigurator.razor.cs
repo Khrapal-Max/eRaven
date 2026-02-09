@@ -33,7 +33,7 @@ namespace eRaven.Components.Pages.Timesheet.Policy;
 /// 
 /// NB (“НБ”) — системний стан “поза табелем”: не є подією і не конфігурується.
 /// </summary>
-public partial class TimesheetPolicyConfigurator
+public partial class TimesheetPolicyConfigurator : ComponentBase
 {
     //======================================================================
     // DI

@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Dashboard;
 
-public partial class StatusSliceCard
+public partial class StatusSliceCard : ComponentBase
 {
     [Parameter] public int Count { get; set; }
     [Parameter] public string Hint { get; set; } = "";

@@ -47,14 +47,14 @@
                         <div class="d-flex align-content-center gap-2 p-2">
 
                             <Button Class="btn btn-success rounded-0"
-                                    IsDisabled="@(IsDraft)"
-                                    OnClickButton="OpenCreateDrawer">
+                                    IsDisabled="@(IsNotDraft)"
+                                    OnClickButton="OpenStartForm">
                                 <i class="bi bi-file-earmark-plus"></i>
                                 </Button>
 
                             <Button Class="btn btn-warning rounded-0"
-                                    IsDisabled="@(IsDraft)"
-                                    OnClickButton="OpenCloseDrawer">
+                                    IsDisabled="@(IsNotDraft)"
+                                    OnClickButton="OpenCloseForm">
                                 <i class="bi bi-file-earmark-minus"></i>
                                 </Button>
 
@@ -120,14 +120,5 @@
                 }
             </div>
         }
-
-         <!-- Drawers -->
-        <StartCombatTaskDrawer IsOpen="@_createOpen"
-                               IsOpenChanged="@(v => _createOpen = v)"
-                               OnCreated="HandleCreatedAsync" />
-
-        <CloseCombatTaskDrawer IsOpen="@_closeOpen"
-                               IsOpenChanged="@(v => _closeOpen = v)"
-                               OnCreated="HandleCreatedAsync" />
     </div>
 </div>

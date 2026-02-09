@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Components.Web;
 
 namespace eRaven.Components.Shared.Drawer;
 
-public partial class Drawer
+public partial class Drawer : ComponentBase
 {
     private ElementReference _panelRef;
     private bool _wasOpen;

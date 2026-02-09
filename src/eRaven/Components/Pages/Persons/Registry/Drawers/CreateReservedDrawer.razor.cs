@@ -15,7 +15,7 @@ using Npgsql;
 
 namespace eRaven.Components.Pages.Persons.Registry.Drawers;
 
-public partial class CreateReservedDrawer
+public partial class CreateReservedDrawer : ComponentBase
 {
     // =========================
     // Parameters

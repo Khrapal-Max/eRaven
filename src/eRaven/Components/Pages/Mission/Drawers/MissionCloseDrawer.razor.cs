@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Components.Forms;
 
 namespace eRaven.Components.Pages.Mission.Drawers;
 
-public partial class MissionCloseDrawer
+public partial class MissionCloseDrawer : ComponentBase
 {
     //=======================
     // DI

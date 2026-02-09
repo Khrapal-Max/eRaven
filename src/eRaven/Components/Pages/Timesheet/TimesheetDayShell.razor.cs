@@ -23,7 +23,7 @@ namespace eRaven.Components.Pages.Timesheet;
 /// TODO (пізніше): у цій таблиці з'явиться "План" з документів (бойові/планові документи),
 /// але зараз це заглушка без бізнес-логіки.
 /// </summary>
-public partial class TimesheetDayShell
+public partial class TimesheetDayShell : ComponentBase
 {
     //======================================================================
     // DI

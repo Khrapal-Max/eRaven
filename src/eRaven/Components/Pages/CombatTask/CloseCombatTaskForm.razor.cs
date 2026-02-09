@@ -1,9 +1,12 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-// CloseCombatTaskDrawer
+//-----------------------------------------------------------------------------
+// CloseCombatTaskForm
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Commands;
+using eRaven.Application.Commands.CombatTask;
 using eRaven.Application.DTOs.CombatTask;
 using eRaven.Application.DTOs.CombatTask.Models;
 using eRaven.Application.DTOs.Mission;
@@ -15,18 +18,9 @@ using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 
-namespace eRaven.Components.Pages.CombatTask.Drawers;
+namespace eRaven.Components.Pages.CombatTask;
 
-/// <summary>
-/// Drawer для завершення участі в місії (часткове закриття: місія + особи).
-/// Flow:
-/// 1) SourceDoc + дата закриття
-/// 2) вибір місії
-/// 3) підтягуємо активних осіб на місії на дату (To == null, From <= date)
-/// 4) локальний пошук + вибір осіб
-/// 5) Save -> End-деталі
-/// </summary>
-public partial class CloseCombatTaskDrawer
+public partial class CloseCombatTaskForm : ComponentBase
 {
     //======================================================================
     // DI
@@ -34,26 +28,27 @@ public partial class CloseCombatTaskDrawer
 
     [Inject] public IQueryHandler<GetMissionsQuery, IReadOnlyList<MissionDto>> LookupMissions { get; set; } = default!;
     [Inject] public IQueryHandler<GetCombatTaskMissionPersonsQuery, IReadOnlyList<ActiveMissionPersonDto>> LookupMissionPersons { get; set; } = default!;
+    [Inject] public ICommandHandler<CreateCombatTaskCommand, Guid> CreateCombatTaskHandler { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
+    [Inject] public NavigationManager Nav { get; set; } = default!;
 
     //======================================================================
-    // Parameters
+    // Route params
     //======================================================================
 
-    [Parameter] public bool IsOpen { get; set; }
-    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
-    [Parameter] public EventCallback<CreateCombatTaskModel> OnCreated { get; set; }
+    [Parameter] public Guid DocumentId { get; set; }
 
     //======================================================================
     // UI state: meta
     //======================================================================
 
     private bool _busy;
+
     private CreateCombatTaskModel _model = new();
     private DateOnly _at = DateOnly.FromDateTime(DateTime.Now);
 
     //======================================================================
-    // UI state: missions
+    // Missions
     //======================================================================
 
     private bool _missionsLoading;
@@ -61,7 +56,7 @@ public partial class CloseCombatTaskDrawer
     private string _missionDisplay = string.Empty;
 
     //======================================================================
-    // UI state: persons (prefetch per mission/date -> local filter)
+    // Persons (loaded by mission/date -> local filter)
     //======================================================================
 
     private const int MinSearchLength = 2;
@@ -74,21 +69,24 @@ public partial class CloseCombatTaskDrawer
 
     private readonly Dictionary<Guid, ActiveMissionPersonDto> _selected = [];
 
+    // confirm modal (on add)
+    private ConfirmModal<ActiveMissionPersonDto>? _personConfirm;
+
     //======================================================================
     // Lifecycle
     //======================================================================
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!IsOpen) return;
+        if (DocumentId == Guid.Empty) return;
 
-        Reset();
+        ResetForClose();
         await EnsureMissionsLoadedAsync();
 
-        // persons не вантажимо, доки місію не обрали
+        // persons не вантажимо доки не оберуть місію
     }
 
-    private void Reset()
+    private void ResetForClose()
     {
         _busy = false;
 
@@ -100,7 +98,6 @@ public partial class CloseCombatTaskDrawer
         };
 
         _at = DateOnly.FromDateTime(DateTime.Now);
-
         _missionDisplay = string.Empty;
 
         _personsLoading = false;
@@ -130,180 +127,13 @@ public partial class CloseCombatTaskDrawer
         }
     }
 
-    private async Task OnMissionChanged(ChangeEventArgs e)
-    {
-        if (!Guid.TryParse(e.Value?.ToString(), out var id))
-            return;
-
-        _model.MissionId = id;
-
-        var m = _missionOptions.FirstOrDefault(x => x.MissionId == _model.MissionId);
-        _missionDisplay = m is null ? string.Empty : BuildMissionDisplayUa(m);
-
-        await LoadMissionPersonsAsync();
-    }
-
-    private void ClearMission()
-    {
-        _model.MissionId = Guid.Empty;
-        _missionDisplay = string.Empty;
-
-        _personsAll = [];
-        _personResults = [];
-        _selected.Clear();
-    }
-
-    //======================================================================
-    // Date changes
-    //======================================================================
-
-    private async Task OnAtChangedAsync()
-    {
-        // якщо місію не обрано — нема що вантажити
-        if (_model.MissionId == Guid.Empty) return;
-
-        await LoadMissionPersonsAsync();
-    }
-
-    //======================================================================
-    // Persons: load + local filter
-    //======================================================================
-
-    private async Task LoadMissionPersonsAsync()
-    {
-        if (_model.MissionId == Guid.Empty) return;
-
-        _personsLoading = true;
-        try
-        {
-            var res = await LookupMissionPersons.HandleAsync(
-                new GetCombatTaskMissionPersonsQuery(_model.MissionId, _at));
-
-            _personsAll = [.. res
-                .OrderBy(x => x.FullName)
-                .ThenBy(x => x.Rnokpp)
-                .ThenBy(x => x.PersonId)];
-
-            // якщо selected стала неактуальна — прибираємо
-            var allowed = _personsAll.Select(x => x.PersonId).ToHashSet();
-            foreach (var pid in _selected.Keys.ToList())
-                if (!allowed.Contains(pid))
-                    _selected.Remove(pid);
-
-            ApplyPersonFilter();
-        }
-        catch (Exception ex)
-        {
-            Toasts.Error(ex.Message);
-
-            _personsAll = [];
-            _personResults = [];
-            _selected.Clear();
-        }
-        finally
-        {
-            _personsLoading = false;
-        }
-    }
-
-    private Task OnPersonSearchAfterBindingAsync()
-    {
-        ApplyPersonFilter();
-        return Task.CompletedTask;
-    }
-
-    private void ApplyPersonFilter()
-    {
-        var s = (_personSearch ?? string.Empty).Trim();
-
-        if (s.Length < MinSearchLength)
-        {
-            _personResults = _personsAll;
-            return;
-        }
-
-        _personResults = [.. _personsAll.Where(p =>
-            ContainsIgnoreCase(p.FullName, s) ||
-            ContainsIgnoreCase(p.Rnokpp, s) ||
-            (!string.IsNullOrWhiteSpace(p.Callsign) && ContainsIgnoreCase(p.Callsign!, s)))];
-    }
-
-    //======================================================================
-    // Save / Close
-    //======================================================================
-
-    private bool CanSave
-        => !_busy
-           && !string.IsNullOrWhiteSpace(_model.SourceDocument)
-           && _model.MissionId != Guid.Empty
-           && _selected.Count > 0;
-
-    private async Task Save()
-    {
-        if (!CanSave) return;
-
-        _busy = true;
-        try
-        {
-            _model.SourceDocument = _model.SourceDocument.Trim();
-
-            _model.Details = [.. _selected.Values.Select(p => new CreateCombatTaskDetailsModel
-            {
-                PersonId = p.PersonId,
-                CombatTaskDetailsKind = CombatTaskDetailsKind.End,
-                EffectiveAt = _at,
-                Rnokpp = p.Rnokpp,
-                FullName = p.FullName,
-                Callsign = p.Callsign
-            })];
-
-            await OnCreated.InvokeAsync(_model);
-            await Close();
-        }
-        catch (Exception ex)
-        {
-            Toasts.Error(ex.Message);
-        }
-        finally
-        {
-            _busy = false;
-        }
-    }
-
-    private Task Close()
-        => IsOpenChanged.InvokeAsync(false);
-
-    //======================================================================
-    // View helpers
-    //======================================================================
-
-    private string PersonsEmptyHint
-    {
-        get
-        {
-            if (_model.MissionId == Guid.Empty) return "Оберіть місію — підтягнемо осіб, які на ній знаходяться.";
-            if (_personsLoading) return "Завантаження...";
-            if (_personsAll.Count == 0) return "На цю дату на місії немає активних осіб.";
-            if ((_personSearch?.Trim().Length ?? 0) >= MinSearchLength && _personResults.Count == 0)
-                return "Нічого не знайдено за пошуком.";
-            return $"Введіть мін. {MinSearchLength} символи для пошуку або обирайте зі списку.";
-        }
-    }
-
-    private static bool ContainsIgnoreCase(string value, string search)
-        => value?.Contains(search, StringComparison.OrdinalIgnoreCase) == true;
-
-    //======================================================================
-    // Mission grouping/formatting (same as Start drawer)
-    //======================================================================
-
-    private IReadOnlyList<MissionGroupVm> MissionGroups
+    private IReadOnlyList<MissionGroupModel> MissionGroups
         => [.. _missionOptions
             .GroupBy(m => m.MissionMode)
             .OrderBy(g => (int)g.Key)
-            .Select(g => new MissionGroupVm(g.Key, [.. g]))];
+            .Select(g => new MissionGroupModel(g.Key, [.. g]))];
 
-    private sealed record MissionGroupVm(MissionMode Mode, IReadOnlyList<MissionDto> Items)
+    private sealed record MissionGroupModel(MissionMode Mode, IReadOnlyList<MissionDto> Items)
     {
         public int Count => Items.Count;
     }
@@ -349,28 +179,232 @@ public partial class CloseCombatTaskDrawer
         return value[..(max - 1)] + "…";
     }
 
-    private ConfirmModal<ActiveMissionPersonDto>? _personConfirm;
-
-    private async Task ToggleWithConfirmAsync(ActiveMissionPersonDto p)
+    private async Task OnMissionChanged(ChangeEventArgs e)
     {
-        if (_personConfirm is null) return;
+        if (!Guid.TryParse(e.Value?.ToString(), out var id))
+            return;
 
-        var willSelect = !_selected.ContainsKey(p.PersonId);
+        _model.MissionId = id;
+
+        var m = _missionOptions.FirstOrDefault(x => x.MissionId == _model.MissionId);
+        _missionDisplay = m is null ? string.Empty : BuildMissionDisplayUa(m);
+
+        // при зміні місії — очищаємо поточний вибір
+        _selected.Clear();
+
+        await LoadMissionPersonsAsync();
+    }
+
+    //======================================================================
+    // Date change
+    //======================================================================
+
+    private async Task OnAtChangedAsync()
+    {
+        if (_model.MissionId == Guid.Empty) return;
+
+        // на іншу дату склад місії може змінитись
+        _selected.Clear();
+        await LoadMissionPersonsAsync();
+    }
+
+    //======================================================================
+    // Persons: load + filter
+    //======================================================================
+
+    private async Task LoadMissionPersonsAsync()
+    {
+        if (_model.MissionId == Guid.Empty) return;
+
+        _personsLoading = true;
+        try
+        {
+            var res = await LookupMissionPersons.HandleAsync(
+                new GetCombatTaskMissionPersonsQuery(_model.MissionId, _at));
+
+            _personsAll = [.. res
+                .OrderBy(x => x.FullName)
+                .ThenBy(x => x.Rnokpp)
+                .ThenBy(x => x.PersonId)];
+
+            ApplyPersonFilter();
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error(ex.Message);
+
+            _personsAll = [];
+            _personResults = [];
+            _selected.Clear();
+        }
+        finally
+        {
+            _personsLoading = false;
+        }
+    }
+
+    private Task OnPersonSearchAfterBindingAsync()
+    {
+        ApplyPersonFilter();
+        return Task.CompletedTask;
+    }
+
+    private void ApplyPersonFilter()
+    {
+        var s = (_personSearch ?? string.Empty).Trim();
+
+        if (_model.MissionId == Guid.Empty)
+        {
+            _personResults = [];
+            return;
+        }
+
+        if (s.Length < MinSearchLength)
+        {
+            _personResults = _personsAll;
+            return;
+        }
+
+        _personResults = [.. _personsAll.Where(p =>
+            ContainsIgnoreCase(p.FullName, s) ||
+            ContainsIgnoreCase(p.Rnokpp, s) ||
+            ContainsIgnoreCase(p.Callsign, s) ||
+            ContainsIgnoreCase(p.Rank, s) ||
+            ContainsIgnoreCase(p.Position, s) ||
+            ContainsIgnoreCase(p.Weapon, s))];
+    }
+
+    private static bool ContainsIgnoreCase(string? value, string search)
+        => !string.IsNullOrWhiteSpace(value)
+           && value.Contains(search, StringComparison.OrdinalIgnoreCase);
+
+    //======================================================================
+    // Actions: add/remove with confirm on add
+    //======================================================================
+
+    private async Task OnPersonActionAsync(ActiveMissionPersonDto p)
+    {
+        if (_busy) return;
+
+        var selected = _selected.ContainsKey(p.PersonId);
+
+        if (selected)
+        {
+            _selected.Remove(p.PersonId);
+            return;
+        }
+
+        if (_personConfirm is null) return;
 
         var ok = await _personConfirm.ShowAsync(
             p,
-            bodyText: willSelect
-                ? "Додати особу до списку?"
-                : "Прибрати особу зі списку?");
+            bodyText: "Додати особу до списку закриття участі в завдання?");
 
         if (!ok) return;
 
-        if (willSelect) _selected[p.PersonId] = p;
-        else _selected.Remove(p.PersonId);
+        _selected[p.PersonId] = p;
     }
 
-    private string GetToggleBtnClass(ActiveMissionPersonDto r)
-       => _selected.ContainsKey(r.PersonId)
-           ? "fw-bold btn-sm btn-success rounded-0"   // вибраний -> мінус (прибрати)
-           : "fw-bold btn-sm btn-light rounded-0"; // не вибраний -> плюс (додати)
+    private void RemoveSelected(Guid personId)
+    {
+        if (_busy) return;
+        _selected.Remove(personId);
+    }
+
+    private void ClearSelected()
+    {
+        if (_busy) return;
+        _selected.Clear();
+    }
+
+    //======================================================================
+    // UI helpers
+    //======================================================================
+
+    private string GetActionBtnClass(ActiveMissionPersonDto p)
+        => _selected.ContainsKey(p.PersonId)
+             ? "fw-bold btn-sm btn-success rounded-0"   // вибраний -> мінус (прибрати)
+             : "fw-bold btn-sm btn-light rounded-0";    // не вибраний -> плюс (додати)
+
+    private string GetActionLabel(ActiveMissionPersonDto p)
+        => _selected.ContainsKey(p.PersonId) ? "−" : "+";
+
+    private string PersonsEmptyHint
+    {
+        get
+        {
+            if (_model.MissionId == Guid.Empty) return "Оберіть місію — підтягнемо осіб, які на ній знаходяться.";
+            if (_personsLoading) return "Завантаження...";
+            if (_personsAll.Count == 0) return "На цю дату на місії немає активних осіб.";
+            if ((_personSearch?.Trim().Length ?? 0) >= MinSearchLength && _personResults.Count == 0)
+                return "Нічого не знайдено за пошуком.";
+            return $"Введіть мін. {MinSearchLength} символи для пошуку або обирайте зі списку.";
+        }
+    }
+
+    private static string OrDash(string? v)
+        => string.IsNullOrWhiteSpace(v) ? "—" : v;
+
+    //======================================================================
+    // Save / Nav
+    //======================================================================
+
+    private bool CanSave
+        => !_busy
+           && !string.IsNullOrWhiteSpace(_model.SourceDocument)
+           && _model.MissionId != Guid.Empty
+           && _selected.Count > 0;
+
+    private async Task Save()
+    {
+        if (!CanSave) return;
+
+        _busy = true;
+        try
+        {
+            _model.SourceDocument = _model.SourceDocument.Trim();
+
+            _model.Details = [.. _selected.Values.Select(p => new CreateCombatTaskDetailsModel
+            {
+                PersonId = p.PersonId,
+                CombatTaskDetailsKind = CombatTaskDetailsKind.End,
+                EffectiveAt = _at,
+
+                // snapshot light
+                Rnokpp = p.Rnokpp,
+                FullName = p.FullName,
+                Callsign = p.Callsign
+            })];
+
+            var command = new CreateCombatTaskCommand(
+                DocumentId: DocumentId,
+                MissionId: _model.MissionId,
+                SourceDocument: _model.SourceDocument,
+                CombatTaskDetails: [.. _model.Details.Select(x => new CombatTaskDetailsDto(
+                    CombatTaskDetailsId: Guid.NewGuid(),
+                    Kind: x.CombatTaskDetailsKind,
+                    EffectiveAt: x.EffectiveAt,
+                    PersonId: x.PersonId,
+                    Rnokpp: x.Rnokpp,
+                    FullName: x.FullName,
+                    Callsign: x.Callsign
+                ))]);
+
+            await CreateCombatTaskHandler.HandleAsync(command);
+
+            Toasts.Success($"Повернення з завдання '{_model.SourceDocument}' успішно виконано.");
+            Nav.NavigateTo($"/task-document/{DocumentId}");
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error($"Помилка при поверненні з завдання: {ex.Message}");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void GoBack()
+        => Nav.NavigateTo($"/task-document/{DocumentId}");
 }

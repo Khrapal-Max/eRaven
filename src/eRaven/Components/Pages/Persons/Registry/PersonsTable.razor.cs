@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Persons.Registry;
 
-public partial class PersonsTable
+public partial class PersonsTable : ComponentBase
 {
     // =========================
     // Parameters

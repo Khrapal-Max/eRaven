@@ -18,7 +18,7 @@ namespace eRaven.Components.Pages.Timesheet;
 /// UI-компонент експорту місячного табеля в файл (XLSX).
 /// Викликає read-query, а потім ініціює завантаження через JS interop.
 /// </summary>
-public partial class TimesheetExport
+public partial class TimesheetExport : ComponentBase
 {
     //======================================================================
     // DI

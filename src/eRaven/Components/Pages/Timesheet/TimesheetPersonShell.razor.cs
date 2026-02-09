@@ -22,7 +22,7 @@ namespace eRaven.Components.Pages.Timesheet;
 /// - список записів (source of truth: Entries).
 /// Планів/Task-рівня немає: табель = факт.
 /// </summary>
-public partial class TimesheetPersonShell
+public partial class TimesheetPersonShell : ComponentBase
 {
     //======================================================================
     // DI + Route params

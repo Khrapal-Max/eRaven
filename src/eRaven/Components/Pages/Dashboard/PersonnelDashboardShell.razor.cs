@@ -13,7 +13,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Dashboard;
 
-public partial class PersonnelDashboardShell
+public partial class PersonnelDashboardShell : ComponentBase
 {
     [Inject] public IQueryHandler<GetPersonnelDashboardQuery, PersonnelDashboardDto> DashboardQuery { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;

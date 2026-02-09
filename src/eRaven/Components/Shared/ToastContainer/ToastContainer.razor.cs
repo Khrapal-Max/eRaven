@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Shared.ToastContainer;
 
-public partial class ToastContainer : IDisposable
+public partial class ToastContainer : ComponentBase, IDisposable
 {
     private readonly List<ToastMessage> _toasts = [];
 
