@@ -659,4 +659,263 @@ public sealed class MissionAssignmentRepositoryTests
         Assert.Contains(free, x => x.PersonId == pFutureOpen);
         Assert.DoesNotContain(free, x => x.PersonId == pOpen);
     }
+
+    //======================================================================
+    // Helpers (NEW): Apply dto
+    //======================================================================
+
+    private static ApplyCombatTaskDetailsDto NewApply(
+        Guid documentId,
+        Guid combatTaskId,
+        Guid detailsId,
+        CombatTaskDetailsKind kind,
+        DateOnly effectiveAt,
+        Guid personId,
+        Guid missionId)
+        => new(
+            DocumentId: documentId,
+            CombatTaskId: combatTaskId,
+            DetailsId: detailsId,
+            MissionId: missionId,
+            PersonId: personId,
+            Kind: kind,
+            EffectiveAt: effectiveAt
+        );
+
+    //======================================================================
+    // ApplyDraftLinesAsync
+    //======================================================================
+
+    [Fact]
+    public async Task ApplyDraftLinesAsync_Start_creates_planned_open_assignment()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var personId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+
+        var docId = Guid.NewGuid();
+        var detailsId = Guid.NewGuid();
+        var combatTaskId = Guid.NewGuid();
+
+        var repo = new MissionAssignmentRepository(tdb.Factory);
+
+        await repo.ApplyDraftLinesAsync([
+            NewApply(
+            documentId: docId,
+            combatTaskId: combatTaskId,
+            detailsId: detailsId,
+            kind: CombatTaskDetailsKind.Start,
+            effectiveAt: new DateOnly(2026, 2, 2),
+            personId: personId,
+            missionId: missionId)
+        ]);
+
+        await using var db = await tdb.Factory.CreateDbContextAsync();
+        var stored = await db.MissionAssignments.AsNoTracking().ToListAsync();
+
+        Assert.Single(stored);
+
+        var a = stored[0];
+        Assert.Equal(personId, a.PersonId);
+        Assert.Equal(missionId, a.MissionId);
+        Assert.Equal(new DateOnly(2026, 2, 2), a.From);
+        Assert.Null(a.To);
+
+        Assert.Equal(MissionAssignmentStatus.Planned, a.Status);
+
+        Assert.Equal(docId, a.SourceStartDocumentId);
+        Assert.Equal(detailsId, a.SourceStartDetailsId);
+        Assert.Null(a.SourceEndDocumentId);
+        Assert.Null(a.SourceEndDetailsId);
+    }
+
+    [Fact]
+    public async Task ApplyDraftLinesAsync_End_closes_planned_assignment_and_sets_source_end()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var personId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+
+        var startDocId = Guid.NewGuid();
+        var startDetailsId = Guid.NewGuid();
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.MissionAssignments.Add(NewOpenAssignment(
+                personId: personId,
+                missionId: missionId,
+                from: new DateOnly(2026, 2, 2),
+                sourceStartDocumentId: startDocId,
+                sourceStartDetailsId: startDetailsId,
+                status: MissionAssignmentStatus.Planned));
+
+            await db.SaveChangesAsync();
+        }
+
+        var endDocId = Guid.NewGuid();
+        var endDetailsId = Guid.NewGuid();
+        var combatTaskId = Guid.NewGuid();
+
+        var repo = new MissionAssignmentRepository(tdb.Factory);
+
+        await repo.ApplyDraftLinesAsync([
+            NewApply(
+            documentId: endDocId,
+            combatTaskId: combatTaskId,
+            detailsId: endDetailsId,
+            kind: CombatTaskDetailsKind.End,
+            effectiveAt: new DateOnly(2026, 2, 7),
+            personId: personId,
+            missionId: missionId)
+        ]);
+
+        await using var db2 = await tdb.Factory.CreateDbContextAsync();
+        var stored = await db2.MissionAssignments.AsNoTracking()
+            .Where(x => x.PersonId == personId && x.MissionId == missionId)
+            .ToListAsync();
+
+        Assert.Single(stored);
+
+        var a = stored[0];
+        Assert.Equal(new DateOnly(2026, 2, 2), a.From);
+        Assert.Equal(new DateOnly(2026, 2, 7), a.To);
+
+        // Draft закриває Planned і не робить його Committed
+        Assert.Equal(MissionAssignmentStatus.Planned, a.Status);
+
+        Assert.Equal(startDocId, a.SourceStartDocumentId);
+        Assert.Equal(startDetailsId, a.SourceStartDetailsId);
+        Assert.Equal(endDocId, a.SourceEndDocumentId);
+        Assert.Equal(endDetailsId, a.SourceEndDetailsId);
+    }
+
+    [Fact]
+    public async Task ApplyDraftLinesAsync_throws_when_End_targets_only_committed_open_assignment()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var personId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.MissionAssignments.Add(NewOpenAssignment(
+                personId: personId,
+                missionId: missionId,
+                from: new DateOnly(2026, 2, 2),
+                sourceStartDocumentId: Guid.NewGuid(),
+                sourceStartDetailsId: Guid.NewGuid(),
+                status: MissionAssignmentStatus.Committed));
+
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new MissionAssignmentRepository(tdb.Factory);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => repo.ApplyDraftLinesAsync([
+            NewApply(
+            documentId: Guid.NewGuid(),
+            combatTaskId: Guid.NewGuid(),
+            detailsId: Guid.NewGuid(),
+            kind: CombatTaskDetailsKind.End,
+            effectiveAt: new DateOnly(2026, 2, 7),
+            personId: personId,
+            missionId: missionId)
+        ]));
+
+        // залежить від тексту у твоїй реалізації:
+        Assert.Contains("планов", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ApplyDraftLinesAsync_throws_when_Start_and_person_has_open_committed_mission()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var personId = Guid.NewGuid();
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.MissionAssignments.Add(NewOpenAssignment(
+                personId: personId,
+                missionId: Guid.NewGuid(),
+                from: new DateOnly(2026, 2, 2),
+                sourceStartDocumentId: Guid.NewGuid(),
+                sourceStartDetailsId: Guid.NewGuid(),
+                status: MissionAssignmentStatus.Committed));
+
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new MissionAssignmentRepository(tdb.Factory);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => repo.ApplyDraftLinesAsync([
+            NewApply(
+            documentId: Guid.NewGuid(),
+            combatTaskId: Guid.NewGuid(),
+            detailsId: Guid.NewGuid(),
+            kind: CombatTaskDetailsKind.Start,
+            effectiveAt: new DateOnly(2026, 2, 7),
+            personId: personId,
+            missionId: Guid.NewGuid())
+        ]));
+
+        Assert.Contains("вже має активну місію", ex.Message);
+    }
+
+    [Fact]
+    public async Task ApplyDraftLinesAsync_is_idempotent_for_existing_planned_start_by_detailsId()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var personId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+
+        var docId = Guid.NewGuid();
+        var detailsId = Guid.NewGuid();
+        var combatTaskId = Guid.NewGuid();
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.MissionAssignments.Add(new MissionAssignment
+            {
+                Id = Guid.NewGuid(),
+                PersonId = personId,
+                MissionId = missionId,
+                From = new DateOnly(2026, 2, 1),
+                To = null,
+                Status = MissionAssignmentStatus.Planned,
+                SourceStartDocumentId = docId,
+                SourceStartDetailsId = detailsId
+            });
+
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new MissionAssignmentRepository(tdb.Factory);
+
+        // re-apply with same DetailsId but updated date
+        await repo.ApplyDraftLinesAsync([
+            NewApply(
+            documentId: docId,
+            combatTaskId: combatTaskId,
+            detailsId: detailsId,
+            kind: CombatTaskDetailsKind.Start,
+            effectiveAt: new DateOnly(2026, 2, 2),
+            personId: personId,
+            missionId: missionId)
+        ]);
+
+        await using var db2 = await tdb.Factory.CreateDbContextAsync();
+        var stored = await db2.MissionAssignments.AsNoTracking()
+            .Where(x => x.SourceStartDetailsId == detailsId)
+            .ToListAsync();
+
+        Assert.Single(stored);
+        Assert.Equal(MissionAssignmentStatus.Planned, stored[0].Status);
+        Assert.Equal(new DateOnly(2026, 2, 2), stored[0].From);
+        Assert.Null(stored[0].To);
+    }
 }
