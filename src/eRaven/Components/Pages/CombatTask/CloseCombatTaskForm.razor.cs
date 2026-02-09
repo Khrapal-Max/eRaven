@@ -220,7 +220,7 @@ public partial class CloseCombatTaskForm : ComponentBase
         try
         {
             var res = await LookupMissionPersons.HandleAsync(
-                new GetCombatTaskMissionPersonsQuery(_model.MissionId, _at));
+                new GetCombatTaskMissionPersonsQuery(_model.MissionId, IsPlanned: true, _at));
 
             _personsAll = [.. res
                 .OrderBy(x => x.FullName)

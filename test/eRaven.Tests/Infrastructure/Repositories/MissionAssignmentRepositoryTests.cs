@@ -27,7 +27,8 @@ public sealed class MissionAssignmentRepositoryTests
         Guid missionId,
         DateOnly from,
         Guid sourceStartDocumentId,
-        Guid sourceStartDetailsId)
+        Guid sourceStartDetailsId,
+        MissionAssignmentStatus status = MissionAssignmentStatus.Committed)
         => new()
         {
             Id = Guid.NewGuid(),
@@ -35,13 +36,16 @@ public sealed class MissionAssignmentRepositoryTests
             MissionId = missionId,
             From = from,
             To = null,
+
+            Status = status,
+
             SourceStartDocumentId = sourceStartDocumentId,
             SourceStartDetailsId = sourceStartDetailsId,
             SourceEndDocumentId = null,
             SourceEndDetailsId = null
         };
 
-    private static CombatTaskPostedDetailsDto NewPosted(
+    private static ApplyCombatTaskDetailsDto NewPosted(
         Guid documentId,
         Guid combatTaskId,
         Guid detailsId,
@@ -112,6 +116,8 @@ public sealed class MissionAssignmentRepositoryTests
         Assert.Equal(new DateOnly(2026, 2, 2), a.From);
         Assert.Null(a.To);
 
+        Assert.Equal(MissionAssignmentStatus.Committed, a.Status);
+
         Assert.Equal(docId, a.SourceStartDocumentId);
         Assert.Equal(detailsId, a.SourceStartDetailsId);
         Assert.Null(a.SourceEndDocumentId);
@@ -136,7 +142,8 @@ public sealed class MissionAssignmentRepositoryTests
                 missionId: missionId,
                 from: new DateOnly(2026, 2, 2),
                 sourceStartDocumentId: startDocId,
-                sourceStartDetailsId: startDetailsId));
+                sourceStartDetailsId: startDetailsId,
+                status: MissionAssignmentStatus.Committed));
 
             await db.SaveChangesAsync();
         }
@@ -169,6 +176,8 @@ public sealed class MissionAssignmentRepositoryTests
         Assert.Equal(new DateOnly(2026, 2, 2), a.From);
         Assert.Equal(new DateOnly(2026, 2, 7), a.To);
 
+        Assert.Equal(MissionAssignmentStatus.Committed, a.Status);
+
         Assert.Equal(startDocId, a.SourceStartDocumentId);
         Assert.Equal(startDetailsId, a.SourceStartDetailsId);
         Assert.Equal(endDocId, a.SourceEndDocumentId);
@@ -192,7 +201,8 @@ public sealed class MissionAssignmentRepositoryTests
                 missionId: missionA,
                 from: new DateOnly(2026, 2, 2),
                 sourceStartDocumentId: Guid.NewGuid(),
-                sourceStartDetailsId: Guid.NewGuid()));
+                sourceStartDetailsId: Guid.NewGuid(),
+                status: MissionAssignmentStatus.Committed));
 
             await db.SaveChangesAsync();
         }
@@ -226,12 +236,14 @@ public sealed class MissionAssignmentRepositoryTests
         var a = all.Single(x => x.MissionId == missionA);
         Assert.Equal(new DateOnly(2026, 2, 2), a.From);
         Assert.Equal(date, a.To);
+        Assert.Equal(MissionAssignmentStatus.Committed, a.Status);
         Assert.Equal(endDoc, a.SourceEndDocumentId);
         Assert.Equal(endDetails, a.SourceEndDetailsId);
 
         var b = all.Single(x => x.MissionId == missionB);
         Assert.Equal(date, b.From);
         Assert.Null(b.To);
+        Assert.Equal(MissionAssignmentStatus.Committed, b.Status);
         Assert.Equal(startDoc, b.SourceStartDocumentId);
         Assert.Equal(startDetails, b.SourceStartDetailsId);
     }
@@ -251,7 +263,8 @@ public sealed class MissionAssignmentRepositoryTests
                 missionId: openMission,
                 from: new DateOnly(2026, 2, 2),
                 sourceStartDocumentId: Guid.NewGuid(),
-                sourceStartDetailsId: Guid.NewGuid()));
+                sourceStartDetailsId: Guid.NewGuid(),
+                status: MissionAssignmentStatus.Committed));
 
             await db.SaveChangesAsync();
         }
@@ -308,7 +321,8 @@ public sealed class MissionAssignmentRepositoryTests
                 missionId: missionId,
                 from: new DateOnly(2026, 2, 10),
                 sourceStartDocumentId: Guid.NewGuid(),
-                sourceStartDetailsId: Guid.NewGuid()));
+                sourceStartDetailsId: Guid.NewGuid(),
+                status: MissionAssignmentStatus.Committed));
 
             await db.SaveChangesAsync();
         }
@@ -330,7 +344,7 @@ public sealed class MissionAssignmentRepositoryTests
     }
 
     //======================================================================
-    // Reads: GetActiveByMissionAsync (NEW)
+    // Reads: GetActiveByMissionAsync
     //======================================================================
 
     [Fact]
@@ -383,6 +397,7 @@ public sealed class MissionAssignmentRepositoryTests
                     MissionId = missionId,
                     From = new DateOnly(2026, 2, 2),
                     To = null,
+                    Status = MissionAssignmentStatus.Committed,
                     SourceStartDocumentId = Guid.NewGuid(),
                     SourceStartDetailsId = Guid.NewGuid()
                 },
@@ -394,6 +409,7 @@ public sealed class MissionAssignmentRepositoryTests
                     MissionId = missionId,
                     From = new DateOnly(2026, 2, 1),
                     To = null,
+                    Status = MissionAssignmentStatus.Committed,
                     SourceStartDocumentId = Guid.NewGuid(),
                     SourceStartDetailsId = Guid.NewGuid()
                 },
@@ -405,6 +421,7 @@ public sealed class MissionAssignmentRepositoryTests
                     MissionId = missionId,
                     From = new DateOnly(2026, 2, 1),
                     To = new DateOnly(2026, 2, 3),
+                    Status = MissionAssignmentStatus.Committed,
                     SourceStartDocumentId = Guid.NewGuid(),
                     SourceStartDetailsId = Guid.NewGuid()
                 },
@@ -416,6 +433,7 @@ public sealed class MissionAssignmentRepositoryTests
                     MissionId = missionId,
                     From = new DateOnly(2026, 2, 10),
                     To = null,
+                    Status = MissionAssignmentStatus.Committed,
                     SourceStartDocumentId = Guid.NewGuid(),
                     SourceStartDetailsId = Guid.NewGuid()
                 });
@@ -466,6 +484,7 @@ public sealed class MissionAssignmentRepositoryTests
                     MissionId = m1,
                     From = new DateOnly(2026, 2, 1),
                     To = new DateOnly(2026, 2, 3),
+                    Status = MissionAssignmentStatus.Committed,
                     SourceStartDocumentId = Guid.NewGuid(),
                     SourceStartDetailsId = Guid.NewGuid()
                 },
@@ -476,6 +495,7 @@ public sealed class MissionAssignmentRepositoryTests
                     MissionId = m2,
                     From = new DateOnly(2026, 2, 4),
                     To = null,
+                    Status = MissionAssignmentStatus.Committed,
                     SourceStartDocumentId = Guid.NewGuid(),
                     SourceStartDetailsId = Guid.NewGuid()
                 });
@@ -491,6 +511,7 @@ public sealed class MissionAssignmentRepositoryTests
         Assert.Equal(m2, active!.MissionId);
         Assert.Null(active.To);
         Assert.Equal(new DateOnly(2026, 2, 4), active.From);
+        Assert.Equal(MissionAssignmentStatus.Committed, active.Status);
     }
 
     [Fact]
@@ -512,6 +533,7 @@ public sealed class MissionAssignmentRepositoryTests
                     MissionId = m2,
                     From = new DateOnly(2026, 2, 10),
                     To = null,
+                    Status = MissionAssignmentStatus.Committed,
                     SourceStartDocumentId = Guid.NewGuid(),
                     SourceStartDetailsId = Guid.NewGuid()
                 },
@@ -522,6 +544,7 @@ public sealed class MissionAssignmentRepositoryTests
                     MissionId = m1,
                     From = new DateOnly(2026, 2, 1),
                     To = new DateOnly(2026, 2, 5),
+                    Status = MissionAssignmentStatus.Committed,
                     SourceStartDocumentId = Guid.NewGuid(),
                     SourceStartDetailsId = Guid.NewGuid()
                 });
@@ -589,7 +612,7 @@ public sealed class MissionAssignmentRepositoryTests
 
         var pFree = Guid.NewGuid();
         var pOpen = Guid.NewGuid();
-        var pFutureOpen = Guid.NewGuid(); // open-ended але From > onDate => FREE за поточною логікою
+        var pFutureOpen = Guid.NewGuid(); // open-ended але From > onDate => FREE
 
         var m1 = Guid.NewGuid();
         var m2 = Guid.NewGuid();
@@ -608,6 +631,7 @@ public sealed class MissionAssignmentRepositoryTests
                 MissionId = m1,
                 From = new DateOnly(2026, 2, 1),
                 To = null,
+                Status = MissionAssignmentStatus.Committed,
                 SourceStartDocumentId = Guid.NewGuid(),
                 SourceStartDetailsId = Guid.NewGuid()
             });
@@ -619,6 +643,7 @@ public sealed class MissionAssignmentRepositoryTests
                 MissionId = m2,
                 From = new DateOnly(2026, 2, 10), // after onDate
                 To = null,
+                Status = MissionAssignmentStatus.Committed,
                 SourceStartDocumentId = Guid.NewGuid(),
                 SourceStartDetailsId = Guid.NewGuid()
             });

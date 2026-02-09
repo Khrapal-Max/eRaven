@@ -21,5 +21,5 @@ public sealed class GetCombatTaskMissionPersonsQueryHandler(
     public async Task<IReadOnlyList<ActiveMissionPersonDto>> HandleAsync(
         GetCombatTaskMissionPersonsQuery query,
         CancellationToken ct = default)
-    => await _repo.GetActiveByMissionAsync(query.MissionId, query.OnDate, ct);
+    => await _repo.GetActiveByMissionAsync(query.MissionId, query.OnDate, query.IsPlanned, ct);
 }

@@ -30,6 +30,7 @@ public interface IMissionAssignmentRepository
     Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveByMissionAsync(
         Guid missionId,
         DateOnly onDate,
+        bool includePlanned = false,
         CancellationToken ct = default);
 
     /// <summary>
@@ -38,16 +39,18 @@ public interface IMissionAssignmentRepository
     Task<MissionAssignment?> GetActiveForPersonAsync(
         Guid personId,
         DateOnly onDate,
+        bool includePlanned = false,
         CancellationToken ct = default);
 
     /// <summary>
     /// Історія призначень людини за період.
     /// </summary>
     Task<IReadOnlyList<MissionAssignment>> GetPersonAssignmentsAsync(
-        Guid personId,
-        DateOnly from,
-        DateOnly to,
-        CancellationToken ct = default);
+       Guid personId,
+       DateOnly from,
+       DateOnly to,
+       bool includePlanned = false,
+       CancellationToken ct = default);
 
     /// <summary>
     /// Повертає людей, які НЕ мають активних призначень 
@@ -57,11 +60,20 @@ public interface IMissionAssignmentRepository
     /// <param name="ct"></param>
     Task<IReadOnlyList<ReadyCombatTaskPersonDto>> GetFreePersonForMissionsAsync(
         DateOnly onDate,
+        bool includePlanned = false,
         CancellationToken ct = default);
 
     // ----------------------------
     // Write (internal)
     // ----------------------------
+
+    /// <summary>
+    /// Застосовує Draft-рядки Start/End.
+    /// </summary>
+    /// <param name="lines"></param>
+    /// <param name="ct"></param>
+    Task ApplyDraftLinesAsync(IReadOnlyList<ApplyCombatTaskDetailsDto> lines,
+        CancellationToken ct = default);
 
     /// <summary>
     /// Застосовує Posted-рядки Start/End як оновлення <see cref="MissionAssignment"/>.
@@ -74,6 +86,6 @@ public interface IMissionAssignmentRepository
     /// мають підійматись як винятки (handler перетворить у toast/validation).
     /// </summary>
     Task ApplyPostedLinesAsync(
-        IReadOnlyList<CombatTaskPostedDetailsDto> lines,
+        IReadOnlyList<ApplyCombatTaskDetailsDto> lines,
         CancellationToken ct = default);
 }

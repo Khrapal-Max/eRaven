@@ -12,8 +12,8 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260208134211_AddSourgeDocument")]
-    partial class AddSourgeDocument
+    [Migration("20260209214719_AddAssignedState")]
+    partial class AddAssignedState
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -274,6 +274,10 @@ namespace eRaven.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("source_start_document_id");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
                     b.Property<DateOnly?>("To")
                         .HasColumnType("date")
                         .HasColumnName("to_date");
@@ -282,17 +286,19 @@ namespace eRaven.Migrations
 
                     b.HasIndex("PersonId")
                         .IsUnique()
-                        .HasFilter("to_date IS NULL");
+                        .HasFilter("to_date IS NULL AND status IN (0,1)");
 
                     b.HasIndex("SourceStartDetailsId")
                         .IsUnique();
 
-                    b.HasIndex("MissionId", "From", "To");
+                    b.HasIndex("MissionId", "Status", "From", "To");
 
-                    b.HasIndex("PersonId", "From", "To");
+                    b.HasIndex("PersonId", "Status", "From", "To");
 
                     b.ToTable("mission_assignments", null, t =>
                         {
+                            t.HasCheckConstraint("ck_mission_assignments_status", "status IN (0,1,2,3)");
+
                             t.HasCheckConstraint("ck_mission_assignments_to_gte_from", "to_date IS NULL OR to_date >= from_date");
                         });
                 });

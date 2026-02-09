@@ -5,6 +5,8 @@
 // MissionAssignment
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Enums;
+
 namespace eRaven.Domain.Entities;
 
 /// <summary>
@@ -19,6 +21,8 @@ public sealed class MissionAssignment
 
     public DateOnly From { get; set; }
     public DateOnly? To { get; set; }
+
+    public MissionAssignmentStatus Status { get; set; } = MissionAssignmentStatus.Planned;
 
     /// <summary>Документ-джерело, який відкрив інтервал.</summary>
     public Guid SourceStartDocumentId { get; set; }

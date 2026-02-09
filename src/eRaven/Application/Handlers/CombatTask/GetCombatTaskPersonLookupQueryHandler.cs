@@ -19,5 +19,5 @@ public sealed class GetCombatTaskPersonLookupQueryHandler(
     private readonly IMissionAssignmentRepository _repo = repo;
 
     public async Task<IReadOnlyList<ReadyCombatTaskPersonDto>> HandleAsync(GetCombatTaskPersonLookupQuery query, CancellationToken ct = default)
-        => await _repo.GetFreePersonForMissionsAsync(query.onDate, ct);
+        => await _repo.GetFreePersonForMissionsAsync(query.OnDate, query.IsPlanned, ct);
 }

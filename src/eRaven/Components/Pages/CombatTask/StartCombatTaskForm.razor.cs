@@ -193,7 +193,7 @@ public partial class StartCombatTaskForm : ComponentBase
         _personsLoading = true;
         try
         {
-            var res = await LookupPersons.HandleAsync(new GetCombatTaskPersonLookupQuery(onDate));
+            var res = await LookupPersons.HandleAsync(new GetCombatTaskPersonLookupQuery(onDate, IsPlanned: true));
 
             _personsAll = [.. res
                 .OrderBy(x => x.FullName)

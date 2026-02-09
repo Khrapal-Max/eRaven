@@ -14,7 +14,7 @@ namespace eRaven.Application.DTOs.CombatTask;
 /// Плоский рядок для застосування в <see cref="MissionAssignment"/> при проведенні документа.
 /// Містить все необхідне без навігацій.
 /// </summary>
-public sealed record CombatTaskPostedDetailsDto(
+public sealed record ApplyCombatTaskDetailsDto(
     Guid DocumentId,
     Guid CombatTaskId,
     Guid DetailsId,

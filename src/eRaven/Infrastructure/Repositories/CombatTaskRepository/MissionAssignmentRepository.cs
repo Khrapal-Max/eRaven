@@ -9,6 +9,7 @@ using eRaven.Application.DTOs.CombatTask;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace eRaven.Infrastructure.Repositories.CombatTaskRepository;
 
@@ -23,10 +24,11 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
     //======================================================================
     // Reads
     //======================================================================
-    /// <inheritdoc />
+
     public async Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveByMissionAsync(
         Guid missionId,
         DateOnly onDate,
+        bool includePlanned = false,
         CancellationToken ct = default)
     {
         if (missionId == Guid.Empty)
@@ -36,9 +38,12 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // 1) Active на дату = open-ended (To == null) + вже стартувало (From <= onDate)
-        var assignments = await db.MissionAssignments
-            .AsNoTracking()
+        var q = db.MissionAssignments.AsNoTracking();
+
+        q = FilterByStatus(q, includePlanned);
+
+        // Active на дату = open-ended (To == null) + вже стартувало (From <= onDate)
+        var assignments = await q
             .Where(a => a.MissionId == missionId)
             .Where(a => a.To == null)
             .Where(a => a.From <= onDate)
@@ -48,7 +53,6 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
         if (assignments.Count == 0)
             return [];
 
-        // Якщо раптом є дублікати open-ended по PersonId — беремо останній старт (max From)
         var active = assignments
             .GroupBy(x => x.PersonId)
             .Select(g => g.OrderByDescending(x => x.From).First())
@@ -58,7 +62,6 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
 
         var personIds = active.Select(x => x.PersonId).ToList();
 
-        // 2) Добираємо персон одним запитом
         var persons = await db.PersonRead
             .AsNoTracking()
             .Where(p => personIds.Contains(p.Id))
@@ -66,13 +69,11 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
 
         var map = persons.ToDictionary(x => x.Id);
 
-        // 3) Склеюємо у DTO в потрібному порядку
         var result = new List<ActiveMissionPersonDto>(active.Count);
-
         foreach (var a in active)
         {
             if (!map.TryGetValue(a.PersonId, out var p))
-                continue; // або throw, якщо PersonRead гарантується
+                continue;
 
             result.Add(new ActiveMissionPersonDto(
                 PersonId: p.Id,
@@ -89,18 +90,21 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
         return result;
     }
 
-    /// <inheritdoc />
     public async Task<MissionAssignment?> GetActiveForPersonAsync(
         Guid personId,
         DateOnly onDate,
+        bool includePlanned = false,
         CancellationToken ct = default)
     {
-        if (personId == Guid.Empty) throw new ArgumentException("PersonId is required.", nameof(personId));
+        if (personId == Guid.Empty)
+            throw new ArgumentException("PersonId is required.", nameof(personId));
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        return await db.MissionAssignments
-            .AsNoTracking()
+        var q = db.MissionAssignments.AsNoTracking();
+        q = FilterByStatus(q, includePlanned);
+
+        return await q
             .Where(x => x.PersonId == personId)
             .Where(x => x.From <= onDate && (!x.To.HasValue || x.To.Value >= onDate))
             .OrderByDescending(x => x.From)
@@ -108,11 +112,11 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
             .FirstOrDefaultAsync(ct);
     }
 
-    /// <inheritdoc />
     public async Task<IReadOnlyList<MissionAssignment>> GetPersonAssignmentsAsync(
         Guid personId,
         DateOnly from,
         DateOnly to,
+        bool includePlanned = false,
         CancellationToken ct = default)
     {
         if (personId == Guid.Empty) throw new ArgumentException("PersonId is required.", nameof(personId));
@@ -120,8 +124,10 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        return await db.MissionAssignments
-            .AsNoTracking()
+        var q = db.MissionAssignments.AsNoTracking();
+        q = FilterByStatus(q, includePlanned);
+
+        return await q
             .Where(x => x.PersonId == personId)
             .Where(x => x.From <= to && (!x.To.HasValue || x.To.Value >= from)) // overlap
             .OrderBy(x => x.From)
@@ -130,9 +136,9 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
             .ToListAsync(ct);
     }
 
-    /// <inheritdoc />
     public async Task<IReadOnlyList<ReadyCombatTaskPersonDto>> GetFreePersonForMissionsAsync(
         DateOnly onDate,
+        bool includePlanned = false,
         CancellationToken ct = default)
     {
         if (onDate == default)
@@ -140,16 +146,18 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // Active = open-ended на дату (як у тебе).
-        // Якщо треба "активні на дату" з To>=onDate — легко допрацювати.
-        var activePersonIds = db.MissionAssignments
-            .AsNoTracking()
-            .Where(a => a.From <= onDate && a.To == null)
+        // Вільні на дату = НЕ мають призначення, яке покриває onDate
+        // (це ближче до вашого “код 30 блокує якщо є assignment на дату”).
+        var active = db.MissionAssignments.AsNoTracking();
+        active = FilterByStatus(active, includePlanned);
+
+        var busyPersonIds = active
+            .Where(a => a.From <= onDate && (!a.To.HasValue || a.To.Value >= onDate))
             .Select(a => a.PersonId);
 
         return await db.PersonRead
             .AsNoTracking()
-            .Where(p => !activePersonIds.Contains(p.Id))
+            .Where(p => !busyPersonIds.Contains(p.Id))
             .Select(p => new ReadyCombatTaskPersonDto(
                 PersonId: p.Id,
                 Rnokpp: p.Rnokpp,
@@ -166,13 +174,139 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
     // Write (apply posted)
     //======================================================================
 
-    /// <summary>
-    /// Застосовує Posted-рядки (Start/End) до <see cref="MissionAssignment"/>.
-    /// Важливо: в межах однієї дати для однієї особи спочатку обробляємо End, потім Start.
-    /// </summary>
-    /// <inheritdoc />
+    public async Task ApplyDraftLinesAsync(IReadOnlyList<ApplyCombatTaskDetailsDto> lines,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        if (lines.Count == 0) return;
+
+        ValidatePosted(lines);
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        var ordered = lines
+            .OrderBy(x => x.EffectiveAt)
+            .ThenBy(x => x.Kind == CombatTaskDetailsKind.End ? 0 : 1) // End before Start
+            .ThenBy(x => x.PersonId)
+            .ThenBy(x => x.MissionId)
+            .ToList();
+
+        var personIds = ordered.Select(x => x.PersonId).Distinct().ToList();
+
+        // Витягуємо open-ended для перевірки конфліктів (Committed + Planned)
+        var openAll = await db.MissionAssignments
+            .Where(x => personIds.Contains(x.PersonId))
+            .Where(x => x.To == null)
+            .Where(x => x.Status == MissionAssignmentStatus.Planned || x.Status == MissionAssignmentStatus.Committed)
+            .OrderByDescending(x => x.From)
+            .ToListAsync(ct);
+
+        // Витягуємо існуючі Start-записи по DetailsId (для ідемпотентності)
+        var startDetailsIds = ordered
+            .Where(x => x.Kind == CombatTaskDetailsKind.Start)
+            .Select(x => x.DetailsId)
+            .Distinct()
+            .ToList();
+
+        var existingStarts = startDetailsIds.Count == 0
+            ? []
+            : await db.MissionAssignments
+                .Where(x => startDetailsIds.Contains(x.SourceStartDetailsId))
+                .ToListAsync(ct);
+
+        var byStartDetailsId = existingStarts
+            .GroupBy(x => x.SourceStartDetailsId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        foreach (var line in ordered)
+        {
+            if (line.Kind == CombatTaskDetailsKind.Start)
+            {
+                // Якщо такий старт вже існує:
+                if (byStartDetailsId.TryGetValue(line.DetailsId, out var existing))
+                {
+                    // Якщо вже Committed — draft нічого не змінює (не даунгрейдимо)
+                    if (existing.Status == MissionAssignmentStatus.Committed)
+                        continue;
+
+                    // existing — Planned: оновимо поля (ідемпотентно)
+                    // Конфлікт: інший open-ended (Committed/Planned) по цій особі
+                    var otherOpen = openAll.FirstOrDefault(x =>
+                        x.PersonId == line.PersonId &&
+                        x.To == null &&
+                        x.Id != existing.Id);
+
+                    if (otherOpen is not null)
+                        throw new InvalidOperationException("Неможливо запланувати: особа вже має активну місію.");
+
+                    existing.From = line.EffectiveAt;
+                    existing.To = null;
+
+                    existing.MissionId = line.MissionId;
+                    existing.PersonId = line.PersonId;
+
+                    existing.SourceStartDocumentId = line.DocumentId;
+                    existing.SourceStartDetailsId = line.DetailsId;
+                    existing.SourceEndDocumentId = null;
+                    existing.SourceEndDetailsId = null;
+
+                    existing.Status = MissionAssignmentStatus.Planned;
+
+                    if (!openAll.Any(x => x.Id == existing.Id))
+                        openAll.Add(existing);
+
+                    continue;
+                }
+
+                // Новий Planned Start
+                var openAny = openAll.FirstOrDefault(x => x.PersonId == line.PersonId && x.To == null);
+                if (openAny is not null)
+                    throw new InvalidOperationException("Неможливо запланувати: особа вже має активну місію.");
+
+                var a = new MissionAssignment
+                {
+                    Id = Guid.NewGuid(),
+                    PersonId = line.PersonId,
+                    MissionId = line.MissionId,
+                    From = line.EffectiveAt,
+                    To = null,
+
+                    Status = MissionAssignmentStatus.Planned,
+
+                    SourceStartDocumentId = line.DocumentId,
+                    SourceStartDetailsId = line.DetailsId
+                };
+
+                db.MissionAssignments.Add(a);
+                openAll.Add(a);
+            }
+            else // End
+            {
+                // Draft закриває ТІЛЬКИ Planned open-ended.
+                var openPlanned = openAll
+                    .Where(x => x.PersonId == line.PersonId)
+                    .Where(x => x.MissionId == line.MissionId)
+                    .Where(x => x.To == null)
+                    .Where(x => x.Status == MissionAssignmentStatus.Planned)
+                    .OrderByDescending(x => x.From)
+                    .FirstOrDefault()
+                    ?? throw new InvalidOperationException("Неможливо закрити: немає відкритого планового призначення.");
+
+                if (line.EffectiveAt < openPlanned.From)
+                    throw new InvalidOperationException("Неможливо закрити раніше старту.");
+
+                openPlanned.To = line.EffectiveAt;
+                openPlanned.SourceEndDocumentId = line.DocumentId;
+                openPlanned.SourceEndDetailsId = line.DetailsId;
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
     public async Task ApplyPostedLinesAsync(
-        IReadOnlyList<CombatTaskPostedDetailsDto> lines,
+        IReadOnlyList<ApplyCombatTaskDetailsDto> lines,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(lines, nameof(lines));
@@ -183,8 +317,6 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        // Детермінований порядок:
-        // EffectiveAt ASC, End before Start, PersonId, MissionId
         var ordered = lines
             .OrderBy(x => x.EffectiveAt)
             .ThenBy(x => x.Kind == CombatTaskDetailsKind.End ? 0 : 1)
@@ -192,27 +324,77 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
             .ThenBy(x => x.MissionId)
             .ToList();
 
-        // Ключовий момент: підтягуємо всі open-ended для залучених осіб ОДИН РАЗ (tracked).
-        // Це дозволяє враховувати "закриття" (To=...) до SaveChanges().
         var personIds = ordered.Select(x => x.PersonId).Distinct().ToList();
 
+        // Підтягуємо всі open-ended для залучених осіб (tracked), включаючи Planned,
+        // бо Posted може “підтвердити” вже запланований старт.
         var openByPersons = await db.MissionAssignments
             .Where(x => personIds.Contains(x.PersonId))
             .Where(x => x.To == null)
+            .Where(x => x.Status == MissionAssignmentStatus.Planned || x.Status == MissionAssignmentStatus.Committed)
             .OrderByDescending(x => x.From)
             .ToListAsync(ct);
+
+        // Для Start: швидко знаходимо існуючий assignment по SourceStartDetailsId (tracked)
+        var startDetailsIds = ordered
+            .Where(x => x.Kind == CombatTaskDetailsKind.Start)
+            .Select(x => x.DetailsId)
+            .Distinct()
+            .ToList();
+
+        var existingStarts = startDetailsIds.Count == 0
+            ? []
+            : await db.MissionAssignments
+                .Where(x => startDetailsIds.Contains(x.SourceStartDetailsId))
+                .ToListAsync(ct);
+
+        var byStartDetailsId = existingStarts
+            .GroupBy(x => x.SourceStartDetailsId)
+            .ToDictionary(g => g.Key, g => g.First());
 
         foreach (var line in ordered)
         {
             if (line.Kind == CombatTaskDetailsKind.Start)
             {
-                // Забороняємо паралельні open-ended (людина одночасно лише в одній місії)
-                var openAny = openByPersons
+                // Якщо вже є запис з цим старт-рядком — робимо “promotion” Planned->Committed (або idempotent).
+                if (byStartDetailsId.TryGetValue(line.DetailsId, out var existing))
+                {
+                    // Захист від “інший Person/Mission під тим же DetailsId” (не має статись)
+                    if (existing.PersonId != line.PersonId || existing.MissionId != line.MissionId)
+                        throw new InvalidOperationException(
+                            $"Конфлікт ідемпотентності Start: DetailsId={line.DetailsId} уже прив’язаний до іншої особи/місії.");
+
+                    // Не дозволяємо паралельні open-ended (враховуючи Planned теж), але ігноруємо самого existing
+                    var openAny = openByPersons
+                        .FirstOrDefault(x => x.PersonId == line.PersonId && x.To == null && x.Id != existing.Id);
+
+                    if (openAny is not null)
+                        throw new InvalidOperationException(
+                            $"Неможливо відкрити місію: особа вже має активну місію (MissionId={openAny.MissionId}).");
+
+                    // Нормалізація (на випадок “старого planned”)
+                    existing.From = line.EffectiveAt;
+                    existing.To = null;
+                    existing.SourceStartDocumentId = line.DocumentId;
+                    existing.SourceStartDetailsId = line.DetailsId;
+                    existing.SourceEndDocumentId = null;
+                    existing.SourceEndDetailsId = null;
+
+                    existing.Status = MissionAssignmentStatus.Committed;
+
+                    if (!openByPersons.Any(x => x.Id == existing.Id))
+                        openByPersons.Add(existing);
+
+                    continue;
+                }
+
+                // Новий Start
+                var openAnyNew = openByPersons
                     .FirstOrDefault(x => x.PersonId == line.PersonId && x.To == null);
 
-                if (openAny is not null)
+                if (openAnyNew is not null)
                     throw new InvalidOperationException(
-                        $"Неможливо відкрити місію: особа вже має активну місію (MissionId={openAny.MissionId}).");
+                        $"Неможливо відкрити місію: особа вже має активну місію (MissionId={openAnyNew.MissionId}).");
 
                 var a = new MissionAssignment
                 {
@@ -221,6 +403,7 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
                     MissionId = line.MissionId,
                     From = line.EffectiveAt,
                     To = null,
+                    Status = MissionAssignmentStatus.Committed,
                     SourceStartDocumentId = line.DocumentId,
                     SourceStartDetailsId = line.DetailsId
                 };
@@ -230,7 +413,6 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
             }
             else // End
             {
-                // Закриваємо саме ту місію, що в рядку.
                 var open = openByPersons
                     .Where(x => x.PersonId == line.PersonId)
                     .Where(x => x.MissionId == line.MissionId)
@@ -247,6 +429,10 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
                 open.To = line.EffectiveAt;
                 open.SourceEndDocumentId = line.DocumentId;
                 open.SourceEndDetailsId = line.DetailsId;
+
+                // якщо закриваємо Planned — це теж підтвердження (Committed)
+                if (open.Status == MissionAssignmentStatus.Planned)
+                    open.Status = MissionAssignmentStatus.Committed;
             }
         }
 
@@ -258,7 +444,19 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
     // Helpers
     //======================================================================
 
-    private static void ValidatePosted(IReadOnlyList<CombatTaskPostedDetailsDto> lines)
+    private static IQueryable<MissionAssignment> FilterByStatus(IQueryable<MissionAssignment> q, bool includePlanned)
+    {
+        if (includePlanned)
+        {
+            return q.Where(a =>
+                a.Status == MissionAssignmentStatus.Committed ||
+                a.Status == MissionAssignmentStatus.Planned);
+        }
+
+        return q.Where(a => a.Status == MissionAssignmentStatus.Committed);
+    }
+
+    private static void ValidatePosted(IReadOnlyList<ApplyCombatTaskDetailsDto> lines)
     {
         foreach (var line in lines)
         {
