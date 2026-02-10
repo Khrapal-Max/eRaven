@@ -10,12 +10,11 @@ namespace eRaven.Domain.Enums;
 /// Статус проєкційного інтервалу участі у місії.
 /// Planned  — запис створений з Draft (план/оперативна картина),
 /// Committed — підтверджено (проведено / зафіксовано),
-/// Voided/Corrected — резерв під подальші сценарії (не обов’язково використовувати зараз).
+/// Voided — резерв під подальші сценарії (не обов’язково використовувати зараз).
 /// </summary>
 public enum MissionAssignmentStatus
 {
     Planned = 0,
     Committed = 1,
-    Voided = 2,
-    Corrected = 3
+    Voided = 2
 }
