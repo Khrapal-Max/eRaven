@@ -75,6 +75,7 @@
                     <TableHeader>
                         <th class="text-center">Дата</th>
                         <th>№ розпорядження</th>
+                        <th>Опис змісту</th>
                         <th class="text-center">Статус</th>
                         <th class="text-center">Дії</th>
                     </TableHeader>
@@ -82,6 +83,7 @@
                     <RowTemplate Context="r">
                         <td class="text-center">@r.RecordedAt.ToString("dd.MM.yyyy")</td>
                         <td>@r.OrderTitle</td>
+                        <td>@r.Description</td>
                         <td class="text-center">@StatusText(r.Status)</td>
                         <td class="text-center">
                             <Button Class="btn-sm btn-success rounded-0"

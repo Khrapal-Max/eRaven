@@ -1,0 +1,51 @@
+﻿@page "/about/concepts"
+@using eRaven.Domain.Enums
+
+<PageTitle>Про систему — Поняття</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid px-0">
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
+            <div class="fw-semibold">Поняття та терміни</div>
+        </div>
+
+        <div class="px-3 py-3">
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">CombatTaskDocument (Документ планування)</div>
+                <ul class="mb-0">
+                    <li>Контейнер для завдань по різних місіях.</li>
+                    <li>Має статус: <b>Draft</b> або <b>Posted</b> (та інші службові, якщо є).</li>
+                </ul>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">CombatTask / Mission block</div>
+                <ul class="mb-0">
+                    <li>Група рядків у межах однієї місії.</li>
+                    <li>Містить деталі (Start/End) для різних осіб.</li>
+                </ul>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">CombatTaskDetails (рядки)</div>
+                <ul class="mb-0">
+                    <li><b>Start</b> — особа почала виконання в дату EffectiveAt.</li>
+                    <li><b>End</b> — особа припинила виконання в дату EffectiveAt.</li>
+                    <li>Сортування в UI: дата ↑, на тій самій даті <b>End перед Start</b>, далі по особі.</li>
+                </ul>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">MissionAssignment (проєкція участі)</div>
+                <ul class="mb-0">
+                    <li>Інтервал: <b>From</b> / <b>To</b> (To може бути null = open-ended).</li>
+                    <li>Статус: <b>Planned</b> (план) або <b>Committed</b> (факт).</li>
+                    <li>Містить посилання на джерело: SourceStartDocumentId/DetailsId та SourceEnd…</li>
+                </ul>
+            </div>
+
+        </div>
+    </div>
+</div>

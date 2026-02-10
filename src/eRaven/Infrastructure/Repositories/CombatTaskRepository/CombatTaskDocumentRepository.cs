@@ -46,6 +46,7 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
             .Select(d => new CombatTaskDocumentDto(
                 DocumentId: d.Id,
                 OrderTitle: d.OrderTitle,
+                Description: d.Description,
                 Status: d.Status,
                 RecordedAt: d.RecordedAt,
                 CanceledReason: d.CanceledReason ?? string.Empty))
@@ -55,6 +56,7 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
     public async Task<Guid> CreateDraftAsync(
         string orderTitle,
         DateOnly recordedAt,
+        string? description,
         string author,
         DateTime nowUtc,
         CancellationToken ct = default)
@@ -65,6 +67,7 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
         {
             Id = Guid.NewGuid(),
             OrderTitle = orderTitle,
+            Description = description,
             RecordedAt = recordedAt,
             Status = DocumentStatus.Draft,
             CreatedBy = author,

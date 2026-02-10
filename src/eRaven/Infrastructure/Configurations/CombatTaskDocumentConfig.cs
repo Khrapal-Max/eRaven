@@ -31,6 +31,10 @@ public sealed class CombatTaskDocumentConfiguration : IEntityTypeConfiguration<C
             .HasMaxLength(128)
             .IsRequired();
 
+        e.Property(x => x.Description)
+           .HasColumnName("description")
+           .HasMaxLength(512);
+
         e.Property(x => x.RecordedAt)
             .HasColumnName("recorded_at")
             .IsRequired();

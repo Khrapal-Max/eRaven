@@ -20,6 +20,7 @@ public sealed class CreateCombatTaskDocumentDraftCommandHandler(
     public async Task<Guid> HandleAsync(CreateCombatTaskDocumentDraftCommand command, CancellationToken ct = default)
         => await _repo.CreateDraftAsync(
             orderTitle: command.OrderTitle,
+            description: command.Description,
             recordedAt: command.RecordedAt,
             author: command.Author,
             nowUtc: command.NowUtc,

@@ -1,0 +1,33 @@
+﻿@page "/about/conflicts"
+
+<PageTitle>Про систему — Конфлікти</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid px-0">
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
+            <div class="fw-semibold">Конфлікти та виправлення</div>
+        </div>
+
+        <div class="px-3 py-3">
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Типові конфлікти</div>
+                <ul class="mb-0">
+                    <li><b>Накладка</b>: у особи вже є активне призначення (open-ended), а ви додаєте Start.</li>
+                    <li><b>Некоректне закриття</b>: End раніше Start.</li>
+                    <li><b>Табель не дозволяє</b>: на стартову дату не код 30 або перехід 30→100 заборонений політикою.</li>
+                </ul>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Як виправляти</div>
+                <ul class="mb-0">
+                    <li>В Draft — змінюємо рядки Start/End і повторно “погоджуємо чернетку”.</li>
+                    <li>Після Posted — виправлення робляться окремими операціями (корекція/закриття датою/скасування), щоб не ламати факт обліку.</li>
+                </ul>
+            </div>
+
+        </div>
+    </div>
+</div>

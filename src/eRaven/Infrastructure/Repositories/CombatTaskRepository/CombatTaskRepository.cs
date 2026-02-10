@@ -78,6 +78,7 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
         return new CombatTaskEditorDto(
             DocumentId: documentId,
             DocumentName: document.OrderTitle,
+            Description: document.Description,
             Status: document.Status,
             RecordedAt: document.RecordedAt,
             Missions: missions);

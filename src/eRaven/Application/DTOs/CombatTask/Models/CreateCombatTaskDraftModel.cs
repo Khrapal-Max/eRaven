@@ -20,6 +20,9 @@ public class CreateCombatTaskDraftModel
      MaxLength(512, ErrorMessage = "Назва повина бути не більше 512 літералі")]
     public string OrderTitle { get; set; } = string.Empty;
 
+    [MaxLength(512, ErrorMessage = "Назва повина бути не більше 512 літералі")]
+    public string Description { get; set; } = string.Empty;
+
     [Required]
     public DateOnly RecordedAt { get; set; }
 }

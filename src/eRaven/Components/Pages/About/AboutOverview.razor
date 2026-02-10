@@ -1,0 +1,40 @@
+﻿@page "/about/overview"
+
+<PageTitle>Про систему — Огляд</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid px-0">
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
+            <div class="fw-semibold">Огляд системи</div>
+        </div>
+
+        <div class="px-3 py-3">
+            <div class="mb-3">
+                <div class="fw-semibold">Що вирішує модуль</div>
+                <div class="small opacity-75">
+                    Модуль фіксує участь осіб у місіях через документи планування, переводить “план” у “факт”
+                    та формує записи у табелі для нарахувань/обліку.
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Основний ланцюжок</div>
+                <ol class="mb-0">
+                    <li><b>Документ планування</b> — набір завдань по місіях (рядки Start/End).</li>
+                    <li><b>MissionAssignment</b> — проєкційні інтервали участі (для звітів/швидких вибірок).</li>
+                    <li><b>Табель</b> — облік по днях (коди 30/100), що визначає статус дня і винагороду.</li>
+                </ol>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Ключова ідея</div>
+                <ul class="mb-0">
+                    <li><b>Draft</b> = план (MissionAssignment у статусі <b>Planned</b>).</li>
+                    <li><b>Posted</b> = факт (MissionAssignment стає <b>Committed</b> і дані пишуться у табель).</li>
+                    <li>Posted не гарантує “що в житті все було ідеально”, але це <b>затверджений факт обліку</b>.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

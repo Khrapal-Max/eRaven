@@ -32,6 +32,14 @@
                             <ValidationMessage For="@(() => Model.RecordedAt)" />
                         </div>                      
 
+
+                        <div class="col-12">
+                            <label class="form-label mb-1">Опис змісту</label>
+                            <InputText class="form-control rounded-0"
+                                       @bind-Value="Model.Description"
+                                       placeholder="Напр: БЕ" />
+                            <ValidationMessage For="@(() => Model.Description)" />
+                        </div>
                     </div>
                 </EditForm>
 

@@ -1,0 +1,45 @@
+﻿@page "/about/faq"
+
+<PageTitle>Про систему — FAQ</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid px-0">
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
+            <div class="fw-semibold">FAQ і типові питання</div>
+        </div>
+
+        <div class="px-3 py-3">
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold">Чому кнопка Posted неактивна?</div>
+                <div class="small opacity-75">
+                    Документ не у статусі Draft або ви не маєте прав на проведення.
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold">Чому “табель не дозволяє 100”?</div>
+                <div class="small opacity-75">
+                    На дату старту активний код не 30, або політика переходів не дозволяє 30 → 100.
+                    Система показує список осіб, у кого є проблема, і дату.
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold">Чому не можна додати Start?</div>
+                <div class="small opacity-75">
+                    У особи вже є активне призначення (open-ended). Спочатку треба закрити попереднє або виправити план.
+                </div>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold">Чому End “не знаходить призначення”?</div>
+                <div class="small opacity-75">
+                    На цю місію немає відкритого інтервалу (From є, але To вже заданий; або місія інша).
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

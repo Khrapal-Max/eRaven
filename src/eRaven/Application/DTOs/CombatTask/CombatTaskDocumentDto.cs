@@ -19,6 +19,7 @@ public sealed record CombatTaskDocumentDto
 (
     Guid DocumentId,
     string OrderTitle,
+    string? Description,    
     DocumentStatus Status,
     DateOnly RecordedAt,
     string CanceledReason

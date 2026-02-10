@@ -1,0 +1,44 @@
+﻿@page "/about/timesheet"
+
+<PageTitle>Про систему — Табель і коди</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid px-0">
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
+            <div class="fw-semibold">Табель і коди (30 / 100)</div>
+        </div>
+
+        <div class="px-3 py-3">
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Коди</div>
+                <ul class="mb-0">
+                    <li><b>30</b> — базовий стан (умовно “вільний/звичайний день”).</li>
+                    <li><b>100</b> — день участі у завданні/місії (винагорода/облік).</li>
+                </ul>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Дозвільні переходи</div>
+                <div class="small opacity-75 mb-2">
+                    Система не “малює” коди напряму: вона перевіряє, чи дозволений перехід між кодами згідно політики.
+                </div>
+                <ul class="mb-0">
+                    <li>Почати завдання: потрібно, щоб на дату старту активний код був <b>30</b>, і перехід <b>30 → 100</b> дозволений.</li>
+                    <li>У разі проблеми — показуємо список осіб і дату, де табель не дозволяє запис.</li>
+                </ul>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Reference (посилання на документ)</div>
+                <ul class="mb-0">
+                    <li>Код 100 пишеться з <b>Reference = номер/назва документа</b>.</li>
+                    <li>Для завершення: останній день може мати reference поточного документа (як “закриваючого”).</li>
+                    <li>Якщо потрібно — система робить розбиття сегмента, щоб різні дні 100 мали різні reference.</li>
+                </ul>
+            </div>
+
+        </div>
+    </div>
+</div>

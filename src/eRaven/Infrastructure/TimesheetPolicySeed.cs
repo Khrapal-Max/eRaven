@@ -60,11 +60,7 @@ public sealed class TimesheetPolicySeed
                 Code("100",  "Затверджене завдання (факт)", 110, TimesheetEndDateMeaning.LastDayOfThisCode),
 
                 Code("Ф100", "Ф100 (факт поранення)", 120, TimesheetEndDateMeaning.LastDayOfThisCode,
-                    isPlanningCutoff: true, cutoffShiftDays: 1),
-
-                Code("ПБД",  "ПБД (факт)", 130, TimesheetEndDateMeaning.LastDayOfThisCode,
-                    requiresReference: true,
-                    isPlanningCutoff: true, cutoffShiftDays: 1),
+                    isPlanningCutoff: true, cutoffShiftDays: 1)
             };
 
             foreach (var c in codes)
@@ -155,9 +151,6 @@ public sealed class TimesheetPolicySeed
 
             // Ф100: Т, 30, ЛП, ЛХ
             AddFrom("Ф100", "Т", "30", "ЛП", "ЛХ");
-
-            // ПБД: Т, 30, 100
-            AddFrom("ПБД", "Т", "30", "100");
 
             await db.SaveChangesAsync(ct);
         }

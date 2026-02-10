@@ -1,0 +1,50 @@
+﻿@page "/about/workflow"
+
+<PageTitle>Про систему — Процес</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid px-0">
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
+            <div class="fw-semibold">Процес роботи</div>
+        </div>
+
+        <div class="px-3 py-3">
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Крок 1 — Створити документ (Draft)</div>
+                <ul class="mb-0">
+                    <li>Додаємо місії (групи) та рядки Start/End по особах.</li>
+                    <li>Поки документ Draft — це планування.</li>
+                </ul>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Крок 2 — Погодження/перевірка чернетки</div>
+                <ul class="mb-0">
+                    <li>Система формує/оновлює <b>Planned</b> призначення (MissionAssignment).</li>
+                    <li>Якщо є конфлікт (накладка/неможливо закрити раніше старту) — показується помилка.</li>
+                </ul>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Крок 3 — Posted (Провести документ)</div>
+                <ul class="mb-0">
+                    <li>Перед проведенням перевіряємо: <b>табель дозволяє поставити 100</b> на стартові дати.</li>
+                    <li>Далі пишемо у табель <b>100</b> на кожен день участі (винагорода/облік).</li>
+                    <li>Після успішного запису у табель переводимо призначення в <b>Committed</b>.</li>
+                </ul>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Що бачить користувач</div>
+                <ul class="mb-0">
+                    <li>У документі: історію Start/End по місіях.</li>
+                    <li>У звітах: інтервали участі (MissionAssignment).</li>
+                    <li>У табелі: код 100 по днях участі + посилання (Reference) на документ.</li>
+                </ul>
+            </div>
+
+        </div>
+    </div>
+</div>

@@ -39,6 +39,7 @@ public static class DefaultCommandHandlers
         services.AddScoped<ICommandHandler<TransitionTimesheetStateCommand>, TransitionTimesheetStateCommandHandler>();
 
         services.AddScoped<ICommandHandler<CreateCombatTaskDocumentDraftCommand, Guid>, CreateCombatTaskDocumentDraftCommandHandler>();
+        services.AddScoped<ICommandHandler<PostCombatTaskDocumentCommand>, PostCombatTaskDocumentCommandHandler>();
 
         services.AddScoped<ICommandHandler<CreateMissionCommand, Guid>, CreateMissionCommandHandler>();
         services.AddScoped<ICommandHandler<CloseMissionCommand>, CloseMissionCommandHandler>();

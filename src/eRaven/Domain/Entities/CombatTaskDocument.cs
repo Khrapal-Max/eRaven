@@ -35,6 +35,11 @@ public sealed class CombatTaskDocument
     /// </summary>
     public string OrderTitle { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Краткий опис змісту.
+    /// </summary>
+    public string? Description { get; set; }
+
     /// <summary>Дата документа (дата планування/реєстрації).</summary>
     public DateOnly RecordedAt { get; set; }
 

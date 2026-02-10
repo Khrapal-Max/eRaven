@@ -17,6 +17,7 @@ namespace eRaven.Application.DTOs.CombatTask;
 public sealed record CombatTaskEditorDto(
     Guid DocumentId,
     string DocumentName,
+    string? Description,
     DocumentStatus Status,
     DateOnly RecordedAt,
     IReadOnlyList<CombatTaskMissionBlockDto> Missions);

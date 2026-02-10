@@ -44,6 +44,7 @@ public interface ICombatTaskDocumentRepository
     Task<Guid> CreateDraftAsync(
         string orderTitle,
         DateOnly recordedAt,
+        string? description,
         string author,
         DateTime nowUtc,
         CancellationToken ct = default);

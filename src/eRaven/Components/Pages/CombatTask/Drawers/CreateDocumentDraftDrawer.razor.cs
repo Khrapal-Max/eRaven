@@ -72,6 +72,7 @@ public partial class CreateDocumentDraftDrawer
         Model = new CreateCombatTaskDraftModel()
         {
             OrderTitle = string.Empty,
+            Description = string.Empty,
             RecordedAt = DateOnly.FromDateTime(DateTime.Today)
         };
 
@@ -91,6 +92,7 @@ public partial class CreateDocumentDraftDrawer
 
             var docId = await CreateHanler.HandleAsync(new CreateCombatTaskDocumentDraftCommand(
                 OrderTitle: Model.OrderTitle,
+                Description: Model.Description,
                 RecordedAt: Model.RecordedAt,
                 Author: "ui", // TODO auth user
                 NowUtc: DateTime.UtcNow));
