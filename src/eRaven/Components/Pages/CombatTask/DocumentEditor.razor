@@ -84,10 +84,7 @@
 
                             <!-- Header mission block -->
                             <div class="d-flex flex-row align-items-center gap-2 border">
-                                <div class="p-2 bg-info text-wrap fw-bold">
-                                    Документ підстава: @g.SourceDocument
-                                </div>
-                                <div class="text-wrap fw-bold">
+                                <div class="px-2 text-wrap fw-bold">
                                     @g.MissionName
                                 </div>
                             </div>
@@ -99,14 +96,16 @@
                                        IsClickable="false"
                                        Class="table-sm table-bordered small mb-0">
                                     <TableHeader>
+                                        <th style="width:120px;">Підстава</th>
                                         <th style="width:120px;">Дата</th>
-                                        <th style="width:120px;">Подія</th>
+                                        <th style="width:180px;">Подія</th>
                                         <th style="width:120px;">РНОКПП</th>
                                         <th>ПІБ</th>
                                         <th style="width:140px;">Позивний</th>
                                     </TableHeader>
 
                                     <RowTemplate Context="d">
+                                        <td class="text-nowrap">@g.SourceDocument</td>
                                         <td class="font-monospace text-nowrap">@d.EffectiveAt.ToString("dd.MM.yyyy")</td>
                                         <td class="text-nowrap">@KindLabel(d.Kind)</td>
                                         <td class="font-monospace text-nowrap">@d.Rnokpp</td>
