@@ -5,14 +5,10 @@
 // MissionAssignmentRepository
 //-----------------------------------------------------------------------------
 
-using DocumentFormat.OpenXml.Drawing.Charts;
-using DocumentFormat.OpenXml.ExtendedProperties;
-using DocumentFormat.OpenXml.Vml;
 using eRaven.Application.DTOs.CombatTask;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
-using System.Linq;
 
 namespace eRaven.Infrastructure.Repositories.CombatTaskRepository;
 
@@ -27,6 +23,40 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
     //======================================================================
     // Reads
     //======================================================================
+
+    public async Task<IReadOnlyList<ReadyCombatTaskPersonDto>> GetFreePersonForMissionsAsync(
+        DateOnly onDate,
+        bool includePlanned = false,
+        CancellationToken ct = default)
+    {
+        if (onDate == default)
+            throw new ArgumentException("onDate must be set.", nameof(onDate));
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        // Вільні на дату = НЕ мають призначення, яке покриває onDate
+        // (це ближче до вашого “код 30 блокує якщо є assignment на дату”).
+        var active = db.MissionAssignments.AsNoTracking();
+        active = FilterByStatus(active, includePlanned);
+
+        var busyPersonIds = active
+            .Where(a => a.From <= onDate && (!a.To.HasValue || a.To.Value >= onDate))
+            .Select(a => a.PersonId);
+
+        return await db.PersonRead
+            .AsNoTracking()
+            .Where(p => !busyPersonIds.Contains(p.Id))
+            .Select(p => new ReadyCombatTaskPersonDto(
+                PersonId: p.Id,
+                Rnokpp: p.Rnokpp,
+                FullName: p.FullName,
+                Rank: p.Rank,
+                Position: p.Position,
+                Weapon: p.Weapon,
+                Callsign: p.Callsign
+            ))
+            .ToListAsync(ct);
+    }
 
     public async Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveByMissionAsync(
         Guid missionId,
@@ -93,6 +123,30 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
         return result;
     }
 
+    public async Task<IReadOnlyList<MissionAssignment>> GetPersonAssignmentsAsync(
+       Guid personId,
+       DateOnly from,
+       DateOnly to,
+       bool includePlanned = false,
+       CancellationToken ct = default)
+    {
+        if (personId == Guid.Empty) throw new ArgumentException("PersonId is required.", nameof(personId));
+        if (to < from) throw new ArgumentException("To must be >= From.", nameof(to));
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var q = db.MissionAssignments.AsNoTracking();
+        q = FilterByStatus(q, includePlanned);
+
+        return await q
+            .Where(x => x.PersonId == personId)
+            .Where(x => x.From <= to && (!x.To.HasValue || x.To.Value >= from)) // overlap
+            .OrderBy(x => x.From)
+            .ThenBy(x => x.MissionId)
+            .ThenBy(x => x.Id)
+            .ToListAsync(ct);
+    }
+
     public async Task<MissionAssignment?> GetActiveForPersonAsync(
         Guid personId,
         DateOnly onDate,
@@ -114,82 +168,24 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
             .ThenByDescending(x => x.Id)
             .FirstOrDefaultAsync(ct);
     }
-
-    public async Task<IReadOnlyList<MissionAssignment>> GetPersonAssignmentsAsync(
-        Guid personId,
-        DateOnly from,
-        DateOnly to,
-        bool includePlanned = false,
-        CancellationToken ct = default)
-    {
-        if (personId == Guid.Empty) throw new ArgumentException("PersonId is required.", nameof(personId));
-        if (to < from) throw new ArgumentException("To must be >= From.", nameof(to));
-
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        var q = db.MissionAssignments.AsNoTracking();
-        q = FilterByStatus(q, includePlanned);
-
-        return await q
-            .Where(x => x.PersonId == personId)
-            .Where(x => x.From <= to && (!x.To.HasValue || x.To.Value >= from)) // overlap
-            .OrderBy(x => x.From)
-            .ThenBy(x => x.MissionId)
-            .ThenBy(x => x.Id)
-            .ToListAsync(ct);
-    }
-
-    public async Task<IReadOnlyList<ReadyCombatTaskPersonDto>> GetFreePersonForMissionsAsync(
-        DateOnly onDate,
-        bool includePlanned = false,
-        CancellationToken ct = default)
-    {
-        if (onDate == default)
-            throw new ArgumentException("onDate must be set.", nameof(onDate));
-
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        // Вільні на дату = НЕ мають призначення, яке покриває onDate
-        // (це ближче до вашого “код 30 блокує якщо є assignment на дату”).
-        var active = db.MissionAssignments.AsNoTracking();
-        active = FilterByStatus(active, includePlanned);
-
-        var busyPersonIds = active
-            .Where(a => a.From <= onDate && (!a.To.HasValue || a.To.Value >= onDate))
-            .Select(a => a.PersonId);
-
-        return await db.PersonRead
-            .AsNoTracking()
-            .Where(p => !busyPersonIds.Contains(p.Id))
-            .Select(p => new ReadyCombatTaskPersonDto(
-                PersonId: p.Id,
-                Rnokpp: p.Rnokpp,
-                FullName: p.FullName,
-                Rank: p.Rank,
-                Position: p.Position,
-                Weapon: p.Weapon,
-                Callsign: p.Callsign
-            ))
-            .ToListAsync(ct);
-    }
-
+    
     //======================================================================
     // Write (apply draft and posted)
     //======================================================================
 
-    public async Task ApplyDraftLinesAsync(
-    IReadOnlyList<ApplyCombatTaskDetailsDto> lines,
+    public async Task ApplyDraftCombatTaskDocumentAsync(
+    IReadOnlyList<ApplyCombatTaskDetailsDto> taskDetails,
     CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(lines);
-        if (lines.Count == 0) return;
+        ArgumentNullException.ThrowIfNull(taskDetails);
+        if (taskDetails.Count == 0) return;
 
-        ValidateApply(lines); // краще перейменувати на ValidateApply(...)
+        ValidateApply(taskDetails); // краще перейменувати на ValidateApply(...)
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        var tasks = lines
+        var tasks = taskDetails
             .OrderBy(x => x.EffectiveAt)
             .ThenBy(x => x.Kind == CombatTaskDetailsKind.End ? 0 : 1) // End before Start
             .ThenBy(x => x.PersonId)
@@ -283,136 +279,21 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
         await tx.CommitAsync(ct);
     }
 
-    public async Task ApplyPostedLinesAsync(
-        IReadOnlyList<ApplyCombatTaskDetailsDto> lines,
-        CancellationToken ct = default)
+    public async Task ApplyPostedCombatTaskDocumentAsync(Guid documentId, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(lines, nameof(lines));
-        if (lines.Count == 0) return;
-
-        ValidateApply(lines);
+        if (documentId == Guid.Empty)
+            throw new ArgumentException("DocumentId is required.", nameof(documentId));
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        var ordered = lines
-            .OrderBy(x => x.EffectiveAt)
-            .ThenBy(x => x.Kind == CombatTaskDetailsKind.End ? 0 : 1)
-            .ThenBy(x => x.PersonId)
-            .ThenBy(x => x.MissionId)
-            .ToList();
-
-        var personIds = ordered.Select(x => x.PersonId).Distinct().ToList();
-
-        // Підтягуємо всі open-ended для залучених осіб (tracked), включаючи Planned,
-        // бо Posted може “підтвердити” вже запланований старт.
-        var openByPersons = await db.MissionAssignments
-            .Where(x => personIds.Contains(x.PersonId))
-            .Where(x => x.To == null)
-            .Where(x => x.Status == MissionAssignmentStatus.Planned || x.Status == MissionAssignmentStatus.Committed)
-            .OrderByDescending(x => x.From)
+        var planned = await db.MissionAssignments
+            .Where(a => a.Status == MissionAssignmentStatus.Planned)
+            .Where(a => a.SourceStartDocumentId == documentId || a.SourceEndDocumentId == documentId)
             .ToListAsync(ct);
 
-        // Для Start: швидко знаходимо існуючий assignment по SourceStartDetailsId (tracked)
-        var startDetailsIds = ordered
-            .Where(x => x.Kind == CombatTaskDetailsKind.Start)
-            .Select(x => x.DetailsId)
-            .Distinct()
-            .ToList();
-
-        var existingStarts = startDetailsIds.Count == 0
-            ? []
-            : await db.MissionAssignments
-                .Where(x => startDetailsIds.Contains(x.SourceStartDetailsId))
-                .ToListAsync(ct);
-
-        var byStartDetailsId = existingStarts
-            .GroupBy(x => x.SourceStartDetailsId)
-            .ToDictionary(g => g.Key, g => g.First());
-
-        foreach (var line in ordered)
-        {
-            if (line.Kind == CombatTaskDetailsKind.Start)
-            {
-                // Якщо вже є запис з цим старт-рядком — робимо “promotion” Planned->Committed (або idempotent).
-                if (byStartDetailsId.TryGetValue(line.DetailsId, out var existing))
-                {
-                    // Захист від “інший Person/Mission під тим же DetailsId” (не має статись)
-                    if (existing.PersonId != line.PersonId || existing.MissionId != line.MissionId)
-                        throw new InvalidOperationException(
-                            $"Конфлікт ідемпотентності Start: DetailsId={line.DetailsId} уже прив’язаний до іншої особи/місії.");
-
-                    // Не дозволяємо паралельні open-ended (враховуючи Planned теж), але ігноруємо самого existing
-                    var openAny = openByPersons
-                        .FirstOrDefault(x => x.PersonId == line.PersonId && x.To == null && x.Id != existing.Id);
-
-                    if (openAny is not null)
-                        throw new InvalidOperationException(
-                            $"Неможливо відкрити місію: особа вже має активну місію (MissionId={openAny.MissionId}).");
-
-                    // Нормалізація (на випадок “старого planned”)
-                    existing.From = line.EffectiveAt;
-                    existing.To = null;
-                    existing.SourceStartDocumentId = line.DocumentId;
-                    existing.SourceStartDetailsId = line.DetailsId;
-                    existing.SourceEndDocumentId = null;
-                    existing.SourceEndDetailsId = null;
-
-                    existing.Status = MissionAssignmentStatus.Committed;
-
-                    if (!openByPersons.Any(x => x.Id == existing.Id))
-                        openByPersons.Add(existing);
-
-                    continue;
-                }
-
-                // Новий Start
-                var openAnyNew = openByPersons
-                    .FirstOrDefault(x => x.PersonId == line.PersonId && x.To == null);
-
-                if (openAnyNew is not null)
-                    throw new InvalidOperationException(
-                        $"Неможливо відкрити місію: особа вже має активну місію (MissionId={openAnyNew.MissionId}).");
-
-                var a = new MissionAssignment
-                {
-                    Id = Guid.NewGuid(),
-                    PersonId = line.PersonId,
-                    MissionId = line.MissionId,
-                    From = line.EffectiveAt,
-                    To = null,
-                    Status = MissionAssignmentStatus.Committed,
-                    SourceStartDocumentId = line.DocumentId,
-                    SourceStartDetailsId = line.DetailsId
-                };
-
-                db.MissionAssignments.Add(a);
-                openByPersons.Add(a);
-            }
-            else // End
-            {
-                var open = openByPersons
-                    .Where(x => x.PersonId == line.PersonId)
-                    .Where(x => x.MissionId == line.MissionId)
-                    .Where(x => x.To == null)
-                    .OrderByDescending(x => x.From)
-                    .FirstOrDefault()
-                    ?? throw new InvalidOperationException(
-                        $"Неможливо закрити місію: немає відкритого призначення для PersonId={line.PersonId} MissionId={line.MissionId}.");
-
-                if (line.EffectiveAt < open.From)
-                    throw new InvalidOperationException(
-                        $"Неможливо закрити місію раніше старту: From={open.From:yyyy-MM-dd}, End={line.EffectiveAt:yyyy-MM-dd}.");
-
-                open.To = line.EffectiveAt;
-                open.SourceEndDocumentId = line.DocumentId;
-                open.SourceEndDetailsId = line.DetailsId;
-
-                // якщо закриваємо Planned — це теж підтвердження (Committed)
-                if (open.Status == MissionAssignmentStatus.Planned)
-                    open.Status = MissionAssignmentStatus.Committed;
-            }
-        }
+        foreach (var a in planned)
+            a.Status = MissionAssignmentStatus.Committed;
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -434,16 +315,16 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
         return q.Where(a => a.Status == MissionAssignmentStatus.Committed);
     }
 
-    private static void ValidateApply(IReadOnlyList<ApplyCombatTaskDetailsDto> lines)
+    private static void ValidateApply(IReadOnlyList<ApplyCombatTaskDetailsDto> taskDetails)
     {
-        foreach (var line in lines)
+        foreach (var detail in taskDetails)
         {
-            if (line.DocumentId == Guid.Empty) throw new InvalidOperationException("Погодженні завдання мають порожній DocumentId.");
-            if (line.CombatTaskId == Guid.Empty) throw new InvalidOperationException("Погодженні завдання мають порожній CombatTaskId.");
-            if (line.DetailsId == Guid.Empty) throw new InvalidOperationException("Погодженні завдання мають порожній DetailsId.");
-            if (line.PersonId == Guid.Empty) throw new InvalidOperationException("Погодженні завдання мають порожній PersonId.");
-            if (line.MissionId == Guid.Empty) throw new InvalidOperationException("Погодженні завдання мають порожній MissionId.");
-            if (line.EffectiveAt == default) throw new InvalidOperationException("Погодженні завдання мають некоректну EffectiveAt дату.");
+            if (detail.DocumentId == Guid.Empty) throw new InvalidOperationException("Погодженні завдання мають порожній DocumentId.");
+            if (detail.CombatTaskId == Guid.Empty) throw new InvalidOperationException("Погодженні завдання мають порожній CombatTaskId.");
+            if (detail.DetailsId == Guid.Empty) throw new InvalidOperationException("Погодженні завдання мають порожній DetailsId.");
+            if (detail.PersonId == Guid.Empty) throw new InvalidOperationException("Погодженні завдання мають порожній PersonId.");
+            if (detail.MissionId == Guid.Empty) throw new InvalidOperationException("Погодженні завдання мають порожній MissionId.");
+            if (detail.EffectiveAt == default) throw new InvalidOperationException("Погодженні завдання мають некоректну EffectiveAt дату.");
         }
     }
 }

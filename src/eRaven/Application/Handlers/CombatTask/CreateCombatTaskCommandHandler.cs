@@ -46,7 +46,7 @@ public sealed class CreateCombatTaskCommandHandler(
             ct: ct);
 
         // Draft = план → пишемо Planned проєкцію
-        var lines = command.CombatTaskDetails
+        var taskDetails = command.CombatTaskDetails
             .Select(x => new ApplyCombatTaskDetailsDto(
                 DocumentId: command.DocumentId,
                 CombatTaskId: combatTaskId,
@@ -57,7 +57,7 @@ public sealed class CreateCombatTaskCommandHandler(
                 EffectiveAt: x.EffectiveAt))
             .ToList();
 
-        await _assignments.ApplyDraftLinesAsync(lines, ct);
+        await _assignments.ApplyDraftCombatTaskDocumentAsync(taskDetails, ct);
 
         return combatTaskId;
     }

@@ -15,7 +15,6 @@ namespace eRaven.Infrastructure.Repositories.CombatTaskRepository;
 ///
 /// Примітки:
 /// - MissionAssignment НЕ редагується напряму з UI.
-/// - Записи створюються/закриваються лише як наслідок "Posted" документів.
 /// - Це read-оптимізована модель для звітів і швидких вибірок.
 /// </summary>
 public interface IMissionAssignmentRepository
@@ -25,19 +24,21 @@ public interface IMissionAssignmentRepository
     // ----------------------------
 
     /// <summary>
-    /// Хто активний на місії <paramref name="missionId"/> на дату <paramref name="onDate"/>.
+    /// Повертає людей, які НЕ мають активних призначень 
+    /// на дату <paramref name="onDate"/> (вільні для нових місій).
     /// </summary>
-    Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveByMissionAsync(
-        Guid missionId,
+    /// <param name="onDate"></param>
+    /// <param name="ct"></param>
+    Task<IReadOnlyList<ReadyCombatTaskPersonDto>> GetFreePersonForMissionsAsync(
         DateOnly onDate,
         bool includePlanned = false,
         CancellationToken ct = default);
 
     /// <summary>
-    /// Поточна активна місія людини на дату <paramref name="onDate"/> (якщо є).
+    /// Хто активний на місії <paramref name="missionId"/> на дату <paramref name="onDate"/>.
     /// </summary>
-    Task<MissionAssignment?> GetActiveForPersonAsync(
-        Guid personId,
+    Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveByMissionAsync(
+        Guid missionId,
         DateOnly onDate,
         bool includePlanned = false,
         CancellationToken ct = default);
@@ -53,12 +54,10 @@ public interface IMissionAssignmentRepository
        CancellationToken ct = default);
 
     /// <summary>
-    /// Повертає людей, які НЕ мають активних призначень 
-    /// на дату <paramref name="onDate"/> (вільні для нових місій).
+    /// Поточна активна місія людини на дату <paramref name="onDate"/> (якщо є).
     /// </summary>
-    /// <param name="onDate"></param>
-    /// <param name="ct"></param>
-    Task<IReadOnlyList<ReadyCombatTaskPersonDto>> GetFreePersonForMissionsAsync(
+    Task<MissionAssignment?> GetActiveForPersonAsync(
+        Guid personId,
         DateOnly onDate,
         bool includePlanned = false,
         CancellationToken ct = default);
@@ -68,24 +67,17 @@ public interface IMissionAssignmentRepository
     // ----------------------------
 
     /// <summary>
-    /// Застосовує Draft-рядки Start/End.
+    /// Створює призначення на завдання згідно документа.
+    /// 
+    /// Стан призначення <see cref="MissionAssignment"/> MissionAssignment.Planned.
     /// </summary>
-    /// <param name="lines"></param>
+    /// <param name="taskDetails"></param>
     /// <param name="ct"></param>
-    Task ApplyDraftLinesAsync(IReadOnlyList<ApplyCombatTaskDetailsDto> lines,
+    Task ApplyDraftCombatTaskDocumentAsync(IReadOnlyList<ApplyCombatTaskDetailsDto> taskDetails,
         CancellationToken ct = default);
 
     /// <summary>
-    /// Застосовує Posted-рядки Start/End як оновлення <see cref="MissionAssignment"/>.
-    ///
-    /// Очікуваний контракт:
-    /// - Start: відкриває інтервал (From=EffectiveAt, To=null).
-    /// - End: закриває інтервал (To=EffectiveAt) для відповідної місії.
-    ///
-    /// Будь-які конфлікти (End без Start, Start при вже відкритому інтервалі тощо)
-    /// мають підійматись як винятки (handler перетворить у toast/validation).
+    /// Оновлює <see cref="MissionAssignment"/> в стані Committed згідно документа.
     /// </summary>
-    Task ApplyPostedLinesAsync(
-        IReadOnlyList<ApplyCombatTaskDetailsDto> lines,
-        CancellationToken ct = default);
+    Task ApplyPostedCombatTaskDocumentAsync(Guid documentId, CancellationToken ct = default);
 }
