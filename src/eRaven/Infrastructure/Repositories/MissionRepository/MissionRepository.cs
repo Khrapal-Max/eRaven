@@ -65,6 +65,13 @@ public class MissionRepository(
         if (closeAt < mission.CreatedAt)
             throw new InvalidOperationException("Дата закриття не може бути раніше дати створення.");
 
+        var isActive = await db.MissionAssignments
+            .AsNoTracking()
+            .AnyAsync(x => x.MissionId == id && x.To == null, ct);
+
+        if (isActive)
+            throw new InvalidOperationException("Неможливо закрити міссію, оскільки вона має активні призначення.");
+
         mission.ClosedAt = closeAt;
 
         await db.SaveChangesAsync(ct);

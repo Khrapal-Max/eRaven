@@ -5,6 +5,7 @@
 // MissionRepositoryTests
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 using eRaven.Infrastructure.Repositories.MissionRepository;
 using eRaven.Tests.Extensions;
@@ -232,4 +233,50 @@ public sealed class MissionRepositoryTests
 
         Assert.NotEqual(id, id2);
     }
+
+    [Fact(DisplayName = "MissionRepo: CloseMissionAsync кидає помилку, якщо місія має активне (open-ended) призначення")]
+    public async Task CloseMissionAsync_WhenMissionHasOpenEndedAssignment_Throws()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new MissionRepository(testDb.Factory);
+
+        var id = await repo.AddMission(
+            positionArea: "Район-1",
+            namePoint: "Точка",
+            typeDrone: null,
+            target: "T",
+            missionMode: MissionMode.Day,
+            todayLocal: new DateTime(2026, 01, 10));
+
+        // Активне призначення: To == null => має блокувати закриття місії
+        await using (var db = await testDb.Factory.CreateDbContextAsync())
+        {
+            db.MissionAssignments.Add(new MissionAssignment
+            {
+                Id = Guid.NewGuid(),
+                PersonId = Guid.NewGuid(),
+                MissionId = id,
+                From = new DateOnly(2026, 1, 10),
+                To = null,
+
+                SourceStartDocumentId = Guid.NewGuid(),
+                SourceStartDetailsId = Guid.NewGuid(),
+
+                Status = MissionAssignmentStatus.Planned
+            });
+
+            await db.SaveChangesAsync();
+        }
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repo.CloseMissionAsync(id, new DateOnly(2026, 01, 11)));
+
+        Assert.Contains("активні призначення", ex.Message);
+
+        // Місія не має бути закрита
+        await using var db2 = await testDb.Factory.CreateDbContextAsync();
+        var m = await db2.Missions.AsNoTracking().SingleAsync(x => x.Id == id);
+        Assert.Null(m.ClosedAt);
+    }
+
 }
