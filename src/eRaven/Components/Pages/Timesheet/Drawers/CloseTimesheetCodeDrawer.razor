@@ -1,0 +1,54 @@
+﻿@using eRaven.Components.Shared.Drawer
+@using eRaven.Components.Shared.Button
+
+<Drawer @ref="_drawer"
+        IsOpen="IsOpen"
+        IsOpenChanged="IsOpenChanged"
+        Title="Закрити табельний код"
+        DisableClose="_busy"
+        OnClosed="CloseAsync">
+
+    <ChildContent>
+        @if (Code is null)
+        {
+            <div class="small">
+                Код не обрано.
+            </div>
+        }
+        else
+        {
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-1">
+                    Ви закриваєте код:
+                    <span class="font-monospace">@Code.Code</span> — @Code.Title
+                </div>
+
+                <div class="small">
+                    Після закриття код стане неактивним і не буде доступний для вибору в нових подіях.
+                </div>
+
+                @if (Code.IsTerminal)
+                {
+                    <div class="small mt-2">
+                        <span class="badge text-bg-warning">кінцевий</span>
+                        <span class="ms-1">це властивість коду, не впливає на можливість закриття.</span>
+                    </div>
+                }
+            </div>
+        }
+    </ChildContent>
+    <FooterContent>
+        <div class="d-flex justify-content-end gap-2">
+            <Button Class="btn-sm btn-outline-secondary"
+                    Label="Скасувати"
+                    IsDisabled="_busy"
+                    OnClickButton="CloseAsync" />
+
+            <Button Class="btn-sm btn-danger"
+                    Label="Закрити код"
+                    IsDisabled="_busy || Code is null"
+                    OnClickButton="ConfirmCloseAsync" />
+        </div>
+    </FooterContent>
+
+</Drawer>

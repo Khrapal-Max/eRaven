@@ -36,7 +36,7 @@ public static class DefaultCommandHandlers
         services.AddScoped<ICommandHandler<ChangeCallsignCommand>, ChangeCallsignCommandHandler>();
         services.AddScoped<ICommandHandler<VoidPersonEventCommand>, VoidPersonEventCommandHandler>();
 
-        services.AddScoped<ICommandHandler<TransitionTimesheetStateCommand>, TransitionTimesheetStateCommandHandler>();
+        services.AddScoped<ICommandHandler<TransitionTimesheetStateCommand, Guid>, TransitionTimesheetStateCommandHandler>();
 
         services.AddScoped<ICommandHandler<CreateCombatTaskDocumentDraftCommand, Guid>, CreateCombatTaskDocumentDraftCommandHandler>();
         services.AddScoped<ICommandHandler<PostCombatTaskDocumentCommand>, PostCombatTaskDocumentCommandHandler>();
@@ -45,6 +45,10 @@ public static class DefaultCommandHandlers
         services.AddScoped<ICommandHandler<CloseMissionCommand>, CloseMissionCommandHandler>();
 
         services.AddScoped<ICommandHandler<CreateCombatTaskCommand, Guid>, CreateCombatTaskCommandHandler>();
+
+        services.AddScoped<ICommandHandler<SaveTimesheetPolicyCommand>, SaveTimesheetPolicyCommandHandler>();
+        services.AddScoped<ICommandHandler<AddTimesheetCodeCommand, Guid>, AddTimesheetCodeCommandHandler>();
+        services.AddScoped<ICommandHandler<CloseTimesheetCodeCommand>, CloseTimesheetCodeCommandHandler>();
 
         return services;
     }

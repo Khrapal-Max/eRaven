@@ -8,141 +8,138 @@
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Timesheet;
 using eRaven.Domain.Entities;
-using eRaven.Domain.Enums;
+using eRaven.Infrastructure;
 using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
 using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.Timesheet;
 
-/// <remarks>
-/// Handler відповідає за:
-/// - перевірку вхідних параметрів,
-/// - policy-driven валідацію (дозволені переходи, required fields),
-/// - розрахунок дат (prevLastDay/nextFrom),
-/// - формування prev/next.
-/// 
-/// Інваріанти таймлайну (p.1/p.2):
-/// - заборона вставок у закритий таймлайн,
-/// - заборона виходу записів за межі таймлайну,
-/// гарантуються репозиторієм write-шару.
-/// </remarks>
 public sealed class TransitionTimesheetStateCommandHandler(
-    ITimesheetEntryRepository repo,
-    ITimesheetPolicyRepository policyRepo,
-    ITimesheetTimelineRepository timelines)
-    : ICommandHandler<TransitionTimesheetStateCommand>
+    ITimesheetTimelineRepository timelines,
+    ITimesheetEntryRepository entries,
+    ITimesheetPolicyRepository policy)
+    : ICommandHandler<TransitionTimesheetStateCommand, Guid>
 {
-    private readonly ITimesheetEntryRepository _repo = repo;
-    private readonly ITimesheetPolicyRepository _policyRepo = policyRepo;
     private readonly ITimesheetTimelineRepository _timelines = timelines;
+    private readonly ITimesheetEntryRepository _entries = entries;
+    private readonly ITimesheetPolicyRepository _policy = policy;
 
-    public async Task HandleAsync(TransitionTimesheetStateCommand command, CancellationToken ct = default)
+    public async Task<Guid> HandleAsync(TransitionTimesheetStateCommand command, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         if (command.PersonId == Guid.Empty)
-            throw new ArgumentException("PersonId is required.", nameof(command.PersonId));
+            throw new InvalidOperationException("PersonId обов'язковий.");
 
-        ArgumentException.ThrowIfNullOrWhiteSpace(command.NextCode, nameof(command.NextCode));
+        if (command.AnchorDate == default)
+            throw new InvalidOperationException("AnchorDate обов'язковий.");
 
-        var author = string.IsNullOrWhiteSpace(command.Author) ? "system" : command.Author.Trim();
-        var nextCodeNorm = NormalizeCode(command.NextCode);
+        if (command.InputDate == default)
+            throw new InvalidOperationException("InputDate (дата події) обов'язкова.");
 
+        if (string.IsNullOrWhiteSpace(command.NextCode))
+            throw new InvalidOperationException("Код події обов'язковий.");
+
+        var nextCode = command.NextCode.Trim();
+
+        if (string.Equals(nextCode, TimesheetSystemCodes.NotInTimesheet, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Код “НБ” є системним станом і не може застосовуватись як подія.");
+
+        // 1) Таймлайн (місяць) має бути відкритим
         var timeline = await _timelines.GetTimelineOnDateAsync(command.PersonId, command.AnchorDate, ct)
-            ?? throw new InvalidOperationException(
-                "Не можна застосувати перехід: дата поза табелем (немає таймлайну на цю дату).");
+            ?? throw new InvalidOperationException("Табель за обраний період не знайдено.");
 
-        // Спрощена дата-валідація: input має бути в межах діючого timeline (мінімум — OpenedAt).
+        if (timeline.ClosedAt is not null)
+            throw new InvalidOperationException("Табель закритий. Зміни заборонені.");
+
         if (command.InputDate < timeline.OpenedAt)
             throw new InvalidOperationException(
-                $"Дата не може бути раніше відкриття табеля ({timeline.OpenedAt:yyyy-MM-dd}).");
+                $"Дата події {command.InputDate:yyyy-MM-dd} раніше відкриття табеля {timeline.OpenedAt:yyyy-MM-dd}.");
 
-        var prev = await _repo.GetActiveEntryOnDateAsync(timeline.Id, command.PersonId, command.AnchorDate, ct)
-            ?? throw new InvalidOperationException(
-                "Не можна застосувати перехід: на цю дату немає активної події (дані пошкоджені).");
+        if (command.InputDate < command.AnchorDate)
+            throw new InvalidOperationException("Дата події не може бути раніше обраної (AnchorDate).");
 
-        var prevCodeNorm = NormalizeCode(prev.Code);
+        // 2) Поточний активний запис на AnchorDate
+        var prevEntry = await _entries.GetActiveEntryOnDateAsync(timeline.Id, command.PersonId, command.AnchorDate, ct)
+            ?? throw new InvalidOperationException("Не знайдено активний запис на обрану дату.");
 
-        var defs = await _policyRepo.GetCodesAsync(ct);
+        if (string.IsNullOrWhiteSpace(prevEntry.Code))
+            throw new InvalidOperationException("Поточний код табеля не визначений.");
 
-        var prevDef = defs.FirstOrDefault(x => NormalizeCode(x.Code) == prevCodeNorm)
-            ?? throw new InvalidOperationException($"Policy: не знайдено код '{prevCodeNorm}' у довіднику.");
+        if (string.Equals(prevEntry.Code.Trim(), TimesheetSystemCodes.NotInTimesheet, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Перехід із “НБ” неможливий (це не подія табеля).");
 
-        var nextDef = defs.FirstOrDefault(x => NormalizeCode(x.Code) == nextCodeNorm)
-            ?? throw new InvalidOperationException($"Policy: не знайдено код '{nextCodeNorm}' у довіднику.");
+        // 3) Підтягуємо довідник кодів (includeInactive=true, щоб не ламати історію)
+        var allCodes = await _policy.GetCodesAsync(includeInactive: true, ct);
 
-        if (prevDef.Id == nextDef.Id)
-            throw new InvalidOperationException($"Перехід у той самий код '{nextCodeNorm}' не має сенсу.");
+        var prevDef = allCodes.FirstOrDefault(x =>
+            string.Equals(x.Code?.Trim(), prevEntry.Code.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException($"Для поточного коду “{prevEntry.Code}” немає запису у політиці.");
 
-        var ok = await IsReachableAsync(prevDef.Id, nextDef.Id, ct);
-        if (!ok)
-            throw new InvalidOperationException($"Перехід '{prevCodeNorm}' до '{nextCodeNorm}' заборонений політикою.");
+        var nextDef = allCodes.FirstOrDefault(x =>
+            string.Equals(x.Code?.Trim(), nextCode, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException($"Код “{nextCode}” не знайдено у політиці.");
 
-        if (nextDef.RequiresReference && string.IsNullOrWhiteSpace(command.Reference))
-            throw new InvalidOperationException($"Для коду '{nextCodeNorm}' обов'язково заповнити Reference.");
+        if (!nextDef.IsActive)
+            throw new InvalidOperationException($"Код “{nextDef.Code}” закритий (неактивний).");
 
-        if (nextDef.RequiresNote && string.IsNullOrWhiteSpace(command.Note))
-            throw new InvalidOperationException($"Для коду '{nextCodeNorm}' обов'язково заповнити Note.");
+        if (prevDef.IsTerminal)
+            throw new InvalidOperationException($"Поточний код “{prevDef.Code}” є фінальним. Перехід заборонений.");
 
-        DateOnly prevLastDay;
-        DateOnly nextFrom;
+        // 4) Правило переходу (From -> To) + StartShiftDays
+        var allowed = await _policy.GetAllowedTransitionsAsync(prevDef.Id, ct);
 
-        if (prevDef.EndDateMeaning == TimesheetEndDateMeaning.LastDayOfThisCode)
+        var rule = allowed.FirstOrDefault(x => x.ToCodeId == nextDef.Id);
+        if (rule is null)
+            throw new InvalidOperationException($"Перехід “{prevDef.Code} → {nextDef.Code}” заборонений політикою.");
+
+        var shift = rule.StartShiftDays;
+        if (shift < 0)
+            throw new InvalidOperationException("Некоректне правило політики: StartShiftDays < 0.");
+
+        // InputDate = "дата події" (введена користувачем)
+        // shift=0 => новий код активний цього ж дня
+        // shift=1 => цей день ще старий код, новий з наступного дня
+        var nextFrom = command.InputDate.AddDays(shift);
+        var prevTo = nextFrom.AddDays(-1);
+
+        // 5) Не можна закривати попередній стан раніше його старту.
+        //    Але дозволяємо "replace", якщо новий стартує рівно з prev.From.
+        if (prevTo < prevEntry.From)
         {
-            prevLastDay = command.InputDate;
-            nextFrom = command.InputDate.AddDays(1);
+            if (nextFrom != prevEntry.From)
+                throw new InvalidOperationException("Дата події некоректна: вона закриває поточний стан раніше його початку.");
+
+            prevEntry.Code = nextDef.Code;
+            prevEntry.Reference = string.IsNullOrWhiteSpace(command.Reference) ? null : command.Reference.Trim();
+            prevEntry.Note = string.IsNullOrWhiteSpace(command.Note) ? null : command.Note.Trim();
+            prevEntry.UpdatedBy = command.Author;
+            prevEntry.UpdatedAtUtc = command.NowUtc;
+
+            await _entries.UpdateAsync(prevEntry, ct);
+            return prevEntry.Id;
         }
-        else
-        {
-            nextFrom = command.InputDate;
-            prevLastDay = command.InputDate.AddDays(-1);
-        }
 
-        if (prevLastDay < prev.From)
-            throw new InvalidOperationException(
-                "Неможливо: дата завершення поточного стану раніше початку поточної події.");
+        // 6) Стандартний перехід: закриваємо prev і створюємо next
+        prevEntry.To = prevTo;
+        prevEntry.UpdatedBy = command.Author;
+        prevEntry.UpdatedAtUtc = command.NowUtc;
 
-        prev.To = prevLastDay;
-        prev.UpdatedBy = author;
-        prev.UpdatedAtUtc = command.NowUtc;
-
-        var next = new TimesheetEntry
+        var nextEntry = new TimesheetEntry
         {
             Id = Guid.NewGuid(),
-            TimelineId = prev.TimelineId,
+            TimelineId = timeline.Id,
             PersonId = command.PersonId,
-            Code = nextCodeNorm,
+            Code = nextDef.Code,
             From = nextFrom,
             To = null,
-            Reference = TrimOrNull(command.Reference),
-            Note = TrimOrNull(command.Note),
-            CreatedBy = author,
-            CreatedAtUtc = command.NowUtc,
-            IsDeleted = false
+            Reference = string.IsNullOrWhiteSpace(command.Reference) ? null : command.Reference.Trim(),
+            Note = string.IsNullOrWhiteSpace(command.Note) ? null : command.Note.Trim(),
+            CreatedBy = command.Author,
+            CreatedAtUtc = command.NowUtc
         };
 
-        await _repo.SaveTransitionAsync(prev, next, ct);
+        await _entries.SaveTransitionAsync(prevEntry, nextEntry, ct);
+        return nextEntry.Id;
     }
-
-    private async Task<bool> IsReachableAsync(Guid fromCodeId, Guid toCodeId, CancellationToken ct)
-    {
-        var visited = new HashSet<Guid> { fromCodeId };
-        var q = new Queue<Guid>();
-        q.Enqueue(fromCodeId);
-
-        while (q.Count > 0)
-        {
-            var cur = q.Dequeue();
-            var next = await _policyRepo.GetAllowedNextAsync(cur, ct);
-
-            foreach (var n in next)
-            {
-                if (n == toCodeId) return true;
-                if (visited.Add(n)) q.Enqueue(n);
-            }
-        }
-
-        return false;
-    }
-
-    private static string NormalizeCode(string? code) => (code ?? "").Trim().ToUpperInvariant();
-    private static string? TrimOrNull(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 }

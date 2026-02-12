@@ -1,0 +1,45 @@
+@page "/about/accounting"
+
+<PageTitle>Про систему — Облік</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid">
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
+            <div class="fw-semibold">Облік</div>
+        </div>
+
+        <div class="px-3 py-3">
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Призначення</div>
+                <div class="small">
+                    Основний елемент обліку — <b>картка військовослужбовця</b>.
+                    У картці зберігаються персональні та службові дані, а також історія табелювання.
+                    Через облік ви керуєте: кого включено у табель, хто в резерві, які дані відображаються в табелі та документах.
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Швидкі переходи</div>
+                <div class="small">
+                    <ul class="mb-0">
+                        <li><b>Облік → Реєстр</b> — список карток: <NavLink class="text-primary" href="/persons">відкрити реєстр</NavLink>.</li>
+                        <li><b>Картка</b> — відкривається з реєстру або з табеля (клік по людині).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Детальніше</div>
+                <div class="small">
+                    <ul class="mb-0">
+                        <li><NavLink class="text-primary" href="/about/accounting/registry">Реєстр карток військовослужбовців</NavLink></li>
+                        <li><NavLink class="text-primary" href="/about/accounting/card">Картка військовослужбовця</NavLink></li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

@@ -5,157 +5,277 @@
 // TimesheetPolicyRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs.Timesheet;
 using eRaven.Domain.Entities;
-using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
 
-/// <summary>
-/// Репозиторій політик табеля (довідник кодів + дозволені переходи).
-///
-/// Джерело істини:
-/// - <see cref="TimesheetCodeDefinition"/> — список кодів та їх правила завершення.
-/// - <see cref="TimesheetCodeTransition"/> — allowed next codes (FromCodeId -> ToCodeId).
-///
-/// Примітка:
-/// - Lane прибрано. Політика застосовується глобально до всіх кодів.
-/// </summary>
-public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> dbFactory) : ITimesheetPolicyRepository
+public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> dbFactory)
+    : ITimesheetPolicyRepository
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
-    /// <summary>
-    /// Повертає всі активні коди табеля, відсортовані для UI.
-    /// </summary>
-    public async Task<IReadOnlyList<TimesheetCodeDefinition>> GetCodesAsync(CancellationToken ct = default)
+    //======================================================================
+    // Codes
+    //======================================================================
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<TimesheetCodeDefinition>> GetCodesAsync(
+    bool includeInactive = false,
+    CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        return await db.TimesheetCodes
-            .AsNoTracking()
-            .Where(x => x.IsActive)
+        var q = db.TimesheetCodes.AsNoTracking();
+
+        if (!includeInactive)
+            q = q.Where(x => x.IsActive);
+
+        return await q
+            .Where(x => !x.Code.Equals(TimesheetSystemCodes.NotInTimesheet))
             .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.Priority)
             .ThenBy(x => x.Code)
             .ToListAsync(ct);
     }
 
-    /// <summary>
-    /// Повертає множину дозволених наступних кодів (ToCodeId) для вказаного FromCodeId.
-    /// </summary>
-    public async Task<IReadOnlySet<Guid>> GetAllowedNextAsync(Guid fromCodeId, CancellationToken ct = default)
+    /// <inheritdoc />
+    public async Task<TimesheetCodeDefinition?> GetCodeByIdAsync(Guid codeId, CancellationToken ct = default)
     {
+        if (codeId == Guid.Empty)
+            throw new ArgumentException("codeId is required.", nameof(codeId));
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var ids = await db.TimesheetCodeTransitions
+        return await db.TimesheetCodes
             .AsNoTracking()
-            .Where(x => x.FromCodeId == fromCodeId)
-            .Select(x => x.ToCodeId)
-            .ToListAsync(ct);
-
-        return ids.ToHashSet();
+            .FirstOrDefaultAsync(x => x.Id == codeId, ct);
     }
 
-    /// <summary>
-    /// Зберігає політику для одного коду:
-    /// - оновлює EndDateMeaning / NextCodeOnEnd
-    /// - переписує transitions (From->To) відповідно до allowedToCodeIds
-    ///
-    /// Правила:
-    /// - Якщо <paramref name="endDateMeaning"/> == FirstDayOfNextCode:
-    ///   - nextCodeOnEnd якщо пустий => дефолт "30"
-    ///   - nextCodeOnEnd має існувати серед активних кодів
-    /// - Якщо <paramref name="endDateMeaning"/> == LastDayOfThisCode:
-    ///   - NextCodeOnEnd завжди стає null
-    /// - allowedToCodeIds:
-    ///   - ігноруємо Guid.Empty та самого себе
-    ///   - всі to-коди мають існувати та бути активними, інакше кидаємо помилку
-    /// </summary>
-    public async Task SavePolicyAsync(
-        Guid fromCodeId,
-        TimesheetEndDateMeaning endDateMeaning,
-        string? nextCodeOnEnd,
-        IReadOnlyCollection<Guid> allowedToCodeIds,
+    /// <inheritdoc />
+    public async Task<Guid> AddCodeAsync(
+        string code,
+        string title,
+        string? description,
+        int sortOrder,
+        int priority,
+        bool isTerminal,
         string author,
         DateTime nowUtc,
         CancellationToken ct = default)
     {
+        code = (code ?? string.Empty).Trim();
+        title = (title ?? string.Empty).Trim();
+        description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+
+        if (string.IsNullOrWhiteSpace(code))
+            throw new InvalidOperationException("Код не може бути порожнім.");
+        if (string.IsNullOrWhiteSpace(title))
+            throw new InvalidOperationException("Назва коду не може бути порожньою.");
+        if (sortOrder < 0)
+            throw new InvalidOperationException("SortOrder не може бути < 0.");
+        if (priority < 0)
+            throw new InvalidOperationException("Priority не може бути < 0.");
         if (string.IsNullOrWhiteSpace(author))
-            author = "system";
+            throw new InvalidOperationException("Author is required.");
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var exists = await db.TimesheetCodes
+            .AsNoTracking()
+            .AnyAsync(x => x.Code == code, ct);
+
+        if (exists)
+            throw new InvalidOperationException($"Код '{code}' вже існує.");
+
+        var e = new TimesheetCodeDefinition
+        {
+            Id = Guid.NewGuid(),
+            Code = code,
+            Title = title,
+            Description = description,
+            SortOrder = sortOrder,
+            Priority = priority,
+            IsTerminal = isTerminal,
+            IsActive = true,
+            CreatedBy = author,
+            CreatedAtUtc = nowUtc
+        };
+
+        db.TimesheetCodes.Add(e);
+        await db.SaveChangesAsync(ct);
+        return e.Id;
+    }
+
+    /// <inheritdoc />
+    public async Task CloseCodeAsync(
+        Guid codeId,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
+    {
+        if (codeId == Guid.Empty)
+            throw new ArgumentException("codeId is required.", nameof(codeId));
+        if (string.IsNullOrWhiteSpace(author))
+            throw new InvalidOperationException("Author is required.");
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var code = await db.TimesheetCodes
+            .FirstOrDefaultAsync(x => x.Id == codeId, ct)
+            ?? throw new InvalidOperationException("Код не знайдено.");
+
+        if (!code.IsActive)
+            return;
+
+        code.IsActive = false;
+        code.UpdatedBy = author;
+        code.UpdatedAtUtc = nowUtc;
+
+        await db.SaveChangesAsync(ct);
+    }
+
+    //======================================================================
+    // Transitions (Rules)
+    //======================================================================
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<TimesheetCodeTransition>> GetAllowedTransitionsAsync(
+    Guid fromCodeId,
+    CancellationToken ct = default)
+    {
+        if (fromCodeId == Guid.Empty)
+            throw new ArgumentException("fromCodeId is required.", nameof(fromCodeId));
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        return await db.TimesheetCodeTransitions
+            .AsNoTracking()
+            .Where(x => x.FromCodeId == fromCodeId)
+            .Include(x => x.ToCode) // <-- якщо треба для OrderBy/видачі
+            .OrderBy(x => x.ToCode.SortOrder)
+            .ThenBy(x => x.ToCode.Priority)
+            .ThenBy(x => x.ToCode.Code)
+            .ToListAsync(ct);
+    }
+
+    /// <inheritdoc />
+    public async Task SavePolicyAsync(
+        Guid codeId,
+        string title,
+        string? description,
+        int sortOrder,
+        int priority,
+        bool isTerminal,
+        IReadOnlyCollection<TimesheetTransitionSpecDto> allowedTransitions,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
+    {
+        if (codeId == Guid.Empty)
+            throw new ArgumentException("codeId is required.", nameof(codeId));
+
+        title = (title ?? string.Empty).Trim();
+        description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+
+        if (string.IsNullOrWhiteSpace(title))
+            throw new InvalidOperationException("Назва коду не може бути порожньою.");
+        if (sortOrder < 0)
+            throw new InvalidOperationException("SortOrder не може бути < 0.");
+        if (priority < 0)
+            throw new InvalidOperationException("Priority не може бути < 0.");
+        if (string.IsNullOrWhiteSpace(author))
+            throw new InvalidOperationException("Author is required.");
+
+        allowedTransitions ??= [];
+
+        // normalize transitions
+        var normalized = allowedTransitions
+            .Where(x => x.ToCodeId != Guid.Empty)
+            .Where(x => x.ToCodeId != codeId)
+            .Select(x => new TimesheetTransitionSpecDto(x.ToCodeId, x.StartShiftDays))
+            .GroupBy(x => x.ToCodeId)
+            .Select(g => g.First())
+            .ToList();
+
+        foreach (var t in normalized)
+        {
+            // для вашої карти — 0 або 1, але залишимо маленький запас
+            if (t.StartShiftDays is < 0 or > 7)
+                throw new InvalidOperationException("StartShiftDays має бути в межах 0..7 (для карти зазвичай 0 або 1).");
+        }
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        // 1) Load from-code
-        var fromCode = await db.TimesheetCodes
-            .FirstOrDefaultAsync(x => x.Id == fromCodeId, ct);
+        var code = await db.TimesheetCodes
+            .FirstOrDefaultAsync(x => x.Id == codeId, ct)
+            ?? throw new InvalidOperationException("Код не знайдено.");
 
-        ArgumentNullException.ThrowIfNull(fromCode, nameof(fromCode));
+        // Оновлюємо тільки редаговані поля — не чіпаємо Code/Created*
+        code.Title = title;
+        code.Description = description;
+        code.SortOrder = sortOrder;
+        code.Priority = priority;
+        code.IsTerminal = isTerminal;
+        code.UpdatedBy = author;
+        code.UpdatedAtUtc = nowUtc;
 
-        // 2) Normalize nextCodeOnEnd (optional)
-        nextCodeOnEnd = string.IsNullOrWhiteSpace(nextCodeOnEnd) ? null : nextCodeOnEnd.Trim();
-
-        if (endDateMeaning == TimesheetEndDateMeaning.FirstDayOfNextCode)
+        // Перевіряємо що всі ToCode існують та активні (щоб UI не зберіг "мертві" переходи)
+        var toIds = normalized.Select(x => x.ToCodeId).ToList();
+        if (toIds.Count > 0)
         {
-            // default if user didn't pick (historically: "30")
-            if (string.IsNullOrWhiteSpace(nextCodeOnEnd))
-                nextCodeOnEnd = "30";
-
-            var exists = await db.TimesheetCodes
+            var activeTo = await db.TimesheetCodes
                 .AsNoTracking()
-                .AnyAsync(x => x.IsActive && x.Code == nextCodeOnEnd, ct);
-
-            if (!exists)
-                throw new InvalidOperationException($"NextCodeOnEnd '{nextCodeOnEnd}' не знайдено.");
-        }
-        else
-        {
-            // LastDayOfThisCode => NextCodeOnEnd не має сенсу
-            nextCodeOnEnd = null;
-        }
-
-        // 3) Update code properties
-        fromCode.EndDateMeaning = endDateMeaning;
-        fromCode.NextCodeOnEnd = nextCodeOnEnd;
-        fromCode.UpdatedBy = author.Trim();
-        fromCode.UpdatedAtUtc = nowUtc;
-
-        // 4) Normalize allowedToCodeIds (no empty, no self)
-        var toIdsRequested = allowedToCodeIds?
-            .Where(id => id != Guid.Empty && id != fromCodeId)
-            .Distinct()
-            .ToArray() ?? [];
-
-        // 5) Rewrite transitions
-        var existing = await db.TimesheetCodeTransitions
-            .Where(x => x.FromCodeId == fromCodeId)
-            .ToListAsync(ct);
-
-        if (existing.Count > 0)
-            db.TimesheetCodeTransitions.RemoveRange(existing);
-
-        if (toIdsRequested.Length > 0)
-        {
-            var toIdsValid = await db.TimesheetCodes
-                .AsNoTracking()
-                .Where(x => x.IsActive && toIdsRequested.Contains(x.Id))
+                .Where(x => toIds.Contains(x.Id))
+                .Where(x => x.IsActive)
                 .Select(x => x.Id)
                 .ToListAsync(ct);
 
-            if (toIdsValid.Count != toIdsRequested.Length)
-                throw new InvalidOperationException("Серед дозволених переходів є неіснуючі/неактивні коди.");
+            var missing = toIds.Except(activeTo).ToList();
+            if (missing.Count > 0)
+                throw new InvalidOperationException("Серед переходів є коди, які не існують або вже закриті (неактивні).");
+        }
 
-            foreach (var toId in toIdsValid)
+        // ---- DIFF update transitions (не delete-all) ----
+        var existing = await db.TimesheetCodeTransitions
+            .Where(x => x.FromCodeId == codeId)
+            .ToListAsync(ct);
+
+        var existingByTo = existing.ToDictionary(x => x.ToCodeId, x => x);
+
+        // update or add
+        foreach (var desired in normalized)
+        {
+            if (existingByTo.TryGetValue(desired.ToCodeId, out var tr))
+            {
+                // update only if changed
+                if (tr.StartShiftDays != desired.StartShiftDays)
+                    tr.StartShiftDays = desired.StartShiftDays;
+
+                // CreatedBy/CreatedAtUtc зберігаємо (щоб не "губились дані")
+            }
+            else
             {
                 db.TimesheetCodeTransitions.Add(new TimesheetCodeTransition
                 {
                     Id = Guid.NewGuid(),
-                    FromCodeId = fromCodeId,
-                    ToCodeId = toId,
-                    CreatedBy = author.Trim(),
+                    FromCodeId = codeId,
+                    ToCodeId = desired.ToCodeId,
+                    StartShiftDays = desired.StartShiftDays,
+                    CreatedBy = author,
                     CreatedAtUtc = nowUtc
                 });
             }
+        }
+
+        // remove missing
+        var desiredSet = normalized.Select(x => x.ToCodeId).ToHashSet();
+        foreach (var old in existing)
+        {
+            if (!desiredSet.Contains(old.ToCodeId))
+                db.TimesheetCodeTransitions.Remove(old);
         }
 
         await db.SaveChangesAsync(ct);

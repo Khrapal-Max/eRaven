@@ -21,9 +21,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TimesheetCodeDefinition> TimesheetCodes { get; set; }
     public DbSet<TimesheetCodeTransition> TimesheetCodeTransitions { get; set; }
 
-    // Timesheet
-    public DbSet<TimesheetTimeline> TimesheetTimelines { get; set; }
+    // Timesheet   
     public DbSet<TimesheetEntry> TimesheetEntries { get; set; }
+    public DbSet<TimesheetTimeline> TimesheetTimelines { get; set; }
 
     // Combat Task
     public DbSet<Mission> Missions { get; set; }

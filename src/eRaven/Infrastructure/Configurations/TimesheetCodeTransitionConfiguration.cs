@@ -15,45 +15,29 @@ public sealed class TimesheetCodeTransitionConfiguration : IEntityTypeConfigurat
 {
     public void Configure(EntityTypeBuilder<TimesheetCodeTransition> e)
     {
-        e.ToTable("timesheet_code_transitions");
+        e.ToTable("timesheet_code_ttransitions");
+
         e.HasKey(x => x.Id);
 
-        e.Property(x => x.Id)
-            .HasColumnName("id")
+        e.Property(x => x.StartShiftDays)
+            .HasColumnName("start_shift_days")
             .IsRequired();
 
-        e.Property(x => x.FromCodeId)
-            .HasColumnName("from_code_id")
-            .IsRequired();
-
-        e.Property(x => x.ToCodeId)
-            .HasColumnName("to_code_id")
-            .IsRequired();
-
-        e.Property(x => x.CreatedBy)
-            .HasColumnName("created_by")
-            .HasMaxLength(64)
-            .IsRequired();
-
-        e.Property(x => x.CreatedAtUtc)
-            .HasColumnName("created_at_utc")
-            .IsRequired();
+        e.HasIndex(x => new { x.FromCodeId, x.ToCodeId })
+            .IsUnique();
 
         e.HasOne(x => x.FromCode)
-            .WithMany()
-            .HasForeignKey(x => x.FromCodeId)
-            .OnDelete(DeleteBehavior.Restrict);
+          .WithMany()
+          .HasForeignKey(x => x.FromCodeId)
+          .OnDelete(DeleteBehavior.Restrict);
 
         e.HasOne(x => x.ToCode)
             .WithMany()
             .HasForeignKey(x => x.ToCodeId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        e.HasIndex(x => new { x.FromCodeId, x.ToCodeId })
-            .IsUnique()
-            .HasDatabaseName("ux_ts_transitions_from_to");
-
-        e.HasIndex(x => x.FromCodeId)
-            .HasDatabaseName("ix_ts_transitions_from");
+        // 0 або 1 (за поточною картою)
+        e.ToTable(t =>
+            t.HasCheckConstraint("CK_timesheet_code_ttransitions_start_shift_days", "\"start_shift_days\" IN (0,1)"));
     }
 }

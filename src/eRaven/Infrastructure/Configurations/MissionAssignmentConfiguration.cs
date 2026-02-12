@@ -5,7 +5,6 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
-using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

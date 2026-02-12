@@ -36,7 +36,7 @@ public partial class TimesheetPersonShell : ComponentBase
     /// <summary>
     /// Команда переходу стану для створення події (transition).
     /// </summary>
-    [Inject] public ICommandHandler<TransitionTimesheetStateCommand> Handler { get; set; } = default!;
+    [Inject] public ICommandHandler<TransitionTimesheetStateCommand, Guid> Handler { get; set; } = default!;
 
     [Inject] public NavigationManager Nav { get; set; } = default!;
 
@@ -241,6 +241,6 @@ public partial class TimesheetPersonShell : ComponentBase
     private static bool IsAlert(string? code)
     {
         var c = (code ?? "").Trim().ToUpperInvariant();
-        return c == "100" || c == "ПБД" || c == "Ф100";
+        return c == "100" || c == "Ф100";
     }
 }

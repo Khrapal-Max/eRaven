@@ -5,42 +5,37 @@
 // TimesheetCodeDefinition
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
-
 namespace eRaven.Domain.Entities;
-
 /// <summary>
-/// Dictionary entry for available timesheet codes.
-/// Example: Code="30", Title="В районі".
+/// Довідник табельних кодів (що існує в системі).
+/// Приклади: "30", "Т", "100", "ЛХ"...
 /// </summary>
 public sealed class TimesheetCodeDefinition
 {
     public Guid Id { get; set; }
 
-    /// <summary>Stable code used in entries/reports ("30", "НБ", "100"...).</summary>
+    /// <summary>Стабільний код (коротке позначення).</summary>
     public string Code { get; set; } = string.Empty;
 
-    /// <summary>Human readable title ("В районі"...).</summary>
+    /// <summary>Назва для користувача.</summary>
     public string Title { get; set; } = string.Empty;
 
-    public TimesheetEndMode EndMode { get; set; } = TimesheetEndMode.PeriodOptional;
-    public TimesheetEndDateMeaning EndDateMeaning { get; set; } = TimesheetEndDateMeaning.LastDayOfThisCode;
+    /// <summary>Опціонально: розширений опис (для довідки/підказок).</summary>
+    public string? Description { get; set; }
+
+    /// <summary>Порядок у списках/матрицях.</summary>
+    public int SortOrder { get; set; }
 
     /// <summary>
-    /// Code considered as “next” when EndDateMeaning == FirstDayOfNextCode (often "30").
-    /// For task-like codes can be null.
+    /// Вага/пріоритет для випадків, коли події попадають на одну дату
+    /// (користувач може редагувати).
     /// </summary>
-    public string? NextCodeOnEnd { get; set; }
+    public int Priority { get; set; }
 
-    public bool IsPlanningCutoff { get; set; }
-    public int PlanningCutoffShiftDays { get; set; } = 1;
-
+    /// <summary>Код є “кінцевим” (після нього зазвичай не очікуються переходи).</summary>
     public bool IsTerminal { get; set; }
 
-    public bool RequiresReference { get; set; }
-    public bool RequiresNote { get; set; }
-
-    public int SortOrder { get; set; }
+    /// <summary>Чи активний (можна використовувати).</summary>
     public bool IsActive { get; set; } = true;
 
     public string CreatedBy { get; set; } = string.Empty;

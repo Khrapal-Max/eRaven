@@ -13,8 +13,8 @@ namespace eRaven.Application.Handlers.CombatTask;
 public sealed class PostCombatTaskDocumentCommandHandler()
     : ICommandHandler<PostCombatTaskDocumentCommand>
 {
-
-    public async Task HandleAsync(PostCombatTaskDocumentCommand command, CancellationToken ct = default)
+    public Task HandleAsync(PostCombatTaskDocumentCommand command, CancellationToken ct = default)
     {
+        throw new NotImplementedException();
     }
 }

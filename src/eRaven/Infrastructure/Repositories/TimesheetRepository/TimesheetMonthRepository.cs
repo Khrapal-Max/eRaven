@@ -413,6 +413,6 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
     private static bool IsAlert(string? code)
     {
         var c = (code ?? "").Trim().ToUpperInvariant();
-        return c == "100" || c == "ПБД" || c == "Ф100";
+        return c == "100" || c == "Ф100";
     }
 }

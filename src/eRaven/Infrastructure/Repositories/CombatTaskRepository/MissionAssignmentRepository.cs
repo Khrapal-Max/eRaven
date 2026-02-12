@@ -168,7 +168,7 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
             .ThenByDescending(x => x.Id)
             .FirstOrDefaultAsync(ct);
     }
-    
+
     //======================================================================
     // Write (apply draft and posted)
     //======================================================================

@@ -1,42 +1,67 @@
-﻿@page "/about/timesheet"
+@page "/about/timesheet"
 
-<PageTitle>Про систему — Табель і коди</PageTitle>
+<PageTitle>Про систему — Табель</PageTitle>
 
 <div class="page-content">
-    <div class="container-fluid px-0">
+    <div class="container-fluid">
         <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
             <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
-            <div class="fw-semibold">Табель і коди (30 / 100)</div>
+            <div class="fw-semibold">Табель</div>
         </div>
 
         <div class="px-3 py-3">
 
             <div class="border p-3 mb-3">
-                <div class="fw-semibold mb-2">Коди</div>
-                <ul class="mb-0">
-                    <li><b>30</b> — базовий стан (умовно “вільний/звичайний день”).</li>
-                    <li><b>100</b> — день участі у завданні/місії (винагорода/облік).</li>
-                </ul>
-            </div>
-
-            <div class="border p-3 mb-3">
-                <div class="fw-semibold mb-2">Дозвільні переходи</div>
-                <div class="small opacity-75 mb-2">
-                    Система не “малює” коди напряму: вона перевіряє, чи дозволений перехід між кодами згідно політики.
+                <div class="fw-semibold mb-2">Для чого табель</div>
+                <div class="small">
+                    Табель — це календар кодів по кожній людині.
+                    Він показує поточний стан на день, а також історію за місяць.
+                    Частина кодів виставляється вручну, частина — автоматично після проведення документів.
                 </div>
-                <ul class="mb-0">
-                    <li>Почати завдання: потрібно, щоб на дату старту активний код був <b>30</b>, і перехід <b>30 → 100</b> дозволений.</li>
-                    <li>У разі проблеми — показуємо список осіб і дату, де табель не дозволяє запис.</li>
-                </ul>
             </div>
 
-            <div class="border p-3">
-                <div class="fw-semibold mb-2">Reference (посилання на документ)</div>
-                <ul class="mb-0">
-                    <li>Код 100 пишеться з <b>Reference = номер/назва документа</b>.</li>
-                    <li>Для завершення: останній день може мати reference поточного документа (як “закриваючого”).</li>
-                    <li>Якщо потрібно — система робить розбиття сегмента, щоб різні дні 100 мали різні reference.</li>
-                </ul>
+            <div class="row g-3">
+
+                <div class="col-12 col-lg-4">
+                    <div class="border p-3 h-100">
+                        <div class="fw-semibold mb-2">Добовий табель</div>
+                        <div class="small mb-2">
+                            Перегляд і робота з кодами на конкретну дату.
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <NavLink class="btn btn-sm btn-light rounded-0" href="/about/timesheet/day">Довідка</NavLink>
+                            <NavLink class="btn btn-sm btn-success rounded-0" href="/timesheet-day">Відкрити</NavLink>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-4">
+                    <div class="border p-3 h-100">
+                        <div class="fw-semibold mb-2">Місячний табель</div>
+                        <div class="small mb-2">
+                            Огляд кодів за місяць по всім людям або з фільтрами.
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <NavLink class="btn btn-sm btn-light rounded-0" href="/about/timesheet/month">Довідка</NavLink>
+                            <NavLink class="btn btn-sm btn-success rounded-0" href="/timesheet">Відкрити</NavLink>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-4">
+                    <div class="border p-3 h-100">
+                        <div class="fw-semibold mb-2">Політика кодів</div>
+                        <div class="small mb-2">
+                            Список кодів і дозволені переходи між ними.
+                            Це впливає на табель і на проведення документів.
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <NavLink class="btn btn-sm btn-light rounded-0" href="/about/policy">Довідка</NavLink>
+                            <NavLink class="btn btn-sm btn-success rounded-0" href="/timesheet/policy">Відкрити</NavLink>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
         </div>

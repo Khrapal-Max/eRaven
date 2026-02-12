@@ -87,7 +87,7 @@ public partial class MissionCloseDrawer : ComponentBase
                 MissionId: Mission.MissionId,
                 ClosedAt: Model.ClosedAt));
 
-            Toasts.Error("Місія язакрита.");
+            Toasts.Error("Місія закрита.");
 
             if (OnClosed.HasDelegate)
                 await OnClosed.InvokeAsync();

@@ -11,13 +11,13 @@
 //
 // 2) Політика задається для конкретного коду (from):
 //    - Allowed transitions (to IDs)
-//    - EndDateMeaning (як трактувати дату "по/закінчення")
-//    - NextCodeOnEnd (тільки для Main + FirstDayOfNextCode; зазвичай "30")
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Entities;
-using eRaven.Domain.Enums;
-using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
+using eRaven.Application.Commands;
+using eRaven.Application.Commands.Timesheet;
+using eRaven.Application.DTOs.Timesheet;
+using eRaven.Application.Queries;
+using eRaven.Application.Queries.Timesheet;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 
@@ -29,7 +29,6 @@ namespace eRaven.Components.Pages.Timesheet.Policy;
 /// Налаштовує для одного коду (from):
 /// - список дозволених наступних кодів (to),
 /// - семантику інтерпретації дати завершення,
-/// - NextCodeOnEnd (лише коли Meaning = FirstDayOfNextCode).
 /// 
 /// NB (“НБ”) — системний стан “поза табелем”: не є подією і не конфігурується.
 /// </summary>
@@ -39,233 +38,249 @@ public partial class TimesheetPolicyConfigurator : ComponentBase
     // DI
     //======================================================================
 
-    [Inject] public ITimesheetPolicyRepository PolicyRepo { get; set; } = default!;
+    [Inject] public IQueryHandler<GetTimesheetPolicyCodesQuery, IReadOnlyList<TimesheetCodeDto>> GetCodes { get; set; } = default!;
+    [Inject] public IQueryHandler<GetTimesheetPolicyForCodeQuery, TimesheetPolicyEditorDto?> GetPolicy { get; set; } = default!;
+    [Inject] public ICommandHandler<SaveTimesheetPolicyCommand> SavePolicy { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
-
-    //======================================================================
-    // Constants
-    //======================================================================
-
-    /// <summary>
-    /// Системний код “поза табелем”. Не конфігуруємо як подію.
-    /// </summary>
-    private const string NotInTimesheetCode = "НБ";
 
     //======================================================================
     // Loaded data
     //======================================================================
 
-    /// <summary>
-    /// Довідник кодів (з БД). Порядок задає репозиторій (SortOrder, Code).
-    /// </summary>
-    private List<TimesheetCodeDefinition> _codes = [];
+    private List<TimesheetCodeDto> _codes = [];
 
     //======================================================================
-    // Current selection (edit target)
+    // Current selection + edit buffer
     //======================================================================
 
-    /// <summary>
-    /// Поточний обраний код (from), який редагуємо.
-    /// </summary>
-    private TimesheetCodeDefinition? _selected;
+    private TimesheetCodeDto? _selected;
 
-    /// <summary>
-    /// Як трактувати введену користувачем “дату по/закінчення”.
-    /// </summary>
-    private TimesheetEndDateMeaning _endDateMeaning = TimesheetEndDateMeaning.LastDayOfThisCode;
+    private string _editTitle = string.Empty;
+    private string? _editDescription;
+    private int _editSortOrder;
+    private int _editPriority;
+    private bool _editIsTerminal;
 
-    /// <summary>
-    /// Наступний код, який система виставляє на дату повернення (Meaning = FirstDayOfNextCode).
-    /// Напр., для відпусток — зазвичай “30”.
-    /// </summary>
-    private string? _nextCodeOnEnd;
+    /// <summary>allowed transitions map: ToCodeId -> StartShiftDays (0/1)</summary>
+    private Dictionary<Guid, int> _transitions = [];
 
-    /// <summary>
-    /// Набір дозволених переходів (to) для поточного from.
-    /// </summary>
-    private HashSet<Guid> _allowedTo = [];
-
-    /// <summary>
-    /// Прапорець “є зміни” для кнопки Зберегти.
-    /// </summary>
     private bool _canSave;
+
+    //======================================================================
+    // Drawers (will be replaced with real components)
+    //======================================================================
+
+    private bool _createOpen;
+    private bool _closeOpen;
+
+    private TimesheetCodeDto? _closeTarget;
 
     //======================================================================
     // Lifecycle
     //======================================================================
 
-    /// <summary>
-    /// Початкове завантаження довідника кодів.
-    /// </summary>
     protected override async Task OnInitializedAsync()
-    {
-        _codes = [.. await PolicyRepo.GetCodesAsync()];
-    }
+        => await LoadCodes();
 
-    //======================================================================
-    // UI helpers
-    //======================================================================
-
-    /// <summary>
-    /// Чи є код системним “НБ”.
-    /// </summary>
-    private static bool IsNB(TimesheetCodeDefinition d)
-        => string.Equals(d.Code?.Trim(), NotInTimesheetCode, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>
-    /// Пояснення для адміністратора: як система трактує дату “по/закінчення”.
-    /// Це лише UX-текст, не додаткова логіка збереження.
-    /// </summary>
-    private string EndMeaningDescription()
-        => _endDateMeaning switch
-        {
-            TimesheetEndDateMeaning.LastDayOfThisCode =>
-                "Дата “по” — це останній день цієї події. Наступна подія починається з наступного дня (+1).",
-
-            TimesheetEndDateMeaning.FirstDayOfNextCode =>
-                "Дата “по/закінчення” — це дата повернення / effective date. " +
-                "На цю дату ставиться наступний код, а поточний код завершується на день раніше (-1).",
-
-            _ => "Невідоме правило."
-        };
+    private async Task LoadCodes()
+        => _codes = [.. await GetCodes.HandleAsync(new GetTimesheetPolicyCodesQuery())];
 
     //======================================================================
     // Selection
     //======================================================================
 
-    /// <summary>
-    /// Обирає код для редагування, завантажує його transitions з БД
-    /// та ініціалізує форму значеннями з довідника.
-    /// </summary>
-    private async Task SelectAsync(TimesheetCodeDefinition code)
+    private async Task SelectAsync(Guid codeId)
     {
-        _selected = code;
+        var policy = await GetPolicy.HandleAsync(new GetTimesheetPolicyForCodeQuery(codeId));
+        if (policy is null)
+        {
+            _selected = null;
+            Toasts.Warning("Код не знайдено або недоступний.");
+            return;
+        }
 
-        _endDateMeaning = code.EndDateMeaning;
-        _nextCodeOnEnd = string.IsNullOrWhiteSpace(code.NextCodeOnEnd) ? null : code.NextCodeOnEnd.Trim();
+        _selected = policy.Code;
 
-        var allowed = await PolicyRepo.GetAllowedNextAsync(code.Id);
-        _allowedTo = [.. allowed];
+        _editTitle = policy.Code.Title ?? string.Empty;
+        _editDescription = policy.Code.Description;
+        _editSortOrder = policy.Code.SortOrder;
+        _editPriority = policy.Code.Priority;
+        _editIsTerminal = policy.Code.IsTerminal;
+
+        _transitions = policy.AllowedTransitions
+            .ToDictionary(x => x.ToCodeId, x => x.StartShiftDays);
 
         _canSave = false;
     }
 
-    /// <summary>
-    /// Список target-кодів у правій панелі:
-    /// усі коди, крім NB та самого from.
-    /// </summary>
-    private IEnumerable<TimesheetCodeDefinition> RightPanelTargets()
+    private IEnumerable<TimesheetCodeDto> RightPanelTargets()
     {
         if (_selected is null) return [];
-
-        return _codes
-            .Where(x => !IsNB(x))
-            .Where(x => x.Id != _selected.Id);
+        return _codes.Where(x => x.Id != _selected.Id);
     }
 
     //======================================================================
-    // Editing transitions
+    // Edit code fields
     //======================================================================
 
-    /// <summary>
-    /// Вмикає/вимикає дозволений перехід для toId.
-    /// </summary>
-    private void Toggle(Guid toId, bool value)
+    private void OnTitleChanged(ChangeEventArgs e)
     {
-        if (_selected is null) return;
-
-        if (value) _allowedTo.Add(toId);
-        else _allowedTo.Remove(toId);
-
+        _editTitle = e.Value?.ToString() ?? string.Empty;
         _canSave = true;
     }
 
-    /// <summary>
-    /// Дозволити переходи на всі інші коди (крім NB та самого from).
-    /// </summary>
-    private void SelectAll()
-    {
-        if (_selected is null) return;
-
-        _allowedTo = [.. RightPanelTargets().Select(x => x.Id)];
-        _canSave = true;
-    }
-
-    /// <summary>
-    /// Очистити всі дозволені переходи.
-    /// </summary>
-    private void ClearAll()
-    {
-        _allowedTo.Clear();
-        _canSave = true;
-    }
-
-    //======================================================================
-    // Editing EndDateMeaning / NextCodeOnEnd
-    //======================================================================
-
-    /// <summary>
-    /// Зміна правила трактування “дати по/закінчення”.
-    /// </summary>
-    private Task OnMeaningChanged(ChangeEventArgs e)
-    {
-        var raw = e.Value?.ToString();
-
-        if (!Enum.TryParse<TimesheetEndDateMeaning>(raw, ignoreCase: true, out var meaning))
-            return Task.CompletedTask;
-
-        _endDateMeaning = meaning;
-
-        // NextCodeOnEnd має сенс лише для FirstDayOfNextCode
-        if (_endDateMeaning != TimesheetEndDateMeaning.FirstDayOfNextCode)
-            _nextCodeOnEnd = null;
-
-        _canSave = true;
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Зміна NextCodeOnEnd (використовується тільки при FirstDayOfNextCode).
-    /// </summary>
-    private Task OnNextCodeChanged(ChangeEventArgs e)
+    private void OnDescriptionChanged(ChangeEventArgs e)
     {
         var v = e.Value?.ToString();
-        _nextCodeOnEnd = string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+        _editDescription = string.IsNullOrWhiteSpace(v) ? null : v;
+        _canSave = true;
+    }
+
+    private void OnSortOrderChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v))
+            _editSortOrder = v;
 
         _canSave = true;
-        return Task.CompletedTask;
+    }
+
+    private void OnPriorityChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v))
+            _editPriority = v;
+
+        _canSave = true;
+    }
+
+    private void OnTerminalChanged(ChangeEventArgs e)
+    {
+        _editIsTerminal = e.Value is bool b && b;
+        _canSave = true;
+    }
+
+    //======================================================================
+    // Transitions editing
+    //======================================================================
+
+    private void Toggle(Guid toId, bool enabled)
+    {
+        if (_selected is null) return;
+
+        if (enabled)
+        {
+            _transitions[toId] = _transitions.TryGetValue(toId, out var cur) ? cur : 0;
+        }
+        else
+        {
+            _transitions.Remove(toId);
+        }
+
+        _canSave = true;
+    }
+
+    private void ChangeShift(Guid toId, string? raw)
+    {
+        if (_selected is null) return;
+        if (!_transitions.ContainsKey(toId)) return;
+
+        if (!int.TryParse(raw, out var shift))
+            shift = 0;
+
+        shift = shift switch { 0 => 0, 1 => 1, _ => 0 };
+        _transitions[toId] = shift;
+
+        _canSave = true;
+    }
+
+    private void SelectAllShift0()
+    {
+        if (_selected is null) return;
+
+        _transitions = RightPanelTargets()
+            .Where(x => x.IsActive)
+            .ToDictionary(x => x.Id, _ => 0);
+
+        _canSave = true;
+    }
+
+    private void ClearAll()
+    {
+        _transitions.Clear();
+        _canSave = true;
     }
 
     //======================================================================
     // Save
     //======================================================================
 
-    /// <summary>
-    /// Зберігає політику:
-    /// - повністю перезаписує transitions (from → allowedTo),
-    /// - оновлює EndDateMeaning та NextCodeOnEnd (за потреби).
-    /// </summary>
     private async Task SaveAsync()
     {
         if (_selected is null) return;
 
-        // Normalize NextCodeOnEnd:
-        // - тільки для FirstDayOfNextCode
-        // - дефолт "30" якщо пусто
-        var next = _endDateMeaning == TimesheetEndDateMeaning.FirstDayOfNextCode
-            ? (string.IsNullOrWhiteSpace(_nextCodeOnEnd) ? "30" : _nextCodeOnEnd.Trim())
-            : null;
+        var title = (_editTitle ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            Toasts.Warning("Назва коду не може бути порожньою.");
+            return;
+        }
 
-        await PolicyRepo.SavePolicyAsync(
-            fromCodeId: _selected.Id,
-            endDateMeaning: _endDateMeaning,
-            nextCodeOnEnd: next,
-            allowedToCodeIds: [.. _allowedTo.Where(id => id != Guid.Empty)],
-            author: "ui",
-            nowUtc: DateTime.UtcNow);
+        var cmd = new SaveTimesheetPolicyCommand(
+            CodeId: _selected.Id,
+            Title: title,
+            Description: string.IsNullOrWhiteSpace(_editDescription) ? null : _editDescription.Trim(),
+            SortOrder: _editSortOrder,
+            Priority: _editPriority,
+            IsTerminal: _editIsTerminal,
+            AllowedTransitions: [.. _transitions.Select(kv => new TimesheetTransitionSpecDto(kv.Key, kv.Value))],
+            Author: "ui", // TODO auth user
+            NowUtc: DateTime.UtcNow
+        );
 
-        _canSave = false;
+        await SavePolicy.HandleAsync(cmd);
+
+        // refresh left list (title/order/priority могли змінитись)
+        _codes = [.. await GetCodes.HandleAsync(new GetTimesheetPolicyCodesQuery())];
+
+        // refresh selected view (щоб показати реальні дані)
+        await SelectAsync(_selected.Id);
 
         Toasts.Success("Збережено", $"Політика для {_selected.Code} оновлена.");
+    }
+
+    //======================================================================
+    // Drawers (placeholders)
+    //======================================================================
+
+    private Task OpenCreateDrawer()
+    {
+        _createOpen = true;
+        _closeOpen = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenCloseDrawer()
+    {
+        _closeTarget = _selected;
+        _closeOpen = true;
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleCreated(Guid guid)
+    {
+        await LoadCodes();
+        await SelectAsync(guid);
+    }
+
+    private async Task HandleClosedCode(Guid closedId)
+    {
+        _closeOpen = false;
+
+        // refresh list
+        _codes = [.. await GetCodes.HandleAsync(new GetTimesheetPolicyCodesQuery())];
+
+        // якщо закрили поточний — можна або лишити в правій панелі,
+        // або зняти selection (я б знімав, щоб не редагувати неактивний випадково)
+        if (_selected?.Id == closedId)
+            _selected = null;
     }
 }

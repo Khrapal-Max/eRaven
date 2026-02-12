@@ -37,7 +37,7 @@ public partial class TimesheetDayShell : ComponentBase
     /// <summary>
     /// Command-handler: policy-driven transition стану табеля (update+insert).
     /// </summary>
-    [Inject] public ICommandHandler<TransitionTimesheetStateCommand> CreateEntryHandler { get; set; } = default!;
+    [Inject] public ICommandHandler<TransitionTimesheetStateCommand, Guid> CreateEntryHandler { get; set; } = default!;
 
     [Inject] public NavigationManager Nav { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;

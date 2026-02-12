@@ -6,61 +6,55 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
-using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure;
 
-public sealed class TimesheetPolicySeed
+public static class TimesheetPolicySeed
 {
-    public static async Task EnsureSeededAsync(AppDbContext db, CancellationToken ct)
+    public static async Task EnsureSeedAsync(AppDbContext db, CancellationToken ct = default)
     {
-        // 1) Codes (НБ НЕ є кодом події табеля, тому НЕ сідаємо його в довідник)
+        // 1) Codes
         if (!await db.TimesheetCodes.AnyAsync(ct))
         {
             var now = DateTime.UtcNow;
-            const string author = "seed";
+            const string author = "system";
 
             var codes = new List<TimesheetCodeDefinition>
             {
-                // ----------------------------
-                // FACT (колишній MAIN)
-                // ----------------------------
+                // Системний
+                New(TimesheetSystemCodes.NotInTimesheet, "Поза табелем (системний стан, не є подією).", 0, 0),
 
-                // базовий факт-стан
-                Code("Т",  "Тил",   10, TimesheetEndDateMeaning.LastDayOfThisCode),
-                Code("30", "В районі", 10, TimesheetEndDateMeaning.LastDayOfThisCode),
+                // База
+                New("Т",    "Базовий стан (служба/перебування у тилу).", 10, 10),
+                New("30",   "Базовий “польовий” стан (“день у районі виконання завдань”).",   20, 20),
 
-                // “день повернення це ще подія”
-                Code("ВДР",  "Відрядження",        20, TimesheetEndDateMeaning.LastDayOfThisCode),
-                Code("ВЛК",  "Проходження ВЛК",    40, TimesheetEndDateMeaning.LastDayOfThisCode),
-                Code("МСЕК", "Проходження МСЕК",   41, TimesheetEndDateMeaning.LastDayOfThisCode),
-                Code("ЛХ",   "Лікування по хворобі",50, TimesheetEndDateMeaning.LastDayOfThisCode),
-                Code("ЛП",   "Лікування по пораненню",51, TimesheetEndDateMeaning.LastDayOfThisCode),
+                // Обставини
+                New("ВДР",  "Фіксує період відрядження.",      30, 30),
+                New("ВЛК",  "Фіксує період проходження ВЛК.",  40, 40),
+                New("МСЕК", "Фіксує період проходження МСЕК.", 41, 41),
 
-                // “день повернення це наступна подія” (30 з цієї дати)
-                Code("ВП",  "Відпустка",                 30, TimesheetEndDateMeaning.FirstDayOfNextCode, nextCodeOnEnd: "30"),
-                Code("ВПХ", "Відпустка по хворобі",      31, TimesheetEndDateMeaning.FirstDayOfNextCode, nextCodeOnEnd: "30"),
-                Code("ВПП", "Відпустка по пораненню",    32, TimesheetEndDateMeaning.FirstDayOfNextCode, nextCodeOnEnd: "30"),
+                New("ЛХ",   "Період лікування/перебування на лікуванні (хвороба).",   50, 50),
+                New("ЛП",   "Період лікування/перебування на лікуванні (поранення).", 51, 51),
 
-                // інцидентні (вихід потім у 30/РОЗПОР, але НЕ в НБ)
-                Code("БВ",        "Безвісти",                60, TimesheetEndDateMeaning.FirstDayOfNextCode),
-                Code("П",         "Полон",                   61, TimesheetEndDateMeaning.FirstDayOfNextCode),
-                Code("А",         "Арешт",                   62, TimesheetEndDateMeaning.FirstDayOfNextCode),
-                Code("БВ (СЗЧ)",  "Безпідставно відсутній",  63, TimesheetEndDateMeaning.FirstDayOfNextCode),
-                Code("СЗЧ",       "СЗЧ",                     64, TimesheetEndDateMeaning.FirstDayOfNextCode),
+                New("ВП",   "Період відпустки (щорічна або сімейна).",  60, 60),
+                New("ВПХ",  "Період відпустки (хвороба).",   61, 61),
+                New("ВПП",  "Період відпустки (поранення).", 62, 62),
 
-                // адмін/фінальні
-                Code("РОЗПОР", "Розпорядження", 80, TimesheetEndDateMeaning.FirstDayOfNextCode, nextCodeOnEnd: "30", isTerminal: true),
-                Code("200",    "Загибель",      99, TimesheetEndDateMeaning.LastDayOfThisCode, isTerminal: true),
+                New("БВ",        "Фіксує період стану “безвісти”.", 70, 70),
+                New("П",         "Фіксує період полону.",    71, 71),
+                New("А",         "Фіксує період арешту.",    72, 72),
+                New("БВ (СЗЧ)",  "Фіксує період безпідставної відсутності.",   73, 73),
+                New("СЗЧ",       "Фіксує період СЗЧ.",  74, 74),
 
-                // ----------------------------
-                // Завдання/факти, що впливають на план (поки лишаємо як факт-коди)
-                // ----------------------------
-                Code("100",  "Затверджене завдання (факт)", 110, TimesheetEndDateMeaning.LastDayOfThisCode),
+                New("РОЗПОР", "Адміністративний стан “розпорядження”.", 80, 80),
 
-                Code("Ф100", "Ф100 (факт поранення)", 120, TimesheetEndDateMeaning.LastDayOfThisCode,
-                    isPlanningCutoff: true, cutoffShiftDays: 1)
+                // Фінальне
+                New("200", "Загиблий (Фінальний стан).",  99, 99, isTerminal: true),
+
+                // Завдання/факти
+                New("100",  "Фіксує факт участі у завданні.", 110, 110),
+                New("Ф100", "День отримання поранення/травмування (факт)", 120, 120),
             };
 
             foreach (var c in codes)
@@ -68,141 +62,135 @@ public sealed class TimesheetPolicySeed
                 c.Id = Guid.NewGuid();
                 c.CreatedBy = author;
                 c.CreatedAtUtc = now;
-
-                // на всяк випадок нормалізуємо
-                c.Code = (c.Code ?? string.Empty).Trim();
-                c.Title = (c.Title ?? string.Empty).Trim();
+                c.Code = c.Code.Trim();
+                c.Title = c.Title.Trim();
             }
 
             db.TimesheetCodes.AddRange(codes);
             await db.SaveChangesAsync(ct);
         }
 
-        // 2) Transitions (без НБ, без -> НБ)
+        // 2) Transitions (матриця)
         if (!await db.TimesheetCodeTransitions.AnyAsync(ct))
         {
             var now = DateTime.UtcNow;
-            const string author = "seed";
+            const string author = "system";
 
-            // тільки активні коди
-            var codes = await db.TimesheetCodes
+            var map = await db.TimesheetCodes
                 .AsNoTracking()
                 .Where(x => x.IsActive)
-                .ToListAsync(ct);
+                .ToDictionaryAsync(x => x.Code, x => x.Id, ct);
 
-            var byCode = codes.ToDictionary(x => x.Code, x => x.Id, StringComparer.Ordinal);
+            var list = new List<TimesheetCodeTransition>();
 
-            void AddFrom(string fromCode, params string[] toCodes)
-                => AddAll(db, byCode[fromCode], toCodes.Select(c => byCode[c]), author, now);
+            void Add(string from, string to, int shift)
+            {
+                list.Add(new TimesheetCodeTransition
+                {
+                    Id = Guid.NewGuid(),
+                    FromCodeId = map[from],
+                    ToCodeId = map[to],
+                    StartShiftDays = shift,
+                    CreatedBy = author,
+                    CreatedAtUtc = now
+                });
+            }
 
-            // 30 -> все (крім себе)
-            var id30 = byCode["30"];
-            AddAll(db, id30, codes.Select(x => x.Id).Where(x => x != id30), author, now);
+            void AddFrom(string from, string[]? shift0 = null, string[]? shift1 = null)
+            {
+                if (shift0 is not null)
+                    foreach (var to in shift0) Add(from, to, shift: 0);
 
-            // Тил дозволені: ВДР, 30, ЛХ, СЗЧ, 200, А, БВ (СЗЧ)
-            AddFrom("Т", "ВДР", "30", "ЛХ", "СЗЧ", "200", "А", "БВ (СЗЧ)");
+                if (shift1 is not null)
+                    foreach (var to in shift1) Add(from, to, shift: 1);
+            }
 
-            // ВДР дозволені: 30, Т, ЛХ, СЗЧ, 200, А, БВ (СЗЧ)
-            AddFrom("ВДР", "Т", "30", "ЛХ", "СЗЧ", "200", "А", "БВ (СЗЧ)");
+            // =================================================================
+            // Нижче — повний набір правил з "статуси переходи 3.xlsx"
+            // shift 0 = "З дати події"
+            // shift 1 = "Ще поточний"
+            // =================================================================
 
-            // ВП: Т, 30, ЛХ, СЗЧ, 200, А, БВ (СЗЧ)
-            AddFrom("ВП", "Т", "30", "ЛХ", "СЗЧ", "200", "А", "БВ (СЗЧ)");
+            AddFrom("Т",
+                shift0: ["30", "ВДР", "ВЛК", "МСЕК", "ЛХ", "ЛП", "ВП", "ВПХ", "ВПП", "БВ", "П", "А", "БВ (СЗЧ)", "СЗЧ", "РОЗПОР", "200", "Ф100"]);
 
-            // ВПХ: Т, 30, ЛХ, СЗЧ, 200, А, БВ (СЗЧ), ВЛК
-            AddFrom("ВПХ", "Т", "30", "ЛХ", "СЗЧ", "200", "А", "БВ (СЗЧ)", "ВЛК");
+            AddFrom("30",
+                shift0: ["Т", "ВДР", "ВЛК", "МСЕК", "ЛХ", "ЛП", "ВП", "ВПХ", "ВПП", "БВ", "П", "А", "БВ (СЗЧ)", "СЗЧ", "РОЗПОР", "200", "100", "Ф100"]);
 
-            // ВПП: Т, 30, ЛП, СЗЧ, 200, А, БВ (СЗЧ), ВЛК
-            AddFrom("ВПП", "Т", "30", "ЛП", "СЗЧ", "200", "А", "БВ (СЗЧ)", "ВЛК");
+            AddFrom("ВДР",
+                shift0: ["ЛХ", "ЛП", "ВПХ", "ВПП", "БВ", "П", "А", "БВ (СЗЧ)", "СЗЧ", "РОЗПОР", "200"],
+                shift1: ["Т", "30"]);
 
-            // ВЛК: Т, 30, ЛХ, СЗЧ, 200, А, БВ (СЗЧ), ЛП, ВПХ, ВПП
-            AddFrom("ВЛК", "Т", "30", "ЛХ", "СЗЧ", "200", "А", "БВ (СЗЧ)", "ЛП", "ВПХ", "ВПП");
+            AddFrom("ВЛК",
+                shift0: ["Т", "30", "ВДР", "ЛХ", "ЛП", "ВП", "ВПХ", "ВПП", "БВ", "П", "А", "БВ (СЗЧ)", "СЗЧ", "РОЗПОР", "200", "Ф100"]);
 
-            // МСЕК: Т, 30
-            AddFrom("МСЕК", "Т", "30");
+            AddFrom("МСЕК",
+                shift0: ["Т", "30", "ВДР", "ЛХ", "ЛП", "ВП", "ВПХ", "ВПП", "БВ", "П", "А", "БВ (СЗЧ)", "СЗЧ", "РОЗПОР", "200", "Ф100"]);
 
-            // ЛХ: Т, 30, ВПХ, СЗЧ, 200, А, БВ (СЗЧ), ВЛК, РОЗПОР
-            AddFrom("ЛХ", "Т", "30", "ВПХ", "СЗЧ", "200", "А", "БВ (СЗЧ)", "ВЛК", "РОЗПОР");
+            AddFrom("ЛХ",
+                shift0: ["Т", "30", "ВДР", "ВЛК", "МСЕК", "ЛП", "ВПХ", "ВПП", "БВ", "П", "А", "БВ (СЗЧ)", "СЗЧ", "РОЗПОР", "200", "Ф100"]);
 
-            // ЛП: Т, 30, ВПП, СЗЧ, 200, А, БВ (СЗЧ), ВЛК, РОЗПОР
-            AddFrom("ЛП", "Т", "30", "ВПП", "СЗЧ", "200", "А", "БВ (СЗЧ)", "ВЛК", "РОЗПОР");
+            AddFrom("ЛП",
+                shift0: ["Т", "30", "ВДР", "ВЛК", "МСЕК", "ЛХ", "ВПХ", "ВПП", "БВ", "П", "А", "БВ (СЗЧ)", "СЗЧ", "РОЗПОР", "200", "Ф100"]);
 
-            // БВ: Т, 30, П, СЗЧ, 200, БВ (СЗЧ), РОЗПОР
-            AddFrom("БВ", "Т", "30", "П", "СЗЧ", "200", "БВ (СЗЧ)", "РОЗПОР");
+            AddFrom("ВП",
+                shift0: ["ВДР", "ВЛК", "МСЕК", "ЛХ", "ЛП", "ВПХ", "ВПП", "БВ", "П", "А", "БВ (СЗЧ)", "СЗЧ", "РОЗПОР", "200", "Ф100"],
+                shift1: ["Т", "30"]);
 
-            // П: Т, 30, РОЗПОР
-            AddFrom("П", "Т", "30", "РОЗПОР");
+            AddFrom("ВПХ",
+                shift0: ["ВДР", "ВЛК", "МСЕК", "ЛХ", "ЛП", "ВП", "ВПП", "БВ", "П", "А", "БВ (СЗЧ)", "СЗЧ", "РОЗПОР", "200", "Ф100"],
+                shift1: ["Т", "30"]);
 
-            // А: Т, 30, РОЗПОР
-            AddFrom("А", "Т", "30", "РОЗПОР");
+            AddFrom("ВПП",
+                shift0: ["ВДР", "ВЛК", "МСЕК", "ЛХ", "ЛП", "ВП", "ВПХ", "БВ", "П", "А", "БВ (СЗЧ)", "СЗЧ", "РОЗПОР", "200", "Ф100"],
+                shift1: ["Т", "30"]);
 
-            // БВ (СЗЧ): Т, 30, РОЗПОР, СЗЧ, 200
-            AddFrom("БВ (СЗЧ)", "Т", "30", "РОЗПОР", "СЗЧ", "200");
+            AddFrom("БВ",
+                shift0: ["ВДР", "ВЛК", "МСЕК", "ЛХ", "ЛП", "ВПХ", "ВПП", "П", "А", "БВ (СЗЧ)", "СЗЧ", "РОЗПОР", "200", "Ф100"],
+                shift1: ["Т", "30"]);
 
-            // СЗЧ: Т, 30, РОЗПОР
-            AddFrom("СЗЧ", "Т", "30", "РОЗПОР");
+            AddFrom("П",
+                shift0: ["ВДР", "ВЛК", "МСЕК", "ЛХ", "ЛП", "ВПХ", "ВПП", "БВ", "А", "БВ (СЗЧ)", "СЗЧ", "РОЗПОР", "200", "Ф100"],
+                shift1: ["Т", "30"]);
 
-            // РОЗПОР: Т, 30
-            AddFrom("РОЗПОР", "Т", "30");
+            AddFrom("А",
+                shift0: ["ВДР", "ВЛК", "МСЕК", "ЛХ", "ЛП", "ВПХ", "ВПП", "БВ", "П", "БВ (СЗЧ)", "СЗЧ", "РОЗПОР", "200", "Ф100"],
+                shift1: ["Т", "30"]);
 
-            // 200: переходів немає (термінальний факт)
+            AddFrom("БВ (СЗЧ)",
+                shift0: ["ВДР", "ВЛК", "МСЕК", "ЛХ", "ЛП", "ВПХ", "ВПП", "БВ", "П", "А", "СЗЧ", "РОЗПОР", "200", "Ф100"],
+                shift1: ["Т", "30"]);
 
-            // 100: Т, 30, БВ, ПБД, 200, БВ (СЗЧ), П, Ф100
-            AddFrom("100", "Т", "30", "БВ", "ПБД", "200", "БВ (СЗЧ)", "П", "Ф100");
+            AddFrom("СЗЧ",
+                shift0: ["ВДР", "ВЛК", "МСЕК", "ЛХ", "ЛП", "ВПХ", "ВПП", "БВ", "П", "А", "БВ (СЗЧ)", "РОЗПОР", "200", "Ф100"],
+                shift1: ["Т", "30"]);
 
-            // Ф100: Т, 30, ЛП, ЛХ
-            AddFrom("Ф100", "Т", "30", "ЛП", "ЛХ");
+            AddFrom("РОЗПОР",
+                shift0: ["Т", "30"]);
 
+            // 200 (термінальний) — переходів немає за картою
+
+            AddFrom("100",
+                shift0: ["БВ", "П", "А", "БВ (СЗЧ)", "СЗЧ", "200", "Ф100"],
+                shift1: ["30"]);
+
+            AddFrom("Ф100",
+                shift0: ["ВДР", "ВЛК", "МСЕК", "ЛХ", "ЛП", "ВП", "ВПХ", "ВПП", "БВ", "П", "А", "БВ (СЗЧ)", "СЗЧ", "РОЗПОР", "200"],
+                shift1: ["Т", "30"]);
+
+            db.TimesheetCodeTransitions.AddRange(list);
             await db.SaveChangesAsync(ct);
         }
-
-        static TimesheetCodeDefinition Code(
-            string code,
-            string title,
-            int sort,
-            TimesheetEndDateMeaning endMeaning,
-            string? nextCodeOnEnd = null,
-            bool isTerminal = false,
-            bool requiresReference = false,
-            bool requiresNote = false,
-            bool isPlanningCutoff = false,
-            int cutoffShiftDays = 1)
-            => new()
-            {
-                Code = code,
-                Title = title,
-                SortOrder = sort,
-                IsTerminal = isTerminal,
-                RequiresReference = requiresReference,
-                RequiresNote = requiresNote,
-
-                // End behavior
-                EndDateMeaning = endMeaning,
-                NextCodeOnEnd = endMeaning == TimesheetEndDateMeaning.FirstDayOfNextCode
-                    ? (string.IsNullOrWhiteSpace(nextCodeOnEnd) ? "30" : nextCodeOnEnd.Trim())
-                    : null,
-
-                // Planning cutoff
-                IsPlanningCutoff = isPlanningCutoff,
-                PlanningCutoffShiftDays = isPlanningCutoff ? Math.Max(1, cutoffShiftDays) : 0,
-
-                // defaults
-                IsActive = true
-            };
-
-        static void Add(AppDbContext db, Guid from, Guid to, string by, DateTime at)
-            => db.TimesheetCodeTransitions.Add(new TimesheetCodeTransition
-            {
-                Id = Guid.NewGuid(),
-                FromCodeId = from,
-                ToCodeId = to,
-                CreatedBy = by,
-                CreatedAtUtc = at
-            });
-
-        static void AddAll(AppDbContext db, Guid from, IEnumerable<Guid> toIds, string by, DateTime at)
-        {
-            foreach (var to in toIds.Where(x => x != Guid.Empty).Distinct())
-                Add(db, from, to, by, at);
-        }
     }
+
+    private static TimesheetCodeDefinition New(string code, string title, int sort, int priority, bool isTerminal = false)
+        => new()
+        {
+            Code = code,
+            Title = title,
+            SortOrder = sort,
+            Priority = priority,
+            IsTerminal = isTerminal,
+            IsActive = true
+        };
 }

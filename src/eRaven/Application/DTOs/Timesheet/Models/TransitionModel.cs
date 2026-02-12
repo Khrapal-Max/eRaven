@@ -7,7 +7,7 @@
 
 using System.ComponentModel.DataAnnotations;
 
-namespace eRaven.Application.DTOs.Timesheet;
+namespace eRaven.Application.DTOs.Timesheet.Models;
 
 //======================================================================
 // Form model (minimal validation)

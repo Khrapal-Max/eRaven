@@ -5,60 +5,72 @@
 // ITimesheetPolicyRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs.Timesheet;
 using eRaven.Domain.Entities;
-using eRaven.Domain.Enums;
 
 namespace eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
 
 /// <summary>
-/// Репозиторій політик табеля (довідник кодів + дозволені переходи).
-///
-/// Джерела істини:
-/// - <see cref="TimesheetCodeDefinition"/> — опис коду (назва, правила завершення, прапорці).
-/// - <see cref="TimesheetCodeTransition"/> — дозволені переходи (FromCodeId → ToCodeId).
-///
-/// Примітка:
-/// -Політика застосовується глобально.
+/// Репозиторій політик табеля (довідник кодів + дозволені переходи + трактовка дати події).
 /// </summary>
 public interface ITimesheetPolicyRepository
 {
-    /// <summary>
-    /// Повертає всі активні коди табеля для UI.
-    /// Сортування: <see cref="TimesheetCodeDefinition.SortOrder"/> → <see cref="TimesheetCodeDefinition.Code"/>.
-    /// </summary>
-    Task<IReadOnlyList<TimesheetCodeDefinition>> GetCodesAsync(CancellationToken ct = default);
+    // ----------------------------
+    // Codes
+    // ----------------------------
 
     /// <summary>
-    /// Повертає множину Id кодів, які дозволені як "наступні" для <paramref name="fromCodeId"/>.
+    /// Повертає коди табеля (за замовчуванням — тільки активні).
+    /// Сортування: SortOrder → Priority → Code.
     /// </summary>
-    Task<IReadOnlySet<Guid>> GetAllowedNextAsync(Guid fromCodeId, CancellationToken ct = default);
+    Task<IReadOnlyList<TimesheetCodeDefinition>> GetCodesAsync(
+        bool includeInactive = false,
+        CancellationToken ct = default);
+
+    /// <summary>Повертає код за Id (tracked = false).</summary>
+    Task<TimesheetCodeDefinition?> GetCodeByIdAsync(Guid codeId, CancellationToken ct = default);
+
+    /// <summary>Створює новий код у довіднику.</summary>
+    Task<Guid> AddCodeAsync(
+        string code,
+        string title,
+        string? description,
+        int sortOrder,
+        int priority,
+        bool isTerminal,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default);
+
+    /// <summary>Закриває код (робить неактивним). Не видаляє.</summary>
+    Task CloseCodeAsync(
+        Guid codeId,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default);
+
+    // ----------------------------
+    // Rules (Transitions)
+    // ----------------------------
 
     /// <summary>
-    /// Зберігає політику для одного коду та повністю переписує список дозволених переходів.
-    ///
-    /// Оновлює властивості коду:
-    /// - <see cref="TimesheetCodeDefinition.EndDateMeaning"/>
-    /// - <see cref="TimesheetCodeDefinition.NextCodeOnEnd"/>
-    ///
-    /// Перезаписує transitions:
-    /// - видаляє всі наявні переходи для <paramref name="fromCodeId"/>
-    /// - додає нові переходи згідно <paramref name="allowedToCodeIds"/>
-    ///
-    /// Правила:
-    /// - Якщо <paramref name="endDateMeaning"/> == <see cref="TimesheetEndDateMeaning.FirstDayOfNextCode"/>:
-    ///   - <paramref name="nextCodeOnEnd"/> якщо пустий → дефолт "30"
-    ///   - nextCodeOnEnd має існувати серед активних кодів, інакше помилка
-    /// - Якщо <paramref name="endDateMeaning"/> == <see cref="TimesheetEndDateMeaning.LastDayOfThisCode"/>:
-    ///   - nextCodeOnEnd примусово стає null
-    /// - <paramref name="allowedToCodeIds"/>:
-    ///   - ігноруємо Guid.Empty та самого себе (fromCodeId)
-    ///   - всі коди мають існувати та бути активними, інакше помилка
+    /// Повертає дозволені переходи для fromCodeId.
+    /// </summary>
+    Task<IReadOnlyList<TimesheetCodeTransition>> GetAllowedTransitionsAsync(
+        Guid fromCodeId,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Зберігає зміни коду та його правила переходів (диф-оновлення без втрати даних).
     /// </summary>
     Task SavePolicyAsync(
-        Guid fromCodeId,
-        TimesheetEndDateMeaning endDateMeaning,
-        string? nextCodeOnEnd,
-        IReadOnlyCollection<Guid> allowedToCodeIds,
+        Guid codeId,
+        string title,
+        string? description,
+        int sortOrder,
+        int priority,
+        bool isTerminal,
+        IReadOnlyCollection<TimesheetTransitionSpecDto> allowedTransitions,
         string author,
         DateTime nowUtc,
         CancellationToken ct = default);

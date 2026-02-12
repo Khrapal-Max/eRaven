@@ -1,49 +1,87 @@
-﻿@page "/about/concepts"
-@using eRaven.Domain.Enums
+@page "/about/concepts"
 
-<PageTitle>Про систему — Поняття</PageTitle>
+<PageTitle>Про систему — Терміни</PageTitle>
 
 <div class="page-content">
-    <div class="container-fluid px-0">
+    <div class="container-fluid">
         <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
             <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
-            <div class="fw-semibold">Поняття та терміни</div>
+            <div class="fw-semibold">Терміни</div>
         </div>
 
         <div class="px-3 py-3">
 
             <div class="border p-3 mb-3">
-                <div class="fw-semibold mb-2">CombatTaskDocument (Документ планування)</div>
-                <ul class="mb-0">
-                    <li>Контейнер для завдань по різних місіях.</li>
-                    <li>Має статус: <b>Draft</b> або <b>Posted</b> (та інші службові, якщо є).</li>
-                </ul>
+                <div class="fw-semibold mb-2">Як читати цю довідку</div>
+                <div class="small opacity-75">
+                    У тексті використано практичні назви з інтерфейсу.
+                    Якщо ви відкрили потрібну сторінку в системі — ви відразу впізнаєте, про що йде мова.
+                </div>
             </div>
 
             <div class="border p-3 mb-3">
-                <div class="fw-semibold mb-2">CombatTask / Mission block</div>
-                <ul class="mb-0">
-                    <li>Група рядків у межах однієї місії.</li>
-                    <li>Містить деталі (Start/End) для різних осіб.</li>
-                </ul>
+                <div class="fw-semibold mb-2">Картка військовослужбовця</div>
+                <div class="small opacity-75">
+                    Основний елемент обліку.
+                    У картці зберігаються персональні дані, посада/звання, позивний та інша службова інформація.
+                    З картки можна перейти до табеля людини та переглянути історію змін.
+                </div>
             </div>
 
             <div class="border p-3 mb-3">
-                <div class="fw-semibold mb-2">CombatTaskDetails (рядки)</div>
-                <ul class="mb-0">
-                    <li><b>Start</b> — особа почала виконання в дату EffectiveAt.</li>
-                    <li><b>End</b> — особа припинила виконання в дату EffectiveAt.</li>
-                    <li>Сортування в UI: дата ↑, на тій самій даті <b>End перед Start</b>, далі по особі.</li>
-                </ul>
+                <div class="fw-semibold mb-2">Реєстр карток</div>
+                <div class="small opacity-75">
+                    Список карток підрозділу.
+                    Звідси ви шукаєте людину, відкриваєте картку, бачите поточний стан (у табелі / резерв),
+                    та виконуєте основні дії (зарахувати, перевести в резерв тощо).
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Табель і код дня</div>
+                <div class="small opacity-75">
+                    Табель — це календар, де кожному дню призначається код стану.
+                    Коди описують, що відбувалось з людиною у цей день (базовий стан, лікування, відпустка, день завдання тощо).
+                    Важливо: система перевіряє, чи дозволено перейти з одного коду в інший.
+                    Це визначається «політикою переходів». Якщо перехід заборонений — дія буде заблокована з поясненням.
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Місія</div>
+                <div class="small opacity-75">
+                    Місія — це напрям/операція/задача, в межах якої ведеться облік участі людей.
+                    В одній місії може бути багато людей, а у людини — послідовність участі у різних місіях.
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Документ завдань</div>
+                <div class="small opacity-75">
+                    Документ — це «рапорт/розпорядження», в якому фіксуються події:
+                    хто почав виконання завдання і хто припинив.
+                    Поки документ готується, він працює як план.
+                    Після проведення документ стає фактом та впливає на табель.
+                </div>
             </div>
 
             <div class="border p-3">
-                <div class="fw-semibold mb-2">MissionAssignment (проєкція участі)</div>
-                <ul class="mb-0">
-                    <li>Інтервал: <b>From</b> / <b>To</b> (To може бути null = open-ended).</li>
-                    <li>Статус: <b>Planned</b> (план) або <b>Committed</b> (факт).</li>
-                    <li>Містить посилання на джерело: SourceStartDocumentId/DetailsId та SourceEnd…</li>
-                </ul>
+                <div class="fw-semibold mb-2">Правила дат: початок і кінець</div>
+                <div class="small opacity-75">
+                    У системі є два типи трактування «дати завершення»:
+                    <ul class="mb-0">
+                        <li>
+                            <b>«Кінець включно»</b> — останній день також належить до цього коду.
+                            Приклад: лікування з 01.02 по 05.02 означає, що <b>05.02 ще лікування</b>, а наступний код — з 06.02.
+                        </li>
+                        <li>
+                            <b>«До дня наступної події»</b> — дата завершення вважається датою повернення,
+                            тобто в день повернення вже діє наступний код.
+                            Приклад: відпустка з 01.02 по 05.02 означає, що відпустка — 01.02–04.02,
+                            а з 05.02 починається наступний стан.
+                        </li>
+                    </ul>
+                </div>
             </div>
 
         </div>

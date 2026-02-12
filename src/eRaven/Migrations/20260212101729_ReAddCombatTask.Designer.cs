@@ -12,8 +12,8 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260210134319_UpCombatTaskDocument")]
-    partial class UpCombatTaskDocument
+    [Migration("20260212101729_ReAddCombatTask")]
+    partial class ReAddCombatTask
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -479,8 +479,7 @@ namespace eRaven.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -489,51 +488,28 @@ namespace eRaven.Migrations
                         .HasColumnName("code");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
                         .HasColumnName("created_by");
 
-                    b.Property<int>("EndDateMeaning")
-                        .HasColumnType("integer")
-                        .HasColumnName("end_date_meaning");
-
-                    b.Property<int>("EndMode")
-                        .HasColumnType("integer")
-                        .HasColumnName("end_mode");
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<bool>("IsPlanningCutoff")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_planning_cutoff");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsTerminal")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_terminal");
+                        .HasColumnType("boolean");
 
-                    b.Property<string>("NextCodeOnEnd")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("next_code_on_end");
-
-                    b.Property<int>("PlanningCutoffShiftDays")
+                    b.Property<int>("Priority")
                         .HasColumnType("integer")
-                        .HasColumnName("planning_cutoff_shift_days");
-
-                    b.Property<bool>("RequiresNote")
-                        .HasColumnType("boolean")
-                        .HasColumnName("requires_note");
-
-                    b.Property<bool>("RequiresReference")
-                        .HasColumnType("boolean")
-                        .HasColumnName("requires_reference");
+                        .HasColumnName("priority");
 
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
@@ -541,24 +517,22 @@ namespace eRaven.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
                         .HasColumnName("title");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at_utc");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
                         .HasColumnName("updated_by");
 
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
-                        .IsUnique()
-                        .HasDatabaseName("ux_ts_codes_code");
+                        .IsUnique();
 
                     b.ToTable("timesheet_codes", (string)null);
                 });
@@ -567,39 +541,36 @@ namespace eRaven.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("created_by");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("FromCodeId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("from_code_id");
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("StartShiftDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("start_shift_days");
 
                     b.Property<Guid>("ToCodeId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("to_code_id");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("FromCodeId")
-                        .HasDatabaseName("ix_ts_transitions_from");
 
                     b.HasIndex("ToCodeId");
 
                     b.HasIndex("FromCodeId", "ToCodeId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_ts_transitions_from_to");
+                        .IsUnique();
 
-                    b.ToTable("timesheet_code_transitions", (string)null);
+                    b.ToTable("timesheet_code_ttransitions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_timesheet_code_ttransitions_start_shift_days", "\"start_shift_days\" IN (0,1)");
+                        });
                 });
 
             modelBuilder.Entity("eRaven.Domain.Entities.TimesheetEntry", b =>

@@ -1,0 +1,59 @@
+@page "/about/missions"
+
+<PageTitle>Про систему — Місії</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid">
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
+            <div class="fw-semibold">Місії</div>
+        </div>
+
+        <div class="px-3 py-3">
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Призначення</div>
+                <div class="small">
+                    <b>Місія</b> — це «група» для завдань і людей.
+                    Вона допомагає об’єднати записи за темою (операція, напрямок, ротація, підрозділ).
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Список місій</div>
+                <div class="small">
+                    Відкрийте меню <b>Планування → Місії</b>.
+                    Тут видно перелік місій, а також ознаки «активна/закрита».
+                    <div class="mt-2">
+                        <NavLink class="btn btn-sm btn-light rounded-0" href="/missions">Відкрити «Місії»</NavLink>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Картка місії</div>
+                <div class="small">
+                    У картці місії зазвичай працюють з:
+                    <ul class="mb-0">
+                        <li>назвою та коротким описом (для читабельності в документах);</li>
+                        <li>переліком документів/завдань, які належать до місії;</li>
+                        <li>людьми, які зараз виконують завдання в межах місії (на обрану дату).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Закриття місії</div>
+                <div class="small">
+                    Місію можна закрити, коли вона більше не використовується.
+                    Система не дозволить закрити місію, якщо в ній залишилися <b>активні призначення</b>
+                    (тобто хтось ще виконує завдання і не має дати завершення).
+                    <div class="mt-2">
+                        Порада: спочатку завершіть/проведіть документи завдань, які відкриті по цій місії.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
