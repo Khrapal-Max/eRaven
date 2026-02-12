@@ -1,0 +1,126 @@
+﻿<Drawer IsOpen="IsOpen"
+        IsOpenChanged="IsOpenChanged"
+        Title="Подія табеля">
+
+    <ChildContent>
+        @if (_loading)
+        {
+            <div class="p-3"><em>Завантаження…</em></div>
+        }
+        else
+        {
+            <div class="p-3">
+
+                <!-- Контекст / звірка -->
+                <div class="border p-3 mb-3">
+                    <div class="fw-semibold mb-1">Контекст</div>
+                    <div class="small">
+                        @if (!string.IsNullOrWhiteSpace(PersonLabel))
+                        {
+                            <div class="mb-1">@PersonLabel</div>
+                        }
+                        <div>
+                            Стан на дату <span class="font-monospace">@AnchorDate.ToString("yyyy-MM-dd")</span>:
+                            <span class="font-monospace fw-semibold">@CurrentCode</span>
+                            @if (!string.IsNullOrWhiteSpace(_currentTitle))
+                            {
+                                <span class="opacity-75">— @_currentTitle</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                @if (_options.Count == 0)
+                {
+                    <div class="alert alert-light border small mb-0">
+                        Для поточного коду немає дозволених переходів.
+                    </div>
+                }
+                else
+                {
+                    <EditForm EditContext="_editContext" OnValidSubmit="SubmitAsync">
+                        <DataAnnotationsValidator />
+
+                        <div class="border p-3 mb-3">
+                            <div class="fw-semibold mb-2">Нова подія</div>
+
+                            <div class="row g-2">
+
+                                <div class="col-12 col-lg-4">
+                                    <label class="form-label small">Дата події</label>
+                                    <InputDate class="form-control form-control-sm"
+                                               @bind-Value="_model.InputDate" />
+                                    <ValidationMessage For="@(() => _model.InputDate)" />
+                                </div>
+
+                                <div class="col-12 col-lg-8">
+                                    <label class="form-label small">Наступний код</label>
+
+                                    <InputSelect class="form-select form-select-sm"
+                                                 @bind-Value="_model.Code"
+                                                 @onchange="OnNextCodeChanged">
+                                        @foreach (var o in _options)
+                                        {
+                                            <option value="@o.Code">
+                                                @o.Code — @o.Title (@ShiftLabel(o.StartShiftDays))
+                                            </option>
+                                        }
+                                    </InputSelect>
+
+                                    <ValidationMessage For="@(() => _model.Code)" />
+                                </div>
+
+                                <div class="col-12 col-lg-6">
+                                    <label class="form-label small">Підстава / референс (опціонально)</label>
+                                    <InputText class="form-control form-control-sm"
+                                               @bind-Value="_model.Reference" />
+                                </div>
+
+                                <div class="col-12 col-lg-6">
+                                    <label class="form-label small">Примітка (опціонально)</label>
+                                    <InputText class="form-control form-control-sm"
+                                               @bind-Value="_model.Note" />
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <Button Class="btn-sm btn-primary"
+                                    Label="@(_busy ? "Застосування…" : "Застосувати")"
+                                    IsDisabled="_busy"
+                                    OnClickButton="SubmitAsync" />
+
+                            <Button Class="btn-sm btn-outline-secondary"
+                                    Label="Скасувати"
+                                    IsDisabled="_busy"
+                                    OnClickButton="CloseAsync" />
+                        </div>
+                    </EditForm>
+                }
+            </div>
+        }
+    </ChildContent>
+
+    <FooterContent>
+        <div class="small opacity-75">
+            <div class="fw-semibold mb-1">Як система читає дату події</div>
+            <ul class="mb-0 ps-3">
+                <li><b>З дати події (0)</b> — новий код діє цього ж дня.</li>
+                <li class="mt-1"><b>Ще поточний (1)</b> — цей день лишається за поточним кодом, новий починається з наступного дня.</li>
+            </ul>
+
+            @if (_selectedOption is not null)
+            {
+                var nextFrom = _model.InputDate.AddDays(_selectedOption.StartShiftDays);
+                var prevTo = nextFrom.AddDays(-1);
+
+                <div class="mt-2">
+                    Попередній код завершиться: <span class="font-monospace">@prevTo.ToString("yyyy-MM-dd")</span>,
+                    новий код почнеться: <span class="font-monospace">@nextFrom.ToString("yyyy-MM-dd")</span>.
+                </div>
+            }
+        </div>
+    </FooterContent>
+
+</Drawer>
