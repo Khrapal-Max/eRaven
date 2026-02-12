@@ -34,6 +34,26 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
     }
 
     /// <inheritdoc />
+    public async Task<TimesheetEntry?> GetNextEntryAfterDateAsync(
+        Guid timelineId,
+        Guid personId,
+        DateOnly date,
+        CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        return await db.TimesheetEntries
+            .AsNoTracking()
+            .Where(x => !x.IsDeleted)
+            .Where(x => x.TimelineId == timelineId)
+            .Where(x => x.PersonId == personId)
+            .Where(x => x.From > date)
+            .OrderBy(x => x.From)
+            .ThenBy(x => x.Id)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<TimesheetEntry>> GetPersonEntriesAsync(
         Guid personId,
         DateOnly from,

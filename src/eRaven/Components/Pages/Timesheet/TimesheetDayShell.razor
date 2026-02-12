@@ -96,6 +96,11 @@
 
                         <td class="text-center">
                             <div class="d-inline-flex gap-1">
+                                <Button Class="btn-sm btn-outline-primary"
+                                        Label="+ Подія"
+                                        IsDisabled="@CanOpenEventDrawer(r)"
+                                        OnClickButton="@(() => OpenTransition(r))" />
+
                                 <Button Class="btn-sm btn-warning rounded-0"
                                         Label="Особовий табель"
                                         OnClickButton="@(() => Nav.NavigateTo($"/timesheet/person/{r.PersonId}"))" />
@@ -108,3 +113,11 @@
         }
     </div>
 </div>
+
+<TimesheetTransitionDrawer IsOpen="@_transitionOpen"
+                           IsOpenChanged="@(v => _transitionOpen = v)"
+                           PersonId="@_transitionPersonId"
+                           AnchorDate="@_transitionAnchorDate"
+                           CurrentCode="@_transitionCurrentCode"
+                           PersonLabel="@_transitionPersonLabel"
+                           OnApplied="ReloadAsync" />

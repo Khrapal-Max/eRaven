@@ -57,6 +57,15 @@ public partial class TimesheetDayShell : ComponentBase
     private TimesheetPersonDayRowDto? _selected;
 
     //======================================================================
+    // Drawer state
+    //======================================================================
+    private bool _transitionOpen;
+    private Guid _transitionPersonId;
+    private DateOnly _transitionAnchorDate;
+    private string _transitionCurrentCode = string.Empty;
+    private string? _transitionPersonLabel;
+
+    //======================================================================
     // Lifecycle
     //======================================================================
 
@@ -122,6 +131,21 @@ public partial class TimesheetDayShell : ComponentBase
     }
 
     //======================================================================
+    // Commands
+    //======================================================================
+    private Task OpenTransition(TimesheetPersonDayRowDto row)
+    {
+        _transitionPersonId = row.PersonId;
+        _transitionPersonLabel = row.FullName;                         // опціонально
+        _transitionAnchorDate = DateOnly.FromDateTime(DateTime.Today); // DateOnly
+        _transitionCurrentCode = (row.DayState.Code ?? "").Trim();
+
+        _transitionOpen = true;
+
+        return Task.CompletedTask;
+    }
+
+    //======================================================================
     // UI helpers
     //======================================================================
 
@@ -133,7 +157,7 @@ public partial class TimesheetDayShell : ComponentBase
     {
         if (!row.EnrolledAt.HasValue) return false;
         if (row.ExcludedAt.HasValue) return false;          // НЕ активний timeline
-        return _date >= row.EnrolledAt.Value;               // дата в межах активного (від EnrolledAt і далі)
+        return _date <= row.EnrolledAt.Value;               // дата в межах активного (від EnrolledAt і далі)
     }
 
     /// <summary>

@@ -14,5 +14,6 @@ public sealed record TransitionTimesheetStateCommand(
     string NextCode,
     string? Reference,
     string? Note,
+    bool IsCorrection,
     string Author,
     DateTime NowUtc);

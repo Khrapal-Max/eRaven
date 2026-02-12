@@ -50,6 +50,7 @@ public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> db
 
         return await db.TimesheetCodes
             .AsNoTracking()
+            .Where(x => x.IsActive)
             .FirstOrDefaultAsync(x => x.Id == codeId, ct);
     }
 
@@ -153,10 +154,48 @@ public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> db
         return await db.TimesheetCodeTransitions
             .AsNoTracking()
             .Where(x => x.FromCodeId == fromCodeId)
-            .Include(x => x.ToCode) // <-- якщо треба для OrderBy/видачі
+            .Include(x => x.ToCode)
+            // UI/handler не повинні бачити переходи у закриті або системні коди
+            .Where(x => x.ToCode.IsActive)
+            .Where(x => !x.ToCode.Code.Equals(TimesheetSystemCodes.NotInTimesheet))
             .OrderBy(x => x.ToCode.SortOrder)
             .ThenBy(x => x.ToCode.Priority)
             .ThenBy(x => x.ToCode.Code)
+            .ToListAsync(ct);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<TimesheetTransitionOptionDto>> GetAllowedTransitionOptionsAsync(
+        string code,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            throw new ArgumentException("fromCodeId is required.", nameof(code));
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var codeId = await db.TimesheetCodes
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .Where(x => x.Code == code)
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (codeId == Guid.Empty)
+            throw new ArgumentException($"Code '{code}' not found.", nameof(code));
+
+        return await db.TimesheetCodeTransitions
+            .AsNoTracking()
+            .Where(x => x.FromCodeId == codeId)
+            .Where(x => x.ToCode.IsActive)
+            .Where(x => !x.ToCode.Code.Equals(TimesheetSystemCodes.NotInTimesheet))
+            .OrderBy(x => x.ToCode.SortOrder)
+            .ThenBy(x => x.ToCode.Priority)
+            .ThenBy(x => x.ToCode.Code)
+            .Select(x => new TimesheetTransitionOptionDto(
+                x.ToCode.Code,
+                x.ToCode.Title,
+                x.StartShiftDays))
             .ToListAsync(ct);
     }
 

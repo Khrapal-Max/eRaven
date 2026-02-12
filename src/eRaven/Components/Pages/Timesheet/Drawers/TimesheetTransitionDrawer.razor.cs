@@ -9,7 +9,9 @@ using eRaven.Application.Commands;
 using eRaven.Application.Commands.Timesheet;
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Application.DTOs.Timesheet.Models;
-using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
+using eRaven.Application.Queries;
+using eRaven.Application.Queries.Timesheet;
+using eRaven.Infrastructure;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -22,7 +24,7 @@ public partial class TimesheetTransitionDrawer : ComponentBase
     // DI
     //======================================================================
 
-    [Inject] public ITimesheetPolicyRepository PolicyRepo { get; set; } = default!;
+    [Inject] public IQueryHandler<GetTimesheetPolicyForCodeByCodeQuery, IReadOnlyList<TimesheetTransitionOptionDto>> GetOptions { get; set; } = default!;
     [Inject] public ICommandHandler<TransitionTimesheetStateCommand, Guid> Transition { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
 
@@ -34,15 +36,11 @@ public partial class TimesheetTransitionDrawer : ComponentBase
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
 
     [Parameter] public Guid PersonId { get; set; }
-    [Parameter] public DateOnly AnchorDate { get; set; }
+    [Parameter] public DateOnly AnchorDate { get; set; }                 // дата кліку/рядка
+    [Parameter] public string CurrentCode { get; set; } = string.Empty;  // код табеля на цю дату
 
-    /// <summary>Код, який показаний як поточний на AnchorDate (для UX). Факт перевіряє handler.</summary>
-    [Parameter] public string CurrentCode { get; set; } = string.Empty;
-
-    /// <summary>Текст про людину (ПІБ/звання/посада) — для звірки.</summary>
     [Parameter] public string? PersonLabel { get; set; }
-
-    [Parameter] public EventCallback OnApplied { get; set; }
+    [Parameter] public EventCallback OnApplied { get; set; }             // ReloadAsync у батька
 
     //======================================================================
     // State
@@ -50,16 +48,15 @@ public partial class TimesheetTransitionDrawer : ComponentBase
 
     private bool _loading;
     private bool _busy;
-
-    private string _currentTitle = string.Empty;
-
-    private List<TimesheetTransitionOptionDto> _options = [];
-    private TimesheetTransitionOptionDto? _selectedOption;
+    private int SelectSize => Math.Clamp(_options.Count, 2, 20);
 
     private TransitionModel _model = new();
     private EditContext _editContext = default!;
 
-    private (Guid PersonId, DateOnly AnchorDate, string Cur)? _loadedKey;
+    private IReadOnlyList<TimesheetTransitionOptionDto> _options = [];
+
+    // щоб не перевантажувати щоразу при кожному ререндері
+    private (Guid PersonId, DateOnly AnchorDate, string Code)? _loadedKey;
 
     //======================================================================
     // Lifecycle
@@ -67,12 +64,22 @@ public partial class TimesheetTransitionDrawer : ComponentBase
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!IsOpen) return;
+        // ✅ При закритті — скинути стан (включно з _loadedKey)
+        if (!IsOpen)
+        {
+            if (_loadedKey is not null || _options.Count > 0 || _busy || _loading)
+                ResetState();
 
-        var key = (PersonId, AnchorDate, (CurrentCode ?? string.Empty).Trim().ToUpperInvariant());
-        if (_loadedKey == key) return;
+            return;
+        }
+
+        // якщо той самий контекст — не вантажимо повторно
+        var key = (PersonId, AnchorDate, (CurrentCode ?? string.Empty).Trim());
+        if (_loadedKey.HasValue && _loadedKey.Value.Equals(key))
+            return;
 
         _loadedKey = key;
+
         await LoadAsync();
     }
 
@@ -81,70 +88,38 @@ public partial class TimesheetTransitionDrawer : ComponentBase
         _loading = true;
         _busy = false;
 
+        // reset форми
+        _model = new TransitionModel
+        {
+            InputDate = AnchorDate
+        };
+        _editContext = new EditContext(_model);
+
         _options = [];
-        _selectedOption = null;
-        _currentTitle = string.Empty;
 
         try
         {
-            if (PersonId == Guid.Empty)
+            var code = (CurrentCode ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(code))
             {
-                Toasts.Error("Не визначено особу.");
+                Toasts.Error("Поточний код порожній.");
                 return;
             }
 
-            var cur = (CurrentCode ?? string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(cur))
+            if (string.Equals(code, TimesheetSystemCodes.NotInTimesheet, StringComparison.OrdinalIgnoreCase))
             {
-                Toasts.Error("Не визначено поточний код.");
+                Toasts.Warning("Стан 'НБ' не застосовується як подія.");
                 return;
             }
 
-            // 1) Беремо активні коди (репо вже відсікає закриті/системні)
-            var codes = await PolicyRepo.GetCodesAsync(); // includeInactive=false
-            var curDef = codes.FirstOrDefault(x => string.Equals(x.Code?.Trim(), cur, StringComparison.OrdinalIgnoreCase));
+            _options = await GetOptions.HandleAsync(new GetTimesheetPolicyForCodeByCodeQuery(code));
 
-            if (curDef is null)
-            {
-                Toasts.Error($"Код “{cur}” не знайдено у політиці.");
+            if (_options.Count == 0)
                 return;
-            }
 
-            _currentTitle = curDef.Title;
-
-            // 2) Беремо дозволені переходи для поточного коду
-            var rules = await PolicyRepo.GetAllowedTransitionsAsync(curDef.Id);
-
-            // 3) Будуємо опції для селекта (тільки дозволені To + їх shift)
-            //    Припускаємо, що репо повертає вже валідні To-коди (активні) і join не "розсиплеться".
-            var codeById = codes.ToDictionary(x => x.Id);
-
-            _options = [.. rules
-                .Where(r => codeById.ContainsKey(r.ToCodeId))
-                .Select(r =>
-                {
-                    var to = codeById[r.ToCodeId];
-                    return new TimesheetTransitionOptionDto(
-                        Code: to.Code,
-                        Title: to.Title,
-                        StartShiftDays: r.StartShiftDays);
-                })];
-
-            // 4) Дефолт моделі
-            var first = _options.FirstOrDefault();
-
-            _model = new TransitionModel
-            {
-                PersonId = PersonId,
-                InputDate = AnchorDate,
-                Code = first?.Code ?? string.Empty,
-                Reference = null,
-                Note = null
-            };
-
-            _editContext = new EditContext(_model);
-
-            SyncSelectedOption();
+            // дефолтний вибір
+            _model.Code = _options[0].Code;
         }
         catch (Exception ex)
         {
@@ -169,15 +144,12 @@ public partial class TimesheetTransitionDrawer : ComponentBase
             _ => $"shift={shift}"
         };
 
-    private void SyncSelectedOption()
+    private TimesheetTransitionOptionDto? SelectedOption()
     {
         var code = (_model.Code ?? string.Empty).Trim();
-        _selectedOption = _options.FirstOrDefault(x =>
+        return _options.FirstOrDefault(x =>
             string.Equals(x.Code?.Trim(), code, StringComparison.OrdinalIgnoreCase));
     }
-
-    private void OnNextCodeChanged(ChangeEventArgs _)
-        => SyncSelectedOption();
 
     //======================================================================
     // Actions
@@ -190,6 +162,13 @@ public partial class TimesheetTransitionDrawer : ComponentBase
         if (_editContext is not null && !_editContext.Validate())
             return;
 
+        var nextCode = (_model.Code ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(nextCode))
+        {
+            Toasts.Error("Оберіть наступний код.");
+            return;
+        }
+
         _busy = true;
 
         try
@@ -198,16 +177,17 @@ public partial class TimesheetTransitionDrawer : ComponentBase
                 PersonId: PersonId,
                 AnchorDate: AnchorDate,
                 InputDate: _model.InputDate,
-                NextCode: (_model.Code ?? string.Empty).Trim(),
+                NextCode: nextCode,
                 Reference: string.IsNullOrWhiteSpace(_model.Reference) ? null : _model.Reference.Trim(),
                 Note: string.IsNullOrWhiteSpace(_model.Note) ? null : _model.Note.Trim(),
+                IsCorrection: false,
                 Author: "ui", // TODO auth
                 NowUtc: DateTime.UtcNow
             );
 
             await Transition.HandleAsync(cmd);
 
-            Toasts.Success("Застосовано", $"Подію встановлено: {_model.Code}.");
+            Toasts.Success("Застосовано", $"Подію встановлено: {nextCode}.");
 
             if (OnApplied.HasDelegate)
                 await OnApplied.InvokeAsync();
@@ -224,6 +204,24 @@ public partial class TimesheetTransitionDrawer : ComponentBase
         }
     }
 
+    private void ResetState()
+    {
+        _loading = false;
+        _busy = false;
+
+        _options = [];
+
+        // чистимо модель, щоб не лишались Reference/Note/Code
+        _model = new TransitionModel();
+        _editContext = new EditContext(_model);
+
+        // дозволяємо перезавантаження при повторному відкритті
+        _loadedKey = null;
+    }
+
     private Task CloseAsync()
-        => IsOpenChanged.InvokeAsync(false);
+    {
+        ResetState();
+        return IsOpenChanged.InvokeAsync(false);
+    }
 }

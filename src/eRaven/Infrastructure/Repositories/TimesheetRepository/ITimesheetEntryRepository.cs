@@ -35,6 +35,16 @@ public interface ITimesheetEntryRepository
     Task<TimesheetEntry?> GetByIdAsync(Guid entryId, CancellationToken ct = default);
 
     /// <summary>
+    /// Повертає наступний запис табеля (за датою From)
+    /// після вказаної дати для конкретної особи в межах таймлайну.
+    /// </summary>
+    Task<TimesheetEntry?> GetNextEntryAfterDateAsync(
+        Guid timelineId,
+        Guid personId,
+        DateOnly date,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Повертає всі записи табеля вказаної особи, що перетинаються з діапазоном [from..to] (інклюзивно).
     /// Soft-deleted записи (IsDeleted=true) ігноруються.
     /// </summary>

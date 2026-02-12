@@ -9,6 +9,7 @@ using eRaven.Application.DTOs.Dashboard;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Dashboard;
 using eRaven.Domain.Enums;
+using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Dashboard;
@@ -17,9 +18,9 @@ public partial class PersonnelDashboardShell : ComponentBase
 {
     [Inject] public IQueryHandler<GetPersonnelDashboardQuery, PersonnelDashboardDto> DashboardQuery { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
+    [Inject] public ToastService ToastService { get; set; } = default!;
 
     private bool _loading;
-    private string? _error;
     private PersonnelDashboardDto? _data;
 
     protected override async Task OnInitializedAsync()
@@ -30,7 +31,6 @@ public partial class PersonnelDashboardShell : ComponentBase
     private async Task ReloadAsync()
     {
         _loading = true;
-        _error = null;
 
         try
         {
@@ -38,7 +38,7 @@ public partial class PersonnelDashboardShell : ComponentBase
         }
         catch (Exception ex)
         {
-            _error = ex.Message;
+            ToastService.Error($"Помилка завантаження даних: {ex.Message}");
         }
         finally
         {

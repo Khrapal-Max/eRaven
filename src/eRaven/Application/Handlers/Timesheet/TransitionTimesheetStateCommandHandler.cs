@@ -42,9 +42,6 @@ public sealed class TransitionTimesheetStateCommandHandler(
 
         var nextCode = command.NextCode.Trim();
 
-        if (string.Equals(nextCode, TimesheetSystemCodes.NotInTimesheet, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Код “НБ” є системним станом і не може застосовуватись як подія.");
-
         // 1) Таймлайн (місяць) має бути відкритим
         var timeline = await _timelines.GetTimelineOnDateAsync(command.PersonId, command.AnchorDate, ct)
             ?? throw new InvalidOperationException("Табель за обраний період не знайдено.");
@@ -57,7 +54,7 @@ public sealed class TransitionTimesheetStateCommandHandler(
                 $"Дата події {command.InputDate:yyyy-MM-dd} раніше відкриття табеля {timeline.OpenedAt:yyyy-MM-dd}.");
 
         if (command.InputDate < command.AnchorDate)
-            throw new InvalidOperationException("Дата події не може бути раніше обраної (AnchorDate).");
+            throw new InvalidOperationException("Дата події не може бути раніше поточного дня.");
 
         // 2) Поточний активний запис на AnchorDate
         var prevEntry = await _entries.GetActiveEntryOnDateAsync(timeline.Id, command.PersonId, command.AnchorDate, ct)
@@ -102,6 +99,16 @@ public sealed class TransitionTimesheetStateCommandHandler(
         // shift=1 => цей день ще старий код, новий з наступного дня
         var nextFrom = command.InputDate.AddDays(shift);
         var prevTo = nextFrom.AddDays(-1);
+
+        if (!command.IsCorrection)
+        {
+            var nextExisting = await _entries.GetNextEntryAfterDateAsync(
+                timeline.Id, command.PersonId, nextFrom.AddDays(-1), ct);
+
+            if (nextExisting is not null)
+                throw new InvalidOperationException(
+                    $"Є наступна подія: {nextExisting.From:yyyy-MM-dd} ({nextExisting.Code}). Використайте режим 'Корекція'.");
+        }
 
         // 5) Не можна закривати попередній стан раніше його старту.
         //    Але дозволяємо "replace", якщо новий стартує рівно з prev.From.
