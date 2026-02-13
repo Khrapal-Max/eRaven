@@ -44,6 +44,15 @@ public interface ITimesheetMonthRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Повертає матрицю табеля по всім особам за довільний діапазон дат.
+    /// </summary>
+    Task<IReadOnlyList<TimesheetPersonRangeRowDto>> GetTimesheetRangeAsync(
+       DateOnly from,
+       DateOnly to,
+       string? search,
+       CancellationToken ct = default);
+
+    /// <summary>
     /// Повертає місячний табель однієї особи за вказаний рік/місяць.
     ///
     /// Повертає:

@@ -9,6 +9,7 @@ using eRaven.Application.DTOs.Timesheet;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheet;
 using eRaven.Domain.Enums;
+using eRaven.Infrastructure;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Timesheet;
@@ -232,9 +233,11 @@ public partial class TimesheetShell : ComponentBase, IDisposable
         if (m.Length == 0) return "ts-cell--empty";
 
         if (IsAlert(m)) return "ts-cell--alert";
-        if (m == "НБ") return "ts-cell--nb";
-        if (m == "30") return "ts-cell--30";
-        if (m is "ВП" or "ВПХ" or "ВПП") return "ts-cell--vac";
+        if (m == TimesheetSystemCodes.NotInTimesheet) return "ts-cell--nb";
+        if (m == TimesheetSystemCodes.ReadyToCombatTask) return "ts-cell--30";
+        if (m is TimesheetSystemCodes.Leave
+              or TimesheetSystemCodes.LeaveSickness
+              or TimesheetSystemCodes.LeaveWound) return "ts-cell--vac";
 
         return "ts-cell--other";
     }
@@ -245,7 +248,7 @@ public partial class TimesheetShell : ComponentBase, IDisposable
     private static bool IsAlert(string? code)
     {
         var c = (code ?? "").Trim().ToUpperInvariant();
-        return c == "100" || c == "ПБД" || c == "Ф100";
+        return c == TimesheetSystemCodes.DoesTheCombatTask || c == TimesheetSystemCodes.InjuryFact;
     }
 
     //======================================================================

@@ -7,6 +7,10 @@
 
 namespace eRaven.Application.DTOs.Timesheet;
 
+/// <summary>
+/// Запис подій, що відбувалися з працівником у певний період часу. 
+/// Використовується для відображення інформації про статус та період його дії
+/// </summary>
 public sealed record TimesheetPersonEntryRowDto(
 string Code,
 DateOnly From,

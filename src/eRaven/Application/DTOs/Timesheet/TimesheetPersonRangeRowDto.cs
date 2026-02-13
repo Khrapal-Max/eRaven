@@ -2,21 +2,23 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// TimesheetCodeDto
+// TimesheetPersonRangeRowDto
 //-----------------------------------------------------------------------------
+
+using eRaven.Domain.Enums;
 
 namespace eRaven.Application.DTOs.Timesheet;
 
 /// <summary>
-/// Запис кода табеля обліку часу
+/// Запис для відображення періоду по особі
 /// </summary>
-public sealed record TimesheetCodeDto(
-    Guid Id,
-    string Code,
-    string Title,
-    string? Description,
-    int SortOrder,
-    int Priority,
-    bool IsTerminal,
-    bool IsActive
-);
+public sealed record TimesheetPersonRangeRowDto(
+    Guid PersonId,
+    string FullName,
+    string RNOKPP,
+    string? Rank,
+    string? Position,
+    EnrollmentKind? EnrollmentKind,
+    DateOnly? EnrolledAt,
+    DateOnly? ExcludedAt,
+    IReadOnlyList<TimesheetRangeDayDto> Days);

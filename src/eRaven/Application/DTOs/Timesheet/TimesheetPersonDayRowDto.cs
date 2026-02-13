@@ -9,6 +9,9 @@ using eRaven.Domain.Enums;
 
 namespace eRaven.Application.DTOs.Timesheet;
 
+/// <summary>
+/// Запис для показу в строчці табличного представлення даних по людині за день
+/// </summary>
 public sealed record TimesheetPersonDayRowDto(
     Guid PersonId,
     string FullName,

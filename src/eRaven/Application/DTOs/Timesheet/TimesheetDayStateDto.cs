@@ -7,6 +7,9 @@
 
 namespace eRaven.Application.DTOs.Timesheet;
 
+/// <summary>
+/// Запис стану дня в табелі
+/// </summary>
 public sealed record TimesheetDayStateDto(
   Guid CodeId,
   string Code,

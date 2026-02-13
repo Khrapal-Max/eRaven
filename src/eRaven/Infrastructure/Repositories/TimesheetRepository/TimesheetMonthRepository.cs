@@ -166,6 +166,157 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         return rows;
     }
 
+    public async Task<IReadOnlyList<TimesheetPersonRangeRowDto>> GetTimesheetRangeAsync(
+        DateOnly from,
+        DateOnly to,
+        string? search,
+        CancellationToken ct = default)
+    {
+        if (to < from) throw new ArgumentException("To must be >= From.", nameof(to));
+
+        var days = to.DayNumber - from.DayNumber + 1;
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        // системний "НБ" як дефолт (але НЕ як подія)
+        var nb = await db.TimesheetCodes.AsNoTracking()
+            .Where(x => x.Code == TimesheetSystemCodes.NotInTimesheet)
+            .Select(x => new { x.Id, x.Code })
+            .SingleAsync(ct);
+
+        var nbId = nb.Id;
+        var nbCode = (nb.Code ?? TimesheetSystemCodes.NotInTimesheet).Trim();
+
+        // 1) timelines, що перетинають [from..to]
+        var timelinesQ = db.TimesheetTimelines.AsNoTracking()
+            .Where(t => t.OpenedAt <= to && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= from));
+
+        var personIdsQ = timelinesQ.Select(t => t.PersonId).Distinct();
+
+        // 2) persons (з пошуком)
+        var personsQ = db.PersonRead.AsNoTracking()
+            .Where(p => personIdsQ.Contains(p.Id));
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToUpperInvariant();
+            personsQ = personsQ.Where(p =>
+                (p.FullName ?? "").ToUpper().Contains(s) ||
+                (p.Rnokpp ?? "").ToUpper().Contains(s));
+        }
+
+        var persons = await personsQ
+            .OrderBy(p => p.EnrollmentKind)
+            .ThenBy(p => p.PositionSort)
+            .ThenBy(p => p.FullName)
+            .Select(p => new
+            {
+                p.Id,
+                p.FullName,
+                p.Rnokpp,
+                p.Rank,
+                p.Position,
+                p.EnrollmentKind,
+                p.EnrolledAt,
+                p.ExcludedAt
+            })
+            .ToListAsync(ct);
+
+        if (persons.Count == 0)
+            return [];
+
+        var selectedIds = persons.Select(x => x.Id).ToArray();
+
+        var selectedTimelinesQ = timelinesQ.Where(t => selectedIds.Contains(t.PersonId));
+
+        // 3) entries, що перетинають [from..to] + належать selectedTimelinesQ
+        var entries = await (
+            from e in db.TimesheetEntries.AsNoTracking()
+            join t in selectedTimelinesQ on e.TimelineId equals t.Id
+            join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
+            where !e.IsDeleted
+                  && e.From <= to
+                  && (!e.To.HasValue || e.To.Value >= @from)
+            orderby e.PersonId, e.From, e.Id
+            select new
+            {
+                e.PersonId,
+                CodeId = c.Id,
+                c.Code,
+                e.From,
+                e.To,
+                e.Reference
+            }
+        ).ToListAsync(ct);
+
+        var byPerson = entries
+            .GroupBy(x => x.PersonId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var rows = new List<TimesheetPersonRangeRowDto>(persons.Count);
+
+        foreach (var p in persons)
+        {
+            var dayDtos = new TimesheetRangeDayDto[days];
+
+            for (var i = 0; i < days; i++)
+            {
+                var d = from.AddDays(i);
+                dayDtos[i] = new TimesheetRangeDayDto(
+                    Date: d,
+                    CodeId: nbId,
+                    Code: nbCode,
+                    Reference: null);
+            }
+
+            if (byPerson.TryGetValue(p.Id, out var list))
+            {
+                foreach (var e in list)
+                {
+                    var start = e.From < from ? from : e.From;
+                    var end = e.To is null ? to : (e.To.Value > to ? to : e.To.Value);
+
+                    var code = (e.Code ?? "").Trim();
+
+                    // ⚠️ важливо: якщо Code пустий — це NB і по CodeId теж має бути NB,
+                    // інакше в drawer прилетить "лівий" id при відображенні "НБ".
+                    var effectiveCodeId = code.Length == 0 ? nbId : e.CodeId;
+                    var effectiveCode = code.Length == 0 ? nbCode : code;
+
+                    var refForAlert = IsAlert(effectiveCode)
+                        ? (string.IsNullOrWhiteSpace(e.Reference) ? null : e.Reference.Trim())
+                        : null;
+
+                    for (var d = start; d <= end; d = d.AddDays(1))
+                    {
+                        var idx = d.DayNumber - from.DayNumber;
+                        if ((uint)idx >= (uint)days) continue;
+
+                        dayDtos[idx] = new TimesheetRangeDayDto(
+                            Date: d,
+                            CodeId: effectiveCodeId,
+                            Code: effectiveCode,
+                            Reference: refForAlert);
+                    }
+                }
+            }
+
+            rows.Add(new TimesheetPersonRangeRowDto(
+                PersonId: p.Id,
+                FullName: p.FullName ?? "",
+                RNOKPP: p.Rnokpp ?? "",
+                Rank: p.Rank,
+                Position: p.Position,
+                EnrollmentKind: p.EnrollmentKind,
+                EnrolledAt: p.EnrolledAt,
+                ExcludedAt: p.ExcludedAt,
+                Days: dayDtos
+            ));
+        }
+
+        return rows;
+    }
+
     public async Task<TimesheetPersonMonthDto?> GetTimesheetPersonMonthAsync(
         Guid personId,
         int year,

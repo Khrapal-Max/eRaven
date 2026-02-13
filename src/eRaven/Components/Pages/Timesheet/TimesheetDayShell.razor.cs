@@ -5,8 +5,6 @@
 // TimesheetDayShell
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Commands;
-using eRaven.Application.Commands.Timesheet;
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheet;
@@ -33,12 +31,6 @@ public partial class TimesheetDayShell : ComponentBase
     /// Read-query: повертає денний зріз табеля.
     /// </summary>
     [Inject] public IQueryHandler<GetTimesheetDayQuery, IReadOnlyList<TimesheetPersonDayRowDto>> Query { get; set; } = default!;
-
-    /// <summary>
-    /// Command-handler: policy-driven transition стану табеля (update+insert).
-    /// </summary>
-    [Inject] public ICommandHandler<TransitionTimesheetStateCommand, Guid> CreateEntryHandler { get; set; } = default!;
-
     [Inject] public NavigationManager Nav { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
 

@@ -39,6 +39,8 @@ public static class DefaultQueryHandlers
         services.AddScoped<IQueryHandler<ExportTimesheetMonthQuery, DownloadFileDto>, ExportTimesheetMonthQueryHandler>();
         services.AddScoped<IQueryHandler<GetTimesheetDayQuery, IReadOnlyList<TimesheetPersonDayRowDto>>, GetTimesheetDayQueryHandler>();
 
+        services.AddScoped<IQueryHandler<GetTimesheetRangeQuery, IReadOnlyList<TimesheetPersonRangeRowDto>>, GetTimesheetRangeQueryHandler>();
+
         services.AddScoped<IQueryHandler<GetMissionsQuery, IReadOnlyList<MissionDto>>, GetMissionsQueryHandler>();
 
         services.AddScoped<IQueryHandler<GetTimesheetPolicyCodesQuery, IReadOnlyList<TimesheetCodeDto>>, GetTimesheetPolicyCodesQueryHandler>();
