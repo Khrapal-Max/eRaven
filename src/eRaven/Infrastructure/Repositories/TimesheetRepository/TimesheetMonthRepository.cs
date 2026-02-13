@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// TimesheetMonthGridRepository
+// TimesheetMonthRepository
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs.Timesheet;
@@ -87,10 +87,11 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
                 .Where(t => selectedPersonIds.Contains(t.PersonId)),
             monthStart, monthEnd);
 
-        // 4) Entries перетинають місяць + належать timelinesInMonthQ (JOIN)
+        // 4) Entries перетинають місяць + належать timelinesInMonthQ (JOIN) + JOIN codes
         var entries = await (
             from e in db.TimesheetEntries.AsNoTracking()
             join t in timelinesInMonthQ on e.TimelineId equals t.Id
+            join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
                   && e.From <= monthEnd
                   && (!e.To.HasValue || e.To.Value >= monthStart)
@@ -98,7 +99,8 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
             select new
             {
                 e.PersonId,
-                e.Code,
+                CodeId = c.Id,
+                c.Code,
                 e.From,
                 e.To,
                 e.Reference
@@ -118,9 +120,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
             var referenses = new string?[daysInMonth];
 
             for (var i = 0; i < daysInMonth; i++)
-            {
-                dayCodes[i] = "НБ";
-            }
+                dayCodes[i] = TimesheetSystemCodes.NotInTimesheet;
 
             if (byPerson.TryGetValue(p.Id, out var list))
             {
@@ -138,7 +138,10 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
                         var idx = d.Day - 1;
                         if ((uint)idx >= (uint)daysInMonth) continue;
 
-                        dayCodes[idx] = code;
+                        dayCodes[idx] = string.IsNullOrWhiteSpace(code)
+                            ? TimesheetSystemCodes.NotInTimesheet
+                            : code;
+
                         referenses[idx] = IsAlert(code)
                             ? (string.IsNullOrWhiteSpace(e.Reference) ? null : e.Reference.Trim())
                             : null;
@@ -204,17 +207,19 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
             db.TimesheetTimelines.AsNoTracking().Where(t => t.PersonId == personId),
             monthStart, monthEnd);
 
-        // 3) Entries overlapping month (JOIN) — source of truth
+        // 3) Entries overlapping month (JOIN) — source of truth + JOIN codes
         var entries = await (
             from e in db.TimesheetEntries.AsNoTracking()
             join t in timelinesInMonthQ on e.TimelineId equals t.Id
+            join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
                   && e.From <= monthEnd
                   && (!e.To.HasValue || e.To.Value >= monthStart)
             orderby e.From, e.Id
             select new
             {
-                e.Code,
+                CodeId = c.Id,
+                c.Code,
                 e.From,
                 e.To,
                 e.Reference,
@@ -233,9 +238,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         var referenses = new string?[daysInMonth];
 
         for (var i = 0; i < daysInMonth; i++)
-        {
-            dayCodes[i] = "НБ";
-        }
+            dayCodes[i] = TimesheetSystemCodes.NotInTimesheet;
 
         foreach (var e in entries)
         {
@@ -249,7 +252,10 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
                 var idx = d.Day - 1;
                 if ((uint)idx >= (uint)daysInMonth) continue;
 
-                dayCodes[idx] = code;
+                dayCodes[idx] = string.IsNullOrWhiteSpace(code)
+                    ? TimesheetSystemCodes.NotInTimesheet
+                    : code;
+
                 referenses[idx] = IsAlert(code)
                     ? (string.IsNullOrWhiteSpace(e.Reference) ? null : e.Reference.Trim())
                     : null;
@@ -346,10 +352,11 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
                         && t.OpenedAt <= date
                         && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= date));
 
-        // 4) active entries on date (join timelines)
+        // 4) active entries on date (join timelines) + join codes
         var entries = await (
             from e in db.TimesheetEntries.AsNoTracking()
             join t in timelinesQ on e.TimelineId equals t.Id
+            join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
                   && e.From <= date
                   && (!e.To.HasValue || e.To.Value >= date)
@@ -357,7 +364,8 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
             select new
             {
                 e.PersonId,
-                e.Code,
+                CodeId = c.Id,
+                c.Code,
                 e.Reference,
                 e.Note
             }
@@ -374,13 +382,14 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
             {
                 var code = TrimCode(v.Code);
                 return new TimesheetDayStateDto(
-                    Code: code.Length == 0 ? "НБ" : code,
+                    CodeId: v.CodeId,
+                    Code: code.Length == 0 ? TimesheetSystemCodes.NotInTimesheet : code,
                     Reference: string.IsNullOrWhiteSpace(v.Reference) ? null : v.Reference.Trim(),
                     Note: string.IsNullOrWhiteSpace(v.Note) ? null : v.Note.Trim()
                 );
             }
 
-            return new TimesheetDayStateDto("НБ", null, null);
+            return new TimesheetDayStateDto(Guid.Empty, TimesheetSystemCodes.NotInTimesheet, null, null);
         }
 
         var rows = new List<TimesheetPersonDayRowDto>(persons.Count);
@@ -413,6 +422,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
     private static bool IsAlert(string? code)
     {
         var c = (code ?? "").Trim().ToUpperInvariant();
-        return c == "100" || c == "Ф100";
+        return c == TimesheetSystemCodes.DoesTheCombatTask
+            || c == TimesheetSystemCodes.InjuryFact;
     }
 }

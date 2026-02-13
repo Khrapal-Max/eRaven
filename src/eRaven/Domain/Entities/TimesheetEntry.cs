@@ -32,10 +32,14 @@ public sealed class TimesheetEntry
     public Guid PersonId { get; set; }
 
     /// <summary>
-    /// Code used in reports/export (e.g. "30", "Ф100", "ПБД" …).
-    /// Keep it as string to allow later changes without migrations.
+    /// Навігація на статус (довідник табельних кодів).
     /// </summary>
-    public string Code { get; set; } = string.Empty;
+    public Guid TimesheetCodeDefinitionId { get; set; }
+
+    /// <summary>
+    /// Навігація на статус (довідник табельних кодів).
+    /// </summary>
+    public TimesheetCodeDefinition? TimesheetCodeDefinition { get; set; }
 
     /// <summary>Start date (inclusive).</summary>
     public DateOnly From { get; set; }

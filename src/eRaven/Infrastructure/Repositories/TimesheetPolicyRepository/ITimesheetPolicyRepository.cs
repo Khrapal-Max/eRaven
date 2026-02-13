@@ -61,14 +61,6 @@ public interface ITimesheetPolicyRepository
         CancellationToken ct = default);
 
     /// <summary>
-    /// Повертає дозволені переходи для code у вигляді DTO (для UI). 
-    /// Повертає порожній список, якщо код не знайдено або неактивний.
-    /// </summary>
-    Task<IReadOnlyList<TimesheetTransitionOptionDto>> GetAllowedTransitionOptionsAsync(
-        string code,
-        CancellationToken ct = default);
-
-    /// <summary>
     /// Зберігає зміни коду та його правила переходів (диф-оновлення без втрати даних).
     /// </summary>
     Task SavePolicyAsync(

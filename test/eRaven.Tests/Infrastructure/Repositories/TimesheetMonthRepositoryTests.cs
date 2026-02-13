@@ -21,8 +21,14 @@ public sealed class TimesheetMonthRepositoryTests
     {
         await using var tdb = new SqliteTestDb();
 
+        // seed codes
+        var c30 = NewCode("30");
+        var cT = NewCode("Т");
+
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.AddRange(c30, cT);
+
             var p1 = NewPerson("111", "Ivanov Ivan", EnrollmentKind.Unit, new DateOnly(2026, 01, 01));
             var p2 = NewPerson("222", "Petrenko Petro", EnrollmentKind.Unit, new DateOnly(2026, 01, 10));
             var p3 = NewPerson("333", "Sydorenko Sydir", EnrollmentKind.Unit, new DateOnly(2026, 01, 01),
@@ -37,9 +43,9 @@ public sealed class TimesheetMonthRepositoryTests
             db.TimesheetTimelines.AddRange(t1, t2, t3);
 
             db.TimesheetEntries.AddRange(
-                NewEntry(t1, p1.Id, "30", from: new DateOnly(2026, 01, 01), to: null),
-                NewEntry(t2, p2.Id, "30", from: new DateOnly(2026, 01, 10), to: null),
-                NewEntry(t3, p3.Id, "30", from: new DateOnly(2026, 01, 01), to: new DateOnly(2026, 01, 15))
+                NewEntry(t1, p1.Id, c30.Id, from: new DateOnly(2026, 01, 01), to: null),
+                NewEntry(t2, p2.Id, c30.Id, from: new DateOnly(2026, 01, 10), to: null),
+                NewEntry(t3, p3.Id, c30.Id, from: new DateOnly(2026, 01, 01), to: new DateOnly(2026, 01, 15))
             );
 
             db.SaveChanges();
@@ -77,8 +83,12 @@ public sealed class TimesheetMonthRepositoryTests
     {
         await using var tdb = new SqliteTestDb();
 
+        var c30 = NewCode("30");
+
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.Add(c30);
+
             var p1 = NewPerson("111", "Ivanov Ivan", EnrollmentKind.Unit, new DateOnly(2026, 01, 01));
             var p2 = NewPerson("222", "Petrenko Petro", EnrollmentKind.Unit, new DateOnly(2026, 01, 01));
 
@@ -89,8 +99,8 @@ public sealed class TimesheetMonthRepositoryTests
             db.TimesheetTimelines.AddRange(t1, t2);
 
             db.TimesheetEntries.AddRange(
-                NewEntry(t1, p1.Id, "30", new DateOnly(2026, 01, 01), null),
-                NewEntry(t2, p2.Id, "30", new DateOnly(2026, 01, 01), null)
+                NewEntry(t1, p1.Id, c30.Id, new DateOnly(2026, 01, 01), null),
+                NewEntry(t2, p2.Id, c30.Id, new DateOnly(2026, 01, 01), null)
             );
 
             db.SaveChanges();
@@ -115,8 +125,12 @@ public sealed class TimesheetMonthRepositoryTests
     {
         await using var tdb = new SqliteTestDb();
 
+        var c30 = NewCode("30");
+        var c100 = NewCode("100"); // alert
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.AddRange(c30, c100);
+
             var p1 = NewPerson("111", "Ivanov Ivan", EnrollmentKind.Unit, new DateOnly(2026, 01, 01));
             db.PersonRead.Add(p1);
 
@@ -124,9 +138,9 @@ public sealed class TimesheetMonthRepositoryTests
             db.TimesheetTimelines.Add(t1);
 
             db.TimesheetEntries.AddRange(
-                NewEntry(t1, p1.Id, "30", from: new DateOnly(2026, 01, 01), to: new DateOnly(2026, 01, 04)),
-                NewEntry(t1, p1.Id, "100", from: new DateOnly(2026, 01, 05), to: new DateOnly(2026, 01, 05), reference: "REF-ABC"),
-                NewEntry(t1, p1.Id, "30", from: new DateOnly(2026, 01, 06), to: null)
+                NewEntry(t1, p1.Id, c30.Id, from: new DateOnly(2026, 01, 01), to: new DateOnly(2026, 01, 04)),
+                NewEntry(t1, p1.Id, c100.Id, from: new DateOnly(2026, 01, 05), to: new DateOnly(2026, 01, 05), reference: "REF-ABC"),
+                NewEntry(t1, p1.Id, c30.Id, from: new DateOnly(2026, 01, 06), to: null)
             );
 
             db.SaveChanges();
@@ -152,12 +166,16 @@ public sealed class TimesheetMonthRepositoryTests
     {
         await using var tdb = new SqliteTestDb();
 
+        var c30 = NewCode("30");
+
         var date = new DateOnly(2026, 01, 12);
 
         Guid p1Id, p2Id, p3Id;
 
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.Add(c30);
+
             var p1 = NewPerson("111", "Ivanov Ivan", EnrollmentKind.Unit, new DateOnly(2026, 01, 01));
             var p2 = NewPerson("222", "Petrenko Petro", EnrollmentKind.Unit, new DateOnly(2026, 01, 10));
             var p3 = NewPerson("333", "Sydorenko Sydir", EnrollmentKind.Unit, new DateOnly(2026, 01, 01),
@@ -176,7 +194,7 @@ public sealed class TimesheetMonthRepositoryTests
 
             // only p1 has an entry, p2 has none => defaults
             db.TimesheetEntries.Add(
-                NewEntry(t1, p1.Id, "30", from: new DateOnly(2026, 01, 01), to: null, reference: " R-MAIN ", note: " N-MAIN ")
+                NewEntry(t1, p1.Id, c30.Id, from: new DateOnly(2026, 01, 01), to: null, reference: " R-MAIN ", note: " N-MAIN ")
             );
 
             db.SaveChanges();
@@ -190,12 +208,14 @@ public sealed class TimesheetMonthRepositoryTests
 
         var r1 = rows.Single(r => r.RNOKPP == "111");
         Assert.Equal(p1Id, r1.PersonId);
+        Assert.Equal(c30.Id, r1.DayState.CodeId);
         Assert.Equal("30", r1.DayState.Code);
         Assert.Equal("R-MAIN", r1.DayState.Reference);
         Assert.Equal("N-MAIN", r1.DayState.Note);
 
         var r2 = rows.Single(r => r.RNOKPP == "222");
         Assert.Equal(p2Id, r2.PersonId);
+        Assert.Equal(Guid.Empty, r2.DayState.CodeId);
         Assert.Equal("НБ", r2.DayState.Code);
         Assert.Null(r2.DayState.Reference);
         Assert.Null(r2.DayState.Note);
@@ -208,10 +228,15 @@ public sealed class TimesheetMonthRepositoryTests
     {
         await using var tdb = new SqliteTestDb();
 
+        var c30 = NewCode("30");
+        var c100 = NewCode("100");
+
         var date = new DateOnly(2026, 01, 12);
 
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.AddRange(c30, c100);
+
             var p1 = NewPerson("111", "Ivanov Ivan", EnrollmentKind.Unit, new DateOnly(2026, 01, 01));
             db.PersonRead.Add(p1);
 
@@ -220,8 +245,8 @@ public sealed class TimesheetMonthRepositoryTests
 
             // older open-ended + newer open-ended (newer should win)
             db.TimesheetEntries.AddRange(
-                NewEntry(t, p1.Id, "30", from: new DateOnly(2026, 01, 01), to: null, reference: "OLD", note: "OLDN"),
-                NewEntry(t, p1.Id, "100", from: new DateOnly(2026, 01, 11), to: null, reference: " NEW-REF ", note: " NEW-NOTE ")
+                NewEntry(t, p1.Id, c30.Id, from: new DateOnly(2026, 01, 01), to: null, reference: "OLD", note: "OLDN"),
+                NewEntry(t, p1.Id, c100.Id, from: new DateOnly(2026, 01, 11), to: null, reference: " NEW-REF ", note: " NEW-NOTE ")
             );
 
             db.SaveChanges();
@@ -235,6 +260,7 @@ public sealed class TimesheetMonthRepositoryTests
 
         var r = rows[0];
 
+        Assert.Equal(c100.Id, r.DayState.CodeId);
         Assert.Equal("100", r.DayState.Code);
         Assert.Equal("NEW-REF", r.DayState.Reference);
         Assert.Equal("NEW-NOTE", r.DayState.Note);
@@ -245,10 +271,14 @@ public sealed class TimesheetMonthRepositoryTests
     {
         await using var tdb = new SqliteTestDb();
 
+        var c30 = NewCode("30");
+
         var date = new DateOnly(2026, 01, 12);
 
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.Add(c30);
+
             var p1 = NewPerson("111", "Ivanov Ivan", EnrollmentKind.Unit, new DateOnly(2026, 01, 01));
             var p2 = NewPerson("222", "Petrenko Petro", EnrollmentKind.Unit, new DateOnly(2026, 01, 01));
 
@@ -259,8 +289,8 @@ public sealed class TimesheetMonthRepositoryTests
             db.TimesheetTimelines.AddRange(t1, t2);
 
             db.TimesheetEntries.AddRange(
-                NewEntry(t1, p1.Id, "30", new DateOnly(2026, 01, 01), null),
-                NewEntry(t2, p2.Id, "30", new DateOnly(2026, 01, 01), null)
+                NewEntry(t1, p1.Id, c30.Id, new DateOnly(2026, 01, 01), null),
+                NewEntry(t2, p2.Id, c30.Id, new DateOnly(2026, 01, 01), null)
             );
 
             db.SaveChanges();
@@ -282,12 +312,15 @@ public sealed class TimesheetMonthRepositoryTests
     {
         await using var tdb = new SqliteTestDb();
 
+        var cT = NewCode("Т");
+
         Guid personId;
 
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.Add(cT);
+
             // PersonRead потрібен лише щоб репо побудувало row.
-            // EnrolledAt/ExcludedAt тут не критичні для матриці кодів (вона будується з timelines+entries).
             var p = NewPerson("444", "Episode Person", EnrollmentKind.Unit, enrolledAt: new DateOnly(2026, 02, 28));
             personId = p.Id;
             db.PersonRead.Add(p);
@@ -302,8 +335,8 @@ public sealed class TimesheetMonthRepositoryTests
 
             // Entry-сегменти в межах кожного епізоду
             db.TimesheetEntries.AddRange(
-                NewEntry(tl1, personId, "Т", from: new DateOnly(2026, 02, 02), to: new DateOnly(2026, 02, 07)),
-                NewEntry(tl2, personId, "Т", from: new DateOnly(2026, 02, 28), to: null)
+                NewEntry(tl1, personId, cT.Id, from: new DateOnly(2026, 02, 02), to: new DateOnly(2026, 02, 07)),
+                NewEntry(tl2, personId, cT.Id, from: new DateOnly(2026, 02, 28), to: null)
             );
 
             db.SaveChanges();
@@ -383,10 +416,31 @@ public sealed class TimesheetMonthRepositoryTests
             CreatedAtUtc = NowUtc
         };
 
+    private static TimesheetCodeDefinition NewCode(
+        string code,
+        string? title = null,
+        int sortOrder = 0,
+        int priority = 0,
+        bool isTerminal = false,
+        bool isActive = true)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            Code = code,
+            Title = title ?? code,
+            Description = null,
+            SortOrder = sortOrder,
+            Priority = priority,
+            IsTerminal = isTerminal,
+            IsActive = isActive,
+            CreatedBy = "seed",
+            CreatedAtUtc = NowUtc
+        };
+
     private static TimesheetEntry NewEntry(
         TimesheetTimeline timeline,
         Guid personId,
-        string code,
+        Guid codeId,
         DateOnly from,
         DateOnly? to,
         string? reference = null,
@@ -396,7 +450,7 @@ public sealed class TimesheetMonthRepositoryTests
             Id = Guid.NewGuid(),
             TimelineId = timeline.Id,
             PersonId = personId,
-            Code = code,
+            TimesheetCodeDefinitionId = codeId,
             From = from,
             To = to,
             Reference = reference,

@@ -23,6 +23,8 @@ public sealed class GetTimesheetDayQueryHandlerTests
         var repo = new Mock<ITimesheetMonthRepository>(MockBehavior.Strict);
 
         var date = new DateOnly(2026, 01, 12);
+        var codeId = Guid.NewGuid();
+
         var expected = new List<TimesheetPersonDayRowDto>
         {
             new(
@@ -34,7 +36,11 @@ public sealed class GetTimesheetDayQueryHandlerTests
                 EnrollmentKind: EnrollmentKind.Unit,
                 EnrolledAt: new DateOnly(2026, 01, 01),
                 ExcludedAt: null,
-                DayState: new TimesheetDayStateDto("30", "REF", "NOTE")
+                DayState: new TimesheetDayStateDto(
+                    CodeId: codeId,
+                    Code: "30",
+                    Reference: "REF",
+                    Note: "NOTE")
             )
         };
 

@@ -60,28 +60,26 @@ public sealed class TransitionTimesheetStateCommandHandler(
         var prevEntry = await _entries.GetActiveEntryOnDateAsync(timeline.Id, command.PersonId, command.AnchorDate, ct)
             ?? throw new InvalidOperationException("Не знайдено активний запис на обрану дату.");
 
-        if (string.IsNullOrWhiteSpace(prevEntry.Code))
+        if (prevEntry.TimesheetCodeDefinition is null)
+            throw new InvalidOperationException("Не визначено код табеля (TimesheetCodeDefinition).");
+
+        var prevCode = (prevEntry.TimesheetCodeDefinition.Code ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(prevCode))
             throw new InvalidOperationException("Поточний код табеля не визначений.");
 
-        if (string.Equals(prevEntry.Code.Trim(), TimesheetSystemCodes.NotInTimesheet, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(prevCode, TimesheetSystemCodes.NotInTimesheet, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Перехід із “НБ” неможливий (це не подія табеля).");
 
         // 3) Підтягуємо довідник кодів (includeInactive=true, щоб не ламати історію)
         var allCodes = await _policy.GetCodesAsync(includeInactive: true, ct);
 
-        var prevDef = allCodes.FirstOrDefault(x =>
-            string.Equals(x.Code?.Trim(), prevEntry.Code.Trim(), StringComparison.OrdinalIgnoreCase))
-            ?? throw new InvalidOperationException($"Для поточного коду “{prevEntry.Code}” немає запису у політиці.");
+        var prevDef = allCodes.FirstOrDefault(x => x.Id == prevEntry.TimesheetCodeDefinitionId)
+            ?? throw new InvalidOperationException($"Для поточного коду немає запису у політиці.");
 
         var nextDef = allCodes.FirstOrDefault(x =>
             string.Equals(x.Code?.Trim(), nextCode, StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidOperationException($"Код “{nextCode}” не знайдено у політиці.");
-
-        if (!nextDef.IsActive)
-            throw new InvalidOperationException($"Код “{nextDef.Code}” закритий (неактивний).");
-
-        if (prevDef.IsTerminal)
-            throw new InvalidOperationException($"Поточний код “{prevDef.Code}” є фінальним. Перехід заборонений.");
 
         // 4) Правило переходу (From -> To) + StartShiftDays
         var allowed = await _policy.GetAllowedTransitionsAsync(prevDef.Id, ct);
@@ -107,7 +105,7 @@ public sealed class TransitionTimesheetStateCommandHandler(
 
             if (nextExisting is not null)
                 throw new InvalidOperationException(
-                    $"Є наступна подія: {nextExisting.From:yyyy-MM-dd} ({nextExisting.Code}). Використайте режим 'Корекція'.");
+                    $"Є наступна подія: {nextExisting.From:yyyy-MM-dd} ({nextExisting.TimesheetCodeDefinition?.Code}). Використайте режим 'Корекція'.");
         }
 
         // 5) Не можна закривати попередній стан раніше його старту.
@@ -117,7 +115,7 @@ public sealed class TransitionTimesheetStateCommandHandler(
             if (nextFrom != prevEntry.From)
                 throw new InvalidOperationException("Дата події некоректна: вона закриває поточний стан раніше його початку.");
 
-            prevEntry.Code = nextDef.Code;
+            prevEntry.TimesheetCodeDefinitionId = nextDef.Id;
             prevEntry.Reference = string.IsNullOrWhiteSpace(command.Reference) ? null : command.Reference.Trim();
             prevEntry.Note = string.IsNullOrWhiteSpace(command.Note) ? null : command.Note.Trim();
             prevEntry.UpdatedBy = command.Author;
@@ -137,7 +135,7 @@ public sealed class TransitionTimesheetStateCommandHandler(
             Id = Guid.NewGuid(),
             TimelineId = timeline.Id,
             PersonId = command.PersonId,
-            Code = nextDef.Code,
+            TimesheetCodeDefinitionId = nextDef.Id,
             From = nextFrom,
             To = null,
             Reference = string.IsNullOrWhiteSpace(command.Reference) ? null : command.Reference.Trim(),

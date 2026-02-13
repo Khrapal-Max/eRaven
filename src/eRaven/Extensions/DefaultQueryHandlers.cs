@@ -43,7 +43,7 @@ public static class DefaultQueryHandlers
 
         services.AddScoped<IQueryHandler<GetTimesheetPolicyCodesQuery, IReadOnlyList<TimesheetCodeDto>>, GetTimesheetPolicyCodesQueryHandler>();
         services.AddScoped<IQueryHandler<GetTimesheetPolicyForCodeQuery, TimesheetPolicyEditorDto?>, GetTimesheetPolicyForCodeQueryHandler>();
-        services.AddScoped<IQueryHandler<GetTimesheetPolicyForCodeByCodeQuery, IReadOnlyList<TimesheetTransitionOptionDto>>, GetTimesheetPolicyForCodeByCodeQueryHandler>();
+        services.AddScoped<IQueryHandler<GetTimesheetPolicyForCodeQuery, IReadOnlyList<TimesheetTransitionOptionDto>>, GetTimesheetPolicyForCodeOptionQueryHandler>();
 
         services.AddScoped<IQueryHandler<GetCombatTaskPersonLookupQuery, IReadOnlyList<ReadyCombatTaskPersonDto>>, GetCombatTaskPersonLookupQueryHandler>();
         services.AddScoped<IQueryHandler<GetCombatTaskDocumentsQuery, IReadOnlyList<CombatTaskDocumentDto>>, GetCombatTaskDocumentsQueryHandler>();

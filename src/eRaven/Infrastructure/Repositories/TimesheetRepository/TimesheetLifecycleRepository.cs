@@ -36,13 +36,13 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
     /// <summary>Дефолтний код на дату зарахування (перший факт у новому епізоді).</summary>
-    private const string DefaultEnrollCode = "Т";
+    private const string DefaultEnrollCode = TimesheetSystemCodes.BaseState;
 
     /// <summary>Коди, з яких дозволено закривати табель при Exclude.</summary>
-    private static readonly HashSet<string> AllowedCloseCodes = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> AllowedCloseCodes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Т",
-        "РОЗПОР"
+        TimesheetSystemCodes.BaseState,
+        TimesheetSystemCodes.Rozpor
     };
 
     /// <inheritdoc />
@@ -117,6 +117,16 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
                 "Неможливо відкрити табель: знайдено декілька активних епізодів (дані пошкоджені).");
         }
 
+        var defaultCodeId = await db.TimesheetCodes
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .Where(x => x.Code == DefaultEnrollCode)
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (defaultCodeId == Guid.Empty)
+            throw new InvalidOperationException($"Код '{DefaultEnrollCode}' не знайдено у довіднику TimesheetCodes.");
+
         // 3) Default code covering enroll date (ідемпотентно)
         var hasEntryOnEnrollDate = await db.TimesheetEntries
             .AsNoTracking()
@@ -132,7 +142,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
                 Id = Guid.NewGuid(),
                 TimelineId = timeline.Id,
                 PersonId = personId,
-                Code = DefaultEnrollCode,
+                TimesheetCodeDefinitionId = defaultCodeId,
                 From = enrollDate,
                 To = null,
                 Reference = "Auto: enroll",
@@ -261,6 +271,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
 
         var onDate = await db.TimesheetEntries
             .AsNoTracking()
+            .Include(x => x.TimesheetCodeDefinition)
             .Where(x => x.TimelineId == timeline.Id && !x.IsDeleted)
             .Where(x => x.From <= closeTo && (!x.To.HasValue || x.To.Value >= closeTo))
             .OrderByDescending(x => x.From)
@@ -269,7 +280,10 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
             ?? throw new InvalidOperationException(
                 $"Неможливо виключити з табелю: на дату {closeTo:yyyy-MM-dd} немає активного запису (дані пошкоджені).");
 
-        var code = (onDate.Code ?? string.Empty).Trim();
+        if (onDate.TimesheetCodeDefinition is null)
+            throw new InvalidOperationException("Неможливо перевірити код: TimesheetCodeDefinition не підвантажено/відсутнє.");
+
+        var code = (onDate.TimesheetCodeDefinition.Code ?? string.Empty).Trim();
 
         if (!AllowedCloseCodes.Contains(code))
         {

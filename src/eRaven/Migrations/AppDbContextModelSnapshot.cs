@@ -577,12 +577,6 @@ namespace eRaven.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("code");
-
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
@@ -633,6 +627,10 @@ namespace eRaven.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("timeline_id");
 
+                    b.Property<Guid>("TimesheetCodeDefinitionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("timesheet_codedefinition_id");
+
                     b.Property<DateOnly?>("To")
                         .HasColumnType("date")
                         .HasColumnName("to_date");
@@ -647,6 +645,8 @@ namespace eRaven.Migrations
                         .HasColumnName("updated_by");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TimesheetCodeDefinitionId");
 
                     b.HasIndex("TimelineId", "From")
                         .HasDatabaseName("ix_ts_entries_timeline_from");
@@ -771,7 +771,15 @@ namespace eRaven.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("eRaven.Domain.Entities.TimesheetCodeDefinition", "TimesheetCodeDefinition")
+                        .WithMany()
+                        .HasForeignKey("TimesheetCodeDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Timeline");
+
+                    b.Navigation("TimesheetCodeDefinition");
                 });
 
             modelBuilder.Entity("eRaven.Domain.Entities.CombatTask", b =>

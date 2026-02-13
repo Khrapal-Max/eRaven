@@ -24,7 +24,7 @@ public partial class TimesheetTransitionDrawer : ComponentBase
     // DI
     //======================================================================
 
-    [Inject] public IQueryHandler<GetTimesheetPolicyForCodeByCodeQuery, IReadOnlyList<TimesheetTransitionOptionDto>> GetOptions { get; set; } = default!;
+    [Inject] public IQueryHandler<GetTimesheetPolicyForCodeQuery, IReadOnlyList<TimesheetTransitionOptionDto>> GetOptions { get; set; } = default!;
     [Inject] public ICommandHandler<TransitionTimesheetStateCommand, Guid> Transition { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
 
@@ -36,8 +36,10 @@ public partial class TimesheetTransitionDrawer : ComponentBase
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
 
     [Parameter] public Guid PersonId { get; set; }
-    [Parameter] public DateOnly AnchorDate { get; set; }                 // дата кліку/рядка
-    [Parameter] public string CurrentCode { get; set; } = string.Empty;  // код табеля на цю дату
+    [Parameter] public Guid CurrentCodeId { get; set; }                  // код табеля на цю дату
+
+    [Parameter] public string CurrentCode { get; set; } = string.Empty;   // код табеля на цю дату
+    [Parameter] public DateOnly AnchorDate { get; set; }                 // дата кліку/рядка   
 
     [Parameter] public string? PersonLabel { get; set; }
     [Parameter] public EventCallback OnApplied { get; set; }             // ReloadAsync у батька
@@ -113,7 +115,7 @@ public partial class TimesheetTransitionDrawer : ComponentBase
                 return;
             }
 
-            _options = await GetOptions.HandleAsync(new GetTimesheetPolicyForCodeByCodeQuery(code));
+            _options = await GetOptions.HandleAsync(new GetTimesheetPolicyForCodeQuery(CurrentCodeId));
 
             if (_options.Count == 0)
                 return;

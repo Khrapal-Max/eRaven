@@ -30,9 +30,8 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
             .HasColumnName("person_id")
             .IsRequired();
 
-        e.Property(x => x.Code)
-            .HasColumnName("code")
-            .HasMaxLength(32)
+        e.Property(x => x.TimesheetCodeDefinitionId)
+            .HasColumnName("timesheet_codedefinition_id")
             .IsRequired();
 
         // NOTE: "from"/"to" можуть бути незручними іменами в SQL.
@@ -87,6 +86,11 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
             .WithMany(x => x.Entries)
             .HasForeignKey(x => x.TimelineId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        e.HasOne(x => x.TimesheetCodeDefinition)
+            .WithMany()
+            .HasForeignKey(x => x.TimesheetCodeDefinitionId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         e.HasIndex(x => new { x.PersonId, x.From, x.To })
             .HasDatabaseName("ix_ts_entries_person_range");

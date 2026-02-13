@@ -8,6 +8,7 @@
 namespace eRaven.Application.DTOs.Timesheet;
 
 public sealed record TimesheetDayStateDto(
+  Guid CodeId,
   string Code,
   string? Reference,
   string? Note

@@ -6,14 +6,14 @@
 <div class="page-flex">
 
     <!-- Toolbar -->
-    <div class="d-flex align-items-center gap-2 px-3 py-2 border rounded-2 bg-body">
-        <div class="fw-semibold text-body">Політика переходів</div>
+    <div class="d-flex align-items-center gap-2 px-3 py-2 border rounded-2 bg-body text-white">
+        <div class="fw-semibold">Політика переходів</div>
 
         @if (_selected is not null)
         {
             <div class="ms-2 small text-truncate">
                 Код:
-                <span class="font-monospace fw-semibold text-body">@_selected.Code</span>
+                <span class="font-monospace fw-semibold">@_selected.Code</span>
                 — @_selected.Title
 
                 @if (!_selected.IsActive)

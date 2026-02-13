@@ -27,10 +27,31 @@ public sealed class TimesheetEntryRepositoryTests
             CreatedAtUtc = NowUtc
         };
 
+    private static TimesheetCodeDefinition NewCode(
+        string code,
+        string? title = null,
+        int sortOrder = 0,
+        int priority = 0,
+        bool isTerminal = false,
+        bool isActive = true)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            Code = code,
+            Title = title ?? code,
+            Description = null,
+            SortOrder = sortOrder,
+            Priority = priority,
+            IsTerminal = isTerminal,
+            IsActive = isActive,
+            CreatedBy = "seed",
+            CreatedAtUtc = NowUtc
+        };
+
     private static TimesheetEntry NewEntry(
         Guid timelineId,
         Guid personId,
-        string code,
+        Guid codeId,
         DateOnly from,
         DateOnly? to = null,
         bool isDeleted = false)
@@ -39,7 +60,7 @@ public sealed class TimesheetEntryRepositoryTests
             Id = Guid.NewGuid(),
             TimelineId = timelineId,
             PersonId = personId,
-            Code = code,
+            TimesheetCodeDefinitionId = codeId,
             From = from,
             To = to,
             Reference = null,
@@ -58,12 +79,14 @@ public sealed class TimesheetEntryRepositoryTests
         var tl = NewTimeline(personId, new DateOnly(2026, 1, 1));
 
         TimesheetEntry deleted;
+        var c30 = NewCode("30");
 
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.Add(c30);
             db.TimesheetTimelines.Add(tl);
 
-            deleted = NewEntry(tl.Id, personId, "30", new DateOnly(2026, 1, 1), null, isDeleted: true);
+            deleted = NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 1), null, isDeleted: true);
             db.TimesheetEntries.Add(deleted);
 
             await db.SaveChangesAsync();
@@ -89,17 +112,23 @@ public sealed class TimesheetEntryRepositoryTests
         TimesheetEntry e1;
         TimesheetEntry outside; // should be filtered out
 
+        var c30 = NewCode("30");
+        var cPbd = NewCode("ПБД");
+        var cVp = NewCode("ВП");
+        var cX = NewCode("X");
+
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.AddRange(c30, cPbd, cVp, cX);
             db.TimesheetTimelines.Add(tl);
 
             // out of order insert:
-            e3 = NewEntry(tl.Id, personId, "ВП", new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 12));
-            e2 = NewEntry(tl.Id, personId, "ПБД", new DateOnly(2026, 1, 5), null);
-            e1 = NewEntry(tl.Id, personId, "30", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 4));
+            e3 = NewEntry(tl.Id, personId, cVp.Id, new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 12));
+            e2 = NewEntry(tl.Id, personId, cPbd.Id, new DateOnly(2026, 1, 5), null);
+            e1 = NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 4));
 
             // outside of queried range (Feb)
-            outside = NewEntry(tl.Id, personId, "X", new DateOnly(2026, 2, 1), null);
+            outside = NewEntry(tl.Id, personId, cX.Id, new DateOnly(2026, 2, 1), null);
 
             db.TimesheetEntries.AddRange(e3, e2, e1, outside);
             await db.SaveChangesAsync();
@@ -114,16 +143,16 @@ public sealed class TimesheetEntryRepositoryTests
 
         Assert.Equal(3, res.Count);
 
-        Assert.Equal("30", res[0].Code);
+        Assert.Equal(c30.Id, res[0].TimesheetCodeDefinitionId);
         Assert.Equal(new DateOnly(2026, 1, 1), res[0].From);
 
-        Assert.Equal("ПБД", res[1].Code);
+        Assert.Equal(cPbd.Id, res[1].TimesheetCodeDefinitionId);
         Assert.Equal(new DateOnly(2026, 1, 5), res[1].From);
 
-        Assert.Equal("ВП", res[2].Code);
+        Assert.Equal(cVp.Id, res[2].TimesheetCodeDefinitionId);
         Assert.Equal(new DateOnly(2026, 1, 10), res[2].From);
 
-        Assert.DoesNotContain(res, x => x.Code == "X");
+        Assert.DoesNotContain(res, x => x.TimesheetCodeDefinitionId == cX.Id);
     }
 
     [Fact]
@@ -134,13 +163,17 @@ public sealed class TimesheetEntryRepositoryTests
         var personId = Guid.NewGuid();
         var tl = NewTimeline(personId, new DateOnly(2026, 1, 1));
 
+        var c30 = NewCode("30");
+        var cVp = NewCode("ВП");
+
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.AddRange(c30, cVp);
             db.TimesheetTimelines.Add(tl);
 
             db.TimesheetEntries.AddRange(
-                NewEntry(tl.Id, personId, "30", new DateOnly(2026, 1, 1), null),
-                NewEntry(tl.Id, personId, "ВП", new DateOnly(2026, 1, 10), null)
+                NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 1), null),
+                NewEntry(tl.Id, personId, cVp.Id, new DateOnly(2026, 1, 10), null)
             );
 
             await db.SaveChangesAsync();
@@ -151,8 +184,12 @@ public sealed class TimesheetEntryRepositoryTests
         var active = await repo.GetActiveEntryOnDateAsync(tl.Id, personId, new DateOnly(2026, 1, 15));
 
         Assert.NotNull(active);
-        Assert.Equal("ВП", active!.Code);
+        Assert.Equal(cVp.Id, active!.TimesheetCodeDefinitionId);
         Assert.Equal(new DateOnly(2026, 1, 10), active.From);
+
+        // якщо репо робить Include — можна також перевірити код
+        if (active.TimesheetCodeDefinition is not null)
+            Assert.Equal("ВП", active.TimesheetCodeDefinition.Code);
     }
 
     [Fact]
@@ -164,11 +201,16 @@ public sealed class TimesheetEntryRepositoryTests
         var tl = NewTimeline(personId, new DateOnly(2026, 1, 1));
         TimesheetEntry e;
 
+        var c30 = NewCode("30");
+
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.Add(c30);
             db.TimesheetTimelines.Add(tl);
-            e = NewEntry(tl.Id, personId, "30", new DateOnly(2026, 1, 1), null);
+
+            e = NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 1), null);
             db.TimesheetEntries.Add(e);
+
             await db.SaveChangesAsync();
         }
 
@@ -210,13 +252,17 @@ public sealed class TimesheetEntryRepositoryTests
         var tl1 = NewTimeline(p1, new DateOnly(2026, 1, 1));
         var tl2 = NewTimeline(p2, new DateOnly(2026, 1, 1));
 
+        var c30 = NewCode("30");
+        var cRozpor = NewCode("РОЗПОР");
+
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.AddRange(c30, cRozpor);
             db.TimesheetTimelines.AddRange(tl1, tl2);
 
             db.TimesheetEntries.AddRange(
-                NewEntry(tl1.Id, p1, "30", new DateOnly(2026, 1, 1), null),
-                NewEntry(tl2.Id, p2, "РОЗПОР", new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 20))
+                NewEntry(tl1.Id, p1, c30.Id, new DateOnly(2026, 1, 1), null),
+                NewEntry(tl2.Id, p2, cRozpor.Id, new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 20))
             );
 
             await db.SaveChangesAsync();
@@ -230,8 +276,8 @@ public sealed class TimesheetEntryRepositoryTests
             to: new DateOnly(2026, 1, 31));
 
         Assert.Equal(2, res.Count);
-        Assert.Contains(res, x => x.PersonId == p1 && x.Code == "30");
-        Assert.Contains(res, x => x.PersonId == p2 && x.Code == "РОЗПОР");
+        Assert.Contains(res, x => x.PersonId == p1 && x.TimesheetCodeDefinitionId == c30.Id);
+        Assert.Contains(res, x => x.PersonId == p2 && x.TimesheetCodeDefinitionId == cRozpor.Id);
     }
 
     [Fact]
@@ -245,11 +291,15 @@ public sealed class TimesheetEntryRepositoryTests
         TimesheetEntry prev;
         TimesheetEntry next;
 
+        var c30 = NewCode("30");
+        var c100 = NewCode("100");
+
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.AddRange(c30, c100);
             db.TimesheetTimelines.Add(tl);
 
-            prev = NewEntry(tl.Id, personId, "30", new DateOnly(2026, 1, 1), null);
+            prev = NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 1), null);
             db.TimesheetEntries.Add(prev);
 
             await db.SaveChangesAsync();
@@ -260,7 +310,7 @@ public sealed class TimesheetEntryRepositoryTests
         prev.UpdatedBy = "ui";
         prev.UpdatedAtUtc = NowUtc;
 
-        next = NewEntry(tl.Id, personId, "100", new DateOnly(2026, 1, 10), null);
+        next = NewEntry(tl.Id, personId, c100.Id, new DateOnly(2026, 1, 10), null);
         next.CreatedBy = "ui";
         next.CreatedAtUtc = NowUtc;
 
@@ -275,10 +325,11 @@ public sealed class TimesheetEntryRepositoryTests
                 .ToListAsync();
 
             Assert.Equal(2, all.Count);
-            Assert.Equal("30", all[0].Code);
+
+            Assert.Equal(c30.Id, all[0].TimesheetCodeDefinitionId);
             Assert.Equal(new DateOnly(2026, 1, 9), all[0].To);
 
-            Assert.Equal("100", all[1].Code);
+            Assert.Equal(c100.Id, all[1].TimesheetCodeDefinitionId);
             Assert.Equal(new DateOnly(2026, 1, 10), all[1].From);
         }
     }
@@ -295,14 +346,17 @@ public sealed class TimesheetEntryRepositoryTests
         var personId = Guid.NewGuid();
         var tl = NewTimeline(personId, openedAt: new DateOnly(2026, 1, 1), closedAt: new DateOnly(2026, 1, 5));
 
+        var c30 = NewCode("30");
+
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.Add(c30);
             db.TimesheetTimelines.Add(tl);
             await db.SaveChangesAsync();
         }
 
         var repo = new TimesheetEntryRepository(tdb.Factory);
-        var entry = NewEntry(tl.Id, personId, "30", new DateOnly(2026, 1, 2), null);
+        var entry = NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 2), null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => repo.AddAsync(entry));
     }
@@ -317,12 +371,16 @@ public sealed class TimesheetEntryRepositoryTests
 
         TimesheetEntry prev;
 
+        var c30 = NewCode("30");
+        var c100 = NewCode("100");
+
         // Seed existing data directly (represents history before timeline got closed)
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.AddRange(c30, c100);
             db.TimesheetTimelines.Add(tl);
 
-            prev = NewEntry(tl.Id, personId, "30", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5));
+            prev = NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5));
             db.TimesheetEntries.Add(prev);
 
             await db.SaveChangesAsync();
@@ -332,7 +390,7 @@ public sealed class TimesheetEntryRepositoryTests
         prev.UpdatedBy = "ui";
         prev.UpdatedAtUtc = NowUtc;
 
-        var next = NewEntry(tl.Id, personId, "100", new DateOnly(2026, 1, 6), null);
+        var next = NewEntry(tl.Id, personId, c100.Id, new DateOnly(2026, 1, 6), null);
         next.CreatedBy = "ui";
         next.CreatedAtUtc = NowUtc;
 
@@ -349,15 +407,18 @@ public sealed class TimesheetEntryRepositoryTests
         var personId = Guid.NewGuid();
         var tl = NewTimeline(personId, openedAt: new DateOnly(2026, 1, 10));
 
+        var c30 = NewCode("30");
+
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.Add(c30);
             db.TimesheetTimelines.Add(tl);
             await db.SaveChangesAsync();
         }
 
         var repo = new TimesheetEntryRepository(tdb.Factory);
 
-        var entry = NewEntry(tl.Id, personId, "30", from: new DateOnly(2026, 1, 9), to: null);
+        var entry = NewEntry(tl.Id, personId, c30.Id, from: new DateOnly(2026, 1, 9), to: null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => repo.AddAsync(entry));
     }
@@ -370,15 +431,18 @@ public sealed class TimesheetEntryRepositoryTests
         var personId = Guid.NewGuid();
         var tl = NewTimeline(personId, openedAt: new DateOnly(2026, 1, 1));
 
+        var c30 = NewCode("30");
+
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.Add(c30);
             db.TimesheetTimelines.Add(tl);
             await db.SaveChangesAsync();
         }
 
         var repo = new TimesheetEntryRepository(tdb.Factory);
 
-        var entry = NewEntry(tl.Id, personId, "30", from: new DateOnly(2026, 1, 10), to: new DateOnly(2026, 1, 9));
+        var entry = NewEntry(tl.Id, personId, c30.Id, from: new DateOnly(2026, 1, 10), to: new DateOnly(2026, 1, 9));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => repo.AddAsync(entry));
     }
@@ -393,13 +457,16 @@ public sealed class TimesheetEntryRepositoryTests
 
         TimesheetEntry e;
 
+        var c30 = NewCode("30");
+
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.Add(c30);
             db.TimesheetTimelines.Add(tl);
 
             // Seed an entry that violates closed-timeline invariant (open-ended).
             // UpdateAsync should reject it (guard for data integrity).
-            e = NewEntry(tl.Id, personId, "30", new DateOnly(2026, 1, 1), to: null);
+            e = NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 1), to: null);
             db.TimesheetEntries.Add(e);
 
             await db.SaveChangesAsync();
@@ -422,11 +489,15 @@ public sealed class TimesheetEntryRepositoryTests
 
         TimesheetEntry prev;
 
+        var c30 = NewCode("30");
+        var c100 = NewCode("100");
+
         using (var db = tdb.Factory.CreateDbContext())
         {
+            db.TimesheetCodes.AddRange(c30, c100);
             db.TimesheetTimelines.Add(tl1);
 
-            prev = NewEntry(tl1.Id, personId, "30", new DateOnly(2026, 1, 1), null);
+            prev = NewEntry(tl1.Id, personId, c30.Id, new DateOnly(2026, 1, 1), null);
             db.TimesheetEntries.Add(prev);
 
             await db.SaveChangesAsync();
@@ -437,7 +508,7 @@ public sealed class TimesheetEntryRepositoryTests
         prev.UpdatedAtUtc = NowUtc;
 
         // next "в іншому timeline" — НЕ потрібно створювати 2-й timeline в БД
-        var next = NewEntry(Guid.NewGuid(), personId, "100", new DateOnly(2026, 1, 10), null);
+        var next = NewEntry(Guid.NewGuid(), personId, c100.Id, new DateOnly(2026, 1, 10), null);
 
         var repo = new TimesheetEntryRepository(tdb.Factory);
 

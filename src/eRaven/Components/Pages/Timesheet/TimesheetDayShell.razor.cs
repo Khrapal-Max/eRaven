@@ -61,8 +61,9 @@ public partial class TimesheetDayShell : ComponentBase
     //======================================================================
     private bool _transitionOpen;
     private Guid _transitionPersonId;
-    private DateOnly _transitionAnchorDate;
+    private Guid _transitionCurrentCodeId;
     private string _transitionCurrentCode = string.Empty;
+    private DateOnly _transitionAnchorDate;
     private string? _transitionPersonLabel;
 
     //======================================================================
@@ -138,7 +139,8 @@ public partial class TimesheetDayShell : ComponentBase
         _transitionPersonId = row.PersonId;
         _transitionPersonLabel = row.FullName;                         // опціонально
         _transitionAnchorDate = DateOnly.FromDateTime(DateTime.Today); // DateOnly
-        _transitionCurrentCode = (row.DayState.Code ?? "").Trim();
+        _transitionCurrentCodeId = row.DayState.CodeId;
+        _transitionCurrentCode = row.DayState.Code;
 
         _transitionOpen = true;
 

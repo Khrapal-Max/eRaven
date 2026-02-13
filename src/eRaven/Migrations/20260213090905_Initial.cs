@@ -1,20 +1,18 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace eRaven.Migrations
 {
     /// <inheritdoc />
-    public partial class ReAddCombatTask : Migration
+    public partial class Initial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<int>(
-                name: "position_sort",
-                table: "person_read",
-                type: "integer",
-                nullable: true);
+            migrationBuilder.AlterDatabase()
+                .Annotation("Npgsql:PostgresExtension:btree_gist", ",,");
 
             migrationBuilder.CreateTable(
                 name: "combat_task_documents",
@@ -77,6 +75,53 @@ namespace eRaven.Migrations
                 {
                     table.PrimaryKey("PK_missions", x => x.Id);
                     table.CheckConstraint("ck_missions_dates", "\"closed_at\" IS NULL OR \"closed_at\" >= \"created_at\"");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "person_events",
+                columns: table => new
+                {
+                    event_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    aggregate_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    version = table.Column<long>(type: "bigint", nullable: false),
+                    event_type = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    payload = table.Column<string>(type: "jsonb", nullable: false),
+                    author = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    occurred_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    effective_date = table.Column<DateOnly>(type: "date", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_person_events", x => x.event_id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "person_read",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    lifecycle = table.Column<int>(type: "integer", nullable: false),
+                    enrollment_kind = table.Column<int>(type: "integer", nullable: true),
+                    enrollment_reference = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    rnokpp = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
+                    last_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    first_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    middle_name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
+                    full_name = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
+                    rank = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
+                    position_sort = table.Column<int>(type: "integer", nullable: true),
+                    position = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
+                    bzvp = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
+                    weapon = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
+                    callsign = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
+                    enrolled_at = table.Column<DateOnly>(type: "date", nullable: true),
+                    excluded_at = table.Column<DateOnly>(type: "date", nullable: true),
+                    version = table.Column<long>(type: "bigint", nullable: false),
+                    updated_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_person_read", x => x.id);
                 });
 
             migrationBuilder.CreateTable(
@@ -182,7 +227,7 @@ namespace eRaven.Migrations
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     timeline_id = table.Column<Guid>(type: "uuid", nullable: false),
                     person_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    code = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    timesheet_codedefinition_id = table.Column<Guid>(type: "uuid", nullable: false),
                     from_date = table.Column<DateOnly>(type: "date", nullable: false),
                     to_date = table.Column<DateOnly>(type: "date", nullable: true),
                     reference = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
@@ -199,6 +244,12 @@ namespace eRaven.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_timesheet_entries", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_timesheet_entries_timesheet_codes_timesheet_codedefinition_~",
+                        column: x => x.timesheet_codedefinition_id,
+                        principalTable: "timesheet_codes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_timesheet_entries_timesheet_timelines_timeline_id",
                         column: x => x.timeline_id,
@@ -231,11 +282,6 @@ namespace eRaven.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_person_read_kind_possort_last",
-                table: "person_read",
-                columns: new[] { "enrollment_kind", "position_sort", "last_name" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_combat_task_documents_order_title",
@@ -330,6 +376,43 @@ namespace eRaven.Migrations
                 filter: "\"closed_at\" IS NULL");
 
             migrationBuilder.CreateIndex(
+                name: "ix_person_events_aggregate_effective_date",
+                table: "person_events",
+                columns: new[] { "aggregate_id", "effective_date" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_person_events_aggregate_version",
+                table: "person_events",
+                columns: new[] { "aggregate_id", "version" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_person_events_event_type",
+                table: "person_events",
+                column: "event_type");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_person_read_enrolled_excluded",
+                table: "person_read",
+                columns: new[] { "enrolled_at", "excluded_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_person_read_kind_possort_last",
+                table: "person_read",
+                columns: new[] { "enrollment_kind", "position_sort", "last_name" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_person_read_lifecycle",
+                table: "person_read",
+                column: "lifecycle");
+
+            migrationBuilder.CreateIndex(
+                name: "ux_person_read_rnokpp",
+                table: "person_read",
+                column: "rnokpp",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_timesheet_code_ttransitions_FromCodeId_ToCodeId",
                 table: "timesheet_code_ttransitions",
                 columns: new[] { "FromCodeId", "ToCodeId" },
@@ -345,6 +428,11 @@ namespace eRaven.Migrations
                 table: "timesheet_codes",
                 column: "code",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_timesheet_entries_timesheet_codedefinition_id",
+                table: "timesheet_entries",
+                column: "timesheet_codedefinition_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_ts_entries_person_range",
@@ -384,6 +472,12 @@ namespace eRaven.Migrations
                 name: "mission_assignments");
 
             migrationBuilder.DropTable(
+                name: "person_events");
+
+            migrationBuilder.DropTable(
+                name: "person_read");
+
+            migrationBuilder.DropTable(
                 name: "timesheet_code_ttransitions");
 
             migrationBuilder.DropTable(
@@ -403,14 +497,6 @@ namespace eRaven.Migrations
 
             migrationBuilder.DropTable(
                 name: "missions");
-
-            migrationBuilder.DropIndex(
-                name: "ix_person_read_kind_possort_last",
-                table: "person_read");
-
-            migrationBuilder.DropColumn(
-                name: "position_sort",
-                table: "person_read");
         }
     }
 }
