@@ -110,6 +110,7 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
 
         return await db.TimesheetEntries
             .AsNoTracking()
+            .Include(x => x.TimesheetCodeDefinition)
             .Where(x => !x.IsDeleted)
             .Where(x => x.TimelineId == timelineId)
             .Where(x => x.PersonId == personId)

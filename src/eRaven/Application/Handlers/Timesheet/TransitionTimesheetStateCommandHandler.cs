@@ -84,10 +84,9 @@ public sealed class TransitionTimesheetStateCommandHandler(
         // 4) Правило переходу (From -> To) + StartShiftDays
         var allowed = await _policy.GetAllowedTransitionsAsync(prevDef.Id, ct);
 
-        var rule = allowed.FirstOrDefault(x => x.ToCodeId == nextDef.Id);
-        if (rule is null)
-            throw new InvalidOperationException($"Перехід “{prevDef.Code} → {nextDef.Code}” заборонений політикою.");
-
+        var rule = allowed.FirstOrDefault(x => x.ToCodeId == nextDef.Id) 
+            ?? throw new InvalidOperationException($"Перехід “{prevDef.Code} → {nextDef.Code}” заборонений політикою.");
+        
         var shift = rule.StartShiftDays;
         if (shift < 0)
             throw new InvalidOperationException("Некоректне правило політики: StartShiftDays < 0.");
