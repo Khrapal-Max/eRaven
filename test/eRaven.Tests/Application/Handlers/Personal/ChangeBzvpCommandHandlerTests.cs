@@ -29,14 +29,26 @@ public sealed class ChangeBzvpCommandHandlerTests
             Author: "tester",
             NowUtc: new DateTime(2026, 01, 16, 8, 0, 0, DateTimeKind.Utc));
 
-        repo.Setup(x => x.ChangeBzvpAsync(cmd, It.IsAny<CancellationToken>()))
+        repo.Setup(x => x.ChangeBzvpAsync(cmd.PersonId,
+            cmd.EffectiveDate,
+            cmd.Bzvp,
+            cmd.Note,
+            cmd.Author,
+            cmd.NowUtc,
+            It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // act
         await sut.HandleAsync(cmd);
 
         // assert
-        repo.Verify(x => x.ChangeBzvpAsync(cmd, It.IsAny<CancellationToken>()), Times.Once);
+        repo.Verify(x => x.ChangeBzvpAsync(cmd.PersonId,
+            cmd.EffectiveDate,
+            cmd.Bzvp,
+            cmd.Note,
+            cmd.Author,
+            cmd.NowUtc,
+            It.IsAny<CancellationToken>()), Times.Once);
         repo.VerifyNoOtherCalls();
     }
 
@@ -58,14 +70,26 @@ public sealed class ChangeBzvpCommandHandlerTests
         using var cts = new CancellationTokenSource();
         var ct = cts.Token;
 
-        repo.Setup(x => x.ChangeBzvpAsync(cmd, ct))
+        repo.Setup(x => x.ChangeBzvpAsync(cmd.PersonId,
+            cmd.EffectiveDate,
+            cmd.Bzvp,
+            cmd.Note,
+            cmd.Author,
+            cmd.NowUtc,
+            ct))
             .Returns(Task.CompletedTask);
 
         // act
         await sut.HandleAsync(cmd, ct);
 
         // assert
-        repo.Verify(x => x.ChangeBzvpAsync(cmd, ct), Times.Once);
+        repo.Verify(x => x.ChangeBzvpAsync(cmd.PersonId,
+            cmd.EffectiveDate,
+            cmd.Bzvp,
+            cmd.Note,
+            cmd.Author,
+            cmd.NowUtc,
+            ct), Times.Once);
         repo.VerifyNoOtherCalls();
     }
 }

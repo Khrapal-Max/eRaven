@@ -30,14 +30,27 @@ public sealed class ChangePositionCommandHandlerTests
             Author: "tester",
             NowUtc: new DateTime(2026, 01, 07, 12, 0, 0, DateTimeKind.Utc));
 
-        repo.Setup(x => x.ChangePositionAsync(cmd, It.IsAny<CancellationToken>()))
+        repo.Setup(x => x.ChangePositionAsync(cmd.PersonId,
+            cmd.EffectiveDate,
+            cmd.PositionSort,
+            cmd.Position,
+            cmd.Note,
+            cmd.Author,
+            cmd.NowUtc,
+            It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // act
         await sut.HandleAsync(cmd);
 
         // assert
-        repo.Verify(x => x.ChangePositionAsync(cmd, It.IsAny<CancellationToken>()), Times.Once);
+        repo.Verify(x => x.ChangePositionAsync(cmd.PersonId,
+            cmd.EffectiveDate,
+            cmd.PositionSort,
+            cmd.Position,
+            cmd.Note,
+            cmd.Author,
+            cmd.NowUtc, It.IsAny<CancellationToken>()), Times.Once);
         repo.VerifyNoOtherCalls();
     }
 
@@ -60,14 +73,28 @@ public sealed class ChangePositionCommandHandlerTests
         using var cts = new CancellationTokenSource();
         var ct = cts.Token;
 
-        repo.Setup(x => x.ChangePositionAsync(cmd, ct))
+        repo.Setup(x => x.ChangePositionAsync(cmd.PersonId,
+            cmd.EffectiveDate,
+            cmd.PositionSort,
+            cmd.Position,
+            cmd.Note,
+            cmd.Author,
+            cmd.NowUtc,
+            ct))
             .Returns(Task.CompletedTask);
 
         // act
         await sut.HandleAsync(cmd, ct);
 
         // assert
-        repo.Verify(x => x.ChangePositionAsync(cmd, ct), Times.Once);
+        repo.Verify(x => x.ChangePositionAsync(cmd.PersonId,
+            cmd.EffectiveDate,
+            cmd.PositionSort,
+            cmd.Position,
+            cmd.Note,
+            cmd.Author,
+            cmd.NowUtc,
+            ct), Times.Once);
         repo.VerifyNoOtherCalls();
     }
 }

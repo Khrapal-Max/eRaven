@@ -166,13 +166,11 @@ public partial class PersonsRegistry : ComponentBase
     private async Task HandleCreateReservedAsync(CreateReservedDto dto)
     {
         var cmd = new CreateReservedCommand(
-            PersonId: Guid.NewGuid(),
             Rnokpp: dto.Rnokpp,
             LastName: dto.LastName,
             FirstName: dto.FirstName,
             MiddleName: dto.MiddleName,
             Rank: dto.Rank,
-            PositionSort: dto.PositionSort,
             Position: dto.Position,
             Author: "system", // TODO: auth user
             NowUtc: DateTime.UtcNow

@@ -23,7 +23,18 @@ public sealed class EnrollCommandHandler(
     public async Task HandleAsync(EnrollCommand command, CancellationToken ct = default)
     {
         // 1) Person lifecycle
-        await _repo.EnrollAsync(command, ct);
+        await _repo.EnrollAsync(
+            command.PersonId,
+            command.Kind,
+            command.Reference,
+            command.Reason,
+            command.EnrollDate,
+            command.Rank,
+            command.PositionSort,
+            command.Position,
+            command.Author,
+            command.NowUtc,
+            ct);
 
         // 2) Timesheet lifecycle: відкриваємо шкали + ставимо Main=Т
         await _timesheet.OpenOnEnrollAsync(

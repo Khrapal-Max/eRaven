@@ -2,17 +2,13 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PersonRepositoryTests (SQLite in-memory + projector + event store) - updated for PositionSort
+// PersonRepositoryTests (SQLite in-memory + projector + event store)
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Commands.PersonInfo;
-using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs.Excel;
-using eRaven.Application.Queries.Personal;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Events.PersonEvents.Info;
 using eRaven.Domain.Events.PersonEvents.Move;
-using eRaven.Exceptions;
 using eRaven.Infrastructure.Projectors;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 using eRaven.Tests.Extensions;
@@ -43,36 +39,22 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
     // helpers
     // =========================
 
-    private static CreateReservedCommand CreateCmd(
-        Guid id,
-        string rnokpp,
+    private Task<Guid> CreateReservedAsync(
+        string rnokpp = "1234567890",
         string last = "Ivanov",
         string first = "Ivan",
-        string? middle = null,
-        string? rank = null,
-        string? position = null)
-        => new(
-            PersonId: id,
-            Rnokpp: rnokpp,
-            LastName: last,
-            FirstName: first,
-            MiddleName: middle,
-            Rank: rank,
-            PositionSort: null,
-            Position: position,
-            Author: "tester",
-            NowUtc: NowUtc);
-
-    private static UpdatePersonalInfoCommand UpdatePersonalCmd(Guid id, string rnokpp, string last, string first, string? middle = null, string? note = null)
-        => new(
-            PersonId: id,
-            Rnokpp: rnokpp,
-            LastName: last,
-            FirstName: first,
-            MiddleName: middle,
-            Note: note,
-            Author: "tester",
-            NowUtc: NowUtc.AddMinutes(1));
+        string? middle = "Ivanovich",
+        string? rank = "Сержант",
+        string? position = "Стрілець")
+        => _repo.CreateReservedAsync(
+            rnokpp: rnokpp,
+            lastName: last,
+            firstName: first,
+            middleName: middle,
+            rank: rank,
+            position: position,
+            author: "tester",
+            nowUtc: NowUtc);
 
     // =========================
     // tests
@@ -81,14 +63,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task CreateReservedAsync_should_persist_event_and_create_read_model()
     {
-        var id = Guid.NewGuid();
-
-        await _repo.CreateReservedAsync(CreateCmd(
-            id: id,
-            rnokpp: "1234567890",
-            middle: "Ivanovich",
-            rank: " Сержант ",
-            position: " Стрілець "));
+        var id = await CreateReservedAsync();
 
         await using var ctx = _db.Factory.CreateDbContext();
 
@@ -107,10 +82,12 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
         Assert.Equal("Ivanovich", rm.MiddleName);
         Assert.Equal("Ivanov Ivan Ivanovich", rm.FullName);
 
-        // normalized
         Assert.Equal("Сержант", rm.Rank);
         Assert.Equal("Стрілець", rm.Position);
-        Assert.Null(rm.PositionSort); // ✅ CreateReserved не ставить сорт
+
+        // CreateReserved не ставить sort (у вас він nullable)
+        Assert.Null(rm.PositionSort);
+
         Assert.Null(rm.Bzvp);
         Assert.Null(rm.Weapon);
         Assert.Null(rm.Callsign);
@@ -123,27 +100,40 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CreateReservedAsync_twice_should_throw_optimistic_concurrency()
+    public async Task CreateReservedAsync_same_rnokpp_should_throw_unique_constraint()
     {
-        var id = Guid.NewGuid();
+        await CreateReservedAsync(rnokpp: "9999999999");
 
-        await _repo.CreateReservedAsync(CreateCmd(id, "1234567890"));
+        await Assert.ThrowsAnyAsync<DbUpdateException>(() =>
+            CreateReservedAsync(rnokpp: "9999999999"));
 
-        var ex = await Assert.ThrowsAsync<OptimisticConcurrencyException>(() =>
-            _repo.CreateReservedAsync(CreateCmd(id, "1234567890")));
+        await using var ctx = _db.Factory.CreateDbContext();
 
-        Assert.Equal(id, ex.AggregateId);
-        Assert.Equal(0, ex.ExpectedVersion);
-        Assert.True(ex.ActualVersion >= 1);
+        // sanity: в read-моделі рівно 1 запис з цим RNOKPP
+        var cnt = await ctx.PersonRead.CountAsync(x => x.Rnokpp == "9999999999");
+        Assert.Equal(1, cnt);
     }
 
     [Fact]
     public async Task UpdatePersonalInfoAsync_should_update_read_model_and_increment_version()
     {
-        var id = Guid.NewGuid();
+        var id = await CreateReservedAsync(
+            rnokpp: "1111111111",
+            last: "Ivanov",
+            first: "Ivan",
+            middle: null,
+            rank: null,
+            position: "P");
 
-        await _repo.CreateReservedAsync(CreateCmd(id, "1234567890", last: "Ivanov", first: "Ivan"));
-        await _repo.UpdatePersonalInfoAsync(UpdatePersonalCmd(id, "1234567890", last: "NEW", first: "NAME", middle: "MID"));
+        await _repo.UpdatePersonalInfoAsync(
+            personId: id,
+            rnokpp: "1111111111",
+            lastName: "NEW",
+            firstName: "NAME",
+            middleName: "MID",
+            Note: null,
+            author: "tester",
+            nowUtc: NowUtc.AddMinutes(1));
 
         var dto = await _repo.GetByIdAsync(id);
         Assert.NotNull(dto);
@@ -164,53 +154,53 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task Enroll_Exclude_ReEnroll_flow_should_update_read_model_as_expected()
     {
-        var id = Guid.NewGuid();
-
-        await _repo.CreateReservedAsync(CreateCmd(
-            id, "1234567890",
+        var id = await CreateReservedAsync(
+            rnokpp: "2222222222",
             rank: "Солдат",
-            position: "Стрілець"));
+            position: "Стрілець");
 
-        await _repo.EnrollAsync(new EnrollCommand(
-            PersonId: id,
-            Kind: EnrollmentKind.Unit,
-            Reference: "A",
-            Reason: "r",
-            EnrollDate: new DateOnly(2026, 01, 10),
-            Rank: "Солдат",
-            PositionSort: 10,
-            Position: "Оператор",
-            Author: "tester",
-            NowUtc: NowUtc.AddMinutes(1)));
+        await _repo.EnrollAsync(
+            personId: id,
+            kind: EnrollmentKind.Unit,
+            reference: "A",
+            reason: "r",
+            enrollDate: new DateOnly(2026, 01, 10),
+            rank: "Солдат",
+            positionSort: 10,
+            position: "Оператор",
+            author: "tester",
+            nowUtc: NowUtc.AddMinutes(1));
 
         {
             var dto = await _repo.GetByIdAsync(id);
             Assert.NotNull(dto);
+
             Assert.Equal(PersonLifecycle.Enrolled, dto!.Lifecycle);
             Assert.Equal(EnrollmentKind.Unit, dto.EnrollmentKind);
             Assert.Equal("A", dto.EnrollmentReference);
             Assert.Equal(new DateOnly(2026, 01, 10), dto.EnrolledAt);
             Assert.Null(dto.ExcludedAt);
+
             Assert.Equal("Солдат", dto.Rank);
             Assert.Equal(10, dto.PositionSort);
             Assert.Equal("Оператор", dto.Position);
-            Assert.Equal(10, dto.PositionSort);
         }
 
-        await _repo.ExcludeAsync(new ExcludeCommand(
-            PersonId: id,
-            Reason: "x",
-            EffectiveDate: new DateOnly(2026, 01, 20),
-            Author: "tester",
-            NowUtc: NowUtc.AddMinutes(2)));
+        await _repo.ExcludeAsync(
+            personId: id,
+            reason: "x",
+            effectiveDate: new DateOnly(2026, 01, 20),
+            author: "tester",
+            nowUtc: NowUtc.AddMinutes(2));
 
         {
             var dto = await _repo.GetByIdAsync(id);
             Assert.NotNull(dto);
+
             Assert.Equal(PersonLifecycle.Reserved, dto!.Lifecycle);
             Assert.Equal(new DateOnly(2026, 01, 20), dto.ExcludedAt);
 
-            // інші поля не чистимо
+            // поля картки не чистимо
             Assert.Equal("Солдат", dto.Rank);
             Assert.Equal("Оператор", dto.Position);
             Assert.Equal(10, dto.PositionSort);
@@ -219,26 +209,28 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             Assert.Null(dto.EnrollmentReference);
         }
 
-        await _repo.EnrollAsync(new EnrollCommand(
-            PersonId: id,
-            Kind: EnrollmentKind.AttachedByOrder,
-            Reference: "B",
-            Reason: "re",
-            EnrollDate: new DateOnly(2026, 06, 02),
-            Rank: "Сержант",
-            PositionSort: 9999,          // ✅ правило для приряджених
-            Position: "Командир",
-            Author: "tester",
-            NowUtc: NowUtc.AddMinutes(3)));
+        await _repo.EnrollAsync(
+            personId: id,
+            kind: EnrollmentKind.AttachedByOrder,
+            reference: "B",
+            reason: "re",
+            enrollDate: new DateOnly(2026, 06, 02),
+            rank: "Сержант",
+            positionSort: 9999,        // правило для приряджених
+            position: "Командир",
+            author: "tester",
+            nowUtc: NowUtc.AddMinutes(3));
 
         {
             var dto = await _repo.GetByIdAsync(id);
             Assert.NotNull(dto);
+
             Assert.Equal(PersonLifecycle.Enrolled, dto!.Lifecycle);
             Assert.Equal(EnrollmentKind.AttachedByOrder, dto.EnrollmentKind);
             Assert.Equal("B", dto.EnrollmentReference);
             Assert.Equal(new DateOnly(2026, 06, 02), dto.EnrolledAt);
             Assert.Null(dto.ExcludedAt);
+
             Assert.Equal("Сержант", dto.Rank);
             Assert.Equal("Командир", dto.Position);
             Assert.Equal(9999, dto.PositionSort);
@@ -248,26 +240,27 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task VoidEventAsync_should_rebuild_and_remove_voided_effect()
     {
-        var id = Guid.NewGuid();
+        var id = await CreateReservedAsync(
+            rnokpp: "3333333333",
+            rank: null,
+            position: "P");
 
-        await _repo.CreateReservedAsync(CreateCmd(id, "1234567890", rank: null, position: "P"));
+        await _repo.ChangeRankAsync(
+            personId: id,
+            effectiveDate: new DateOnly(2026, 01, 05),
+            rank: "Солдат",
+            note: null,
+            author: "tester",
+            nowUtc: NowUtc.AddMinutes(1));
 
-        await _repo.ChangeRankAsync(new ChangeRankCommand(
-            PersonId: id,
-            EffectiveDate: new DateOnly(2026, 01, 05),
-            Rank: "Солдат",
-            Note: null,
-            Author: "tester",
-            NowUtc: NowUtc.AddMinutes(1)));
-
-        // sanity: rank applied
+        // sanity
         {
             var dto = await _repo.GetByIdAsync(id);
             Assert.NotNull(dto);
             Assert.Equal("Солдат", dto!.Rank);
         }
 
-        // find rank event id from event store
+        // знайти eventId для RankChanged
         Guid rankEventId;
         await using (var ctx = _db.Factory.CreateDbContext())
         {
@@ -279,20 +272,18 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             rankEventId = rankRec.EventId;
         }
 
-        await _repo.VoidEventAsync(new VoidPersonEventCommand(
-            PersonId: id,
-            TargetEventId: rankEventId,
-            Reason: "fix",
-            Author: "tester",
-            NowUtc: NowUtc.AddMinutes(2)));
+        await _repo.VoidEventAsync(
+            personId: id,
+            targetEventId: rankEventId,
+            reason: "fix",
+            author: "tester",
+            nowUtc: NowUtc.AddMinutes(2));
 
         // after void => rebuild => rank removed
         {
             var dto = await _repo.GetByIdAsync(id);
             Assert.NotNull(dto);
             Assert.Null(dto!.Rank);
-
-            // last version should include void
             Assert.True(dto.Version >= 3);
         }
     }
@@ -301,68 +292,71 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
     public async Task GetPageAsync_should_support_search_filters_and_asofdate()
     {
         // p1 active only in Jan 2026
-        var p1 = Guid.NewGuid();
-        await _repo.CreateReservedAsync(CreateCmd(p1, "1234567890", last: "Alpha", first: "A", rank: "R", position: "P"));
-        await _repo.EnrollAsync(new EnrollCommand(
-            PersonId: p1,
-            Kind: EnrollmentKind.Unit,
-            Reference: null,
-            Reason: "r",
-            EnrollDate: new DateOnly(2026, 01, 10),
-            Rank: "soldier",
-            PositionSort: 10,
-            Position: "Pos1",
-            Author: "tester",
-            NowUtc: NowUtc.AddMinutes(1)));
-        await _repo.ExcludeAsync(new ExcludeCommand(p1, "x", new DateOnly(2026, 01, 20), "tester", NowUtc.AddMinutes(2)));
+        var p1 = await CreateReservedAsync(rnokpp: "4444444444", last: "Alpha", first: "A", rank: "R", position: "P");
+        await _repo.EnrollAsync(
+            personId: p1,
+            kind: EnrollmentKind.Unit,
+            reference: null,
+            reason: "r",
+            enrollDate: new DateOnly(2026, 01, 10),
+            rank: "soldier",
+            positionSort: 10,
+            position: "Pos1",
+            author: "tester",
+            nowUtc: NowUtc.AddMinutes(1));
+        await _repo.ExcludeAsync(
+            personId: p1,
+            reason: "x",
+            effectiveDate: new DateOnly(2026, 01, 20),
+            author: "tester",
+            nowUtc: NowUtc.AddMinutes(2));
 
         // p2 enrolled and still active
-        var p2 = Guid.NewGuid();
-        await _repo.CreateReservedAsync(CreateCmd(p2, "1234567891", last: "Bravo", first: "B", rank: "R", position: "P"));
-        await _repo.EnrollAsync(new EnrollCommand(
-            PersonId: p2,
-            Kind: EnrollmentKind.AttachedByList,
-            Reference: "REF",
-            Reason: "r",
-            EnrollDate: new DateOnly(2026, 01, 05),
-            Rank: "soldier",
-            PositionSort: 9999,
-            Position: "Pos2",
-            Author: "tester",
-            NowUtc: NowUtc.AddMinutes(1)));
+        var p2 = await CreateReservedAsync(rnokpp: "5555555555", last: "Bravo", first: "B", rank: "R", position: "P");
+        await _repo.EnrollAsync(
+            personId: p2,
+            kind: EnrollmentKind.AttachedByList,
+            reference: "REF",
+            reason: "r",
+            enrollDate: new DateOnly(2026, 01, 05),
+            rank: "soldier",
+            positionSort: 9999,
+            position: "Pos2",
+            author: "tester",
+            nowUtc: NowUtc.AddMinutes(3));
 
         // p3 reserved only
-        var p3 = Guid.NewGuid();
-        await _repo.CreateReservedAsync(CreateCmd(p3, "1234567892", last: "Charlie", first: "C", rank: "R", position: "P"));
+        var p3 = await CreateReservedAsync(rnokpp: "6666666666", last: "Charlie", first: "C", rank: "R", position: "P");
 
         // search by rnokpp fragment
         {
-            var page = await _repo.GetPageAsync(new GetPersonsPageQuery(Page: 1, PageSize: 50, Search: "7891"));
+            var page = await _repo.GetPageAsync(page: 1, pageSize: 50, search: "5555");
             Assert.Single(page.Items);
             Assert.Equal(p2, page.Items[0].Id);
         }
 
         // filter by lifecycle Reserved
         {
-            var page = await _repo.GetPageAsync(new GetPersonsPageQuery(Page: 1, PageSize: 50, Lifecycle: PersonLifecycle.Reserved));
+            var page = await _repo.GetPageAsync(page: 1, pageSize: 50, lifecycle: PersonLifecycle.Reserved);
             var ids = page.Items.Select(x => x.Id).ToHashSet();
 
-            Assert.Contains(p1, ids); // excluded => Reserved in this model
+            Assert.Contains(p1, ids); // excluded => Reserved
             Assert.Contains(p3, ids);
             Assert.DoesNotContain(p2, ids);
         }
 
         // filter by enrollment kind
         {
-            var page = await _repo.GetPageAsync(new GetPersonsPageQuery(Page: 1, PageSize: 50, EnrollmentKind: EnrollmentKind.AttachedByList));
+            var page = await _repo.GetPageAsync(page: 1, pageSize: 50, enrollmentKind: EnrollmentKind.AttachedByList);
             Assert.Single(page.Items);
             Assert.Equal(p2, page.Items[0].Id);
         }
 
         // as-of-date: Jan 15 => p1 & p2 active
         {
-            var page = await _repo.GetPageAsync(new GetPersonsPageQuery(Page: 1, PageSize: 50, AsOfDate: new DateOnly(2026, 01, 15)));
+            var page = await _repo.GetPageAsync(page: 1, pageSize: 50, asOfDate: new DateOnly(2026, 01, 15));
             var ids = page.Items.Select(x => x.Id).ToHashSet();
+
             Assert.Contains(p1, ids);
             Assert.Contains(p2, ids);
             Assert.DoesNotContain(p3, ids);
@@ -370,8 +364,9 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
 
         // as-of-date: Jan 25 => p1 not active, p2 active
         {
-            var page = await _repo.GetPageAsync(new GetPersonsPageQuery(Page: 1, PageSize: 50, AsOfDate: new DateOnly(2026, 01, 25)));
+            var page = await _repo.GetPageAsync(page: 1, pageSize: 50, asOfDate: new DateOnly(2026, 01, 25));
             var ids = page.Items.Select(x => x.Id).ToHashSet();
+
             Assert.DoesNotContain(p1, ids);
             Assert.Contains(p2, ids);
             Assert.DoesNotContain(p3, ids);
@@ -381,18 +376,16 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task GetHistoryAsync_should_return_ordered_versions_and_event_types()
     {
-        var id = Guid.NewGuid();
+        var id = await CreateReservedAsync(rnokpp: "7777777777", last: "Ivanov", first: "Ivan");
 
-        await _repo.CreateReservedAsync(CreateCmd(id, "1234567890", last: "Ivanov", first: "Ivan"));
-
-        await _repo.ChangePositionAsync(new ChangePositionCommand(
-            PersonId: id,
-            EffectiveDate: new DateOnly(2026, 01, 03),
-            PositionSort: 20,
-            Position: "O",
-            Note: null,
-            Author: "tester",
-            NowUtc: NowUtc.AddMinutes(1)));
+        await _repo.ChangePositionAsync(
+            personId: id,
+            effectiveDate: new DateOnly(2026, 01, 03),
+            positionSort: 20,
+            position: "O",
+            note: null,
+            author: "tester",
+            nowUtc: NowUtc.AddMinutes(1));
 
         var history = await _repo.GetHistoryAsync(id);
 
@@ -406,28 +399,24 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task EnrollAsync_when_created_without_rank_should_set_rank_from_command()
+    public async Task EnrollAsync_when_created_without_rank_should_set_rank_from_enroll_parameters()
     {
-        var id = Guid.NewGuid();
-
-        // rank відсутній на створенні
-        await _repo.CreateReservedAsync(CreateCmd(
-            id: id,
-            rnokpp: "1234567890",
+        var id = await CreateReservedAsync(
+            rnokpp: "8888888888",
             rank: null,
-            position: "P"));
+            position: "P");
 
-        await _repo.EnrollAsync(new EnrollCommand(
-            PersonId: id,
-            Kind: EnrollmentKind.Unit,
-            Reference: "A",
-            Reason: "r",
-            EnrollDate: new DateOnly(2026, 01, 10),
-            Rank: "Солдат",
-            PositionSort: 10,
-            Position: "Оператор",
-            Author: "tester",
-            NowUtc: NowUtc.AddMinutes(1)));
+        await _repo.EnrollAsync(
+            personId: id,
+            kind: EnrollmentKind.Unit,
+            reference: "A",
+            reason: "r",
+            enrollDate: new DateOnly(2026, 01, 10),
+            rank: "Солдат",
+            positionSort: 10,
+            position: "Оператор",
+            author: "tester",
+            nowUtc: NowUtc.AddMinutes(1));
 
         var dto = await _repo.GetByIdAsync(id);
         Assert.NotNull(dto);
@@ -441,46 +430,18 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
         Assert.Equal("A", dto.EnrollmentReference);
     }
 
-    // =========================
-    // GetExistingRnokppsAsync
-    // =========================
-
     [Fact]
     public async Task GetExistingRnokppsAsync_should_return_only_existing_trimmed_and_distinct_values()
     {
-        var id1 = Guid.NewGuid();
-        var id2 = Guid.NewGuid();
-
-        await _repo.CreateReservedAsync(new CreateReservedCommand(
-            PersonId: id1,
-            Rnokpp: "1234567890",
-            LastName: "Ivanov",
-            FirstName: "Ivan",
-            MiddleName: null,
-            Rank: null,
-            PositionSort: null,
-            Position: null,
-            Author: "tester",
-            NowUtc: NowUtc));
-
-        await _repo.CreateReservedAsync(new CreateReservedCommand(
-            PersonId: id2,
-            Rnokpp: "0987654321",
-            LastName: "Petrov",
-            FirstName: "Petr",
-            MiddleName: null,
-            Rank: null,
-            PositionSort: null,
-            Position: null,
-            Author: "tester",
-            NowUtc: NowUtc));
+        await CreateReservedAsync(rnokpp: "9000000001");
+        await CreateReservedAsync(rnokpp: "9000000002");
 
         var input = new[]
         {
-            " 1234567890 ",
-            "0987654321",
+            " 9000000001 ",
+            "9000000002",
             "0000000000",   // not existing
-            "0987654321",   // duplicate
+            "9000000002",   // duplicate
             "",             // ignored
             "   "           // ignored
         };
@@ -488,8 +449,8 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
         var existing = await _repo.GetExistingRnokppsAsync(input);
 
         Assert.Equal(2, existing.Count);
-        Assert.Contains("1234567890", existing);
-        Assert.Contains("0987654321", existing);
+        Assert.Contains("9000000001", existing);
+        Assert.Contains("9000000002", existing);
         Assert.DoesNotContain("0000000000", existing);
     }
 
@@ -503,10 +464,6 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
         Assert.Empty(empty2);
     }
 
-    // =========================
-    // BootstrapCreateAndEnrollAsync
-    // =========================
-
     [Fact]
     public async Task BootstrapCreateAndEnrollAsync_unit_should_create_enrolled_person_with_optional_fields_and_effective_dates()
     {
@@ -514,7 +471,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
 
         var row = new PersonBootstrapRowDto(
             RowNumber: 1,
-            Rnokpp: "1234567890",
+            Rnokpp: "9100000001",
             LastName: "  Ivanov ",
             FirstName: " Ivan ",
             MiddleName: "  Ivanovich ",
@@ -540,7 +497,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
         Assert.Equal(enrollDate, dto.EnrolledAt);
         Assert.Null(dto.ExcludedAt);
 
-        Assert.Equal("1234567890", dto.Rnokpp);
+        Assert.Equal("9100000001", dto.Rnokpp);
         Assert.Equal("Ivanov", dto.LastName);
         Assert.Equal("Ivan", dto.FirstName);
         Assert.Equal("Ivanovich", dto.MiddleName);
@@ -563,6 +520,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             .ToListAsync();
 
         Assert.Equal(5, events.Count);
+
         Assert.Equal(nameof(PersonCreated), events[0].EventType);
         Assert.Null(events[0].EffectiveDate);
 
@@ -584,7 +542,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
     {
         var row = new PersonBootstrapRowDto(
             RowNumber: 2,
-            Rnokpp: "1234567890",
+            Rnokpp: "9100000002",
             LastName: "Ivanov",
             FirstName: "Ivan",
             MiddleName: null,
@@ -593,7 +551,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             EnrollDate: new DateOnly(2026, 02, 01),
             Reason: "r",
             Rank: "S",
-            PositionSort: 1,   // should be ignored
+            PositionSort: 1,   // should be ignored by rule
             Position: "P",
             Bzvp: null,
             Weapon: null,
@@ -614,7 +572,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
     {
         var bad = new PersonBootstrapRowDto(
             RowNumber: 3,
-            Rnokpp: "1234567890",
+            Rnokpp: "9100000003",
             LastName: "Ivanov",
             FirstName: "Ivan",
             MiddleName: null,

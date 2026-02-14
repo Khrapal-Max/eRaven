@@ -16,14 +16,12 @@ public sealed class CreateReservedCommandHandlerTests
 {
     private static readonly DateTime NowUtc = new(2026, 01, 07, 12, 0, 0, DateTimeKind.Utc);
 
-    private static CreateReservedCommand Cmd(Guid? personId = null) => new(
-        PersonId: personId ?? Guid.NewGuid(),
+    private static CreateReservedCommand Cmd() => new(
         Rnokpp: "1234567890",
         LastName: "Ivanov",
         FirstName: "Ivan",
         MiddleName: "Ivanovich",
         Rank: "солдат",
-        PositionSort: 1,
         Position: "стрілець",
         Author: "tester",
         NowUtc: NowUtc
@@ -34,10 +32,18 @@ public sealed class CreateReservedCommandHandlerTests
     {
         // arrange
         var cmd = Cmd();
-        var expectedId = cmd.PersonId;
+        var expectedId = Guid.NewGuid();
 
         var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
-        repo.Setup(x => x.CreateReservedAsync(cmd, It.IsAny<CancellationToken>()))
+        repo.Setup(x => x.CreateReservedAsync(cmd.Rnokpp,
+            cmd.LastName,
+            cmd.FirstName,
+            cmd.MiddleName,
+            cmd.Rank,
+            cmd.Position,
+            cmd.Author,
+            cmd.NowUtc,
+            It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedId);
 
         var sut = new CreateReservedCommandHandler(repo.Object);
@@ -48,34 +54,14 @@ public sealed class CreateReservedCommandHandlerTests
         // assert
         Assert.Equal(expectedId, result);
 
-        repo.Verify(x => x.CreateReservedAsync(cmd, It.IsAny<CancellationToken>()), Times.Once);
-        repo.VerifyNoOtherCalls();
-    }
-
-    [Fact]
-    public async Task HandleAsync_should_pass_cancellation_token_to_repo()
-    {
-        // arrange
-        var cmd = Cmd();
-        using var cts = new CancellationTokenSource();
-
-        CancellationToken? captured = null;
-
-        var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
-        repo.Setup(x => x.CreateReservedAsync(cmd, It.IsAny<CancellationToken>()))
-            .Callback<CreateReservedCommand, CancellationToken>((_, ct) => captured = ct)
-            .ReturnsAsync(cmd.PersonId);
-
-        var sut = new CreateReservedCommandHandler(repo.Object);
-
-        // act
-        await sut.HandleAsync(cmd, cts.Token);
-
-        // assert
-        Assert.True(captured.HasValue);
-        Assert.Equal(cts.Token, captured.Value);
-
-        repo.Verify(x => x.CreateReservedAsync(cmd, cts.Token), Times.Once);
+        repo.Verify(x => x.CreateReservedAsync(cmd.Rnokpp,
+            cmd.LastName,
+            cmd.FirstName,
+            cmd.MiddleName,
+            cmd.Rank,
+            cmd.Position,
+            cmd.Author,
+            cmd.NowUtc, It.IsAny<CancellationToken>()), Times.Once);
         repo.VerifyNoOtherCalls();
     }
 
@@ -87,7 +73,15 @@ public sealed class CreateReservedCommandHandlerTests
         var repoEx = new InvalidOperationException("boom");
 
         var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
-        repo.Setup(x => x.CreateReservedAsync(cmd, It.IsAny<CancellationToken>()))
+        repo.Setup(x => x.CreateReservedAsync(cmd.Rnokpp,
+            cmd.LastName,
+            cmd.FirstName,
+            cmd.MiddleName,
+            cmd.Rank,
+            cmd.Position,
+            cmd.Author,
+            cmd.NowUtc,
+            It.IsAny<CancellationToken>()))
             .ThrowsAsync(repoEx);
 
         var sut = new CreateReservedCommandHandler(repo.Object);
@@ -98,7 +92,15 @@ public sealed class CreateReservedCommandHandlerTests
 
         Assert.Equal("boom", ex.Message);
 
-        repo.Verify(x => x.CreateReservedAsync(cmd, It.IsAny<CancellationToken>()), Times.Once);
+        repo.Verify(x => x.CreateReservedAsync(cmd.Rnokpp,
+            cmd.LastName,
+            cmd.FirstName,
+            cmd.MiddleName,
+            cmd.Rank,
+            cmd.Position,
+            cmd.Author,
+            cmd.NowUtc,
+            It.IsAny<CancellationToken>()), Times.Once);
         repo.VerifyNoOtherCalls();
     }
 }

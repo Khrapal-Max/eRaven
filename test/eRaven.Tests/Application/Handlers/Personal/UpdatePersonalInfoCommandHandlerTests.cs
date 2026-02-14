@@ -26,20 +26,36 @@ public sealed class UpdatePersonalInfoCommandHandlerTests
             Rnokpp: "1234567890",
             LastName: "Іванов",
             FirstName: "Іван",
-            MiddleName: null,
-            Note: "note",
+            MiddleName: "Іванович",
+            Note: null,
             Author: "tester",
             NowUtc: new DateTime(2026, 01, 16, 8, 0, 0, DateTimeKind.Utc)
         );
 
-        repo.Setup(x => x.UpdatePersonalInfoAsync(cmd, It.IsAny<CancellationToken>()))
+        repo.Setup(x => x.UpdatePersonalInfoAsync(cmd.PersonId,
+            cmd.Rnokpp,
+            cmd.LastName,
+            cmd.FirstName,
+            cmd.MiddleName,
+            cmd.Note,
+            cmd.Author,
+            cmd.NowUtc,
+            It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // act
         await sut.HandleAsync(cmd);
 
         // assert
-        repo.Verify(x => x.UpdatePersonalInfoAsync(cmd, It.IsAny<CancellationToken>()), Times.Once);
+        repo.Verify(x => x.UpdatePersonalInfoAsync(cmd.PersonId,
+            cmd.Rnokpp,
+            cmd.LastName,
+            cmd.FirstName,
+            cmd.MiddleName,
+            cmd.Note,
+            cmd.Author,
+            cmd.NowUtc,
+            It.IsAny<CancellationToken>()), Times.Once);
         repo.VerifyNoOtherCalls();
     }
 
@@ -64,14 +80,29 @@ public sealed class UpdatePersonalInfoCommandHandlerTests
         using var cts = new CancellationTokenSource();
         var ct = cts.Token;
 
-        repo.Setup(x => x.UpdatePersonalInfoAsync(cmd, ct))
+        repo.Setup(x => x.UpdatePersonalInfoAsync(cmd.PersonId,
+            cmd.Rnokpp,
+            cmd.LastName,
+            cmd.FirstName,
+            cmd.MiddleName,
+            cmd.Note,
+            cmd.Author,
+            cmd.NowUtc, ct))
             .Returns(Task.CompletedTask);
 
         // act
         await sut.HandleAsync(cmd, ct);
 
         // assert
-        repo.Verify(x => x.UpdatePersonalInfoAsync(cmd, ct), Times.Once);
+        repo.Verify(x => x.UpdatePersonalInfoAsync(cmd.PersonId,
+            cmd.Rnokpp,
+            cmd.LastName,
+            cmd.FirstName,
+            cmd.MiddleName,
+            cmd.Note,
+            cmd.Author,
+            cmd.NowUtc,
+            ct), Times.Once);
         repo.VerifyNoOtherCalls();
     }
 }

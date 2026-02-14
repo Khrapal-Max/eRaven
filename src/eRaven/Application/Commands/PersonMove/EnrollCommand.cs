@@ -9,8 +9,7 @@ using eRaven.Domain.Enums;
 
 namespace eRaven.Application.Commands.PersonMove;
 
-public sealed record EnrollCommand(
-    Guid PersonId,
+public sealed record EnrollCommand(Guid PersonId,
     EnrollmentKind Kind,
     string? Reference,
     string Reason,

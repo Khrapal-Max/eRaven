@@ -17,7 +17,13 @@ public sealed class CreateReservedCommandHandler(IPersonRepository repo)
     private readonly IPersonRepository _repo = repo;
 
     public async Task<Guid> HandleAsync(CreateReservedCommand command, CancellationToken ct = default)
-    {
-        return await _repo.CreateReservedAsync(cmd: command, ct: ct);
-    }
+        => await _repo.CreateReservedAsync(command.Rnokpp,
+                command.LastName,
+                command.FirstName,
+                command.MiddleName,
+                command.Rank,
+                command.Position,
+                command.Author,
+                command.NowUtc,
+                ct: ct);
 }

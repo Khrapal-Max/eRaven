@@ -15,6 +15,5 @@ public sealed class CreateReservedDto
     public string? MiddleName { get; set; }
 
     public string? Rank { get; set; }
-    public int PositionSort { get; set; } = 0;
     public string? Position { get; set; }
 }

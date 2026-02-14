@@ -110,10 +110,6 @@ public sealed class CreateReservedDrawerTests : BunitContext
         await cut.InvokeAsync(() => cut.FindAll($"{formSel} input.form-control")[2].Change("  Ivan  "));          // FirstName
         await cut.InvokeAsync(() => cut.FindAll($"{formSel} input.form-control")[3].Change("  Ivanovich  "));     // MiddleName
 
-        // PositionSort (якщо є в формі)
-        // Якщо в твоїй формі PositionSort інколи відсутній — загорни в try/catch або перевір FindAll().Any()
-        await cut.InvokeAsync(() => cut.Find($"{formSel} input[type=number]").Change("10"));
-
         // Position (зазвичай останній текстовий інпут у цій формі)
         await cut.InvokeAsync(() =>
         {
