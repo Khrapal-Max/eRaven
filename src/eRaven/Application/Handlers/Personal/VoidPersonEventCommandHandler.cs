@@ -17,5 +17,10 @@ public class VoidPersonEventCommandHandler(IPersonRepository repo)
     private readonly IPersonRepository _repo = repo;
 
     public async Task HandleAsync(VoidPersonEventCommand command, CancellationToken ct = default)
-        => await _repo.VoidEventAsync(cmd: command, ct: ct);
+        => await _repo.VoidEventAsync(command.PersonId,
+            command.TargetEventId,
+            command.Reason,
+            command.Author,
+            command.NowUtc,
+            ct: ct);
 }

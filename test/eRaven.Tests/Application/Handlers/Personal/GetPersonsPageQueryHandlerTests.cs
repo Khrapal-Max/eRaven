@@ -51,7 +51,13 @@ public sealed class GetPersonsPageQueryHandlerTests
             PageSize: 8,
             TotalCount: 25);
 
-        repo.Setup(r => r.GetPageAsync(query, It.IsAny<CancellationToken>()))
+        repo.Setup(r => r.GetPageAsync(query.Page,
+            query.PageSize,
+            query.Search,
+            query.AsOfDate,
+            query.Lifecycle,
+            query.EnrollmentKind,
+            It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
         var sut = new GetPersonsPageQueryHandler(repo.Object);
@@ -61,7 +67,13 @@ public sealed class GetPersonsPageQueryHandlerTests
 
         // assert
         Assert.Same(expected, result); // повертаємо той самий інстанс (бо хендлер не мапить)
-        repo.Verify(r => r.GetPageAsync(query, It.IsAny<CancellationToken>()), Times.Once);
+        repo.Verify(r => r.GetPageAsync(query.Page,
+            query.PageSize,
+            query.Search,
+            query.AsOfDate,
+            query.Lifecycle,
+            query.EnrollmentKind,
+            It.IsAny<CancellationToken>()), Times.Once);
         repo.VerifyNoOtherCalls();
     }
 }

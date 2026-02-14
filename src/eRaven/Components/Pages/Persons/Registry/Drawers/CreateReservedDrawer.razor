@@ -79,13 +79,7 @@
                         </div>
 
                         <div class="row g-2">
-                            <div class="col-12 col-md-2">
-                                <label class="form-label mb-1">Порядок посади</label>
-                                <InputNumber class="form-control rounded-0" @bind-Value="Model.PositionSort" />
-                                <ValidationMessage For="@(() => Model.PositionSort)" />
-                            </div>
-
-                            <div class="col-12 col-md-10">
+                            <div class="col-12">
                                 <label class="form-label mb-1">Посада (опц.)</label>
                                 <InputText class="form-control rounded-0" @bind-Value="Model.Position" />
                                 <ValidationMessage For="@(() => Model.Position)" />

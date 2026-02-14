@@ -30,7 +30,12 @@ public sealed class ExcludeCommandHandler(
             ct: ct);
 
         // 1) Person lifecycle
-        await _repo.ExcludeAsync(command, ct);
+        await _repo.ExcludeAsync(command.PersonId,
+            command.Reason,
+            command.EffectiveDate,
+            command.Author,
+            command.NowUtc,
+            ct);
 
         // 2) Timesheet lifecycle: закриваємо шкали, обрізаємо записи, видаляємо майбутні
         await _timesheet.CloseOnExcludeAsync(

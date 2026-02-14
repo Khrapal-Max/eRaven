@@ -17,13 +17,6 @@ public sealed class ChangeRankCommandHandlerTests
     [Fact]
     public async Task CallsRepo_AndReturnsPersonId()
     {
-        var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
-
-        repo.Setup(x => x.ChangeRankAsync(It.IsAny<ChangeRankCommand>(), default))
-            .Returns(Task.CompletedTask);
-
-        var h = new ChangeRankCommandHandler(repo.Object);
-
         var personId = Guid.NewGuid();
 
         var cmd = new ChangeRankCommand(
@@ -35,11 +28,28 @@ public sealed class ChangeRankCommandHandlerTests
             NowUtc: DateTime.UtcNow
         );
 
+        var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
+
+        repo.Setup(x => x.ChangeRankAsync(cmd.PersonId,
+            cmd.EffectiveDate,
+            cmd.Rank,
+            cmd.Note,
+            cmd.Author,
+            cmd.NowUtc,
+            default))
+            .Returns(Task.CompletedTask);
+
+        var h = new ChangeRankCommandHandler(repo.Object);
+
         await h.HandleAsync(cmd);
 
-        repo.Verify(x => x.ChangeRankAsync(It.Is<ChangeRankCommand>(c =>
-            c.PersonId == personId &&
-            c.Rank == "Солдат"
-        ), default), Times.Once);
+        repo.Verify(x => x.ChangeRankAsync(
+            cmd.PersonId,
+            cmd.EffectiveDate,
+            cmd.Rank,
+            cmd.Note,
+            cmd.Author,
+            cmd.NowUtc,
+            default), Times.Once);
     }
 }

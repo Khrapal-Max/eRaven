@@ -18,5 +18,11 @@ public sealed class GetPersonsPageQueryHandler(IPersonRepository repo)
     private readonly IPersonRepository _repo = repo;
 
     public async Task<PagedResult<PersonListItemDto>> HandleAsync(GetPersonsPageQuery query, CancellationToken ct = default)
-        => await _repo.GetPageAsync(query, ct);
+        => await _repo.GetPageAsync(query.Page,
+            query.PageSize,
+            query.Search,
+            query.AsOfDate,
+            query.Lifecycle,
+            query.EnrollmentKind,
+            ct);
 }

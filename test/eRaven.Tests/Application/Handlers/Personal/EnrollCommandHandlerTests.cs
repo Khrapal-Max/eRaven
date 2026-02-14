@@ -40,7 +40,17 @@ public sealed class EnrollCommandHandlerTests
         var seq = new MockSequence();
 
         repo.InSequence(seq)
-            .Setup(x => x.EnrollAsync(cmd, It.IsAny<CancellationToken>()))
+            .Setup(x => x.EnrollAsync(cmd.PersonId,
+            cmd.Kind,
+            cmd.Reference,
+            cmd.Reason,
+            cmd.EnrollDate,
+            cmd.Rank,
+            cmd.PositionSort,
+            cmd.Position,
+            cmd.Author,
+            cmd.NowUtc,
+            It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         ts.InSequence(seq)
@@ -90,7 +100,17 @@ public sealed class EnrollCommandHandlerTests
         var seq = new MockSequence();
 
         repo.InSequence(seq)
-            .Setup(x => x.EnrollAsync(cmd, ct))
+            .Setup(x => x.EnrollAsync(cmd.PersonId,
+            cmd.Kind,
+            cmd.Reference,
+            cmd.Reason,
+            cmd.EnrollDate,
+            cmd.Rank,
+            cmd.PositionSort,
+            cmd.Position,
+            cmd.Author,
+            cmd.NowUtc,
+            ct))
             .Returns(Task.CompletedTask);
 
         ts.InSequence(seq)
@@ -129,14 +149,34 @@ public sealed class EnrollCommandHandlerTests
             Author: "tester",
             NowUtc: new DateTime(2026, 01, 07, 12, 0, 0, DateTimeKind.Utc));
 
-        repo.Setup(x => x.EnrollAsync(cmd, It.IsAny<CancellationToken>()))
+        repo.Setup(x => x.EnrollAsync(cmd.PersonId,
+            cmd.Kind,
+            cmd.Reference,
+            cmd.Reason,
+            cmd.EnrollDate,
+            cmd.Rank,
+            cmd.PositionSort,
+            cmd.Position,
+            cmd.Author,
+            cmd.NowUtc,
+            It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("boom"));
 
         // act + assert
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.HandleAsync(cmd));
         Assert.Equal("boom", ex.Message);
 
-        repo.Verify(x => x.EnrollAsync(cmd, It.IsAny<CancellationToken>()), Times.Once);
+        repo.Verify(x => x.EnrollAsync(cmd.PersonId,
+            cmd.Kind,
+            cmd.Reference,
+            cmd.Reason,
+            cmd.EnrollDate,
+            cmd.Rank,
+            cmd.PositionSort,
+            cmd.Position,
+            cmd.Author,
+            cmd.NowUtc,
+            It.IsAny<CancellationToken>()), Times.Once);
         repo.VerifyNoOtherCalls();
         ts.VerifyNoOtherCalls();
     }

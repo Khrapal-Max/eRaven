@@ -17,5 +17,10 @@ public class ChangeWeaponCommandHandler(IPersonRepository repo)
     private readonly IPersonRepository _repo = repo;
 
     public async Task HandleAsync(ChangeWeaponCommand command, CancellationToken ct = default)
-        => await _repo.ChangeWeaponAsync(cmd: command, ct: ct);
+        => await _repo.ChangeWeaponAsync(command.PersonId,
+            command.EffectiveDate,
+            command.Weapon,
+            command.Author,
+            command.NowUtc,
+            ct: ct);
 }

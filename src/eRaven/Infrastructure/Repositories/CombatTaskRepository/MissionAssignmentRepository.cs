@@ -173,9 +173,8 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
     // Write (apply draft and posted)
     //======================================================================
 
-    public async Task ApplyDraftCombatTaskDocumentAsync(
-    IReadOnlyList<ApplyCombatTaskDetailsDto> taskDetails,
-    CancellationToken ct = default)
+    public async Task ApplyDraftCombatTaskDocumentAsync(IReadOnlyList<ApplyCombatTaskDetailsDto> taskDetails,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(taskDetails);
         if (taskDetails.Count == 0) return;

@@ -17,5 +17,10 @@ public class ChangeCallsignCommandHandler(IPersonRepository repo)
     private readonly IPersonRepository _repo = repo;
 
     public async Task HandleAsync(ChangeCallsignCommand command, CancellationToken ct = default)
-        => await _repo.ChangeCallsignAsync(cmd: command, ct: ct);
+        => await _repo.ChangeCallsignAsync(command.PersonId,
+            command.EffectiveDate,
+            command.Callsign,
+            command.Author,
+            command.NowUtc,
+            ct: ct);
 }

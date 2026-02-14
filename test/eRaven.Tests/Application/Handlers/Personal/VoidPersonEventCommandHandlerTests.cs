@@ -17,13 +17,6 @@ public sealed class VoidPersonEventCommandHandlerTests
     [Fact]
     public async Task CallsRepo_WithSameCommand()
     {
-        var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
-
-        repo.Setup(x => x.VoidEventAsync(It.IsAny<VoidPersonEventCommand>(), default))
-            .Returns(Task.CompletedTask);
-
-        var h = new VoidPersonEventCommandHandler(repo.Object);
-
         var personId = Guid.NewGuid();
         var targetEventId = Guid.NewGuid();
 
@@ -35,12 +28,25 @@ public sealed class VoidPersonEventCommandHandlerTests
             NowUtc: DateTime.UtcNow
         );
 
+        var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
+
+        repo.Setup(x => x.VoidEventAsync(cmd.PersonId,
+            cmd.TargetEventId,
+            cmd.Reason,
+            cmd.Author,
+            cmd.NowUtc,
+            default))
+            .Returns(Task.CompletedTask);
+
+        var h = new VoidPersonEventCommandHandler(repo.Object);
+
         await h.HandleAsync(cmd);
 
-        repo.Verify(x => x.VoidEventAsync(It.Is<VoidPersonEventCommand>(c =>
-            c.PersonId == personId &&
-            c.TargetEventId == targetEventId &&
-            c.Reason == " fix "
-        ), default), Times.Once);
+        repo.Verify(x => x.VoidEventAsync(cmd.PersonId,
+            cmd.TargetEventId,
+            cmd.Reason,
+            cmd.Author,
+            cmd.NowUtc,
+            default), Times.Once);
     }
 }

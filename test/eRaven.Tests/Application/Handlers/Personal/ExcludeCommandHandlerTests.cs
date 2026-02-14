@@ -38,7 +38,12 @@ public sealed class ExcludeCommandHandlerTests
             .Returns(Task.CompletedTask);
 
         repo.InSequence(seq)
-            .Setup(r => r.ExcludeAsync(cmd, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ExcludeAsync(cmd.PersonId,
+            cmd.Reason,
+            cmd.EffectiveDate,
+            cmd.Author,
+            cmd.NowUtc,
+            It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         ts.InSequence(seq)
@@ -88,7 +93,12 @@ public sealed class ExcludeCommandHandlerTests
             .Returns(Task.CompletedTask);
 
         repo.InSequence(seq)
-            .Setup(r => r.ExcludeAsync(cmd, ct))
+            .Setup(r => r.ExcludeAsync(cmd.PersonId,
+            cmd.Reason,
+            cmd.EffectiveDate,
+            cmd.Author,
+            cmd.NowUtc,
+            ct))
             .Returns(Task.CompletedTask);
 
         ts.InSequence(seq)
@@ -159,7 +169,12 @@ public sealed class ExcludeCommandHandlerTests
             .Returns(Task.CompletedTask);
 
         repo.InSequence(seq)
-            .Setup(r => r.ExcludeAsync(cmd, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ExcludeAsync(cmd.PersonId,
+            cmd.Reason,
+            cmd.EffectiveDate,
+            cmd.Author,
+            cmd.NowUtc,
+            It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("boom"));
 
         // act + assert
@@ -167,7 +182,12 @@ public sealed class ExcludeCommandHandlerTests
         Assert.Equal("boom", ex.Message);
 
         ts.Verify(x => x.ValidateCanCloseOnExcludeAsync(cmd.PersonId, cmd.EffectiveDate, It.IsAny<CancellationToken>()), Times.Once);
-        repo.Verify(r => r.ExcludeAsync(cmd, It.IsAny<CancellationToken>()), Times.Once);
+        repo.Verify(r => r.ExcludeAsync(cmd.PersonId,
+            cmd.Reason,
+            cmd.EffectiveDate,
+            cmd.Author,
+            cmd.NowUtc,
+            It.IsAny<CancellationToken>()), Times.Once);
 
         // Close should NOT be called
         ts.VerifyNoOtherCalls();

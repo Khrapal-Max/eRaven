@@ -17,5 +17,11 @@ public sealed class ChangeRankCommandHandler(IPersonRepository repo)
     private readonly IPersonRepository _repo = repo;
 
     public async Task HandleAsync(ChangeRankCommand command, CancellationToken ct = default)
-        => await _repo.ChangeRankAsync(cmd: command, ct: ct);
+        => await _repo.ChangeRankAsync(command.PersonId,
+            command.EffectiveDate,
+            command.Rank,
+            command.Note,
+            command.Author,
+            command.NowUtc,
+            ct: ct);
 }

@@ -1,15 +1,12 @@
 ﻿//-----------------------------------------------------------------------------
-// All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
+// All rights by agreement of the developer. author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // PersonRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Commands.PersonInfo;
-using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.DTOs.Excel;
 using eRaven.Application.DTOs.Person;
-using eRaven.Application.Queries.Personal;
 using eRaven.Domain;
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
@@ -60,15 +57,21 @@ public sealed class PersonRepository(
     // Read-side
     // =========================
 
-    public async Task<PagedResult<PersonListItemDto>> GetPageAsync(GetPersonsPageQuery query, CancellationToken ct = default)
+    public async Task<PagedResult<PersonListItemDto>> GetPageAsync(int page,
+        int pageSize,
+        string? search = null,
+        DateOnly? asOfDate = null,
+        PersonLifecycle? lifecycle = null,
+        EnrollmentKind? enrollmentKind = null,
+        CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var q = db.PersonRead.AsNoTracking().AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(query.Search))
+        if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = query.Search.Trim();
+            var s = search.Trim();
             var sLower = s.ToLowerInvariant();
             var patternLower = $"%{sLower}%";
             var pattern = $"%{s}%";
@@ -76,19 +79,19 @@ public sealed class PersonRepository(
             q = q.Where(x =>
                 // FullName: case-insensitive через LOWER(...)
                 EF.Functions.Like(x.FullName.ToLower(), patternLower) ||
-                // Rnokpp: цифри, можна без lower
+                // rnokpp: цифри, можна без lower
                 EF.Functions.Like(x.Rnokpp, pattern));
         }
 
-        if (query.Lifecycle is not null)
-            q = q.Where(x => x.Lifecycle == query.Lifecycle);
+        if (lifecycle is not null)
+            q = q.Where(x => x.Lifecycle == lifecycle);
 
-        if (query.EnrollmentKind is not null)
-            q = q.Where(x => x.EnrollmentKind == query.EnrollmentKind);
+        if (enrollmentKind is not null)
+            q = q.Where(x => x.EnrollmentKind == enrollmentKind);
 
-        if (query.AsOfDate is not null)
+        if (asOfDate is not null)
         {
-            var d = query.AsOfDate.Value;
+            var d = asOfDate.Value;
             // "активний на дату" (як у коментарі індексу):
             // EnrolledAt <= d AND (ExcludedAt IS NULL OR ExcludedAt >= d)
             q = q.Where(x =>
@@ -99,9 +102,9 @@ public sealed class PersonRepository(
 
         var total = await q.CountAsync(ct);
 
-        var page = query.Page < 1 ? 1 : query.Page;
-        var size = query.PageSize is < 1 or > 200 ? 25 : query.PageSize;
-        var skip = (page - 1) * size;
+        var pageCount = page < 1 ? 1 : page;
+        var size = pageSize is < 1 or > 200 ? 25 : pageSize;
+        var skip = (pageCount - 1) * size;
 
         var items = await q
             .OrderBy(x => x.PositionSort)
@@ -121,7 +124,7 @@ public sealed class PersonRepository(
                 x.UpdatedAtUtc))
             .ToListAsync(ct);
 
-        return new PagedResult<PersonListItemDto>(items, page, size, total);
+        return new PagedResult<PersonListItemDto>(items, pageCount, size, total);
     }
 
     public async Task<IReadOnlyList<CombatTaskPersonLookupDto>> GetPersonsSearchAsync(string search, int takePersons, CancellationToken ct = default)
@@ -218,44 +221,67 @@ public sealed class PersonRepository(
     // Commands aggregate
     // =========================
 
-    public async Task<Guid> CreateReservedAsync(CreateReservedCommand cmd, CancellationToken ct = default)
+    public async Task<Guid> CreateReservedAsync(string rnokpp,
+        string lastName,
+        string firstName,
+        string? middleName,
+        string? rank,
+        string? position,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
     {
-        var personal = new PersonalInfo(cmd.Rnokpp, cmd.LastName, cmd.FirstName, cmd.MiddleName);
+        var personal = new PersonalInfo(rnokpp, lastName, firstName, middleName);
 
         var agg = PersonAggregate.CreateReserved(
-            id: cmd.PersonId,
+            id: Guid.NewGuid(),
             personal: personal,
-            rank: cmd.Rank,
-            position: cmd.Position,
-            author: cmd.Author,
-            nowUtc: cmd.NowUtc);
+            rank: rank,
+            position: position,
+            author: author,
+            nowUtc: nowUtc);
 
         await PersistAsync(agg, expectedVersion: 0, ct);
         return agg.Id;
     }
 
-    public async Task EnrollAsync(EnrollCommand cmd, CancellationToken ct = default)
+    public async Task EnrollAsync(Guid personId,
+        EnrollmentKind kind,
+        string? reference,
+        string reason,
+        DateOnly enrollDate,
+        string rank,
+        int positionSort,
+        string position,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
     {
-        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
+        var agg = await LoadAggregateAsync(personId, ct);
 
         agg.Enroll(
-             kind: cmd.Kind,
-             reference: cmd.Reference,
-             reason: cmd.Reason,
-             enrollDate: cmd.EnrollDate,
-             rank: cmd.Rank,
-             position: cmd.Position,
-             positionSort: cmd.PositionSort,
-             author: cmd.Author,
-             nowUtc: cmd.NowUtc);
+             kind: kind,
+             reference: reference,
+             reason: reason,
+             enrollDate: enrollDate,
+             rank: rank,
+             position: position,
+             positionSort: positionSort,
+             author: author,
+             nowUtc: nowUtc);
 
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
-    public async Task ExcludeAsync(ExcludeCommand cmd, CancellationToken ct = default)
+    public async Task ExcludeAsync(Guid personId,
+        string reason,
+        DateOnly effectiveDate,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
     {
-        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
-        agg.Exclude(cmd.Reason, cmd.EffectiveDate, cmd.Author, cmd.NowUtc);
+        var agg = await LoadAggregateAsync(personId, ct);
+        agg.Exclude(reason, effectiveDate, author, nowUtc);
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
@@ -263,57 +289,97 @@ public sealed class PersonRepository(
     // Commands personal info
     // =========================
 
-    public async Task UpdatePersonalInfoAsync(UpdatePersonalInfoCommand cmd, CancellationToken ct = default)
+    public async Task UpdatePersonalInfoAsync(Guid personId,
+        string rnokpp,
+        string lastName,
+        string firstName,
+        string? middleName,
+        string? Note,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
     {
-        var personal = new PersonalInfo(cmd.Rnokpp, cmd.LastName, cmd.FirstName, cmd.MiddleName);
+        var personal = new PersonalInfo(rnokpp, lastName, firstName, middleName);
 
-        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
-        agg.UpdatePersonalInfo(personal, cmd.Note, cmd.Author, cmd.NowUtc);
+        var agg = await LoadAggregateAsync(personId, ct);
+        agg.UpdatePersonalInfo(personal, Note, author, nowUtc);
 
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
-    public async Task ChangeRankAsync(ChangeRankCommand cmd, CancellationToken ct = default)
+    public async Task ChangeRankAsync(Guid personId,
+        DateOnly effectiveDate,
+        string rank,
+        string? note,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
     {
-        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
-        agg.ChangeRank(cmd.EffectiveDate, cmd.Rank, cmd.Note, cmd.Author, cmd.NowUtc);
+        var agg = await LoadAggregateAsync(personId, ct);
+        agg.ChangeRank(effectiveDate, rank, note, author, nowUtc);
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
-    public async Task ChangePositionAsync(ChangePositionCommand cmd, CancellationToken ct = default)
+    public async Task ChangePositionAsync(Guid personId,
+        DateOnly effectiveDate,
+        int? positionSort,
+        string? position,
+        string? note,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
     {
-        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
-        agg.ChangePosition(cmd.EffectiveDate, cmd.PositionSort ?? 0, cmd.Position ?? string.Empty, cmd.Note, cmd.Author, cmd.NowUtc);
+        var agg = await LoadAggregateAsync(personId, ct);
+        agg.ChangePosition(effectiveDate, positionSort ?? 0, position ?? string.Empty, note, author, nowUtc);
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
-    public async Task ChangeBzvpAsync(ChangeBzvpCommand cmd, CancellationToken ct = default)
+    public async Task ChangeBzvpAsync(Guid personId,
+        DateOnly effectiveDate,
+        string bzvp,
+        string? note,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
     {
-        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
-        agg.ChangeBzvp(cmd.EffectiveDate, cmd.Bzvp, cmd.Note, cmd.Author, cmd.NowUtc);
+        var agg = await LoadAggregateAsync(personId, ct);
+        agg.ChangeBzvp(effectiveDate, bzvp, note, author, nowUtc);
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
-    public async Task ChangeWeaponAsync(ChangeWeaponCommand cmd, CancellationToken ct = default)
+    public async Task ChangeWeaponAsync(Guid personId,
+        DateOnly effectiveDate,
+        string? weapon,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
     {
-        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
-        agg.ChangeWeapon(cmd.EffectiveDate, cmd.Weapon, cmd.Author, cmd.NowUtc);
+        var agg = await LoadAggregateAsync(personId, ct);
+        agg.ChangeWeapon(effectiveDate, weapon, author, nowUtc);
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
-    public async Task ChangeCallsignAsync(ChangeCallsignCommand cmd, CancellationToken ct = default)
+    public async Task ChangeCallsignAsync(Guid personId,
+        DateOnly effectiveDate,
+        string? callsign,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
     {
-        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
-        agg.ChangeCallsign(cmd.EffectiveDate, cmd.Callsign, cmd.Author, cmd.NowUtc);
+        var agg = await LoadAggregateAsync(personId, ct);
+        agg.ChangeCallsign(effectiveDate, callsign, author, nowUtc);
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
-
-
-    public async Task VoidEventAsync(VoidPersonEventCommand cmd, CancellationToken ct = default)
+    public async Task VoidEventAsync(Guid personId,
+        Guid targetEventId,
+        string reason,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
     {
-        var agg = await LoadAggregateAsync(cmd.PersonId, ct);
-        agg.VoidEvent(cmd.TargetEventId, cmd.Reason, cmd.Author, cmd.NowUtc);
+        var agg = await LoadAggregateAsync(personId, ct);
+        agg.VoidEvent(targetEventId, reason, author, nowUtc);
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
@@ -347,9 +413,8 @@ public sealed class PersonRepository(
         return agg;
     }
 
-    public async Task<IReadOnlySet<string>> GetExistingRnokppsAsync(
-    IReadOnlyCollection<string> rnokpps,
-    CancellationToken ct = default)
+    public async Task<IReadOnlySet<string>> GetExistingRnokppsAsync(IReadOnlyCollection<string> rnokpps,
+        CancellationToken ct = default)
     {
         var set = rnokpps?
             .Where(x => !string.IsNullOrWhiteSpace(x))
@@ -378,10 +443,10 @@ public sealed class PersonRepository(
         CancellationToken ct = default)
     {
         // мінімальна страховка на бекові інваріанти
-        if (string.IsNullOrWhiteSpace(row.Rnokpp)) throw new ArgumentException("Rnokpp is required.");
-        if (string.IsNullOrWhiteSpace(row.LastName)) throw new ArgumentException("LastName is required.");
-        if (string.IsNullOrWhiteSpace(row.FirstName)) throw new ArgumentException("FirstName is required.");
-        if (string.IsNullOrWhiteSpace(row.Rank)) throw new ArgumentException("Rank is required.");
+        if (string.IsNullOrWhiteSpace(row.Rnokpp)) throw new ArgumentException("rnokpp is required.");
+        if (string.IsNullOrWhiteSpace(row.LastName)) throw new ArgumentException("lastName is required.");
+        if (string.IsNullOrWhiteSpace(row.FirstName)) throw new ArgumentException("firstName is required.");
+        if (string.IsNullOrWhiteSpace(row.Rank)) throw new ArgumentException("rank is required.");
         if (string.IsNullOrWhiteSpace(row.Position)) throw new ArgumentException("Position is required.");
         if (string.IsNullOrWhiteSpace(row.Reason)) throw new ArgumentException("Reason is required.");
 
