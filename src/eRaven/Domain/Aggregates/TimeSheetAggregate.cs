@@ -9,52 +9,50 @@ using eRaven.Domain.Entities;
 
 namespace eRaven.Domain.Aggregates;
 
-public class TimeSheetAggregate
+// Domain aggregate: root одного епізоду табеля (заміна TimesheetTimeline)
+public sealed class TimesheetAggregate
 {
-    public Guid Id { get; set; }
+    public Guid Id { get; private set; }
+    public Guid PersonId { get; private set; }
 
-    //========================================
-    // Person aggregate reference
-    //========================================
-    public Guid PersonID { get; set; }
-    public PersonAggregate? Person { get; set; }
+    public DateOnly OpenedAt { get; private set; }
+    public DateOnly? ClosedAt { get; private set; }
 
-    public IReadOnlyList<TimesheetEntry> TimesheetEnties { get; set; } = [];
+    public string? Reason { get; private set; }
 
-    public IReadOnlyList<CombatTaskDocument> CombatTaskDocuments { get; set; } = [];
+    /// <summary>Author who created the timeline.</summary>
+    public string CreatedBy { get; set; } = string.Empty;
+    /// <summary>UTC timestamp when the timeline was created.</summary>
+    public DateTime CreatedAtUtc { get; set; }
 
-    //========================================
-    // Soft delete  
-    //========================================
-    public DateOnly CreatedAt { get; set; }
-    public DateOnly ClosedAt { get; set; }
-    public string? CloseReason { get; set; }
+    /// <summary>Author who closed the timeline (if any).</summary>
+    public string? ClosedBy { get; set; }
+    /// <summary>UTC timestamp when the timeline was closed (if any).</summary>
+    public DateTime? ClosedAtUtc { get; set; }
 
-    // ============================
-    // Commands
-    // ============================
-    public static void OpenOnEnroll(DateOnly enrollDate, string Author, DateOnly NowUtc)
+    private readonly List<TimesheetEntry> _entries = [];
+    public IReadOnlyList<TimesheetEntry> Entries => _entries;
+
+    // --------------------
+    // Lifecycle
+    // --------------------
+    public static TimesheetAggregate Open(Guid personId, DateOnly openedAt, string author, DateTime nowUtc)
     {
+        return new TimesheetAggregate
+        {
+            Id = Guid.NewGuid(),
+            PersonId = personId,
+            OpenedAt = openedAt,
+            CreatedBy = author,
+            CreatedAtUtc = nowUtc
+        };
     }
 
-    public void Excluded(DateOnly excludeDate, string reason, string Author, DateOnly NowUtc)
+    public void Close(DateOnly closeTo, string? reason, string author, DateTime nowUtc)
     {
-        ClosedAt = excludeDate;
-    }
-
-    public void AddTimesheetEntry(TimesheetEntry entry)
-    {
-    }
-
-    public void RemoveTimesheetEntry(Guid entryId)
-    {
-    }
-
-    public void AddCombatTaskDocument(CombatTaskDocument document)
-    {
-    }
-
-    public void RemoveCombatTaskDocument(Guid documentId)
-    {
+        ClosedAt = closeTo;
+        Reason = reason;
+        ClosedBy = author;
+        ClosedAtUtc = nowUtc;
     }
 }

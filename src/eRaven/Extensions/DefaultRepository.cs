@@ -20,11 +20,8 @@ public static class DefaultRepository
     {
         services.AddScoped<IPersonRepository, PersonRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
-        services.AddScoped<ITimesheetTimelineRepository, TimesheetTimelineRepository>();
         services.AddScoped<ITimesheetEntryRepository, TimesheetEntryRepository>();
-        services.AddScoped<ITimesheetLifecycleRepository, TimesheetLifecycleRepository>();
         services.AddScoped<ITimesheetPolicyRepository, TimesheetPolicyRepository>();
-        services.AddScoped<ITimesheetMonthRepository, TimesheetMonthRepository>();
         services.AddScoped<ICombatTaskDocumentRepository, CombatTaskDocumentRepository>();
         services.AddScoped<IMissionRepository, MissionRepository>();
         services.AddScoped<ICombatTaskRepository, CombatTaskRepository>();
