@@ -7,7 +7,9 @@
 
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.Handlers.Personal;
+using eRaven.Domain.Enums;
 using eRaven.Infrastructure.Repositories.PersonRepository;
+using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using Moq;
 
 namespace eRaven.Tests.Application.Handlers.Personal;
@@ -15,46 +17,64 @@ namespace eRaven.Tests.Application.Handlers.Personal;
 public sealed class EnrollCommandHandlerTests
 {
     [Fact]
-    public async Task HandleAsync_should_call_repo_and_return_id()
+    public async Task HandleAsync_should_call_repo_then_open_timesheet()
     {
         // arrange
         var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
-        var sut = new EnrollCommandHandler(repo.Object);
+        var ts = new Mock<ITimesheetLifecycleRepository>(MockBehavior.Strict);
+
+        var sut = new EnrollCommandHandler(repo.Object, ts.Object);
 
         var cmd = new EnrollCommand(
             PersonId: Guid.NewGuid(),
-            Kind: eRaven.Domain.Enums.EnrollmentKind.Unit,
+            Kind: EnrollmentKind.Unit,
             Reference: "A",
             Reason: "r",
             EnrollDate: new DateOnly(2026, 01, 10),
             Rank: "Солдат",
             PositionSort: 1,
             Position: "Стрілець",
-            Author: "tester",
+            Author: " tester ",
             NowUtc: new DateTime(2026, 01, 07, 12, 0, 0, DateTimeKind.Utc));
 
-        var expectedId = cmd.PersonId;
+        var seq = new MockSequence();
 
-        repo.Setup(x => x.EnrollAsync(cmd, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        repo.InSequence(seq)
+            .Setup(x => x.EnrollAsync(cmd, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        ts.InSequence(seq)
+            .Setup(x => x.OpenOnEnrollAsync(
+                cmd.PersonId,
+                cmd.EnrollDate,
+                It.Is<string>(a => a.Trim() == "tester"),
+                cmd.NowUtc,
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         // act
         await sut.HandleAsync(cmd);
 
         // assert
-        repo.Verify(x => x.EnrollAsync(cmd, It.IsAny<CancellationToken>()), Times.Once);
+        repo.VerifyAll();
+        ts.VerifyAll();
+
         repo.VerifyNoOtherCalls();
+        ts.VerifyNoOtherCalls();
     }
 
     [Fact]
-    public async Task HandleAsync_should_pass_cancellation_token_to_repo()
+    public async Task HandleAsync_should_pass_cancellation_token_to_dependencies()
     {
         // arrange
         var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
-        var sut = new EnrollCommandHandler(repo.Object);
+        var ts = new Mock<ITimesheetLifecycleRepository>(MockBehavior.Strict);
+
+        var sut = new EnrollCommandHandler(repo.Object, ts.Object);
 
         var cmd = new EnrollCommand(
             PersonId: Guid.NewGuid(),
-            Kind: eRaven.Domain.Enums.EnrollmentKind.Unit,
+            Kind: EnrollmentKind.Unit,
             Reference: null,
             Reason: "r",
             EnrollDate: new DateOnly(2026, 01, 10),
@@ -67,13 +87,57 @@ public sealed class EnrollCommandHandlerTests
         using var cts = new CancellationTokenSource();
         var ct = cts.Token;
 
-        repo.Setup(x => x.EnrollAsync(cmd, ct)).Returns(Task.CompletedTask);
+        var seq = new MockSequence();
+
+        repo.InSequence(seq)
+            .Setup(x => x.EnrollAsync(cmd, ct))
+            .Returns(Task.CompletedTask);
+
+        ts.InSequence(seq)
+            .Setup(x => x.OpenOnEnrollAsync(cmd.PersonId, cmd.EnrollDate, "tester", cmd.NowUtc, ct))
+            .Returns(Task.CompletedTask);
 
         // act
         await sut.HandleAsync(cmd, ct);
 
         // assert
-        repo.Verify(x => x.EnrollAsync(cmd, ct), Times.Once);
+        repo.VerifyAll();
+        ts.VerifyAll();
+
         repo.VerifyNoOtherCalls();
+        ts.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task HandleAsync_when_repo_throws_should_propagate_and_not_touch_timesheet()
+    {
+        // arrange
+        var repo = new Mock<IPersonRepository>(MockBehavior.Strict);
+        var ts = new Mock<ITimesheetLifecycleRepository>(MockBehavior.Strict);
+
+        var sut = new EnrollCommandHandler(repo.Object, ts.Object);
+
+        var cmd = new EnrollCommand(
+            PersonId: Guid.NewGuid(),
+            Kind: EnrollmentKind.Unit,
+            Reference: null,
+            Reason: "r",
+            EnrollDate: new DateOnly(2026, 01, 10),
+            Rank: "Солдат",
+            PositionSort: 1,
+            Position: "Стрілець",
+            Author: "tester",
+            NowUtc: new DateTime(2026, 01, 07, 12, 0, 0, DateTimeKind.Utc));
+
+        repo.Setup(x => x.EnrollAsync(cmd, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        // act + assert
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.HandleAsync(cmd));
+        Assert.Equal("boom", ex.Message);
+
+        repo.Verify(x => x.EnrollAsync(cmd, It.IsAny<CancellationToken>()), Times.Once);
+        repo.VerifyNoOtherCalls();
+        ts.VerifyNoOtherCalls();
     }
 }

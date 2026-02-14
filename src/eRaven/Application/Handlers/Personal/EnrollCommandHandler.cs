@@ -8,14 +8,29 @@
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Infrastructure.Repositories.PersonRepository;
+using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.Personal;
 
-public sealed class EnrollCommandHandler(IPersonRepository repo)
+public sealed class EnrollCommandHandler(
+    IPersonRepository repo,
+    ITimesheetLifecycleRepository timesheetRepo)
     : ICommandHandler<EnrollCommand>
 {
     private readonly IPersonRepository _repo = repo;
+    private readonly ITimesheetLifecycleRepository _timesheet = timesheetRepo;
 
     public async Task HandleAsync(EnrollCommand command, CancellationToken ct = default)
-        => await _repo.EnrollAsync(command, ct);
+    {
+        // 1) Person lifecycle
+        await _repo.EnrollAsync(command, ct);
+
+        // 2) Timesheet lifecycle: відкриваємо шкали + ставимо Main=Т
+        await _timesheet.OpenOnEnrollAsync(
+            personId: command.PersonId,
+            enrollDate: command.EnrollDate,
+            author: command.Author,
+            nowUtc: command.NowUtc,
+            ct: ct);
+    }
 }

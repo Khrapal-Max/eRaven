@@ -13,9 +13,25 @@ namespace eRaven.Infrastructure;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    // Особа 
+    // Persons 
     public DbSet<PersonReadModel> PersonRead { get; set; }
     public DbSet<PersonEventRecord> PersonEvents { get; set; }
+
+    // Codes
+    public DbSet<TimesheetCodeDefinition> TimesheetCodes { get; set; }
+    public DbSet<TimesheetCodeTransition> TimesheetCodeTransitions { get; set; }
+
+    // Timesheet   
+    public DbSet<TimesheetEntry> TimesheetEntries { get; set; }
+    public DbSet<TimesheetTimeline> TimesheetTimelines { get; set; }
+
+    // Combat Task
+    public DbSet<Mission> Missions { get; set; }
+
+    public DbSet<CombatTaskDocument> CombatTaskDocuments { get; set; }
+    public DbSet<CombatTask> CombatTasks { get; set; }
+    public DbSet<CombatTaskDetails> CombatTaskDetails { get; set; }
+    public DbSet<MissionAssignment> MissionAssignments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

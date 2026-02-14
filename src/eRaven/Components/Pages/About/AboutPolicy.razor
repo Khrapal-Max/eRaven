@@ -1,0 +1,158 @@
+@page "/about/policy"
+
+<PageTitle>Про систему — Політика кодів</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid">
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
+            <div class="fw-semibold">Політика кодів</div>
+        </div>
+
+        <div class="px-3 py-3">
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Призначення</div>
+                <div class="small">
+                    Політика визначає:
+                    <ul class="mb-0">
+                        <li>які коди існують у табелі та що вони означають;</li>
+                        <li>які переходи між кодами дозволені;</li>
+                        <li>як трактуються дати «з» і «по» для різних кодів.</li>
+                    </ul>
+                    Якщо перехід заборонений або правило відсутнє — система заблокує дію і підкаже, що саме не так.
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Дефолтні коди</div>
+                <div class="small mb-2">
+                    Це набір кодів, який система надає «з коробки». Адміністратор може змінювати назви, додавати нові коди та коригувати переходи.
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:90px;">Код</th>
+                                <th>Назва / зміст</th>
+                                <th style="width:280px;">Як рахується «по»</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="font-monospace">НБ</td>
+                                <td>Поза табелем (людина не обліковується у табелі)</td>
+                                <td class="small">Застосовується як базовий стан, доки людину не зараховано у табель.</td>
+                            </tr>
+                            <tr>
+                                <td class="font-monospace">Т</td>
+                                <td>Табельний день (облік за місцем служби)</td>
+                                <td class="small">Діє <b>до дня наступної події</b> (тобто змінюється тільки коли з’являється інший код).</td>
+                            </tr>
+                            <tr>
+                                <td class="font-monospace">30</td>
+                                <td>Базовий стан (звичайний день служби)</td>
+                                <td class="small">Діє <b>до дня наступної події</b>.</td>
+                            </tr>
+
+                            <tr>
+                                <td class="font-monospace">100</td>
+                                <td>День завдання</td>
+                                <td class="small"><b>Перший і останній день включно</b> вважаються днем завдання.</td>
+                            </tr>
+                            <tr>
+                                <td class="font-monospace">Ф100</td>
+                                <td>День отримання поранення або травмування, зміна стану здоров'я (фактичний)</td>
+                                <td class="small"><b>Перший і останній день включно</b> вважаються днем отримання поранення або травмування.</td>
+                            </tr>
+
+                            <tr>
+                                <td class="font-monospace">ВП</td>
+                                <td>Відпустка</td>
+                                <td class="small">«По» — це дата повернення. В день повернення вже діє <b>наступний</b> код.</td>
+                            </tr>
+                            <tr>
+                                <td class="font-monospace">ВПХ</td>
+                                <td>Відпустка за власний рахунок</td>
+                                <td class="small">«По» — це дата повернення. В день повернення вже діє <b>наступний</b> код.</td>
+                            </tr>
+                            <tr>
+                                <td class="font-monospace">ВПП</td>
+                                <td>Відпустка по пораненню</td>
+                                <td class="small">«По» — це дата повернення. В день повернення вже діє <b>наступний</b> код.</td>
+                            </tr>
+
+                            <tr>
+                                <td class="font-monospace">ВДР</td>
+                                <td>Відрядження</td>
+                                <td class="small"><b>Перший і останній день включно</b> вважаються відрядженням.</td>
+                            </tr>
+                            <tr>
+                                <td class="font-monospace">ВЛК</td>
+                                <td>ВЛК</td>
+                                <td class="small"><b>Перший і останній день включно</b> вважаються ВЛК.</td>
+                            </tr>
+                            <tr>
+                                <td class="font-monospace">МСЕК</td>
+                                <td>МСЕК</td>
+                                <td class="small"><b>Перший і останній день включно</b> вважаються МСЕК.</td>
+                            </tr>
+
+                            <tr>
+                                <td class="font-monospace">ЛХ</td>
+                                <td>Лікування (госпіталь)</td>
+                                <td class="small"><b>Перший і останній день включно</b> вважаються лікуванням.</td>
+                            </tr>
+                            <tr>
+                                <td class="font-monospace">ЛП</td>
+                                <td>Лікування (ППД)</td>
+                                <td class="small"><b>Перший і останній день включно</b> вважаються лікуванням.</td>
+                            </tr>
+
+                            <tr>
+                                <td class="font-monospace">200</td>
+                                <td>Загиблий</td>
+                                <td class="small">Фіксується як подія без «по» (далі стан не змінюється).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Приклади трактування дат</div>
+                <div class="small">
+                    <ul class="mb-0">
+                        <li>
+                            <b>Лікування</b> з <span class="font-monospace">01.02</span> по <span class="font-monospace">05.02</span>:
+                            день <span class="font-monospace">05.02</span> <b>ще лікування</b>, наступний код починається з <span class="font-monospace">06.02</span>.
+                        </li>
+                        <li>
+                            <b>Відпустка</b> з <span class="font-monospace">01.02</span> по <span class="font-monospace">05.02</span> (повернення <span class="font-monospace">05.02</span>):
+                            з <span class="font-monospace">01.02</span> по <span class="font-monospace">04.02</span> — відпустка, а <span class="font-monospace">05.02</span> вже діє наступний код.
+                        </li>
+                        <li>
+                            <b>Завдання</b> з <span class="font-monospace">01.02</span> по <span class="font-monospace">05.02</span>:
+                            <span class="font-monospace">01.02</span> і <span class="font-monospace">05.02</span> — дні завдання, як і кожен день між ними.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Короткий туторіал: як налаштовувати політику</div>
+                <div class="small">
+                    Налаштування знаходяться у меню: <b>Довідники → Політика (статуси)</b>.
+                    <ol class="mb-0">
+                        <li><b>Зліва</b> оберіть код, який хочете налаштувати.</li>
+                        <li><b>Справа</b> перевірте опис коду та правило «як рахується по».</li>
+                        <li>Нижче позначте, у які коди дозволено переходити з обраного коду.</li>
+                        <li>Натисніть <b>«Зберегти»</b>. Якщо зміна впливає на документи — система підкаже, що потрібно перевірити.</li>
+                    </ol>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

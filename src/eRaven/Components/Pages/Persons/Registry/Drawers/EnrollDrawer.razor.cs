@@ -15,7 +15,7 @@ using Microsoft.AspNetCore.Components.Forms;
 
 namespace eRaven.Components.Pages.Persons.Registry.Drawers;
 
-public partial class EnrollDrawer
+public partial class EnrollDrawer : ComponentBase
 {
     // =========================
     // Parameters

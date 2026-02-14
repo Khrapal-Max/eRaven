@@ -1,23 +1,17 @@
-﻿//-----------------------------------------------------------------------------
-// All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// BootstrapPersonsCommandHandler
-//-----------------------------------------------------------------------------
-
-using eRaven.Application.Commands;
+﻿using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
 using eRaven.Infrastructure.Repositories.PersonRepository;
+using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using Microsoft.EntityFrameworkCore;
-
-namespace eRaven.Application.Handlers.Personal;
 
 public sealed class BootstrapPersonsCommandHandler(
     IPersonRepository repo,
+    ITimesheetLifecycleRepository timesheetRepo,
     ILogger<BootstrapPersonsCommandHandler> log)
         : ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult>
 {
     private readonly IPersonRepository _repo = repo;
+    private readonly ITimesheetLifecycleRepository _timesheet = timesheetRepo;
     private readonly ILogger<BootstrapPersonsCommandHandler> _log = log;
 
     public async Task<BootstrapPersonsResult> HandleAsync(
@@ -64,7 +58,7 @@ public sealed class BootstrapPersonsCommandHandler(
 
         var existing = await _repo.GetExistingRnokppsAsync(rnokpps, ct);
 
-        // 3) Імпорт: по рядках (на практиці найнадійніше — “персона атомарно”)
+        // 3) Імпорт: по рядках
         foreach (var row in candidates)
         {
             var rn = NormalizeRnokpp(row.Rnokpp);
@@ -78,7 +72,12 @@ public sealed class BootstrapPersonsCommandHandler(
 
             try
             {
-                await _repo.BootstrapCreateAndEnrollAsync(row, author, command.NowUtc, ct);
+                // 1) створили персону + зарахували
+                var personId = await _repo.BootstrapCreateAndEnrollAsync(row, author, command.NowUtc, ct);
+
+                // 2) відкрили табель: шкала(и) + дефолтний Main=30 з дати зарахування
+                await _timesheet.OpenOnEnrollAsync(personId, row.EnrollDate, author, command.NowUtc, ct);
+
                 created++;
             }
             catch (DbUpdateException ex)

@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Components.Forms;
 
 namespace eRaven.Components.Pages.Persons.Cards.Drawers;
 
-public partial class ChangeCallsingDrawer
+public partial class ChangeCallsingDrawer : ComponentBase
 {
     // =========================
     // Parameters

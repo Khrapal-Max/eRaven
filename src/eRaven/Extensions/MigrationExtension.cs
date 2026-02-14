@@ -33,6 +33,9 @@ public static class MigrationExtension
                 await db.Database.MigrateAsync();
                 logger.LogInformation("✅ Database migrated successfully.");
 
+                await TimesheetPolicySeed.EnsureSeedAsync(db, CancellationToken.None);
+                logger.LogInformation("✅ Timesheet policy seeded.");
+
                 // await RankSeed.EnsureSeededAsync(db, CancellationToken.None);
                 // logger.LogInformation("✅ Rank dictionary seeded.");
                 return;

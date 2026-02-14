@@ -1,0 +1,119 @@
+@page "/about"
+
+<PageTitle>Про систему</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid">
+
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <div class="fw-semibold">Довідка</div>
+        </div>
+
+        <div class="px-3 py-3">
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Для чого ця довідка</div>
+                <div class="small opacity-75">
+                    Тут зібрано короткі інструкції по основних розділах системи:
+                    облік особового складу, табель, місії та документи завдань.
+                    Відкрийте потрібний розділ зі змісту — і паралельно повторіть кроки у системі.
+                </div>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Зміст</div>
+
+                <div class="row g-3">
+
+                    <div class="col-12 col-lg-6">
+                        <div class="border p-3 h-100">
+                            <div class="fw-semibold mb-1">Терміни</div>
+                            <div class="small opacity-75 mb-2">Пояснення ключових слів і правил дат.</div>
+                            <NavLink class="btn btn-sm btn-light rounded-0" href="/about/concepts">Відкрити</NavLink>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-lg-6">
+                        <div class="border p-3 h-100">
+                            <div class="fw-semibold mb-1">Облік</div>
+                            <div class="small opacity-75 mb-2">
+                                Реєстр карток і картка військовослужбовця.
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <NavLink class="btn btn-sm btn-light rounded-0" href="/about/accounting">Огляд</NavLink>
+                                <NavLink class="btn btn-sm btn-light rounded-0" href="/about/accounting/registry">Реєстр карток</NavLink>
+                                <NavLink class="btn btn-sm btn-light rounded-0" href="/about/accounting/card">Картка</NavLink>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-lg-6">
+                        <div class="border p-3 h-100">
+                            <div class="fw-semibold mb-1">Дашборд</div>
+                            <div class="small opacity-75 mb-2">Оперативний огляд стану підрозділу.</div>
+                            <NavLink class="btn btn-sm btn-light rounded-0" href="/about/dashboard">Відкрити</NavLink>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-lg-6">
+                        <div class="border p-3 h-100">
+                            <div class="fw-semibold mb-1">Табель</div>
+                            <div class="small opacity-75 mb-2">Добовий, місячний та правила переходів.</div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <NavLink class="btn btn-sm btn-light rounded-0" href="/about/timesheet">Огляд</NavLink>
+                                <NavLink class="btn btn-sm btn-light rounded-0" href="/about/timesheet/day">Добовий</NavLink>
+                                <NavLink class="btn btn-sm btn-light rounded-0" href="/about/timesheet/month">Місячний</NavLink>
+                                <NavLink class="btn btn-sm btn-light rounded-0" href="/about/policy">Політика</NavLink>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-lg-6">
+                        <div class="border p-3 h-100">
+                            <div class="fw-semibold mb-1">Документи</div>
+                            <div class="small opacity-75 mb-2">Як готувати і проводити документи завдань.</div>
+                            <NavLink class="btn btn-sm btn-light rounded-0" href="/about/documents/tasks">Завдання</NavLink>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-lg-6">
+                        <div class="border p-3 h-100">
+                            <div class="fw-semibold mb-1">Місії</div>
+                            <div class="small opacity-75 mb-2">Створення місії, контроль виконання, закриття.</div>
+                            <NavLink class="btn btn-sm btn-light rounded-0" href="/about/missions">Відкрити</NavLink>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="border p-3">
+                            <div class="fw-semibold mb-1">Типові ситуації</div>
+                            <div class="small opacity-75 mb-2">Конфлікти, блокування, підказки і відповіді.</div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <NavLink class="btn btn-sm btn-light rounded-0" href="/about/conflicts">Конфлікти</NavLink>
+                                <NavLink class="btn btn-sm btn-light rounded-0" href="/about/faq">FAQ</NavLink>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="border p-3 mt-3">
+                <div class="fw-semibold mb-2">Швидкі переходи до розділів системи</div>
+                <div class="smal">
+                    <ul class="mb-0">
+                        <li><NavLink class="text-primary" href="/persons">Облік → Реєстр карток</NavLink></li>
+                        <li><NavLink class="text-primary" href="/dashboard">Дашборд</NavLink></li>
+                        <li><NavLink class="text-primary" href="/timesheet-day">Табель → Добовий</NavLink></li>
+                        <li><NavLink class="text-primary"href="/timesheet">Табель → Місячний</NavLink></li>
+                        <li><NavLink class="text-primary" href="/task-documents">Документи → Завдання</NavLink></li>
+                        <li><NavLink class="text-primary" href="/missions">Довідники → Місії</NavLink></li>
+                        <li><NavLink class="text-primary" href="/timesheet/policy">Довідники → Політика (статуси)</NavLink></li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>

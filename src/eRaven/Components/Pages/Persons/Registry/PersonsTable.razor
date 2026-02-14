@@ -9,6 +9,7 @@
        @bind-SelectedItem="Selected"
        OnClick="OnRowClick">
     <TableHeader>
+        <th>SEQ.</th>
         <th>СТ.</th>
         <th>ПІБ</th>
         <th>РНОКПП</th>
@@ -20,6 +21,7 @@
     </TableHeader>
 
     <RowTemplate Context="p">
+        <td class="small">@p.PositionSort</td
         <td class="small text-nowrap p-0">
             @EnrollmentKindBadge(p.EnrollmentKind)
         </td>

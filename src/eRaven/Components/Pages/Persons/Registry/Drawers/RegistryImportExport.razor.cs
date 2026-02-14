@@ -21,7 +21,7 @@ using System.Globalization;
 
 namespace eRaven.Components.Pages.Persons.Registry.Drawers;
 
-public partial class RegistryImportExport
+public partial class RegistryImportExport : ComponentBase
 {
     private enum Tab { Import, Export }
 

@@ -5,8 +5,9 @@
 <PageTitle>Доска обліку</PageTitle>
 
 <div class="page-content text-black">
+
     <div class="border bg-secondary-subtle">
-        <div class="py-2 px-4 text-dark">
+        <div class="py-2 px-4 text-white">
             Доска обліку.
         </div>
     </div>
@@ -15,10 +16,6 @@
         @if (_loading)
         {
             <p class="px-1"><em>Завантаження...</em></p>
-        }
-        else if (_error is not null)
-        {
-            <div class="alert alert-danger rounded-0">@_error</div>
         }
         else if (_data is not null)
         {

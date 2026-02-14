@@ -10,6 +10,7 @@ using eRaven.Application.DTOs.Dashboard;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Dashboard;
 using eRaven.Components.Pages.Dashboard;
+using eRaven.Presentation.Toasts;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
@@ -17,6 +18,15 @@ namespace eRaven.Tests.Components.Pages.Dashboard;
 
 public sealed class PersonnelDashboardShellTests : BunitContext
 {
+    private readonly ToastService _toastService;
+
+    public PersonnelDashboardShellTests()
+    {
+        _toastService = new();
+
+        Services.AddSingleton(_toastService);
+    }
+
     [Fact]
     public void Renders_loading_state_initially()
     {
@@ -74,25 +84,6 @@ public sealed class PersonnelDashboardShellTests : BunitContext
 
         q.Verify(x => x.HandleAsync(It.IsAny<GetPersonnelDashboardQuery>(), It.IsAny<CancellationToken>()), Times.Once);
         q.VerifyNoOtherCalls();
-    }
-
-    [Fact]
-    public void Renders_error_alert_when_query_throws()
-    {
-        // Arrange
-        var q = new Mock<IQueryHandler<GetPersonnelDashboardQuery, PersonnelDashboardDto>>(MockBehavior.Strict);
-        q.Setup(x => x.HandleAsync(It.IsAny<GetPersonnelDashboardQuery>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("boom"));
-
-        Services.AddSingleton(q.Object);
-
-        // Act
-        var cut = Render<PersonnelDashboardShell>();
-        cut.WaitForAssertion(() =>
-        {
-            var alert = cut.Find("div.alert.alert-danger");
-            Assert.Contains("boom", alert.TextContent);
-        });
     }
 
     private static void AssertCard(IRenderedComponent<StatusSliceCard> card, string hint, int count, string badgeClass)

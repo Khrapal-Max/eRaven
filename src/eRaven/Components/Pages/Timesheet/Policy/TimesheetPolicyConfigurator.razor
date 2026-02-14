@@ -1,0 +1,246 @@
+﻿@page "/timesheet/policy"
+
+@using eRaven.Application.DTOs.Timesheet
+@using eRaven.Components.Shared.Button
+
+<div class="page-flex">
+
+    <!-- Toolbar -->
+    <div class="d-flex align-items-center gap-2 px-3 py-2 border rounded-2 bg-body text-white">
+        <div class="fw-semibold">Політика переходів</div>
+
+        @if (_selected is not null)
+        {
+            <div class="ms-2 small text-truncate">
+                Код:
+                <span class="font-monospace fw-semibold">@_selected.Code</span>
+                — @_selected.Title
+
+                @if (!_selected.IsActive)
+                {
+                    <span class="ms-2 badge text-bg-secondary">неактивний</span>
+                }
+                @if (_selected.IsTerminal)
+                {
+                    <span class="ms-1 badge text-bg-warning">кінцевий</span>
+                }
+            </div>
+        }
+
+        <div class="ms-auto d-flex gap-2">
+            <Button Class="btn-sm btn-success"
+                    Label="Додати код"
+                    OnClickButton="OpenCreateDrawer" />
+
+            <Button Class="btn-sm btn-danger"
+                    Label="Закрити код"
+                    IsDisabled="_selected is null || !_selected.IsActive"
+                    OnClickButton="OpenCloseDrawer" />
+
+            <Button Class="btn-sm btn-primary"
+                    Label="Зберегти"
+                    IsDisabled="!_canSave || _selected is null"
+                    OnClickButton="SaveAsync" />
+        </div>
+    </div>
+
+    <div class="page-content d-flex flex-column">
+
+        <!-- Main body -->
+        <div class="border rounded-2 overflow-hidden flex-grow-1">
+            <div class="row g-0 h-100">
+
+                <!-- Left: list of codes -->
+                <div class="col-4 border-end h-100 overflow-auto">
+
+                    <div class="p-2 border-bottom small">
+                        Оберіть код зліва. Справа налаштовуються:
+                        <ul class="mb-0 ps-3">
+                            <li>параметри коду (назва, порядок, пріоритет…);</li>
+                            <li>дозволені переходи та трактування дати події (0/1 день).</li>
+                        </ul>
+                    </div>
+
+                    <div class="list-group list-group-flush">
+                        @foreach (var s in _codes)
+                        {
+                            var selected = _selected?.Id == s.Id;
+
+                            <button type="button"
+                                    class="list-group-item list-group-item-action list-group-item-secondary @(selected ? "active" : "")"
+                                    @onclick="() => SelectAsync(s.Id)">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-truncate me-2">@s.Title</span>
+                                    <span class="font-monospace">@s.Code</span>
+                                </div>
+
+                                <div class="small opacity-75">
+                                    Порядок: @s.SortOrder · Пріоритет: @s.Priority
+                                    @if (!s.IsActive)
+                                    {
+                                        <span class="ms-1 badge text-bg-secondary">неактивний</span>
+                                    }
+                                    @if (s.IsTerminal)
+                                    {
+                                        <span class="ms-1 badge text-bg-warning">кінцевий</span>
+                                    }
+                                </div>
+                            </button>
+                        }
+                    </div>
+
+                </div>
+
+                <!-- Right -->
+                <div class="col-8 h-100 overflow-auto">
+                    @if (_selected is null)
+                    {
+                        <div class="p-3">Оберіть код зліва.</div>
+                    }
+                    else
+                    {
+                        <div class="p-3">
+
+                            <!-- Header -->
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                <div class="fw-semibold">
+                                    <span class="font-monospace">@_selected.Code</span> — @_selected.Title
+                                </div>
+                            </div>
+
+                            <!-- Code fields -->
+                            <div class="border p-3 mb-3">
+                                <div class="fw-semibold mb-2">Параметри коду</div>
+
+                                <div class="row g-2">
+                                    <div class="col-12 col-lg-6">
+                                        <label class="form-label small">Назва</label>
+                                        <input class="form-control form-control-sm"
+                                               value="@_editTitle"
+                                               @oninput="OnTitleChanged" />
+                                    </div>
+
+                                    <div class="col-12 col-lg-6">
+                                        <label class="form-label small">Опис (опціонально)</label>
+                                        <input class="form-control form-control-sm"
+                                               value="@(_editDescription ?? "")"
+                                               @oninput="OnDescriptionChanged" />
+                                    </div>
+
+                                    <div class="col-6 col-lg-3">
+                                        <label class="form-label small">Порядок</label>
+                                        <input class="form-control form-control-sm"
+                                               type="number"
+                                               value="@_editSortOrder"
+                                               @oninput="OnSortOrderChanged" />
+                                    </div>
+
+                                    <div class="col-6 col-lg-3">
+                                        <label class="form-label small">Пріоритет</label>
+                                        <input class="form-control form-control-sm"
+                                               type="number"
+                                               value="@_editPriority"
+                                               @oninput="OnPriorityChanged" />
+                                    </div>
+
+                                    <div class="col-12 col-lg-3 d-flex align-items-end">
+                                        <label class="form-check m-0">
+                                            <input class="form-check-input"
+                                                   type="checkbox"
+                                                   checked="@_editIsTerminal"
+                                                   @onchange="OnTerminalChanged" />
+                                            <span class="form-check-label small">Кінцевий код</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bulk actions -->
+                            <div class="d-flex align-items-end justify-content-between flex-wrap gap-2 mb-2">
+                                <div class="small">Дозволені переходи:</div>
+
+                                <div class="d-flex gap-2">
+                                    <Button Class="btn-sm btn-outline-secondary"
+                                            Label="Вибрати всі (0)"
+                                            OnClickButton="SelectAllShift0" />
+
+                                    <Button Class="btn-sm btn-outline-secondary"
+                                            Label="Очистити"
+                                            OnClickButton="ClearAll" />
+                                </div>
+                            </div>
+
+                            <!-- Allowed transitions with shift -->
+                            <div class="row g-2">
+                                @foreach (var t in RightPanelTargets())
+                                {
+                                    var enabled = _transitions.TryGetValue(t.Id, out var shift);
+                                    var disabled = !t.IsActive;
+
+                                    <div class="col-12 col-md-6 col-lg-6">
+                                        <div class="border rounded-2 p-2 d-flex align-items-center justify-content-between gap-2">
+                                            <label class="form-check m-0">
+                                                <input class="form-check-input"
+                                                       type="checkbox"
+                                                       disabled="@disabled"
+                                                       checked="@enabled"
+                                                       @onchange="(e) => Toggle(t.Id, e.Value is bool b && b)" />
+                                                <span class="form-check-label">
+                                                    <span class="font-monospace">@t.Code</span> — @t.Title
+                                                    @if (!t.IsActive)
+                                                    {
+                                                        <span class="ms-1 badge text-bg-secondary">неактивний</span>
+                                                    }
+                                                </span>
+                                            </label>
+
+                                            @if (enabled)
+                                            {
+                                                <select class="form-select form-select-sm"
+                                                        style="max-width: 170px;"
+                                                        value="@shift"
+                                                        @onchange="(e) => ChangeShift(t.Id, e.Value?.ToString())">
+                                                    <option value="0">З дати події</option>
+                                                    <option value="1">Ще поточний</option>
+                                                </select>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                        </div>
+                    }
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Footer: символічні бізнес-правила -->
+        <div class="row alert alert-light border small mb-0 mx-0">
+            <div class="fw-semibold">Підказка (як система читає дату події)</div>
+            <div class="col-6">
+                <b>З дати події</b> (0) — новий код діє цього ж дня.
+            </div>
+            <div class="col-6">
+                <b>Ще поточний</b> (1) — цей день лишається за поточним кодом, новий починається з наступного дня.
+            </div>
+            <div class="col-6">
+                <b>Пріоритет</b> застосовується, коли кілька подій попадають на одну дату (більший пріоритет “перемагає”).
+            </div>
+            <div class="col-6">
+                <b>НБ</b> — системний стан “поза табелем”: його не налаштовуємо як подію.
+            </div>
+        </div>
+    </div>   
+</div>
+
+<!---- Drawers ---->
+<AddTimesheetCodeDrawer IsOpen="_createOpen"
+                        IsOpenChanged="@(v => _createOpen = v)"
+                        OnCreated="HandleCreated" />
+
+<CloseTimesheetCodeDrawer IsOpen="_closeOpen"
+                          IsOpenChanged="@(v => _closeOpen = v)"
+                          Code="_closeTarget"
+                          OnClosedCode="HandleClosedCode" />

@@ -1,0 +1,82 @@
+﻿<Drawer @ref="_drawer"
+        IsOpen="IsOpen"
+        IsOpenChanged="IsOpenChanged"
+        Title="Створити табельний код"
+        DisableClose="_busy"
+        OnClosed="OnClosedAsync">
+
+    <ChildContent>
+        <div class="small mb-3">
+            Створіть новий код для табеля (наприклад <span class="font-monospace">ЛХ</span>, <span class="font-monospace">ВП</span>, <span class="font-monospace">Ф100</span>).
+            Після створення код краще не змінювати — він використовується в обліку та звітах.
+        </div>
+        <EditForm EditContext="_editContext">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="row g-2">
+
+                <div class="col-12 col-lg-4">
+                    <label class="form-label small">Код</label>
+                    <InputText class="form-control form-control-sm font-monospace"
+                               @bind-Value="_model.Code" />
+                    <ValidationMessage For="@(() => _model.Code)" />
+                    <div class="small">
+                        Коротке позначення: <span class="font-monospace">30</span>, <span class="font-monospace">Т</span>, <span class="font-monospace">ЛХ</span>…
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-8">
+                    <label class="form-label small">Назва</label>
+                    <InputText class="form-control form-control-sm"
+                               @bind-Value="_model.Title" />
+                    <ValidationMessage For="@(() => _model.Title)" />
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label small">Опис (опціонально)</label>
+                    <InputText class="form-control form-control-sm"
+                               @bind-Value="_model.Description" />
+                    <ValidationMessage For="@(() => _model.Description)" />
+                </div>
+
+                <div class="col-6 col-lg-3">
+                    <label class="form-label small">Порядок</label>
+                    <InputNumber class="form-control form-control-sm"
+                                 @bind-Value="_model.SortOrder" />
+                    <ValidationMessage For="@(() => _model.SortOrder)" />
+                </div>
+
+                <div class="col-6 col-lg-3">
+                    <label class="form-label small">Пріоритет</label>
+                    <InputNumber class="form-control form-control-sm"
+                                 @bind-Value="_model.Priority" />
+                    <ValidationMessage For="@(() => _model.Priority)" />
+                </div>
+
+                <div class="col-12 col-lg-6 d-flex align-items-end">
+                    <label class="form-check m-0">
+                        <InputCheckbox class="form-check-input"
+                                       @bind-Value="_model.IsTerminal" />
+                        <span class="form-check-label small">Кінцевий код</span>
+                    </label>
+                </div>
+
+            </div>
+        </EditForm>
+    </ChildContent>
+    <FooterContent>
+        <div class="d-flex justify-content-end gap-2">
+            <Button Class="btn-sm btn-outline-secondary"
+                    Label="Скасувати"
+                    IsDisabled="_busy"
+                    OnClickButton="CloseAsync" />
+
+            <Button Class="btn-sm btn-succes"
+                    Label="Створити"
+                    IsDisabled="_busy"
+                    OnClickButton="CreateAsync" />
+        </div>
+    </FooterContent>
+
+</Drawer>

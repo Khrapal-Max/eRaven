@@ -1,0 +1,87 @@
+@page "/about/documents/tasks"
+
+<PageTitle>Про систему — Документи: Завдання</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid">
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
+            <div class="fw-semibold">Документи: Завдання</div>
+        </div>
+
+        <div class="px-3 py-3">
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Призначення</div>
+                <div class="small">
+                    Документ “Завдання” фіксує, хто і коли почав/завершив виконання в межах конкретної місії.
+                    Поки документ у стані чернетки — це план. Після проведення — це факт, і зміни відображаються в табелі.
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Де знайти</div>
+                <div class="small">
+                    Меню: <b>Планування → Документи</b>.
+                    <div class="mt-2">
+                        <NavLink class="btn btn-sm btn-light rounded-0" href="/task-documents">Відкрити список документів</NavLink>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Створення документа (коротко)</div>
+                <div class="small">
+                    <ol class="mb-0">
+                        <li>На сторінці документів натисніть <b>Створити</b>.</li>
+                        <li>Вкажіть дату та назву/номер розпорядження.</li>
+                        <li>Відкрийте документ для редагування.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Редагування документа</div>
+                <div class="small">
+                    У документі ви працюєте з місіями (групами):
+                    <ul class="mb-0">
+                        <li>обираєте місію;</li>
+                        <li>додаєте записи “почав виконання” або “припинив виконання” для людей з датами;</li>
+                        <li>перевіряєте послідовність по кожній людині (початок → кінець).</li>
+                    </ul>
+                    <div class="mt-2">
+                        Якщо потрібно швидко знайти людей для місії — користуйтеся пошуком та підказками у формах додавання.
+                    </div>
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Проведення ("Posted")</div>
+                <div class="small">
+                    Проведення робить документ фактом:
+                    <ol class="mb-0">
+                        <li>система перевіряє, чи можна записати коди у табель на потрібні дати;</li>
+                        <li>записує дні завдання у табель за правилом “кожен день на завданні — код 100”;</li>
+                        <li>закріплює участь людей у місіях як факт.</li>
+                    </ol>
+                    <div class="mt-2">
+                        Якщо проведення заблоковане — документ покаже, у кого і на яку дату є проблема.
+                        Типові причини див. у <NavLink class="text-primary" href="/about/conflicts">Типових ситуаціях</NavLink>.
+                    </div>
+                </div>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Корисні посилання</div>
+                <div class="small">
+                    <ul class="mb-0">
+                        <li><NavLink class="text-primary" href="/about/workflow">Процеси: що таке план і факт</NavLink></li>
+                        <li><NavLink class="text-primary" href="/about/policy">Політика кодів</NavLink></li>
+                        <li><NavLink class="text-primary" href="/about/timesheet">Табель</NavLink></li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

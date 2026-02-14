@@ -460,3 +460,185 @@ body {
     .dropdown-menu .dropdown-item.action-exclude:focus::before {
         background: var(--bs-danger);
     }
+
+/* =========================
+   Timesheet table (stable cell colors)
+   ========================= */
+
+.timesheet-wrap .table-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 65vh;
+}
+
+.timesheet-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+    .timesheet-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--bs-table-head-bg, #f8f9fa);
+    }
+
+    /* Вузькі тільки day-колонки (де є коди) */
+    .timesheet-table td.ts-cell {
+        padding: 1px 2px;
+        vertical-align: middle;
+        width: 34px;
+        min-width: 34px;
+        max-width: 34px;
+        border-color: var(--bs-border-color);
+    }
+
+/* content */
+.ts-main {
+    font-size: 11px;
+    line-height: 1.05;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ts-task {
+    margin-top: 2px;
+    font-size: 10px;
+    line-height: 1.0;
+    opacity: .9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* індикатор: є task */
+.ts-cell--has-task {
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.10);
+}
+
+/* --- КОЛЬОРИ (пастельні, читабельні) --- */
+/* empty */
+.timesheet-table td.ts-cell--empty {
+    background: #ffffff !important;
+    color: var(--bs-body-color) !important;
+}
+
+/* НБ */
+.timesheet-table td.ts-cell--nb {
+    background: #e7f5ff !important; /* м’який блакитний */
+    color: #1864ab !important; /* темно-синій */
+}
+
+/* 30 (в районі) */
+.timesheet-table td.ts-cell--30 {
+    background: #fff !important;
+    color: #495057 !important;
+}
+
+/* ВП (відпустка) */
+.timesheet-table td.ts-cell--vac {
+    background: #e6fcf5 !important; /* м’ятний */
+    color: #0b7285 !important; /* бірюзовий */
+}
+
+/* alert (100/F100 тощо) */
+.timesheet-table td.ts-cell--alert {
+    background: #fff5f5 !important; /* рожевий */
+    color: #c92a2a !important; /* червоний */
+}
+
+/* task lane (якщо main пустий, але є task) */
+.timesheet-table td.ts-cell--task {
+    background: #f3f0ff !important; /* лавандовий */
+    color: #5f3dc4 !important; /* фіолетовий */
+}
+
+/* інші коди */
+.timesheet-table td.ts-cell--other {
+    background: #fff9db !important; /* жовта пастель */
+    color: #5c4c00 !important; /* коричневий */
+}
+
+/* --- ВАЖЛИВО: прибираємо bootstrap hover на day-td --- */
+.timesheet-table.table-hover > :not(caption) > tbody > tr:hover > td.ts-cell {
+    filter: none !important;
+}
+
+/* Якщо хочеш легенький hover, але без зламу кольору — затемнити трохи */
+.timesheet-table.table-hover > :not(caption) > tbody > tr:hover > td.ts-cell {
+    box-shadow: inset 0 0 0 9999px rgba(0,0,0,.03) !important;
+}
+
+/* =========================
+   Calendar Timesheet table (stable cell colors)
+   ========================= */
+
+.ts-cal-head {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px; /* було 4px */
+    margin-bottom: 3px; /* було 4px */
+}
+
+.ts-cal-head-cell {
+    font-size: 11px; /* було 12px */
+    padding: 2px 0; /* було 4px 0 */
+}
+
+.ts-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px; /* було 4px */
+}
+
+.ts-cal-cell {
+    border: 1px solid var(--bs-border-color);
+    background: #fff;
+    min-height: 70px; /* було 78px */
+    padding: 4px; /* було 6px */
+    overflow: hidden;
+}
+
+.ts-cal-main {
+    margin-top: 4px; /* було 6px */
+    font-size: 12px; /* було 13px */
+}
+
+.ts-cal-task {
+    margin-top: 2px; /* було 4px */
+    font-size: 10px; /* було 11px */
+}
+
+.ts-cell {
+    position: relative;
+}
+
+/* дуже помітно і не впливає на layout */
+.ts-cell--has-task {
+    box-shadow: inset 0 0 0 2px currentColor;
+}
+
+.ts-task-flag {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1;
+    border: 1px solid currentColor;
+    /*background: rgba(255,255,255,.65);*/ /* видно на темних фонах */
+    color: currentColor;
+    pointer-events: none; /* щоб не ламав hover/клік */
+}
+
+    .ts-task-flag::before {
+        content: "T";
+    }

@@ -1,0 +1,49 @@
+@page "/about/overview"
+
+<PageTitle>Про систему — Огляд</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid">
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
+            <div class="fw-semibold">Огляд</div>
+        </div>
+
+        <div class="px-3 py-3">
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Як працює система в двох словах</div>
+                <div class="small opacity-75">
+                    Ви ведете картки людей, ставите коди в табелі та оформлюєте документи завдань.
+                    Система допомагає тримати послідовність подій: не дозволяє неможливі переходи і підказує, де є конфлікти.
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Основні розділи меню</div>
+                <div class="small opacity-75">
+                    <ul class="mb-0">
+                        <li><b>Облік</b> — реєстр карток та дії по особовому складу.</li>
+                        <li><b>Табель</b> — добовий і місячний перегляд кодів по людям.</li>
+                        <li><b>Планування</b> — документи завдань і місії.</li>
+                        <li><b>Довідники</b> — налаштування кодів і дозволених переходів.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Рекомендований порядок роботи</div>
+                <div class="small opacity-75">
+                    <ol class="mb-0">
+                        <li>Перевірте, що люди присутні в реєстрі (<NavLink href="/persons">Облік → Реєстр карток</NavLink>).</li>
+                        <li>Перевірте табель на потрібну дату (<NavLink href="/timesheet-day">Табель → Добовий</NavLink>).</li>
+                        <li>Створіть або відкрийте місію (<NavLink href="/missions">Довідники → Місії</NavLink>).</li>
+                        <li>Створіть документ завдання і внесіть події «почав/припинив» (<NavLink href="/task-documents">Документи → Завдання</NavLink>).</li>
+                        <li>Проведіть документ — система перевірить правила і запише зміни у табель.</li>
+                    </ol>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

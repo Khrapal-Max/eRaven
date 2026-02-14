@@ -1,0 +1,175 @@
+﻿@page "/timesheet/person/{PersonId:guid}"
+
+<PageTitle>Табель особи</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid px-3 py-3">
+
+        <div class="p-2 bg-info-subtle text-light">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                @if (_dto is not null)
+                {
+                    <div class="fw-semibold text-truncate" style="max-width: 55vw;">
+                        <span>Табель: </span>
+                        @if (!string.IsNullOrWhiteSpace(_dto.Person.Rank))
+                        {
+                            <span class="px-2"> @_dto.Person.Rank </span>
+                        }
+                        @_dto.Person.FullName
+                        <span class="opacity-75">РНОКПП:</span>
+                        <span class="font-monospace">@_dto.Person.RNOKPP</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="fw-semibold">Табель особи</div>
+                    <div class="ms-auto small text-muted">Завантаження…</div>
+                }
+            </div>
+
+            <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+                <div class="d-flex align-items-center gap-2">
+                    @if (!string.IsNullOrWhiteSpace(_dto?.Person.Position))
+                    {
+                        <span class="text-nowrap text-truncate" title="@_dto.Person.Position" style="max-width: 75vw;">
+                            @_dto.Person.Position
+                        </span>
+                    }
+                </div>
+
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    <a class="btn btn-sm btn-primary rounded-0" href="/timesheet-week">← Операційний табель</a>
+                    <a class="btn btn-sm btn-primary rounded-0" href="/timesheet">← Табель за місяць</a>
+                </div>
+            </div>
+        </div>
+
+        @if (_loading)
+        {
+            <p class="px-1"><em>Завантаження...</em></p>
+        }
+        else if (_dto is null)
+        {
+            <div class="alert alert-warning rounded-0">Немає даних.</div>
+        }
+        else
+        {
+            <div class="row g-3">
+                <div class="col-12 col-xl-7">
+                    <div class="border bg-white p-2">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="fw-semibold">Календар</div>
+
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="small opacity-75 px-2">Рік</span>
+                                <input class="form-control form-control-sm rounded-0"
+                                       style="width: 84px; padding-top:2px; padding-bottom:2px;"
+                                       type="number"
+                                       min="2000"
+                                       max="2100"
+                                       step="1"
+                                       value="@_year"
+                                       @onchange="OnYearChanged" />
+                            </div>
+
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="small opacity-75 px-2">Місяць</span>
+                                <select class="form-select form-select-sm rounded-0"
+                                        style="width: 76px; padding-top:2px; padding-bottom:2px;"
+                                        value="@_month"
+                                        @onchange="OnMonthChanged">
+                                    @for (var m = 1; m <= 12; m++)
+                                    {
+                                        <option value="@m">@m</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="ms-auto px-2 small">
+                                @_month / @_year · Updated: @_dto.UpdatedAtUtc.ToString("u")
+                            </div>
+
+                            <Button Class="btn-sm btn-warning rounded-0"
+                                    Label="Оновити"
+                                    IsDisabled="@_loading"
+                                    OnClickButton="ReloadAsync" />
+                        </div>
+
+                        <div class="ts-cal">
+                            <div class="ts-cal-head">
+                                @foreach (var w in _weekdays)
+                                {
+                                    <div class="ts-cal-head-cell">@w</div>
+                                }
+                            </div>
+
+                            <div class="ts-cal-grid">
+                                @for (var i = 0; i < _gridCellCount; i++)
+                                {
+                                    var day = i - _offset + 1;
+
+                                    if (day < 1 || day > _daysInMonth)
+                                    {
+                                        <div class="ts-cal-cell ts-cal-cell--empty"></div>
+                                    }
+                                    else
+                                    {
+                                        var dayCode = GetDayCode(day);
+                                        var title = IsAlert(dayCode) ? GetRef(day) : dayCode;
+
+                                        <div class="ts-cal-cell">
+                                            <div class="ts-cal-daynum">@day</div>
+                                            <div class="ts-cal-main" title="@title">@dayCode</div>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-xl-5">
+                    <div class="border bg-white p-2">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="fw-semibold">Записи за місяць</div>
+                            <div class="ms-auto small">source of truth</div>
+                        </div>
+
+                        @if (_entries.Count == 0)
+                        {
+                            <div class="small"><em>Записів немає.</em></div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered mb-0">
+                                    <thead>
+                                        <tr class="text-center">
+                                            <th style="width:70px">Код</th>
+                                            <th style="width:110px">Від</th>
+                                            <th style="width:110px">До</th>
+                                            <th>РЕФ</th>
+                                            <th>Примітка</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var e in _entries)
+                                        {
+                                            <tr class="text-center">
+                                                <td class="fw-semibold">@e.Code</td>
+                                                <td class="text-nowrap">@e.From.ToString("dd.MM.yyyy")</td>
+                                                <td class="text-nowrap">@((e.To.HasValue) ? e.To.Value.ToString("dd.MM.yyyy") : "∞")</td>
+                                                <td class="text-truncate" style="max-width:160px">@e.Reference</td>
+                                                <td class="text-truncate" style="max-width:200px">@e.Note</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>

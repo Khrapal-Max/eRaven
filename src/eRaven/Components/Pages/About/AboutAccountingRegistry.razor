@@ -1,0 +1,63 @@
+@page "/about/accounting/registry"
+
+<PageTitle>Про систему — Реєстр карток</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid">
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about/accounting">Облік</NavLink>
+            <div class="fw-semibold">Реєстр карток військовослужбовців</div>
+        </div>
+
+        <div class="px-3 py-3">
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Що це таке</div>
+                <div class="small">
+                    Реєстр — це список усіх військовослужбовців, з якими працює підрозділ.
+                    Тут ви швидко знаходите людину, бачите її поточний стан (у табелі / у резерві),
+                    та переходите до картки.
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Як відкрити</div>
+                <div class="small">
+                    Меню: <b>Облік → Реєстр</b> або за посиланням: <NavLink class="text-primary" href="/persons">відкрити реєстр</NavLink>.
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Що ви бачите в списку</div>
+                <div class="small">
+                    У реєстрі відображаються основні дані:
+                    ПІБ, ідентифікаційний номер (РНОКПП), поточний стан,
+                    а також службові атрибути (звання, посада, позивний — якщо заповнено).
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Типові дії</div>
+                <div class="small">
+                    <ul class="mb-0">
+                        <li><b>Пошук</b> — введіть частину ПІБ або РНОКПП.</li>
+                        <li><b>Фільтри</b> — відсійте список за станом або типом зарахування (якщо доступно).</li>
+                        <li><b>Відкрити картку</b> — натисніть на рядок або оберіть дію “Картка”.</li>
+                        <li><b>Зарахувати / виключити</b> — виконуйте через дії в рядку (коли доступно).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Порада</div>
+                <div class="small">
+                    Якщо ви працюєте з табелем або документами — спочатку переконайтесь,
+                    що людина є у реєстрі та має актуальні службові дані.
+                    Це зменшує кількість помилок під час табелювання та проведення документів.
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

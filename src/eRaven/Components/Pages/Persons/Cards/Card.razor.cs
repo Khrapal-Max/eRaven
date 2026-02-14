@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Persons.Cards;
 
-public partial class Card
+public partial class Card : ComponentBase
 {
     // =========================
     // Parameters

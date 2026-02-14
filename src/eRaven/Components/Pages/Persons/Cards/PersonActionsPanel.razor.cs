@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Persons.Cards;
 
-public partial class PersonActionsPanel
+public partial class PersonActionsPanel : ComponentBase
 {
     [Parameter, EditorRequired] public PersonDetailsDto Person { get; set; } = default!;
     [Parameter] public EventCallback OnOpenPersonal { get; set; }

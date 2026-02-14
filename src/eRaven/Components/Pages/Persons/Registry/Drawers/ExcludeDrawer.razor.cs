@@ -13,7 +13,7 @@ using Microsoft.AspNetCore.Components.Forms;
 
 namespace eRaven.Components.Pages.Persons.Registry.Drawers;
 
-public partial class ExcludeDrawer
+public partial class ExcludeDrawer : ComponentBase
 {
     // =========================
     // Parameters

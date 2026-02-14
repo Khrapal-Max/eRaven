@@ -81,8 +81,8 @@ else
 
 <VoidPersonalEventDrawer PersonId="PersonId"
                          TargetEventId="_voidTargetEventId"
-                         TargetTitle="_voidTarget?.Title"
-                         TargetDetails="_voidTarget?.Details"
+                         TargetTitle="@_voidTarget?.Title"
+                         TargetDetails="@_voidTarget?.Details"
                          IsOpen="_voidOpen"
                          IsOpenChanged="@(v => _voidOpen = v)"
                          OnVoidEvent="HandleVoidAsync" />

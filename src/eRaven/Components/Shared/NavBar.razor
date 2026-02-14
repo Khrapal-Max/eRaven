@@ -25,14 +25,35 @@
                 </li>
 
                 <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navOblik" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Табель
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navOblik">
+                        <li><NavLink class="dropdown-item" href="timesheet-week">Операційний табель</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="timesheet">Табель за місяць</NavLink></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navOblik" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Планування
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navOblik">
+                        <li><NavLink class="dropdown-item" href="#">Плановий табель за місяць</NavLink></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><NavLink class="dropdown-item" href="task-documents">Документи (планування)</NavLink></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navRefs" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         Довідники
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navRefs">
-                        <li><NavLink class="dropdown-item" href="#">Посади</NavLink></li>
-                        <li><NavLink class="dropdown-item" href="#">Звання</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="missions">Місії</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="timesheet/policy">Політика (статуси)</NavLink></li>
                         <li><hr class="dropdown-divider" /></li>
-                        <li><NavLink class="dropdown-item" href="#">Про систему</NavLink></li>
+                        <li><NavLink class="dropdown-item" href="about">Про систему</NavLink></li>
                     </ul>
                 </li>
             </ul>

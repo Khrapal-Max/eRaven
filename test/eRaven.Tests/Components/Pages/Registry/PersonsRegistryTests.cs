@@ -32,6 +32,7 @@ public sealed class PersonsRegistryTests : BunitContext
             Rnokpp: "1234567890",
             Lifecycle: lc,
             Rank: "Солдат",
+            PositionSort: 10,
             Position: "Стрілець",
             EnrollmentKind: null,
             EnrolledAt: lc == PersonLifecycle.Enrolled ? new DateOnly(2026, 01, 10) : null,

@@ -17,7 +17,7 @@ using Microsoft.AspNetCore.WebUtilities;
 
 namespace eRaven.Components.Pages.Persons.Registry;
 
-public partial class PersonsRegistry
+public partial class PersonsRegistry : ComponentBase
 {
     // =========================
     // DI

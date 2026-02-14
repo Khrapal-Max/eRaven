@@ -1,0 +1,67 @@
+@page "/about/timesheet/month"
+
+<PageTitle>Про систему — Табель (місячний)</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid">
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
+            <div class="fw-semibold">Табель: місячний</div>
+        </div>
+
+        <div class="px-3 py-3">
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Призначення</div>
+                <div class="small">
+                    Місячний табель показує календар по кожній людині за обраний місяць.
+                    Це основний екран для перевірки, чи правильно “лягли” коди після документів,
+                    лікування, відпусток, відряджень та завдань.
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Де знайти</div>
+                <div class="small">
+                    Меню: <b>Табель → Місячний</b>.
+                    <div class="mt-2">
+                        <NavLink class="btn btn-sm btn-light rounded-0" href="/timesheet">Відкрити місячний табель</NavLink>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Як читати екран</div>
+                <div class="small">
+                    <ul class="mb-0">
+                        <li><b>Вибір місяця</b> — перемикає відображення календаря.</li>
+                        <li><b>Рядок людини</b> — коди по днях місяця.</li>
+                        <li><b>Позначки/підказки</b> — можуть показувати джерело зміни (наприклад, документ завдання).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Початок і кінець періоду: як бачити правильно</div>
+                <div class="small">
+                    Для різних кодів кінець періоду трактується по-різному.
+                    Найчастіше важливо запам’ятати два правила:
+                    <ul class="mb-0">
+                        <li><b>Лікування/відрядження/завдання</b>: перший і останній день входять у період.</li>
+                        <li><b>Відпустки</b>: дата завершення — це дата повернення, тому останній день відпустки зазвичай на день раніше.</li>
+                    </ul>
+                    Детально — у <NavLink class="text-primary" href="/about/policy">Політиці кодів</NavLink>.
+                </div>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Що робити, якщо коди не встановились</div>
+                <div class="small">
+                    Найчастіша причина — політика переходів не дозволяє змінити код з поточного стану.
+                    Перевірте <NavLink class="text-primary" href="/about/policy">Політику кодів</NavLink> або зверніться до адміністратора.
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Persons.Cards.Tabs;
 
-public partial class CareerTimelineTab
+public partial class CareerTimelineTab : ComponentBase
 {
     // =========================
     // Parameters

@@ -13,7 +13,7 @@ using Microsoft.AspNetCore.Components.Forms;
 
 namespace eRaven.Components.Pages.Persons.Cards.Drawers;
 
-public partial class ChangeRankDrawer
+public partial class ChangeRankDrawer : ComponentBase
 {
     // =========================
     // Parameters

@@ -2,7 +2,7 @@
 
 <div class="table-wrap">
     <div class="table-scroll">
-        <table class="table table-hover w-100 mb-0 @Class">
+        <table class="table w-100 mb-0 @(IsRowClickable ? "table-hover" : "") @Class">
             <thead>
                 <tr>
                     @TableHeader

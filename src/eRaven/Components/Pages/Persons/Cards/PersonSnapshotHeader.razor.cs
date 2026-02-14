@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Persons.Cards;
 
-public partial class PersonSnapshotHeader
+public partial class PersonSnapshotHeader : ComponentBase
 {
     [Parameter, EditorRequired] public PersonDetailsDto Person { get; set; } = default!;
     [Parameter] public Guid PersonId { get; set; }

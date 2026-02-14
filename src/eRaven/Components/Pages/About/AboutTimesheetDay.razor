@@ -1,0 +1,64 @@
+@page "/about/timesheet/day"
+
+<PageTitle>Про систему — Табель (добовий)</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid">
+        <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+            <NavLink class="btn btn-sm btn-light rounded-0" href="/about">← Зміст</NavLink>
+            <div class="fw-semibold">Табель: добовий</div>
+        </div>
+
+        <div class="px-3 py-3">
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Призначення</div>
+                <div class="small">
+                    Добовий табель — це швидкий зріз по людям на обрану дату.
+                    Тут видно, який “код дня” стоїть у кожного на цю дату.
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Де знайти</div>
+                <div class="small">
+                    Меню: <b>Табель → Добовий</b>.
+                    <div class="mt-2">
+                        <NavLink class="btn btn-sm btn-light rounded-0" href="/timesheet-day">Відкрити добовий табель</NavLink>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Як читати екран</div>
+                <div class="small">
+                    <ul class="mb-0">
+                        <li><b>Дата</b> — верхній перемикач днів.</li>
+                        <li><b>Список людей</b> — показує лише тих, хто зарахований у табель.</li>
+                        <li><b>Код дня</b> — поточний стан людини на вибрану дату (деталі див. <NavLink class="text-primary" href="/about/policy">Політика кодів</NavLink>).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border p-3 mb-3">
+                <div class="fw-semibold mb-2">Типовий сценарій</div>
+                <div class="small">
+                    <ol class="mb-0">
+                        <li>Оберіть дату.</li>
+                        <li>Знайдіть людину у списку (пошук/фільтри, якщо доступні).</li>
+                        <li>Відкрийте картку людини для детальної історії табелювання та змін (див. <NavLink class="text-primary" href="/about/accounting/card">Картка</NavLink>).</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Важливо</div>
+                <div class="small">
+                    Коли ви проводите документ завдань, система автоматично ставить “код завдання” на дні виконання.
+                    Якщо політика не дозволяє змінити код на потрібну дату — проведення буде заблоковане.
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
