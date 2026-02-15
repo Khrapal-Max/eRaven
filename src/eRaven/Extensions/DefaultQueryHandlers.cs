@@ -5,7 +5,6 @@
 // DefaultQueryHandlers
 //-----------------------------------------------------------------------------
 
-using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using eRaven.Application.DTOs.CombatTask;
 using eRaven.Application.DTOs.Dashboard;
 using eRaven.Application.DTOs.Excel;
