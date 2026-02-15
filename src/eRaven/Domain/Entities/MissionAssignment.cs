@@ -5,30 +5,39 @@
 // MissionAssignment
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
-
 namespace eRaven.Domain.Entities;
 
 /// <summary>
-/// Факт участі особи у місії як інтервал (похідний/проєкційний запис з Posted документів).
+/// Проєкційний факт участі людини у місії (Committed-only).
+/// <para>
+/// Створюється/оновлюється при Posted документа на основі <c>TimesheetTaskSpan</c> зі статусом Posted.
+/// </para>
+/// <para>
+/// Завершення (To/ClosedByDocumentId) може відбутися:
+/// </para>
+/// <list type="bullet">
+/// <item><description>звичайним "закривальним" документом (ClosedByDocumentId = id документа закриття);</description></item>
+/// <item><description>аварійним табельним кодом (ClosedByDocumentId = null).</description></item>
+/// </list>
 /// </summary>
 public sealed class MissionAssignment
 {
     public Guid Id { get; set; }
 
-    public Guid PersonId { get; set; }
+    /// <summary>
+    /// Документ, який створив факт (джерело старту).
+    /// </summary>
+    public Guid CombatTaskDocumentId { get; set; }
+
     public Guid MissionId { get; set; }
+    public Guid PersonId { get; set; }
 
     public DateOnly From { get; set; }
     public DateOnly? To { get; set; }
 
-    public MissionAssignmentStatus Status { get; set; } = MissionAssignmentStatus.Planned;
-
-    /// <summary>Документ-джерело, який відкрив інтервал.</summary>
-    public Guid SourceStartDocumentId { get; set; }
-    public Guid SourceStartDetailsId { get; set; }
-
-    /// <summary>Документ-джерело, який закрив інтервал (опційно).</summary>
-    public Guid? SourceEndDocumentId { get; set; }
-    public Guid? SourceEndDetailsId { get; set; }
+    /// <summary>
+    /// Документ, яким факт був завершений (якщо завершення відбулося штатно документом).
+    /// Для аварійних табельних подій (Ф100/200 тощо) значення лишається <c>null</c>.
+    /// </summary>
+    public Guid? ClosedByDocumentId { get; set; }
 }

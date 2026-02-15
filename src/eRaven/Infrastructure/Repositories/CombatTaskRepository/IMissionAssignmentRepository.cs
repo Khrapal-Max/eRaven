@@ -5,79 +5,55 @@
 // IMissionAssignmentRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs.CombatTask;
 using eRaven.Domain.Entities;
 
 namespace eRaven.Infrastructure.Repositories.CombatTaskRepository;
 
 /// <summary>
-/// Репозиторій проєкційних фактів участі у місіях (<see cref="MissionAssignment"/>).
-///
-/// Примітки:
-/// - MissionAssignment НЕ редагується напряму з UI.
-/// - Це read-оптимізована модель для звітів і швидких вибірок.
+/// Репозиторій проєкційних ФАКТІВ участі у місіях (<see cref="MissionAssignment"/>).
 /// </summary>
 public interface IMissionAssignmentRepository
 {
-    // ----------------------------
-    // Reads
-    // ----------------------------
-
     /// <summary>
-    /// Повертає людей, які НЕ мають активних призначень 
-    /// на дату <paramref name="onDate"/> (вільні для нових місій).
-    /// </summary>
-    /// <param name="onDate"></param>
-    /// <param name="ct"></param>
-    Task<IReadOnlyList<ReadyCombatTaskPersonDto>> GetFreePersonForMissionsAsync(
-        DateOnly onDate,
-        bool includePlanned = false,
-        CancellationToken ct = default);
-
-    /// <summary>
-    /// Хто активний на місії <paramref name="missionId"/> на дату <paramref name="onDate"/>.
-    /// </summary>
-    Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveByMissionAsync(
-        Guid missionId,
-        DateOnly onDate,
-        bool includePlanned = false,
-        CancellationToken ct = default);
-
-    /// <summary>
-    /// Історія призначень людини за період.
+    /// Історія призначень людини за період (overlap).
     /// </summary>
     Task<IReadOnlyList<MissionAssignment>> GetPersonAssignmentsAsync(
-       Guid personId,
-       DateOnly from,
-       DateOnly to,
-       bool includePlanned = false,
-       CancellationToken ct = default);
+        Guid personId,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken ct = default);
 
     /// <summary>
-    /// Поточна активна місія людини на дату <paramref name="onDate"/> (якщо є).
+    /// Поточний активний факт участі людини на дату (якщо є).
     /// </summary>
     Task<MissionAssignment?> GetActiveForPersonAsync(
         Guid personId,
         DateOnly onDate,
-        bool includePlanned = false,
-        CancellationToken ct = default);
-
-    // ----------------------------
-    // Write (internal)
-    // ----------------------------
-
-    /// <summary>
-    /// Створює призначення на завдання згідно документа.
-    /// 
-    /// Стан призначення <see cref="MissionAssignment"/> MissionAssignment.Planned.
-    /// </summary>
-    /// <param name="taskDetails"></param>
-    /// <param name="ct"></param>
-    Task ApplyDraftCombatTaskDocumentAsync(IReadOnlyList<ApplyCombatTaskDetailsDto> taskDetails,
         CancellationToken ct = default);
 
     /// <summary>
-    /// Оновлює <see cref="MissionAssignment"/> в стані Committed згідно документа.
+    /// Створює/оновлює факти для Posted документа на основі табельних <c>TimesheetTaskSpan(Status=Posted)</c>.
     /// </summary>
-    Task ApplyPostedCombatTaskDocumentAsync(Guid documentId, CancellationToken ct = default);
+    Task ApplyPostedCombatTaskDocumentAsync(
+        Guid documentId,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Закриває факт участі по ключу (StartDocumentId, MissionId, PersonId).
+    /// </summary>
+    /// <param name="startDocumentId">Документ, який створив факт (джерело старту).</param>
+    /// <param name="missionId">Місія.</param>
+    /// <param name="personId">Особа.</param>
+    /// <param name="closeAt">Дата завершення (inclusive).</param>
+    /// <param name="closedByDocumentId">
+    /// Документ, яким виконано завершення (якщо закриття штатне).
+    /// Для аварійних кодів (Ф100/200 тощо) — <c>null</c>.
+    /// </param>
+    Task CloseAsync(
+        Guid startDocumentId,
+        Guid missionId,
+        Guid personId,
+        DateOnly closeAt,
+        Guid? closedByDocumentId,
+        CancellationToken ct = default);
 }

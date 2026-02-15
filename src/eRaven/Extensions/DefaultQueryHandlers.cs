@@ -5,6 +5,7 @@
 // DefaultQueryHandlers
 //-----------------------------------------------------------------------------
 
+using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using eRaven.Application.DTOs.CombatTask;
 using eRaven.Application.DTOs.Dashboard;
 using eRaven.Application.DTOs.Excel;
@@ -51,7 +52,8 @@ public static class DefaultQueryHandlers
         services.AddScoped<IQueryHandler<GetCombatTaskDocumentsQuery, IReadOnlyList<CombatTaskDocumentDto>>, GetCombatTaskDocumentsQueryHandler>();
         services.AddScoped<IQueryHandler<GetCombatTaskDetailsByDocumentIdQuery, CombatTaskEditorDto?>, GetCombatTaskDetailsByDocumentIdQueryHandler>();
         services.AddScoped<IQueryHandler<GetCombatTaskMissionPersonsQuery, IReadOnlyList<ActiveMissionPersonDto>>, GetCombatTaskMissionPersonsQueryHandler>();
-
+        services.AddScoped<IQueryHandler<GetCombatTaskPersonLookupQuery, IReadOnlyList<ReadyCombatTaskPersonDto>>, GetCombatTaskPersonLookupQueryHandler>();
+        services.AddScoped<IQueryHandler<GetCombatTaskMissionPersonsQuery, IReadOnlyList<ActiveMissionPersonDto>>, GetCombatTaskMissionPersonsQueryHandler>();
 
         return services;
     }

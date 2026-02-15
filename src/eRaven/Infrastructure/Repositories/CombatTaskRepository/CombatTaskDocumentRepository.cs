@@ -12,7 +12,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.CombatTaskRepository;
 
-// TODO need tests
 public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFactory) : ICombatTaskDocumentRepository
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;

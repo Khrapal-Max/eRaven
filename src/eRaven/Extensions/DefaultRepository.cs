@@ -16,18 +16,27 @@ namespace eRaven.Extensions;
 
 public static class DefaultRepository
 {
+    /// <summary>
+    /// Реєструє репозиторії Infrastructure в DI контейнері.
+    /// </summary>
     public static IServiceCollection AddRegistredRepositories(this IServiceCollection services)
     {
         services.AddScoped<IPersonRepository, PersonRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
-        services.AddScoped<ITimesheetTimelineRepository, TimesheetTimelineRepository>();
-        services.AddScoped<ITimesheetEntryRepository, TimesheetEntryRepository>();
+
+        // Timesheet (episode write + view read)
         services.AddScoped<ITimesheetPolicyRepository, TimesheetPolicyRepository>();
-        services.AddScoped<ITimesheetMonthRepository, TimesheetMonthRepository>();
-        services.AddScoped<ICombatTaskDocumentRepository, CombatTaskDocumentRepository>();
+        services.AddScoped<ITimesheetEpisodeRepository, TimesheetEpisodeRepository>();
+        services.AddScoped<ITimesheetEntryRepository, TimesheetEntryRepository>();
+        services.AddScoped<ITimesheetViewRepository, TimesheetViewRepository>();
+        services.AddScoped<ITimesheetMissionPlanningRepository, TimesheetMissionPlanningRepository>();
+
+        // Mission/Combat tasks
+
         services.AddScoped<IMissionRepository, MissionRepository>();
-        services.AddScoped<ICombatTaskRepository, CombatTaskRepository>();
         services.AddScoped<IMissionAssignmentRepository, MissionAssignmentRepository>();
+        services.AddScoped<ICombatTaskRepository, CombatTaskRepository>();
+        services.AddScoped<ICombatTaskDocumentRepository, CombatTaskDocumentRepository>();
 
         return services;
     }

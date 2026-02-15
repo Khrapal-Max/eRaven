@@ -12,7 +12,7 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260213090905_Initial")]
+    [Migration("20260215202159_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -25,6 +25,63 @@ namespace eRaven.Migrations
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "btree_gist");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("eRaven.Domain.Aggregates.TimeSheetAggregate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly?>("ClosedAt")
+                        .HasColumnType("date")
+                        .HasColumnName("closed_at");
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at_utc");
+
+                    b.Property<string>("ClosedBy")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("closed_by");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateOnly>("OpenedAt")
+                        .HasColumnType("date")
+                        .HasColumnName("opened_at");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("person_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PersonId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_ts_aggregates_person_active")
+                        .HasFilter("closed_at IS NULL");
+
+                    b.HasIndex("PersonId", "ClosedAt")
+                        .HasDatabaseName("ix_ts_aggregates_person_closed");
+
+                    b.HasIndex("PersonId", "OpenedAt")
+                        .HasDatabaseName("ix_ts_aggregates_person_opened");
+
+                    b.ToTable("timesheet_aggregates", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_ts_aggregates_closed_gte_opened", "closed_at IS NULL OR closed_at >= opened_at");
+                        });
+                });
 
             modelBuilder.Entity("eRaven.Domain.Entities.CombatTask", b =>
                 {
@@ -251,6 +308,14 @@ namespace eRaven.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("ClosedByDocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("closed_by_document_id");
+
+                    b.Property<Guid>("CombatTaskDocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("combat_task_document_id");
+
                     b.Property<DateOnly>("From")
                         .HasColumnType("date")
                         .HasColumnName("from_date");
@@ -263,47 +328,22 @@ namespace eRaven.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("person_id");
 
-                    b.Property<Guid?>("SourceEndDetailsId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("source_end_details_id");
-
-                    b.Property<Guid?>("SourceEndDocumentId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("source_end_document_id");
-
-                    b.Property<Guid>("SourceStartDetailsId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("source_start_details_id");
-
-                    b.Property<Guid>("SourceStartDocumentId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("source_start_document_id");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
-
                     b.Property<DateOnly?>("To")
                         .HasColumnType("date")
                         .HasColumnName("to_date");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PersonId")
+                    b.HasIndex("CombatTaskDocumentId", "MissionId", "PersonId")
                         .IsUnique()
-                        .HasFilter("to_date IS NULL AND status IN (0,1)");
+                        .HasFilter("to_date IS NULL");
 
-                    b.HasIndex("SourceStartDetailsId")
-                        .IsUnique();
+                    b.HasIndex("MissionId", "From", "To");
 
-                    b.HasIndex("MissionId", "Status", "From", "To");
-
-                    b.HasIndex("PersonId", "Status", "From", "To");
+                    b.HasIndex("PersonId", "From", "To");
 
                     b.ToTable("mission_assignments", null, t =>
                         {
-                            t.HasCheckConstraint("ck_mission_assignments_status", "status IN (0,1,2,3)");
-
                             t.HasCheckConstraint("ck_mission_assignments_to_gte_from", "to_date IS NULL OR to_date >= from_date");
                         });
                 });
@@ -626,13 +666,16 @@ namespace eRaven.Migrations
                         .HasColumnType("character varying(256)")
                         .HasColumnName("reference");
 
-                    b.Property<Guid>("TimelineId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("timeline_id");
+                    b.Property<Guid?>("TimeSheetId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("TimesheetCodeDefinitionId")
                         .HasColumnType("uuid")
                         .HasColumnName("timesheet_codedefinition_id");
+
+                    b.Property<Guid>("TimesheetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("timesheet_id");
 
                     b.Property<DateOnly?>("To")
                         .HasColumnType("date")
@@ -649,10 +692,12 @@ namespace eRaven.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TimeSheetId");
+
                     b.HasIndex("TimesheetCodeDefinitionId");
 
-                    b.HasIndex("TimelineId", "From")
-                        .HasDatabaseName("ix_ts_entries_timeline_from");
+                    b.HasIndex("TimesheetId", "From")
+                        .HasDatabaseName("ix_ts_entries_timesheet_from");
 
                     b.HasIndex("PersonId", "From", "To")
                         .HasDatabaseName("ix_ts_entries_person_range");
@@ -660,60 +705,76 @@ namespace eRaven.Migrations
                     b.ToTable("timesheet_entries", (string)null);
                 });
 
-            modelBuilder.Entity("eRaven.Domain.Entities.TimesheetTimeline", b =>
+            modelBuilder.Entity("eRaven.Domain.Entities.TimesheetTaskSpan", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<DateOnly?>("ClosedAt")
+                    b.Property<Guid?>("ClosedByCodeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("closed_by_code_id");
+
+                    b.Property<string>("ClosedReference")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("closed_reference");
+
+                    b.Property<Guid>("CombatTaskDocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("combat_task_document_id");
+
+                    b.Property<DateOnly>("FromDate")
                         .HasColumnType("date")
-                        .HasColumnName("closed_at");
+                        .HasColumnName("from_date");
 
-                    b.Property<DateTime?>("ClosedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("closed_at_utc");
-
-                    b.Property<string>("ClosedBy")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("closed_by");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateOnly>("OpenedAt")
-                        .HasColumnType("date")
-                        .HasColumnName("opened_at");
+                    b.Property<Guid>("MissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("mission_id");
 
                     b.Property<Guid>("PersonId")
                         .HasColumnType("uuid")
                         .HasColumnName("person_id");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TimesheetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("timesheet_id");
+
+                    b.Property<DateOnly?>("ToDate")
+                        .HasColumnType("date")
+                        .HasColumnName("to_date");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("PersonId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_ts_timelines_person_active")
-                        .HasFilter("closed_at IS NULL");
+                    b.HasIndex("TimesheetId");
 
-                    b.HasIndex("PersonId", "ClosedAt")
-                        .HasDatabaseName("ix_ts_timelines_person_closed");
+                    b.HasIndex("CombatTaskDocumentId", "Status");
 
-                    b.HasIndex("PersonId", "OpenedAt")
-                        .HasDatabaseName("ix_ts_timelines_person_opened");
+                    b.HasIndex("PersonId", "CombatTaskDocumentId", "MissionId")
+                        .IsUnique();
 
-                    b.ToTable("timesheet_timelines", null, t =>
+                    b.HasIndex("PersonId", "FromDate", "ToDate");
+
+                    b.HasIndex("MissionId", "FromDate", "ToDate", "Status");
+
+                    b.ToTable("timesheet_task_spans", null, t =>
                         {
-                            t.HasCheckConstraint("ck_ts_timelines_closed_gte_opened", "closed_at IS NULL OR closed_at >= opened_at");
+                            t.HasCheckConstraint("ck_ts_task_spans_to_gte_from", "to_date IS NULL OR to_date >= from_date");
                         });
                 });
 
@@ -768,11 +829,9 @@ namespace eRaven.Migrations
 
             modelBuilder.Entity("eRaven.Domain.Entities.TimesheetEntry", b =>
                 {
-                    b.HasOne("eRaven.Domain.Entities.TimesheetTimeline", "Timeline")
-                        .WithMany("Entries")
-                        .HasForeignKey("TimelineId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.HasOne("eRaven.Domain.Aggregates.TimeSheetAggregate", "TimeSheet")
+                        .WithMany()
+                        .HasForeignKey("TimeSheetId");
 
                     b.HasOne("eRaven.Domain.Entities.TimesheetCodeDefinition", "TimesheetCodeDefinition")
                         .WithMany()
@@ -780,9 +839,31 @@ namespace eRaven.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Timeline");
+                    b.HasOne("eRaven.Domain.Aggregates.TimeSheetAggregate", null)
+                        .WithMany("Entries")
+                        .HasForeignKey("TimesheetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TimeSheet");
 
                     b.Navigation("TimesheetCodeDefinition");
+                });
+
+            modelBuilder.Entity("eRaven.Domain.Entities.TimesheetTaskSpan", b =>
+                {
+                    b.HasOne("eRaven.Domain.Aggregates.TimeSheetAggregate", null)
+                        .WithMany("TaskSpans")
+                        .HasForeignKey("TimesheetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("eRaven.Domain.Aggregates.TimeSheetAggregate", b =>
+                {
+                    b.Navigation("Entries");
+
+                    b.Navigation("TaskSpans");
                 });
 
             modelBuilder.Entity("eRaven.Domain.Entities.CombatTask", b =>
@@ -793,11 +874,6 @@ namespace eRaven.Migrations
             modelBuilder.Entity("eRaven.Domain.Entities.CombatTaskDocument", b =>
                 {
                     b.Navigation("CombatTasks");
-                });
-
-            modelBuilder.Entity("eRaven.Domain.Entities.TimesheetTimeline", b =>
-                {
-                    b.Navigation("Entries");
                 });
 #pragma warning restore 612, 618
         }

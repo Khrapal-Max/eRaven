@@ -15,15 +15,20 @@ using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.Timesheet;
 
+/// <summary>
+/// Query handler: формує Excel (.xlsx) експорт місячного табеля.
+/// </summary>
+
 public sealed class ExportTimesheetMonthQueryHandler(
-    ITimesheetMonthRepository repo)
+    ITimesheetViewRepository repo)
     : IQueryHandler<ExportTimesheetMonthQuery, DownloadFileDto>
 {
     public const string XlsxContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-    private readonly ITimesheetMonthRepository _repo = repo;
+    private readonly ITimesheetViewRepository _repo = repo;
 
+    /// <inheritdoc />
     public async Task<DownloadFileDto> HandleAsync(
         ExportTimesheetMonthQuery query,
         CancellationToken ct = default)

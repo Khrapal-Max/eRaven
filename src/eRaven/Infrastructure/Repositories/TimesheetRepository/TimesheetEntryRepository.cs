@@ -5,8 +5,8 @@
 // TimesheetEntryRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Entities;
 using eRaven.Domain.Aggregates;
+using eRaven.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
@@ -140,6 +140,24 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
 
         await db.SaveChangesAsync(ct);
     }
+
+    /// <inheritdoc />
+    public async Task UpdateAsync(TimesheetEntry updated, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(updated);
+        if (updated.Id == Guid.Empty) throw new ArgumentException("EntryId is required.", nameof(updated));
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        var tl = await LoadTimelineForInsertAsync(db, updated.TimesheetId, ct);
+        EnsureEntryWithinTimeline(tl, updated);
+
+        db.TimesheetEntries.Update(updated);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+
 
     /// <inheritdoc />
     public async Task SaveTransitionAsync(TimesheetEntry prevUpdated, TimesheetEntry nextAdded, CancellationToken ct = default)

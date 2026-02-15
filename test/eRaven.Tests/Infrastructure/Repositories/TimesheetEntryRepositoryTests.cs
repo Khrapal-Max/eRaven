@@ -15,42 +15,42 @@ namespace eRaven.Tests.Infrastructure.Repositories;
 
 public sealed class TimesheetEntryRepositoryTests
 {
-    private static readonly DateTime NowUtc = new(2026, 01, 23, 12, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime NowUtc = new(2026, 02, 15, 12, 00, 00, DateTimeKind.Utc);
 
-    private static TimesheetTimeline NewTimeline(Guid personId, DateOnly openedAt, DateOnly? closedAt = null)
+    //======================================================================
+    // Helpers
+    //======================================================================
+
+    private static TimesheetCodeDefinition NewCode(Guid id, string code = "30")
         => new()
         {
-            Id = Guid.NewGuid(),
+            Id = id,
+            Code = code,
+            Title = "Ready",
+            SortOrder = 1,
+            Priority = 1,
+            IsTerminal = false,
+            IsActive = true,
+            CreatedBy = "seed",
+            CreatedAtUtc = NowUtc.AddHours(-1)
+        };
+
+    private static TimeSheetAggregate NewEpisode(Guid id, Guid personId, DateOnly openedAt, DateOnly? closedAt = null)
+        => new()
+        {
+            Id = id,
             PersonId = personId,
             OpenedAt = openedAt,
             ClosedAt = closedAt,
             CreatedBy = "seed",
-            CreatedAtUtc = NowUtc
-        };
-
-    private static TimesheetCodeDefinition NewCode(
-        string code,
-        string? title = null,
-        int sortOrder = 0,
-        int priority = 0,
-        bool isTerminal = false,
-        bool isActive = true)
-        => new()
-        {
-            Id = Guid.NewGuid(),
-            Code = code,
-            Title = title ?? code,
-            Description = null,
-            SortOrder = sortOrder,
-            Priority = priority,
-            IsTerminal = isTerminal,
-            IsActive = isActive,
-            CreatedBy = "seed",
-            CreatedAtUtc = NowUtc
+            CreatedAtUtc = NowUtc.AddHours(-2),
+            ClosedBy = null,
+            ClosedAtUtc = null
         };
 
     private static TimesheetEntry NewEntry(
-        Guid timelineId,
+        Guid id,
+        Guid timesheetId,
         Guid personId,
         Guid codeId,
         DateOnly from,
@@ -58,123 +58,246 @@ public sealed class TimesheetEntryRepositoryTests
         bool isDeleted = false)
         => new()
         {
-            Id = Guid.NewGuid(),
-            TimelineId = timelineId,
+            Id = id,
+            TimesheetId = timesheetId,
+            TimeSheet = null,
+
             PersonId = personId,
+
             TimesheetCodeDefinitionId = codeId,
+            TimesheetCodeDefinition = null,
+
             From = from,
             To = to,
+
             Reference = null,
             Note = null,
-            CreatedBy = "test",
-            CreatedAtUtc = NowUtc,
-            IsDeleted = isDeleted
+
+            CreatedBy = "seed",
+            CreatedAtUtc = NowUtc.AddHours(-1),
+
+            UpdatedBy = null,
+            UpdatedAtUtc = null,
+
+            IsDeleted = isDeleted,
+            DeletedBy = null,
+            DeletedAtUtc = null,
+            DeleteReason = null
         };
+
+    //======================================================================
+    // GetByIdAsync
+    //======================================================================
+
+    [Fact]
+    public async Task GetByIdAsync_returns_null_when_not_found()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        var found = await repo.GetByIdAsync(Guid.NewGuid());
+
+        Assert.Null(found);
+    }
 
     [Fact]
     public async Task GetByIdAsync_ignores_soft_deleted()
     {
         await using var tdb = new SqliteTestDb();
 
+        var codeId = Guid.NewGuid();
         var personId = Guid.NewGuid();
-        var tl = NewTimeline(personId, new DateOnly(2026, 1, 1));
-
-        TimesheetEntry deleted;
-        var c30 = NewCode("30");
+        var episodeId = Guid.NewGuid();
+        var entryId = Guid.NewGuid();
 
         using (var db = tdb.Factory.CreateDbContext())
         {
-            db.TimesheetCodes.Add(c30);
-            db.TimesheetTimelines.Add(tl);
+            db.TimesheetCodes.Add(NewCode(codeId));
+            db.TimeSheets.Add(NewEpisode(episodeId, personId, new DateOnly(2026, 2, 1)));
 
-            deleted = NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 1), null, isDeleted: true);
-            db.TimesheetEntries.Add(deleted);
+            db.TimesheetEntries.Add(NewEntry(entryId, episodeId, personId, codeId, new DateOnly(2026, 2, 1), isDeleted: true));
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        var found = await repo.GetByIdAsync(entryId);
+
+        Assert.Null(found);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_returns_entry_when_exists_and_not_deleted()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var codeId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+        var entryId = Guid.NewGuid();
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetCodes.Add(NewCode(codeId));
+            db.TimeSheets.Add(NewEpisode(episodeId, personId, new DateOnly(2026, 2, 1)));
+
+            db.TimesheetEntries.Add(NewEntry(entryId, episodeId, personId, codeId, new DateOnly(2026, 2, 1)));
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        var found = await repo.GetByIdAsync(entryId);
+
+        Assert.NotNull(found);
+        Assert.Equal(entryId, found!.Id);
+        Assert.False(found.IsDeleted);
+    }
+
+    //======================================================================
+    // GetNextEntryAfterDateAsync
+    //======================================================================
+
+    [Fact]
+    public async Task GetNextEntryAfterDateAsync_returns_first_entry_after_date_sorted_by_from_then_id()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var codeId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+
+        var id1 = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var id2 = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        var id3 = Guid.Parse("00000000-0000-0000-0000-000000000003");
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetCodes.Add(NewCode(codeId));
+            db.TimeSheets.Add(NewEpisode(episodeId, personId, new DateOnly(2026, 2, 1)));
+
+            // From == date => НЕ підходить (умова From > date)
+            db.TimesheetEntries.Add(NewEntry(id1, episodeId, personId, codeId, new DateOnly(2026, 2, 10)));
+
+            // два кандидати From=2026-02-11 -> вибираємо менший Id (ThenBy(x => x.Id))
+            db.TimesheetEntries.Add(NewEntry(id3, episodeId, personId, codeId, new DateOnly(2026, 2, 11)));
+            db.TimesheetEntries.Add(NewEntry(id2, episodeId, personId, codeId, new DateOnly(2026, 2, 11)));
+
+            // deleted — ігноруємо
+            db.TimesheetEntries.Add(NewEntry(Guid.NewGuid(), episodeId, personId, codeId, new DateOnly(2026, 2, 11), isDeleted: true));
 
             await db.SaveChangesAsync();
         }
 
         var repo = new TimesheetEntryRepository(tdb.Factory);
 
-        var got = await repo.GetByIdAsync(deleted.Id);
+        var next = await repo.GetNextEntryAfterDateAsync(episodeId, personId, new DateOnly(2026, 2, 10));
 
-        Assert.Null(got);
+        Assert.NotNull(next);
+        Assert.Equal(new DateOnly(2026, 2, 11), next!.From);
+        Assert.Equal(id2, next.Id); // smallest id on same From
+    }
+
+    //======================================================================
+    // GetPersonEntriesAsync
+    //======================================================================
+
+    [Fact]
+    public async Task GetPersonEntriesAsync_throws_when_to_before_from()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.GetPersonEntriesAsync(Guid.NewGuid(), new DateOnly(2026, 2, 10), new DateOnly(2026, 2, 9)));
     }
 
     [Fact]
-    public async Task GetPersonEntriesAsync_returns_overlapping_entries_sorted_by_From_then_Id()
+    public async Task GetPersonEntriesAsync_returns_only_overlapping_and_sorted_and_ignores_deleted()
     {
         await using var tdb = new SqliteTestDb();
 
+        var codeId = Guid.NewGuid();
         var personId = Guid.NewGuid();
-        var tl = NewTimeline(personId, new DateOnly(2026, 1, 1));
+        var otherPersonId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
 
-        TimesheetEntry e3;
-        TimesheetEntry e2;
-        TimesheetEntry e1;
-        TimesheetEntry outside; // should be filtered out
-
-        var c30 = NewCode("30");
-        var cPbd = NewCode("ПБД");
-        var cVp = NewCode("ВП");
-        var cX = NewCode("X");
+        var e0 = NewEntry(Guid.NewGuid(), episodeId, personId, codeId, new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 5)); // outside window
+        var e1 = NewEntry(Guid.NewGuid(), episodeId, personId, codeId, new DateOnly(2026, 2, 10), new DateOnly(2026, 2, 12)); // overlap
+        var e2 = NewEntry(Guid.NewGuid(), episodeId, personId, codeId, new DateOnly(2026, 2, 15), null); // overlap
+        var eDel = NewEntry(Guid.NewGuid(), episodeId, personId, codeId, new DateOnly(2026, 2, 11), null, isDeleted: true); // ignore
+        var eOther = NewEntry(Guid.NewGuid(), episodeId, otherPersonId, codeId, new DateOnly(2026, 2, 10), null); // other person
 
         using (var db = tdb.Factory.CreateDbContext())
         {
-            db.TimesheetCodes.AddRange(c30, cPbd, cVp, cX);
-            db.TimesheetTimelines.Add(tl);
-
-            // out of order insert:
-            e3 = NewEntry(tl.Id, personId, cVp.Id, new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 12));
-            e2 = NewEntry(tl.Id, personId, cPbd.Id, new DateOnly(2026, 1, 5), null);
-            e1 = NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 4));
-
-            // outside of queried range (Feb)
-            outside = NewEntry(tl.Id, personId, cX.Id, new DateOnly(2026, 2, 1), null);
-
-            db.TimesheetEntries.AddRange(e3, e2, e1, outside);
+            db.TimesheetCodes.Add(NewCode(codeId));
+            db.TimeSheets.Add(NewEpisode(episodeId, personId, new DateOnly(2026, 2, 1)));
+            db.TimesheetEntries.AddRange(e0, e1, e2, eDel, eOther);
             await db.SaveChangesAsync();
         }
 
         var repo = new TimesheetEntryRepository(tdb.Factory);
 
-        var res = await repo.GetPersonEntriesAsync(
-            personId,
-            from: new DateOnly(2026, 1, 1),
-            to: new DateOnly(2026, 1, 31));
+        var list = await repo.GetPersonEntriesAsync(personId, new DateOnly(2026, 2, 11), new DateOnly(2026, 2, 20));
 
-        Assert.Equal(3, res.Count);
+        Assert.Equal(2, list.Count);
+        Assert.Equal(e1.Id, list[0].Id);
+        Assert.Equal(e2.Id, list[1].Id);
+    }
 
-        Assert.Equal(c30.Id, res[0].TimesheetCodeDefinitionId);
-        Assert.Equal(new DateOnly(2026, 1, 1), res[0].From);
+    //======================================================================
+    // GetEntriesForPersonsAsync
+    //======================================================================
 
-        Assert.Equal(cPbd.Id, res[1].TimesheetCodeDefinitionId);
-        Assert.Equal(new DateOnly(2026, 1, 5), res[1].From);
+    [Fact]
+    public async Task GetEntriesForPersonsAsync_returns_empty_when_personIds_empty()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetEntryRepository(tdb.Factory);
 
-        Assert.Equal(cVp.Id, res[2].TimesheetCodeDefinitionId);
-        Assert.Equal(new DateOnly(2026, 1, 10), res[2].From);
+        var list = await repo.GetEntriesForPersonsAsync([], new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 2));
 
-        Assert.DoesNotContain(res, x => x.TimesheetCodeDefinitionId == cX.Id);
+        Assert.Empty(list);
     }
 
     [Fact]
-    public async Task GetActiveEntryOnDateAsync_returns_latest_by_From_when_multiple_overlap()
+    public async Task GetEntriesForPersonsAsync_throws_when_to_before_from()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.GetEntriesForPersonsAsync([Guid.NewGuid()], new DateOnly(2026, 2, 10), new DateOnly(2026, 2, 9)));
+    }
+
+    [Fact]
+    public async Task GetEntriesForPersonsAsync_returns_overlapping_for_many_persons_sorted_by_person_then_from_then_id()
     {
         await using var tdb = new SqliteTestDb();
 
-        var personId = Guid.NewGuid();
-        var tl = NewTimeline(personId, new DateOnly(2026, 1, 1));
+        var codeId = Guid.NewGuid();
+        var p1 = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var p2 = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
-        var c30 = NewCode("30");
-        var cVp = NewCode("ВП");
+        var episode1 = Guid.NewGuid();
+        var episode2 = Guid.NewGuid();
+
+        var idA = Guid.Parse("00000000-0000-0000-0000-000000000010");
+        var idB = Guid.Parse("00000000-0000-0000-0000-000000000011");
+        var idC = Guid.Parse("00000000-0000-0000-0000-000000000012");
 
         using (var db = tdb.Factory.CreateDbContext())
         {
-            db.TimesheetCodes.AddRange(c30, cVp);
-            db.TimesheetTimelines.Add(tl);
+            db.TimesheetCodes.Add(NewCode(codeId));
+            db.TimeSheets.AddRange(
+                NewEpisode(episode1, p1, new DateOnly(2026, 2, 1)),
+                NewEpisode(episode2, p2, new DateOnly(2026, 2, 1)));
 
+            // p2 first by From (later), but overall ordering by PersonId => p1 results first
             db.TimesheetEntries.AddRange(
-                NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 1), null),
-                NewEntry(tl.Id, personId, cVp.Id, new DateOnly(2026, 1, 10), null)
+                NewEntry(idB, episode2, p2, codeId, new DateOnly(2026, 2, 12), null), // p2
+                NewEntry(idA, episode1, p1, codeId, new DateOnly(2026, 2, 11), null), // p1 (earlier)
+                NewEntry(idC, episode1, p1, codeId, new DateOnly(2026, 2, 12), null)  // p1 (later)
             );
 
             await db.SaveChangesAsync();
@@ -182,34 +305,286 @@ public sealed class TimesheetEntryRepositoryTests
 
         var repo = new TimesheetEntryRepository(tdb.Factory);
 
-        var active = await repo.GetActiveEntryOnDateAsync(tl.Id, personId, new DateOnly(2026, 1, 15));
+        var list = await repo.GetEntriesForPersonsAsync([p2, p1], new DateOnly(2026, 2, 11), new DateOnly(2026, 2, 20));
+
+        Assert.Equal(3, list.Count);
+        Assert.Equal(p1, list[0].PersonId);
+        Assert.Equal(idA, list[0].Id);
+        Assert.Equal(idC, list[1].Id);
+        Assert.Equal(p2, list[2].PersonId);
+        Assert.Equal(idB, list[2].Id);
+    }
+
+    //======================================================================
+    // GetActiveEntryOnDateAsync
+    //======================================================================
+
+    [Fact]
+    public async Task GetActiveEntryOnDateAsync_returns_latest_covering_date_and_includes_code_definition()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var codeId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+
+        var idSmall = Guid.Parse("00000000-0000-0000-0000-000000000010");
+        var idBig = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff");
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetCodes.Add(NewCode(codeId, "30"));
+            db.TimeSheets.Add(NewEpisode(episodeId, personId, new DateOnly(2026, 2, 1)));
+
+            // same From, both open-ended and cover date => tie-break by Id desc
+            db.TimesheetEntries.Add(NewEntry(idSmall, episodeId, personId, codeId, new DateOnly(2026, 2, 10), null));
+            db.TimesheetEntries.Add(NewEntry(idBig, episodeId, personId, codeId, new DateOnly(2026, 2, 10), null));
+
+            // deleted active — ignore
+            db.TimesheetEntries.Add(NewEntry(Guid.NewGuid(), episodeId, personId, codeId, new DateOnly(2026, 2, 9), null, isDeleted: true));
+
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        var active = await repo.GetActiveEntryOnDateAsync(episodeId, personId, new DateOnly(2026, 2, 11));
 
         Assert.NotNull(active);
-        Assert.Equal(cVp.Id, active!.TimesheetCodeDefinitionId);
-        Assert.Equal(new DateOnly(2026, 1, 10), active.From);
+        Assert.Equal(idBig, active!.Id);
+        Assert.NotNull(active.TimesheetCodeDefinition);
+        Assert.Equal(codeId, active.TimesheetCodeDefinition!.Id);
+    }
 
-        // якщо репо робить Include — можна також перевірити код
-        if (active.TimesheetCodeDefinition is not null)
-            Assert.Equal("ВП", active.TimesheetCodeDefinition.Code);
+    //======================================================================
+    // SoftDeleteAsync
+    //======================================================================
+
+    [Fact]
+    public async Task SoftDeleteAsync_throws_on_empty_entry_id()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.SoftDeleteAsync(Guid.Empty, reason: "r", author: "a", nowUtc: NowUtc));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task SoftDeleteAsync_throws_on_empty_reason(string? reason)
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.SoftDeleteAsync(Guid.NewGuid(), reason: reason!, author: "a", nowUtc: NowUtc));
     }
 
     [Fact]
-    public async Task SoftDeleteAsync_marks_deleted_and_excludes_from_queries()
+    public async Task SoftDeleteAsync_noops_when_not_found()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        await repo.SoftDeleteAsync(Guid.NewGuid(), reason: "r", author: "a", nowUtc: NowUtc);
+        // no throw => ok
+    }
+
+    [Fact]
+    public async Task SoftDeleteAsync_marks_deleted_and_sets_audit_fields_and_trims_values()
     {
         await using var tdb = new SqliteTestDb();
 
+        var codeId = Guid.NewGuid();
         var personId = Guid.NewGuid();
-        var tl = NewTimeline(personId, new DateOnly(2026, 1, 1));
-        TimesheetEntry e;
-
-        var c30 = NewCode("30");
+        var episodeId = Guid.NewGuid();
+        var entryId = Guid.NewGuid();
 
         using (var db = tdb.Factory.CreateDbContext())
         {
-            db.TimesheetCodes.Add(c30);
-            db.TimesheetTimelines.Add(tl);
+            db.TimesheetCodes.Add(NewCode(codeId));
+            db.TimeSheets.Add(NewEpisode(episodeId, personId, new DateOnly(2026, 2, 1)));
 
-            e = NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 1), null);
+            db.TimesheetEntries.Add(NewEntry(entryId, episodeId, personId, codeId, new DateOnly(2026, 2, 10)));
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        await repo.SoftDeleteAsync(entryId, reason: "  bad data  ", author: "  user1  ", nowUtc: NowUtc);
+
+        await using var db2 = await tdb.Factory.CreateDbContextAsync();
+        var reloaded = await db2.TimesheetEntries.AsNoTracking().SingleAsync(x => x.Id == entryId);
+
+        Assert.True(reloaded.IsDeleted);
+        Assert.Equal("user1", reloaded.DeletedBy);
+        Assert.Equal(NowUtc, reloaded.DeletedAtUtc);
+        Assert.Equal("bad data", reloaded.DeleteReason);
+    }
+
+    [Fact]
+    public async Task SoftDeleteAsync_uses_system_when_author_blank_and_does_not_redelete()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var codeId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+        var entryId = Guid.NewGuid();
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetCodes.Add(NewCode(codeId));
+            db.TimeSheets.Add(NewEpisode(episodeId, personId, new DateOnly(2026, 2, 1)));
+
+            var e = NewEntry(entryId, episodeId, personId, codeId, new DateOnly(2026, 2, 10));
+            e.IsDeleted = true;
+            e.DeletedBy = "seed";
+            e.DeletedAtUtc = NowUtc.AddHours(-3);
+            e.DeleteReason = "r1";
+
+            db.TimesheetEntries.Add(e);
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        await repo.SoftDeleteAsync(entryId, reason: "r2", author: "   ", nowUtc: NowUtc);
+
+        await using var db2 = await tdb.Factory.CreateDbContextAsync();
+        var reloaded = await db2.TimesheetEntries.AsNoTracking().SingleAsync(x => x.Id == entryId);
+
+        // already deleted => noop
+        Assert.True(reloaded.IsDeleted);
+        Assert.Equal("seed", reloaded.DeletedBy);
+        Assert.Equal(NowUtc.AddHours(-3), reloaded.DeletedAtUtc);
+        Assert.Equal("r1", reloaded.DeleteReason);
+    }
+
+    //======================================================================
+    // UpdateAsync
+    //======================================================================
+
+    [Fact]
+    public async Task UpdateAsync_throws_on_null_updated()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            repo.UpdateAsync(null!));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_throws_on_empty_entry_id()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.UpdateAsync(new TimesheetEntry { Id = Guid.Empty }));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_throws_when_episode_closed()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var codeId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+        var entryId = Guid.NewGuid();
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetCodes.Add(NewCode(codeId));
+            db.TimeSheets.Add(NewEpisode(episodeId, personId, new DateOnly(2026, 2, 1), closedAt: new DateOnly(2026, 2, 10)));
+
+            db.TimesheetEntries.Add(NewEntry(entryId, episodeId, personId, codeId, new DateOnly(2026, 2, 5)));
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        var updated = NewEntry(entryId, episodeId, personId, codeId, new DateOnly(2026, 2, 5), new DateOnly(2026, 2, 6));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => repo.UpdateAsync(updated));
+
+        Assert.Contains("Епізод табеля закритий", ex.Message);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_throws_when_entry_from_before_openedAt()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var codeId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+        var entryId = Guid.NewGuid();
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetCodes.Add(NewCode(codeId));
+            db.TimeSheets.Add(NewEpisode(episodeId, personId, new DateOnly(2026, 2, 10)));
+
+            db.TimesheetEntries.Add(NewEntry(entryId, episodeId, personId, codeId, new DateOnly(2026, 2, 10)));
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        var updated = NewEntry(entryId, episodeId, personId, codeId, new DateOnly(2026, 2, 9));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => repo.UpdateAsync(updated));
+
+        Assert.Contains("Запис не може починатися раніше OpenedAt", ex.Message);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_throws_when_to_before_from()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var codeId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+        var entryId = Guid.NewGuid();
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetCodes.Add(NewCode(codeId));
+            db.TimeSheets.Add(NewEpisode(episodeId, personId, new DateOnly(2026, 2, 1)));
+            db.TimesheetEntries.Add(NewEntry(entryId, episodeId, personId, codeId, new DateOnly(2026, 2, 10)));
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new TimesheetEntryRepository(tdb.Factory);
+
+        var updated = NewEntry(entryId, episodeId, personId, codeId, new DateOnly(2026, 2, 10), new DateOnly(2026, 2, 9));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => repo.UpdateAsync(updated));
+
+        Assert.Equal("Некоректний період: To не може бути раніше From.", ex.Message);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_persists_changes()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var codeId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+        var entryId = Guid.NewGuid();
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.TimesheetCodes.Add(NewCode(codeId));
+            db.TimeSheets.Add(NewEpisode(episodeId, personId, new DateOnly(2026, 2, 1)));
+
+            var e = NewEntry(entryId, episodeId, personId, codeId, new DateOnly(2026, 2, 10), null);
+            e.Note = "old";
             db.TimesheetEntries.Add(e);
 
             await db.SaveChangesAsync();
@@ -217,303 +592,96 @@ public sealed class TimesheetEntryRepositoryTests
 
         var repo = new TimesheetEntryRepository(tdb.Factory);
 
-        await repo.SoftDeleteAsync(
-            entryId: e.Id,
-            reason: "test delete",
-            author: "ui",
-            nowUtc: DateTime.UtcNow);
+        // detached updated entity
+        var updated = NewEntry(entryId, episodeId, personId, codeId, new DateOnly(2026, 2, 10), new DateOnly(2026, 2, 12));
+        updated.Note = "new-note";
 
-        // GetByIdAsync should ignore deleted
-        var got = await repo.GetByIdAsync(e.Id);
-        Assert.Null(got);
+        await repo.UpdateAsync(updated);
 
-        // List should not contain deleted
-        var list = await repo.GetPersonEntriesAsync(personId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31));
-        Assert.Empty(list);
+        await using var db2 = await tdb.Factory.CreateDbContextAsync();
+        var reloaded = await db2.TimesheetEntries.AsNoTracking().SingleAsync(x => x.Id == entryId);
 
-        // DB marked deleted
-        using var db2 = tdb.Factory.CreateDbContext();
-        var stored = await db2.TimesheetEntries.FindAsync(e.Id);
-
-        Assert.NotNull(stored);
-        Assert.True(stored!.IsDeleted);
-        Assert.Equal("ui", stored.DeletedBy);
-        Assert.Equal("test delete", stored.DeleteReason);
-        Assert.NotNull(stored.DeletedAtUtc);
+        Assert.Equal(new DateOnly(2026, 2, 12), reloaded.To);
+        Assert.Equal("new-note", reloaded.Note);
     }
 
+    //======================================================================
+    // SaveTransitionAsync
+    //======================================================================
+
     [Fact]
-    public async Task GetEntriesForPersonsAsync_returns_entries_for_all_persons_in_period()
+    public async Task SaveTransitionAsync_throws_when_timesheet_ids_different()
     {
         await using var tdb = new SqliteTestDb();
 
-        var p1 = Guid.NewGuid();
-        var p2 = Guid.NewGuid();
-
-        var tl1 = NewTimeline(p1, new DateOnly(2026, 1, 1));
-        var tl2 = NewTimeline(p2, new DateOnly(2026, 1, 1));
-
-        var c30 = NewCode("30");
-        var cRozpor = NewCode("РОЗПОР");
+        var codeId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
 
         using (var db = tdb.Factory.CreateDbContext())
         {
-            db.TimesheetCodes.AddRange(c30, cRozpor);
-            db.TimesheetTimelines.AddRange(tl1, tl2);
-
-            db.TimesheetEntries.AddRange(
-                NewEntry(tl1.Id, p1, c30.Id, new DateOnly(2026, 1, 1), null),
-                NewEntry(tl2.Id, p2, cRozpor.Id, new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 20))
-            );
-
+            db.TimesheetCodes.Add(NewCode(codeId));
+            db.TimeSheets.Add(NewEpisode(episodeId, personId, new DateOnly(2026, 2, 1)));
             await db.SaveChangesAsync();
         }
 
         var repo = new TimesheetEntryRepository(tdb.Factory);
 
-        var res = await repo.GetEntriesForPersonsAsync(
-            personIds: [p1, p2],
-            from: new DateOnly(2026, 1, 1),
-            to: new DateOnly(2026, 1, 31));
+        var prev = NewEntry(Guid.NewGuid(), episodeId, personId, codeId, new DateOnly(2026, 2, 10), null);
 
-        Assert.Equal(2, res.Count);
-        Assert.Contains(res, x => x.PersonId == p1 && x.TimesheetCodeDefinitionId == c30.Id);
-        Assert.Contains(res, x => x.PersonId == p2 && x.TimesheetCodeDefinitionId == cRozpor.Id);
+        // інший TimesheetId, і він може навіть не існувати в БД — метод впаде раніше
+        var otherEpisodeId = Guid.NewGuid();
+        var next = NewEntry(Guid.NewGuid(), otherEpisodeId, personId, codeId, new DateOnly(2026, 2, 11), null);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repo.SaveTransitionAsync(prev, next));
+
+        Assert.Equal("Перехід повинен виконуватись в межах одного епізоду табеля.", ex.Message);
     }
 
     [Fact]
-    public async Task SaveTransitionAsync_updates_prev_and_adds_next_in_one_transaction()
+    public async Task SaveTransitionAsync_updates_prev_and_inserts_next_atomically()
     {
         await using var tdb = new SqliteTestDb();
+
+        var code30Id = Guid.NewGuid();
+        var code40Id = Guid.NewGuid();
 
         var personId = Guid.NewGuid();
-        var tl = NewTimeline(personId, new DateOnly(2026, 1, 1));
+        var episodeId = Guid.NewGuid();
 
-        TimesheetEntry prev;
-        TimesheetEntry next;
-
-        var c30 = NewCode("30");
-        var c100 = NewCode("100");
+        var prevId = Guid.NewGuid();
+        var nextId = Guid.NewGuid();
 
         using (var db = tdb.Factory.CreateDbContext())
         {
-            db.TimesheetCodes.AddRange(c30, c100);
-            db.TimesheetTimelines.Add(tl);
+            db.TimesheetCodes.AddRange(NewCode(code30Id, "30"), NewCode(code40Id, "40"));
+            db.TimeSheets.Add(NewEpisode(episodeId, personId, new DateOnly(2026, 2, 1)));
 
-            prev = NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 1), null);
-            db.TimesheetEntries.Add(prev);
-
-            await db.SaveChangesAsync();
-        }
-
-        // emulate transition: close prev + add next
-        prev.To = new DateOnly(2026, 1, 9);
-        prev.UpdatedBy = "ui";
-        prev.UpdatedAtUtc = NowUtc;
-
-        next = NewEntry(tl.Id, personId, c100.Id, new DateOnly(2026, 1, 10), null);
-        next.CreatedBy = "ui";
-        next.CreatedAtUtc = NowUtc;
-
-        var repo = new TimesheetEntryRepository(tdb.Factory);
-        await repo.SaveTransitionAsync(prev, next);
-
-        await using (var db = await tdb.Factory.CreateDbContextAsync())
-        {
-            var all = await db.TimesheetEntries.AsNoTracking()
-                .Where(x => x.PersonId == personId && !x.IsDeleted)
-                .OrderBy(x => x.From)
-                .ToListAsync();
-
-            Assert.Equal(2, all.Count);
-
-            Assert.Equal(c30.Id, all[0].TimesheetCodeDefinitionId);
-            Assert.Equal(new DateOnly(2026, 1, 9), all[0].To);
-
-            Assert.Equal(c100.Id, all[1].TimesheetCodeDefinitionId);
-            Assert.Equal(new DateOnly(2026, 1, 10), all[1].From);
-        }
-    }
-
-    // ----------------------------------------------------------------------
-    // NEW: repository invariants (p.1 / p.2)
-    // ----------------------------------------------------------------------
-
-    [Fact]
-    public async Task AddAsync_throws_when_timeline_closed()
-    {
-        await using var tdb = new SqliteTestDb();
-
-        var personId = Guid.NewGuid();
-        var tl = NewTimeline(personId, openedAt: new DateOnly(2026, 1, 1), closedAt: new DateOnly(2026, 1, 5));
-
-        var c30 = NewCode("30");
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimesheetCodes.Add(c30);
-            db.TimesheetTimelines.Add(tl);
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new TimesheetEntryRepository(tdb.Factory);
-        var entry = NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 2), null);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.AddAsync(entry));
-    }
-
-    [Fact]
-    public async Task SaveTransitionAsync_throws_when_timeline_closed()
-    {
-        await using var tdb = new SqliteTestDb();
-
-        var personId = Guid.NewGuid();
-        var tl = NewTimeline(personId, openedAt: new DateOnly(2026, 1, 1), closedAt: new DateOnly(2026, 1, 5));
-
-        TimesheetEntry prev;
-
-        var c30 = NewCode("30");
-        var c100 = NewCode("100");
-
-        // Seed existing data directly (represents history before timeline got closed)
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimesheetCodes.AddRange(c30, c100);
-            db.TimesheetTimelines.Add(tl);
-
-            prev = NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5));
-            db.TimesheetEntries.Add(prev);
-
-            await db.SaveChangesAsync();
-        }
-
-        prev.To = new DateOnly(2026, 1, 5);
-        prev.UpdatedBy = "ui";
-        prev.UpdatedAtUtc = NowUtc;
-
-        var next = NewEntry(tl.Id, personId, c100.Id, new DateOnly(2026, 1, 6), null);
-        next.CreatedBy = "ui";
-        next.CreatedAtUtc = NowUtc;
-
-        var repo = new TimesheetEntryRepository(tdb.Factory);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.SaveTransitionAsync(prev, next));
-    }
-
-    [Fact]
-    public async Task AddAsync_throws_when_entry_starts_before_openedAt()
-    {
-        await using var tdb = new SqliteTestDb();
-
-        var personId = Guid.NewGuid();
-        var tl = NewTimeline(personId, openedAt: new DateOnly(2026, 1, 10));
-
-        var c30 = NewCode("30");
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimesheetCodes.Add(c30);
-            db.TimesheetTimelines.Add(tl);
+            // existing prev entry
+            db.TimesheetEntries.Add(NewEntry(prevId, episodeId, personId, code30Id, new DateOnly(2026, 2, 10), null));
             await db.SaveChangesAsync();
         }
 
         var repo = new TimesheetEntryRepository(tdb.Factory);
 
-        var entry = NewEntry(tl.Id, personId, c30.Id, from: new DateOnly(2026, 1, 9), to: null);
+        var prevUpdated = NewEntry(prevId, episodeId, personId, code30Id, new DateOnly(2026, 2, 10), new DateOnly(2026, 2, 10));
+        prevUpdated.Note = "closed";
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.AddAsync(entry));
-    }
+        var nextAdded = NewEntry(nextId, episodeId, personId, code40Id, new DateOnly(2026, 2, 11), null);
+        nextAdded.Note = "next";
 
-    [Fact]
-    public async Task AddAsync_throws_when_To_before_From()
-    {
-        await using var tdb = new SqliteTestDb();
+        await repo.SaveTransitionAsync(prevUpdated, nextAdded);
 
-        var personId = Guid.NewGuid();
-        var tl = NewTimeline(personId, openedAt: new DateOnly(2026, 1, 1));
+        await using var db2 = await tdb.Factory.CreateDbContextAsync();
 
-        var c30 = NewCode("30");
+        var prevReload = await db2.TimesheetEntries.AsNoTracking().SingleAsync(x => x.Id == prevId);
+        Assert.Equal(new DateOnly(2026, 2, 10), prevReload.To);
+        Assert.Equal("closed", prevReload.Note);
 
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimesheetCodes.Add(c30);
-            db.TimesheetTimelines.Add(tl);
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new TimesheetEntryRepository(tdb.Factory);
-
-        var entry = NewEntry(tl.Id, personId, c30.Id, from: new DateOnly(2026, 1, 10), to: new DateOnly(2026, 1, 9));
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.AddAsync(entry));
-    }
-
-    [Fact]
-    public async Task UpdateAsync_throws_when_open_ended_in_closed_timeline()
-    {
-        await using var tdb = new SqliteTestDb();
-
-        var personId = Guid.NewGuid();
-        var tl = NewTimeline(personId, openedAt: new DateOnly(2026, 1, 1), closedAt: new DateOnly(2026, 1, 5));
-
-        TimesheetEntry e;
-
-        var c30 = NewCode("30");
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimesheetCodes.Add(c30);
-            db.TimesheetTimelines.Add(tl);
-
-            // Seed an entry that violates closed-timeline invariant (open-ended).
-            // UpdateAsync should reject it (guard for data integrity).
-            e = NewEntry(tl.Id, personId, c30.Id, new DateOnly(2026, 1, 1), to: null);
-            db.TimesheetEntries.Add(e);
-
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new TimesheetEntryRepository(tdb.Factory);
-
-        e.Note = "try update";
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.UpdateAsync(e));
-    }
-
-    [Fact]
-    public async Task SaveTransitionAsync_throws_when_next_in_other_timeline()
-    {
-        await using var tdb = new SqliteTestDb();
-
-        var personId = Guid.NewGuid();
-        var tl1 = NewTimeline(personId, new DateOnly(2026, 1, 1));
-
-        TimesheetEntry prev;
-
-        var c30 = NewCode("30");
-        var c100 = NewCode("100");
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimesheetCodes.AddRange(c30, c100);
-            db.TimesheetTimelines.Add(tl1);
-
-            prev = NewEntry(tl1.Id, personId, c30.Id, new DateOnly(2026, 1, 1), null);
-            db.TimesheetEntries.Add(prev);
-
-            await db.SaveChangesAsync();
-        }
-
-        prev.To = new DateOnly(2026, 1, 9);
-        prev.UpdatedBy = "ui";
-        prev.UpdatedAtUtc = NowUtc;
-
-        // next "в іншому timeline" — НЕ потрібно створювати 2-й timeline в БД
-        var next = NewEntry(Guid.NewGuid(), personId, c100.Id, new DateOnly(2026, 1, 10), null);
-
-        var repo = new TimesheetEntryRepository(tdb.Factory);
-
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => repo.SaveTransitionAsync(prev, next));
-        Assert.Contains("одного таймлайну", ex.Message);
+        var nextReload = await db2.TimesheetEntries.AsNoTracking().SingleAsync(x => x.Id == nextId);
+        Assert.Equal(new DateOnly(2026, 2, 11), nextReload.From);
+        Assert.Null(nextReload.To);
+        Assert.Equal("next", nextReload.Note);
     }
 }

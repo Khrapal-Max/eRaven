@@ -24,7 +24,6 @@ public sealed class TimeSheetAggregate
     public string? ClosedBy { get; set; }
     public DateTime? ClosedAtUtc { get; set; }
 
-    // existing navigation (якщо вже є)
     public List<TimesheetEntry> Entries { get; set; } = [];
     public List<TimesheetTaskSpan> TaskSpans { get; set; } = [];
 
@@ -53,6 +52,7 @@ public sealed class TimeSheetAggregate
 
     public void UpsertTask(
         Guid documentId,
+        Guid missionId,
         DateOnly from,
         DateOnly? to,
         DocumentStatus status,
@@ -64,21 +64,30 @@ public sealed class TimeSheetAggregate
         if (to.HasValue) EnsureInBounds(to.Value);
         if (to.HasValue && to.Value < from) throw new InvalidOperationException("TaskSpan.To must be >= From.");
 
-        // (optional) forbid overlap between different active task spans
-        foreach (var other in TaskSpans.Where(x => x.CombatTaskDocumentId != documentId && x.Status != DocumentStatus.Canceled))
+        // Забороняємо перетини між різними активними задачами (для цієї людини)
+        foreach (var other in TaskSpans.Where(x => x.Status != DocumentStatus.Canceled))
         {
+            // same span -> skip
+            if (other.CombatTaskDocumentId == documentId && other.MissionId == missionId)
+                continue;
+
             if (Overlaps(from, to, other.FromDate, other.ToDate))
                 throw new InvalidOperationException("Task spans overlap for the same person.");
         }
 
-        var span = TaskSpans.SingleOrDefault(x => x.CombatTaskDocumentId == documentId);
+        var span = TaskSpans.SingleOrDefault(x =>
+            x.CombatTaskDocumentId == documentId &&
+            x.MissionId == missionId);
+
         if (span is null)
         {
             span = new TimesheetTaskSpan
             {
                 Id = Guid.NewGuid(),
                 TimesheetId = Id,
-                CombatTaskDocumentId = documentId
+                PersonId = PersonId, // <-- ВАЖЛИВО: денормалізований інваріант
+                CombatTaskDocumentId = documentId,
+                MissionId = missionId
             };
             TaskSpans.Add(span);
         }
@@ -89,7 +98,6 @@ public sealed class TimeSheetAggregate
         span.UpdatedBy = author;
         span.UpdatedAtUtc = nowUtc;
 
-        // якщо апдейтимо статус назад/вперед — не чіпаємо ClosedBy*, бо це вже “факт закриття”
         if (status != DocumentStatus.Canceled)
         {
             span.ClosedByCodeId = null;
@@ -97,20 +105,20 @@ public sealed class TimeSheetAggregate
         }
     }
 
-    public void RemoveTaskForPerson(Guid documentId)
+    public void RemoveTaskForPerson(Guid documentId, Guid missionId)
     {
-        // кейс: людину прибрали з документа => табель має “відреагувати”
-        // найпростіше: видалити span (або mark canceled, якщо хочеш аудит)
-        var span = TaskSpans.SingleOrDefault(x => x.CombatTaskDocumentId == documentId);
+        var span = TaskSpans.SingleOrDefault(x =>
+            x.CombatTaskDocumentId == documentId &&
+            x.MissionId == missionId);
+
         if (span is null) return;
 
         TaskSpans.Remove(span);
-        // якщо потрібен аудит — замість Remove зроби:
-        // span.Status = TaskSpanStatus.Canceled; span.To = span.To ?? DateOnly.FromDateTime(nowUtc); ...
     }
 
     public void CloseTaskByReason(
         Guid documentId,
+        Guid missionId,
         DateOnly closeAt,
         Guid reasonCodeId,
         string? reference,
@@ -120,9 +128,11 @@ public sealed class TimeSheetAggregate
         EnsureNotClosed();
         EnsureInBounds(closeAt);
 
-        var span = TaskSpans.SingleOrDefault(x => x.CombatTaskDocumentId == documentId) ?? throw new InvalidOperationException("Task span not found.");
+        var span = TaskSpans.SingleOrDefault(x =>
+            x.CombatTaskDocumentId == documentId &&
+            x.MissionId == missionId)
+            ?? throw new InvalidOperationException("Task span not found.");
 
-        // clamp To
         if (!span.ToDate.HasValue || span.ToDate.Value > closeAt)
             span.ToDate = closeAt;
 

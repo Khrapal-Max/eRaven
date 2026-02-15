@@ -5,7 +5,6 @@
 // TimesheetTaskSpanConfiguration
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -16,7 +15,12 @@ public sealed class TimesheetTaskSpanConfiguration : IEntityTypeConfiguration<Ti
 {
     public void Configure(EntityTypeBuilder<TimesheetTaskSpan> e)
     {
-        e.ToTable("timesheet_task_spans");
+        e.ToTable("timesheet_task_spans", t =>
+        {
+            t.HasCheckConstraint(
+                "ck_ts_task_spans_to_gte_from",
+                "to_date IS NULL OR to_date >= from_date");
+        });
 
         e.HasKey(x => x.Id);
 
@@ -28,8 +32,17 @@ public sealed class TimesheetTaskSpanConfiguration : IEntityTypeConfiguration<Ti
             .HasColumnName("timesheet_id")
             .IsRequired();
 
+        // NEW (recommended)
+        e.Property(x => x.PersonId)
+            .HasColumnName("person_id")
+            .IsRequired();
+
         e.Property(x => x.CombatTaskDocumentId)
             .HasColumnName("combat_task_document_id")
+            .IsRequired();
+
+        e.Property(x => x.MissionId)
+            .HasColumnName("mission_id")
             .IsRequired();
 
         e.Property(x => x.FromDate)
@@ -59,11 +72,15 @@ public sealed class TimesheetTaskSpanConfiguration : IEntityTypeConfiguration<Ti
             .HasColumnName("updated_at_utc")
             .IsRequired();
 
-        e.HasIndex(x => new { x.TimesheetId, x.CombatTaskDocumentId })
+        /// <summary>
+        /// Інваріант: один інтервал на особу для (Document, Mission).
+        /// </summary>
+        e.HasIndex(x => new { x.PersonId, x.CombatTaskDocumentId, x.MissionId })
             .IsUnique();
 
-        e.HasIndex(x => x.CombatTaskDocumentId);
-
-        e.HasIndex(x => new { x.TimesheetId, x.FromDate, x.ToDate });
+        // індекси під запити
+        e.HasIndex(x => new { x.MissionId, x.FromDate, x.ToDate, x.Status });
+        e.HasIndex(x => new { x.CombatTaskDocumentId, x.Status });
+        e.HasIndex(x => new { x.PersonId, x.FromDate, x.ToDate });
     }
 }

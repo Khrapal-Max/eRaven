@@ -13,14 +13,7 @@ using Microsoft.EntityFrameworkCore;
 namespace eRaven.Infrastructure.Repositories.CombatTaskRepository;
 
 /// <summary>
-/// CRUD-репозиторій бойових завдань у межах документа:
-/// - <see cref="CombatTask"/> (групування по місії),
-/// - <see cref="CombatTaskDetails"/> (рядки Start/End по особам).
-///
-/// Важливо:
-/// - Бізнес-правила (Draft/Posted/Canceled, конфлікти, apply в MissionAssignment/Timesheet)
-///   мають бути в handler’ах.
-/// - Тут лишаємо лише цілісність даних і коректні зв'язки.
+/// EF Core реалізація <see cref="ICombatTaskRepository"/>.
 /// </summary>
 public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFactory) : ICombatTaskRepository
 {
@@ -43,8 +36,10 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
             .FirstOrDefaultAsync(x => x.Id == documentId, ct)
             ?? throw new InvalidOperationException("Документ не знайдено.");
 
+        // AsSplitQuery: уникаємо важкого JOIN-графа (особливо коли багато рядків).
         var tasks = await db.CombatTasks
             .AsNoTracking()
+            .AsSplitQuery()
             .Where(x => x.CombatTaskDocumentId == documentId)
             .Include(x => x.Mission)
             .Include(x => x.CombatTaskDetails)
@@ -53,27 +48,27 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
             .ToListAsync(ct);
 
         var missions = tasks
-         .Select(t => new CombatTaskMissionBlockDto(
-             CombatTaskId: t.Id,
-             MissionId: t.MissionId,
-             MissionName: t.Mission?.ToString() ?? string.Empty,
-             SourceDocument: t.SourceDocument ?? string.Empty,
-             CombatTaskDetails: [.. t.CombatTaskDetails
-                .OrderBy(l => l.EffectiveAt)
-                .ThenBy(l => l.Kind)
-                .ThenBy(l => l.FullName)
-                .ThenBy(l => l.Id)
-                .Select(l => new CombatTaskDetailsDto(
-                    CombatTaskDetailsId: l.Id,
-                    Kind: l.Kind,
-                    EffectiveAt: l.EffectiveAt,
-                    PersonId: l.PersonId,
-                    Rnokpp: l.Rnokpp,
-                    FullName: l.FullName,
-                    Callsign: l.Callsign
-                ))]
-         ))
-         .ToList();
+            .Select(t => new CombatTaskMissionBlockDto(
+                CombatTaskId: t.Id,
+                MissionId: t.MissionId,
+                MissionName: t.Mission?.ToString() ?? string.Empty,
+                SourceDocument: t.SourceDocument ?? string.Empty,
+                CombatTaskDetails: [.. t.CombatTaskDetails
+                    .OrderBy(l => l.EffectiveAt)
+                    .ThenBy(l => l.Kind)
+                    .ThenBy(l => l.FullName)
+                    .ThenBy(l => l.Id)
+                    .Select(l => new CombatTaskDetailsDto(
+                        CombatTaskDetailsId: l.Id,
+                        Kind: l.Kind,
+                        EffectiveAt: l.EffectiveAt,
+                        PersonId: l.PersonId,
+                        Rnokpp: l.Rnokpp,
+                        FullName: l.FullName,
+                        Callsign: l.Callsign
+                    ))]
+            ))
+            .ToList();
 
         return new CombatTaskEditorDto(
             DocumentId: documentId,
@@ -89,11 +84,11 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
     //======================================================================
 
     /// <inheritdoc />
-    public async Task<Guid> CreateCombatTask(
+    public async Task<Guid> CreateCombatTaskAsync(
         Guid documentId,
         Guid missionId,
         string sourceDocument,
-        ICollection<CombatTaskDetails> combatTaskDetails,
+        IReadOnlyCollection<CombatTaskDetails> combatTaskDetails,
         CancellationToken ct = default)
     {
         if (documentId == Guid.Empty)
@@ -103,12 +98,18 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var docExists = await db.CombatTaskDocuments
-            .AsNoTracking()
-            .AnyAsync(x => x.Id == documentId, ct);
+        var doc = await db.CombatTaskDocuments
+            .FirstOrDefaultAsync(x => x.Id == documentId, ct)
+            ?? throw new InvalidOperationException("Документ не знайдено.");
 
-        if (!docExists)
-            throw new InvalidOperationException("Документ не знайдено.");
+        EnsureDraft(doc);
+
+        var exists = await db.CombatTasks
+            .AsNoTracking()
+            .AnyAsync(x => x.CombatTaskDocumentId == documentId && x.MissionId == missionId, ct);
+
+        if (exists)
+            throw new InvalidOperationException("Блок по цій місії вже існує. Використайте UpsertCombatTaskAsync().");
 
         ValidateDetails(combatTaskDetails);
 
@@ -117,10 +118,9 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
             Id = Guid.NewGuid(),
             CombatTaskDocumentId = documentId,
             MissionId = missionId,
-            SourceDocument = sourceDocument?.Trim() ?? string.Empty
+            SourceDocument = (sourceDocument ?? string.Empty).Trim()
         };
 
-        // Важливо: спочатку додаємо task, щоб FK був валідний в межах SaveChanges.
         db.CombatTasks.Add(task);
 
         PrepareLinesForInsert(task.Id, combatTaskDetails);
@@ -131,11 +131,78 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
     }
 
     //======================================================================
+    // Write: Upsert (replace details)
+    //======================================================================
+
+    /// <inheritdoc />
+    public async Task<Guid> UpsertCombatTaskAsync(
+        Guid documentId,
+        Guid missionId,
+        string sourceDocument,
+        IReadOnlyCollection<CombatTaskDetails> combatTaskDetails,
+        CancellationToken ct = default)
+    {
+        if (documentId == Guid.Empty)
+            throw new ArgumentException("DocumentId is required.", nameof(documentId));
+        if (missionId == Guid.Empty)
+            throw new ArgumentException("MissionId is required.", nameof(missionId));
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        var doc = await db.CombatTaskDocuments
+            .FirstOrDefaultAsync(x => x.Id == documentId, ct)
+            ?? throw new InvalidOperationException("Документ не знайдено.");
+
+        EnsureDraft(doc);
+
+        ValidateDetails(combatTaskDetails);
+
+        var task = await db.CombatTasks
+            .Include(x => x.CombatTaskDetails)
+            .FirstOrDefaultAsync(x => x.CombatTaskDocumentId == documentId && x.MissionId == missionId, ct);
+
+        if (task is null)
+        {
+            task = new CombatTask
+            {
+                Id = Guid.NewGuid(),
+                CombatTaskDocumentId = documentId,
+                MissionId = missionId,
+                SourceDocument = (sourceDocument ?? string.Empty).Trim()
+            };
+
+            db.CombatTasks.Add(task);
+
+            PrepareLinesForInsert(task.Id, combatTaskDetails);
+            db.CombatTaskDetails.AddRange(combatTaskDetails);
+
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+            return task.Id;
+        }
+
+        // Update header
+        task.SourceDocument = (sourceDocument ?? string.Empty).Trim();
+
+        // Replace details (atomic)
+        if (task.CombatTaskDetails.Count > 0)
+            db.CombatTaskDetails.RemoveRange(task.CombatTaskDetails);
+
+        PrepareLinesForInsert(task.Id, combatTaskDetails);
+        db.CombatTaskDetails.AddRange(combatTaskDetails);
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return task.Id;
+    }
+
+    //======================================================================
     // Write: Delete
     //======================================================================
 
     /// <inheritdoc />
-    public async Task DeleteCombatTask(Guid documentId, Guid combatTaskId, CancellationToken ct = default)
+    public async Task DeleteCombatTaskAsync(Guid documentId, Guid combatTaskId, CancellationToken ct = default)
     {
         if (documentId == Guid.Empty)
             throw new ArgumentException("DocumentId is required.", nameof(documentId));
@@ -143,6 +210,15 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
             throw new ArgumentException("CombatTaskId is required.", nameof(combatTaskId));
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var doc = await db.CombatTaskDocuments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == documentId, ct);
+
+        if (doc is null)
+            return;
+
+        EnsureDraft(doc);
 
         var task = await db.CombatTasks
             .FirstOrDefaultAsync(x => x.Id == combatTaskId && x.CombatTaskDocumentId == documentId, ct);
@@ -159,10 +235,24 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
     //======================================================================
 
     /// <summary>
+    /// Забороняє зміну контенту, якщо документ не у Draft.
+    /// Це захист цілісності аудиту.
+    /// </summary>
+    private static void EnsureDraft(CombatTaskDocument doc)
+    {
+        if (doc.Status == DocumentStatus.Posted)
+            throw new InvalidOperationException("Документ проведений і не може редагуватися.");
+        if (doc.Status == DocumentStatus.Canceled)
+            throw new InvalidOperationException("Документ відмінений і не може редагуватися.");
+    }
+
+    /// <summary>
     /// Приводить lines до інваріанту перед insert:
-    /// - гарантує Id,
-    /// - проставляє FK CombatTaskId,
-    /// - чистить navigation, щоб EF не тягнув зайвий граф.
+    /// <list type="bullet">
+    /// <item><description>гарантує <c>Id</c>;</description></item>
+    /// <item><description>проставляє FK <c>CombatTaskId</c>;</description></item>
+    /// <item><description>скидає navigation, щоб EF не тягнув зайвий граф.</description></item>
+    /// </list>
     /// </summary>
     private static void PrepareLinesForInsert(Guid combatTaskId, IEnumerable<CombatTaskDetails> lines)
     {
@@ -178,13 +268,15 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
 
     /// <summary>
     /// Мінімальна перевірка цілісності рядків:
-    /// - PersonId / EffectiveAt,
-    /// - required snapshot поля (Rnokpp/FullName),
-    /// - дублікати в межах одного CombatTask: (PersonId, Kind, EffectiveAt).
+    /// <list type="bullet">
+    /// <item><description><c>PersonId</c> / <c>EffectiveAt</c> заповнені;</description></item>
+    /// <item><description>snapshot поля <c>Rnokpp/FullName</c> заповнені;</description></item>
+    /// <item><description>в межах одного CombatTask немає дублікатів (PersonId, Kind, EffectiveAt).</description></item>
+    /// </list>
     /// </summary>
-    private static void ValidateDetails(ICollection<CombatTaskDetails> lines)
+    private static void ValidateDetails(IReadOnlyCollection<CombatTaskDetails> lines)
     {
-        ArgumentNullException.ThrowIfNull(lines, nameof(lines));
+        ArgumentNullException.ThrowIfNull(lines);
 
         if (lines.Count == 0)
             return;
@@ -207,8 +299,10 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
 
             var key = (x.PersonId, x.Kind, x.EffectiveAt);
             if (!dup.Add(key))
+            {
                 throw new InvalidOperationException(
                     $"Дублікат рядка: PersonId={x.PersonId}, Kind={x.Kind}, EffectiveAt={x.EffectiveAt:yyyy-MM-dd}.");
+            }
         }
     }
 }

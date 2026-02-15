@@ -12,15 +12,17 @@ using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.Timesheet;
 
-public sealed class GetTimesheetRangeQueryHandler(
-    ITimesheetMonthRepository repo)
+/// <summary>
+/// Query handler: повертає табельну матрицю по діапазону дат (inclusive) для UI/операцій.
+/// </summary>
+public sealed class GetTimesheetRangeQueryHandler(ITimesheetViewRepository repo)
     : IQueryHandler<GetTimesheetRangeQuery, IReadOnlyList<TimesheetPersonRangeRowDto>>
 {
-    private readonly ITimesheetMonthRepository _repo = repo;
+    private readonly ITimesheetViewRepository _repo = repo;
 
     /// <summary>
-    /// Повертає дані по відвідуваності для всіх працівників за вказаний період.
-    /// Якщо вказано рядок пошуку, то повертає лише тих працівників, у яких ПІБ або РНОКПП містить цей рядок.
+    /// Повертає дані по табелю для всіх осіб за вказаний період.
+    /// Якщо вказано рядок пошуку, повертає лише тих осіб, у яких ПІБ або РНОКПП містять цей рядок.
     /// </summary>
     public async Task<IReadOnlyList<TimesheetPersonRangeRowDto>> HandleAsync(
         GetTimesheetRangeQuery query,

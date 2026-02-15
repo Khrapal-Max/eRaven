@@ -12,12 +12,18 @@ using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.Timesheet;
 
-public sealed class GetTimesheetPersonMonthQueryHandler(ITimesheetMonthRepository repo)
+/// <summary>
+/// Query handler: повертає персональний табель за місяць (матриця + entries).
+/// </summary>
+public sealed class GetTimesheetPersonMonthQueryHandler(ITimesheetViewRepository repo)
     : IQueryHandler<GetTimesheetPersonMonthQuery, TimesheetPersonMonthDto>
 {
-    private readonly ITimesheetMonthRepository _repo = repo;
+    private readonly ITimesheetViewRepository _repo = repo;
 
-    public async Task<TimesheetPersonMonthDto> HandleAsync(GetTimesheetPersonMonthQuery query, CancellationToken ct = default)
+    /// <inheritdoc />
+    public async Task<TimesheetPersonMonthDto> HandleAsync(
+        GetTimesheetPersonMonthQuery query,
+        CancellationToken ct = default)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(query.Year, 2000, nameof(query.Year));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(query.Year, 2100, nameof(query.Year));

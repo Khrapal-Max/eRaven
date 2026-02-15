@@ -1,38 +1,29 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-//----------------------------------------------------------------------------- 
-// TimesheetLifecycleRepository
+//-----------------------------------------------------------------------------
+// TimesheetEpisodeRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Entities;
 using eRaven.Domain.Aggregates;
+using eRaven.Domain.Entities;
+
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 /// <summary>
-/// Write-repo для життєвого циклу табеля (епізоди).
+/// Репозиторій епізодів табеля (<see cref="TimeSheetAggregate"/>): lifecycle + доступ до активного епізоду.
 ///
-/// Ключова ідея:
-/// - Один епізод "в табелі" = один <see cref="TimeSheetAggregate"/> (OpenedAt..ClosedAt).
-/// - На кожне нове зарахування (після виключення) створюється НОВИЙ таймлайн.
-/// - Старі таймлайни не перезаписуються і не "перевідкриваються".
-///
-/// Правила:
-/// - "НБ" не записуємо як entry — це derived стан (немає активного entry на дату).
-/// - При Enroll:
-///   - якщо активного епізоду немає — створюємо новий таймлайн (OpenedAt=enrollDate),
-///     додаємо дефолтний код "Т" (open-ended) на enrollЕЮ дату (ідемпотентно).
-///   - якщо активний епізод є — НЕ змінюємо OpenedAt і НЕ створюємо новий епізод (ідемпотентність для повторів).
-/// - При Exclude:
-///   - дозволяємо закривати табель лише з певних кодів на дату (наприклад "Т"/"РОЗПОР").
-///   - закриваємо РІВНО один активний таймлайн (inclusive),
-///   - clamping відкритих/довгих entry до closeTo,
-///   - soft-delete future entries (From > closeTo).
+/// <para>Ключова ідея:</para>
+/// <list type="bullet">
+/// <item><description>Один епізод "в табелі" = один <see cref="TimeSheetAggregate"/> (OpenedAt..ClosedAt).</description></item>
+/// <item><description>На кожне нове зарахування (після виключення) створюється НОВИЙ епізод.</description></item>
+/// <item><description>Старі епізоди не "перевідкриваються".</description></item>
+/// </list>
 /// </summary>
-public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext> dbFactory)
-    : ITimesheetLifecycleRepository
+public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> dbFactory)
+    : ITimesheetEpisodeRepository
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
@@ -45,6 +36,48 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
         TimesheetSystemCodes.BaseState,
         TimesheetSystemCodes.Rozpor
     };
+
+    /// <inheritdoc />
+    public async Task<TimeSheetAggregate?> GetEpisodeOnDateAsync(Guid personId, DateOnly date, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        return await db.TimeSheets
+            .AsNoTracking()
+            .Where(x => x.PersonId == personId)
+            .Where(x => x.OpenedAt <= date && (!x.ClosedAt.HasValue || x.ClosedAt.Value >= date))
+            .OrderByDescending(x => x.OpenedAt)
+            .ThenByDescending(x => x.Id)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    /// <inheritdoc />
+    public async Task<TimeSheetAggregate?> GetActiveEpisodeAsync(Guid personId, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        return await db.TimeSheets
+            .AsNoTracking()
+            .Where(x => x.PersonId == personId && x.ClosedAt == null)
+            .OrderByDescending(x => x.OpenedAt)
+            .ThenByDescending(x => x.Id)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    /// <inheritdoc />
+    public async Task<TimeSheetAggregate?> LoadEpisodeOnDateForUpdateAsync(Guid personId, DateOnly date, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        // tracked entity + TaskSpans для інваріантів (блокування ручних подій під час завдань)
+        return await db.TimeSheets
+            .Include(x => x.TaskSpans)
+            .Where(x => x.PersonId == personId)
+            .Where(x => x.OpenedAt <= date && (!x.ClosedAt.HasValue || x.ClosedAt.Value >= date))
+            .OrderByDescending(x => x.OpenedAt)
+            .ThenByDescending(x => x.Id)
+            .FirstOrDefaultAsync(ct);
+    }
 
     /// <inheritdoc />
     public async Task OpenOnEnrollAsync(
@@ -84,7 +117,6 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
         else if (active.Count == 0)
         {
             // 2) Заборона відкривати НОВИЙ епізод "у минулому", який накладається на вже закриті епізоди.
-            // Епізоди мають бути часово послідовні: enrollDate > lastClosedAt (якщо існує).
             var lastClosed = await db.TimeSheets
                 .AsNoTracking()
                 .Where(x => x.PersonId == personId && x.ClosedAt != null)
@@ -115,7 +147,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
         else
         {
             throw new InvalidOperationException(
-                "Неможливо відкрити табель: знайдено декілька активних епізодів (дані пошкоджені).");
+                "Неможливо відкрити табель: знайдено декілька активних епізодів (дані пошкоджені). ");
         }
 
         var defaultCodeId = await db.TimesheetCodes
@@ -250,10 +282,10 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
     }
 
     private static async Task ValidateCanCloseOnExcludeCoreAsync(
-        AppDbContext db,
-        Guid personId,
-        DateOnly closeTo,
-        CancellationToken ct)
+     AppDbContext db,
+     Guid personId,
+     DateOnly closeTo,
+     CancellationToken ct)
     {
         var active = await db.TimeSheets
             .AsNoTracking()
@@ -270,6 +302,14 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
 
         var timeline = active[0];
 
+        // ✅ 0) ЛЮДСЬКА перевірка: неможливо закривати раніше відкриття епізоду
+        if (closeTo < timeline.OpenedAt)
+        {
+            throw new InvalidOperationException(
+                $"Неможливо закрити табель на {closeTo:yyyy-MM-dd}: він відкритий з {timeline.OpenedAt:yyyy-MM-dd}.");
+        }
+
+        // 1) На дату closeTo має існувати активний запис (дані не пошкоджені)
         var onDate = await db.TimesheetEntries
             .AsNoTracking()
             .Include(x => x.TimesheetCodeDefinition)
@@ -279,7 +319,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
             .ThenByDescending(x => x.Id)
             .FirstOrDefaultAsync(ct)
             ?? throw new InvalidOperationException(
-                $"Неможливо виключити з табелю: на дату {closeTo:yyyy-MM-dd} немає активного запису (дані пошкоджені).");
+                $"Неможливо виключити з табелю: на дату {closeTo:yyyy-MM-dd} немає активного запису (дані пошкоджені). ");
 
         if (onDate.TimesheetCodeDefinition is null)
             throw new InvalidOperationException("Неможливо перевірити код: TimesheetCodeDefinition не підвантажено/відсутнє.");

@@ -2,11 +2,10 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// TimesheetMonthRepository
+// TimesheetViewRepository
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs.Timesheet;
-using eRaven.Domain.Entities;
 using eRaven.Domain.Aggregates;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,8 +20,8 @@ namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 /// - Timesheet is a "fact" only.
 /// - TaskCodes are returned as empty strings (reserved for future task subsystem).
 /// </summary>
-public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbFactory)
-    : ITimesheetMonthRepository
+public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFactory)
+    : ITimesheetViewRepository
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 

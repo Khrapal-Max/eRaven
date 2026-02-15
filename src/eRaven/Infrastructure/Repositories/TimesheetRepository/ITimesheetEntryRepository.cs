@@ -105,6 +105,14 @@ public interface ITimesheetEntryRepository
     /// 2. prev/next мають належати одному таймлайну і не виходити за його межі:
     ///    From >= OpenedAt, а якщо ClosedAt != null то To <= ClosedAt і To не може бути null.
     /// </summary>
+
+    /// <summary>
+    /// Оновлює існуючий запис табеля (in-place).
+    /// Використовується для сценаріїв, коли новий код починається рівно з дати початку поточного запису
+    /// (тобто перехід фактично є "replace" без створення нового інтервалу).
+    /// </summary>
+    Task UpdateAsync(TimesheetEntry updated, CancellationToken ct = default);
+
     Task SaveTransitionAsync(
         TimesheetEntry prevUpdated,
         TimesheetEntry nextAdded,

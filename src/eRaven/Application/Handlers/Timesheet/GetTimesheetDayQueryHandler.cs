@@ -12,12 +12,15 @@ using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.Timesheet;
 
-public sealed class GetTimesheetDayQueryHandler(
-    ITimesheetMonthRepository repo)
+/// <summary>
+/// Query handler: денний зріз табеля (стан на дату) для UI/дашбордів.
+/// </summary>
+public sealed class GetTimesheetDayQueryHandler(ITimesheetViewRepository repo)
     : IQueryHandler<GetTimesheetDayQuery, IReadOnlyList<TimesheetPersonDayRowDto>>
 {
-    private readonly ITimesheetMonthRepository _repo = repo;
+    private readonly ITimesheetViewRepository _repo = repo;
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<TimesheetPersonDayRowDto>> HandleAsync(
         GetTimesheetDayQuery query,
         CancellationToken ct = default)

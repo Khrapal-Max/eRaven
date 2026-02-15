@@ -15,268 +15,278 @@ namespace eRaven.Tests.Infrastructure.Repositories;
 
 public sealed class MissionRepositoryTests
 {
-    [Fact(DisplayName = "MissionRepo: AddMissionPoint створює місію, trim полів + CreatedAt з todayLocal")]
-    public async Task AddMissionPoint_CreatesMission_Trims_AndSetsCreatedAt()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new MissionRepository(testDb.Factory);
+    private static readonly DateTime TodayLocal = new(2026, 02, 15, 10, 30, 00, DateTimeKind.Local);
 
-        var todayLocal = new DateTime(2026, 01, 10, 12, 30, 00, DateTimeKind.Local);
-        var typeDrone = "DJI";
-        var target = "Розвідка";
+    //======================================================================
+    // Helpers
+    //======================================================================
 
-        var id = await repo.AddMission(
-            positionArea: "  Район-1  ",
-            namePoint: "  Точка-А  ",
-            typeDrone: typeDrone,
-            target: target,
-            missionMode: MissionMode.Day,
-            todayLocal: todayLocal);
-
-        await using var db = await testDb.Factory.CreateDbContextAsync();
-        var m = await db.Missions.SingleAsync(x => x.Id == id);
-
-        Assert.Equal("Район-1", m.PositionArea);
-        Assert.Equal("Точка-А", m.NamePoint);
-        Assert.Equal(MissionMode.Day, m.MissionMode);
-        Assert.Equal(DateOnly.FromDateTime(todayLocal), m.CreatedAt);
-        Assert.Null(m.ClosedAt);
-
-        Assert.NotNull(m.TypeDrone);
-        Assert.Equal("DJI", m.TypeDrone);
-
-        Assert.NotNull(m.Target);
-        Assert.Equal("Розвідка", m.Target);
-    }
-
-    [Fact(DisplayName = "MissionRepo: AddMissionPoint коли namePoint пустий/пробіли — зберігає '')")]
-    public async Task AddMissionPoint_WhitespaceNamePoint_SavesNull()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new MissionRepository(testDb.Factory);
-
-        var id = await repo.AddMission(
-            positionArea: "Район-1",
-            namePoint: "   ",
-            typeDrone: null,
-            target: "Охорона",
-            missionMode: MissionMode.Night,
-            todayLocal: new DateTime(2026, 01, 10));
-
-        await using var db = await testDb.Factory.CreateDbContextAsync();
-        var m = await db.Missions.SingleAsync(x => x.Id == id);
-
-        Assert.Equal("Район-1", m.PositionArea);
-        Assert.Equal("", m.NamePoint);
-        Assert.Equal(MissionMode.Night, m.MissionMode);
-        Assert.Null(m.TypeDrone);
-        Assert.Equal("Охорона", m.Target);
-    }
-
-    [Fact(DisplayName = "MissionRepo: GetMissionPointsAsync повертає всі місії")]
-    public async Task GetMissionPointsAsync_ReturnsAll()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new MissionRepository(testDb.Factory);
-
-        await repo.AddMission(
-            positionArea: "A",
-            namePoint: "P1",
-            typeDrone: null,
-            target: "T1",
-            missionMode: MissionMode.Day,
-            todayLocal: new DateTime(2026, 01, 01));
-
-        await repo.AddMission(
-            positionArea: "B",
-            namePoint: null,
-            typeDrone: "N",
-            target: "T2",
-            missionMode: MissionMode.FullTime,
-            todayLocal: new DateTime(2026, 01, 02));
-
-        var all = await repo.GetMissionsAsync();
-
-        Assert.Equal(2, all.Count);
-        Assert.Contains(all, x => x.PositionArea == "A" && x.NamePoint == "P1");
-        Assert.Contains(all, x => x.PositionArea == "B");
-    }
-
-    [Fact(DisplayName = "MissionRepo: CloseMissionPointAsync ставить ClosedAt, повторне закриття — ідемпотентне")]
-    public async Task CloseMissionPointAsync_SetsClosedAt_AndIsIdempotent()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new MissionRepository(testDb.Factory);
-
-        var todayLocal = new DateTime(2026, 01, 05);
-        var id = await repo.AddMission(
-            positionArea: "Район-1",
-            namePoint: "Точка",
-            typeDrone: null,
-            target: "T",
-            missionMode: MissionMode.Day,
-            todayLocal: todayLocal);
-
-        var closeAt = new DateOnly(2026, 01, 10);
-
-        await repo.CloseMissionAsync(id, closeAt);
-        await repo.CloseMissionAsync(id, closeAt); // вдруге — не має падати
-
-        await using var db = await testDb.Factory.CreateDbContextAsync();
-        var m = await db.Missions.SingleAsync(x => x.Id == id);
-
-        Assert.Equal(closeAt, m.ClosedAt);
-    }
-
-    [Fact(DisplayName = "MissionRepo: CloseMissionPointAsync кидає помилку, якщо closeAt < CreatedAt")]
-    public async Task CloseMissionPointAsync_WhenCloseBeforeCreate_Throws()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new MissionRepository(testDb.Factory);
-
-        var todayLocal = new DateTime(2026, 01, 10);
-        var id = await repo.AddMission(
-            positionArea: "Район-1",
-            namePoint: null,
-            typeDrone: null,
-            target: "T",
-            missionMode: MissionMode.Day,
-            todayLocal: todayLocal);
-
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => repo.CloseMissionAsync(id, new DateOnly(2026, 01, 09)));
-
-        Assert.Contains("Дата закриття не може бути раніше дати створення", ex.Message);
-    }
-
-    [Fact(DisplayName = "MissionRepo: CloseMissionPointAsync кидає помилку, якщо місію не знайдено")]
-    public async Task CloseMissionPointAsync_WhenNotFound_Throws()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new MissionRepository(testDb.Factory);
-
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => repo.CloseMissionAsync(Guid.NewGuid(), new DateOnly(2026, 01, 01)));
-
-        Assert.Contains("Міссія не знайдена", ex.Message);
-    }
-
-    [Fact(DisplayName = "MissionRepo: AddMissionPoint кидає помилку, якщо PositionArea порожній")]
-    public async Task AddMissionPoint_WhenPositionAreaEmpty_Throws()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new MissionRepository(testDb.Factory);
-
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() => repo.AddMission(
-            positionArea: "  ",
-            namePoint: null,
-            typeDrone: null,
-            target: "T",
-            missionMode: MissionMode.Day,
-            todayLocal: new DateTime(2026, 01, 01)));
-
-        Assert.Equal("positionArea", ex.ParamName);
-    }
-
-    [Fact(DisplayName = "MissionRepo: друга відкрита місія з тим самим ключем — DbUpdateException (унікальний індекс)")]
-    public async Task AddMissionPoint_DuplicateOpen_Throws()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new MissionRepository(testDb.Factory);
-
-        var today = new DateTime(2026, 01, 10);
-
-        // 1-ша (відкрита)
-        await repo.AddMission(
-            positionArea: "A",
-            namePoint: "P",
-            typeDrone: "DJI",
-            target: "T",
-            missionMode: MissionMode.Day,
-            todayLocal: today);
-
-        // 2-га (та сама комбінація, теж відкрита) -> має впасти
-        await Assert.ThrowsAsync<DbUpdateException>(() => repo.AddMission(
-            positionArea: "A",
-            namePoint: "P",
-            typeDrone: "ANY",
-            target: "T",
-            missionMode: MissionMode.Day,
-            todayLocal: today));
-    }
-
-    [Fact(DisplayName = "MissionRepo: після закриття можна створити таку ж місію повторно")]
-    public async Task AddMissionPoint_AfterClose_AllowsSameKeyAgain()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new MissionRepository(testDb.Factory);
-
-        var today = new DateTime(2026, 01, 10);
-        var id = await repo.AddMission(
-            positionArea: "A",
-            namePoint: "P",
-            typeDrone: null,
-            target: "T",
-            missionMode: MissionMode.Day,
-            todayLocal: today);
-
-        await repo.CloseMissionAsync(id, new DateOnly(2026, 01, 11));
-
-        // тепер такий самий ключ — має пройти
-        var id2 = await repo.AddMission(
-            positionArea: "A",
-            namePoint: "P",
-            typeDrone: null,
-            target: "T",
-            missionMode: MissionMode.Day,
-            todayLocal: today);
-
-        Assert.NotEqual(id, id2);
-    }
-
-    [Fact(DisplayName = "MissionRepo: CloseMissionAsync кидає помилку, якщо місія має активне (open-ended) призначення")]
-    public async Task CloseMissionAsync_WhenMissionHasOpenEndedAssignment_Throws()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new MissionRepository(testDb.Factory);
-
-        var id = await repo.AddMission(
-            positionArea: "Район-1",
-            namePoint: "Точка",
-            typeDrone: null,
-            target: "T",
-            missionMode: MissionMode.Day,
-            todayLocal: new DateTime(2026, 01, 10));
-
-        // Активне призначення: To == null => має блокувати закриття місії
-        await using (var db = await testDb.Factory.CreateDbContextAsync())
+    private static Mission NewMission(
+        string positionArea,
+        string namePoint,
+        string? typeDrone,
+        string target,
+        MissionMode mode,
+        DateOnly createdAt,
+        DateOnly? closedAt = null)
+        => new()
         {
-            db.MissionAssignments.Add(new MissionAssignment
-            {
-                Id = Guid.NewGuid(),
-                PersonId = Guid.NewGuid(),
-                MissionId = id,
-                From = new DateOnly(2026, 1, 10),
-                To = null,
+            Id = Guid.NewGuid(),
+            PositionArea = positionArea,
+            NamePoint = namePoint,
+            TypeDrone = typeDrone,
+            Target = target,
+            MissionMode = mode,
+            CreatedAt = createdAt,
+            ClosedAt = closedAt
+        };
 
-                SourceStartDocumentId = Guid.NewGuid(),
-                SourceStartDetailsId = Guid.NewGuid(),
+    private static MissionAssignment NewAssignment(
+        Guid documentId,
+        Guid missionId,
+        Guid personId,
+        DateOnly from,
+        DateOnly? to)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            CombatTaskDocumentId = documentId,
+            MissionId = missionId,
+            PersonId = personId,
+            From = from,
+            To = to,
+            ClosedByDocumentId = null
+        };
 
-                Status = MissionAssignmentStatus.Planned
-            });
+    //======================================================================
+    // GetMissionsAsync
+    //======================================================================
 
+    [Fact]
+    public async Task GetMissionsAsync_returns_all_missions()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var m1 = NewMission("A", "P1", null, "T1", MissionMode.Day, new DateOnly(2026, 02, 01));
+        var m2 = NewMission("B", "P2", "DJI", "T2", MissionMode.Night, new DateOnly(2026, 02, 02));
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.Missions.AddRange(m1, m2);
             await db.SaveChangesAsync();
         }
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.CloseMissionAsync(id, new DateOnly(2026, 01, 11)));
+        var repo = new MissionRepository(tdb.Factory);
 
-        Assert.Contains("активні призначення", ex.Message);
+        var list = await repo.GetMissionsAsync();
 
-        // Місія не має бути закрита
-        await using var db2 = await testDb.Factory.CreateDbContextAsync();
-        var m = await db2.Missions.AsNoTracking().SingleAsync(x => x.Id == id);
-        Assert.Null(m.ClosedAt);
+        Assert.Equal(2, list.Count);
+        Assert.Contains(list, x => x.Id == m1.Id);
+        Assert.Contains(list, x => x.Id == m2.Id);
     }
 
+    //======================================================================
+    // AddMission
+    //======================================================================
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task AddMission_throws_when_positionArea_invalid(string? positionArea)
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new MissionRepository(tdb.Factory);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.AddMission(positionArea!, "P", "DJI", "Target", MissionMode.Day, TodayLocal));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task AddMission_throws_when_target_invalid(string? target)
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new MissionRepository(tdb.Factory);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.AddMission("Area", "P", "DJI", target!, MissionMode.Day, TodayLocal));
+    }
+
+    [Fact]
+    public async Task AddMission_trims_fields_and_normalizes_optional_fields_and_sets_createdAt_from_todayLocal()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new MissionRepository(tdb.Factory);
+
+        var id = await repo.AddMission(
+            positionArea: "  Area-1  ",
+            namePoint: "   ",          // -> ""
+            typeDrone: "  DJI  ",      // -> "DJI"
+            target: "  Target-1 ",
+            missionMode: MissionMode.Day,
+            todayLocal: TodayLocal);
+
+        Assert.NotEqual(Guid.Empty, id);
+
+        await using var db = await tdb.Factory.CreateDbContextAsync();
+        var mission = await db.Missions.AsNoTracking().SingleAsync(x => x.Id == id);
+
+        Assert.Equal("Area-1", mission.PositionArea);
+        Assert.Equal(string.Empty, mission.NamePoint);
+        Assert.Equal("DJI", mission.TypeDrone);
+        Assert.Equal("Target-1", mission.Target);
+        Assert.Equal(MissionMode.Day, mission.MissionMode);
+        Assert.Equal(DateOnly.FromDateTime(TodayLocal), mission.CreatedAt);
+        Assert.Null(mission.ClosedAt);
+    }
+
+    [Fact]
+    public async Task AddMission_sets_TypeDrone_null_when_whitespace()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new MissionRepository(tdb.Factory);
+
+        var id = await repo.AddMission(
+            positionArea: "Area",
+            namePoint: "P",
+            typeDrone: "   ", // -> null
+            target: "T",
+            missionMode: MissionMode.Night,
+            todayLocal: TodayLocal);
+
+        await using var db = await tdb.Factory.CreateDbContextAsync();
+        var mission = await db.Missions.AsNoTracking().SingleAsync(x => x.Id == id);
+
+        Assert.Null(mission.TypeDrone);
+    }
+
+    //======================================================================
+    // CloseMissionAsync
+    //======================================================================
+
+    [Fact]
+    public async Task CloseMissionAsync_throws_when_mission_not_found()
+    {
+        await using var tdb = new SqliteTestDb();
+        var repo = new MissionRepository(tdb.Factory);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repo.CloseMissionAsync(Guid.NewGuid(), new DateOnly(2026, 02, 10)));
+
+        Assert.Equal("Міссія не знайдена.", ex.Message);
+    }
+
+    [Fact]
+    public async Task CloseMissionAsync_when_already_closed_should_noop()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var mission = NewMission(
+            positionArea: "A",
+            namePoint: "P",
+            typeDrone: null,
+            target: "T",
+            mode: MissionMode.Day,
+            createdAt: new DateOnly(2026, 02, 01),
+            closedAt: new DateOnly(2026, 02, 05));
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.Missions.Add(mission);
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new MissionRepository(tdb.Factory);
+
+        await repo.CloseMissionAsync(mission.Id, closeAt: new DateOnly(2026, 02, 10));
+
+        await using var db2 = await tdb.Factory.CreateDbContextAsync();
+        var reloaded = await db2.Missions.AsNoTracking().SingleAsync(x => x.Id == mission.Id);
+
+        Assert.Equal(new DateOnly(2026, 02, 05), reloaded.ClosedAt); // unchanged
+    }
+
+    [Fact]
+    public async Task CloseMissionAsync_throws_when_closeAt_before_createdAt()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var mission = NewMission("A", "P", null, "T", MissionMode.Day, createdAt: new DateOnly(2026, 02, 10));
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.Missions.Add(mission);
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new MissionRepository(tdb.Factory);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repo.CloseMissionAsync(mission.Id, closeAt: new DateOnly(2026, 02, 09)));
+
+        Assert.Equal("Дата закриття не може бути раніше дати створення.", ex.Message);
+    }
+
+    [Fact]
+    public async Task CloseMissionAsync_throws_when_has_active_assignments()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var mission = NewMission("A", "P", null, "T", MissionMode.Day, createdAt: new DateOnly(2026, 02, 01));
+        var assignment = NewAssignment(
+            documentId: Guid.NewGuid(),
+            missionId: mission.Id,
+            personId: Guid.NewGuid(),
+            from: new DateOnly(2026, 02, 05),
+            to: null); // active
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.Missions.Add(mission);
+            db.MissionAssignments.Add(assignment);
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new MissionRepository(tdb.Factory);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repo.CloseMissionAsync(mission.Id, closeAt: new DateOnly(2026, 02, 10)));
+
+        Assert.Equal("Неможливо закрити міссію, оскільки вона має активні призначення.", ex.Message);
+    }
+
+    [Fact]
+    public async Task CloseMissionAsync_allows_close_when_assignments_are_not_active()
+    {
+        await using var tdb = new SqliteTestDb();
+
+        var mission = NewMission("A", "P", null, "T", MissionMode.Day, createdAt: new DateOnly(2026, 02, 01));
+
+        // To != null => not active
+        var assignment = NewAssignment(
+            documentId: Guid.NewGuid(),
+            missionId: mission.Id,
+            personId: Guid.NewGuid(),
+            from: new DateOnly(2026, 02, 05),
+            to: new DateOnly(2026, 02, 06));
+
+        using (var db = tdb.Factory.CreateDbContext())
+        {
+            db.Missions.Add(mission);
+            db.MissionAssignments.Add(assignment);
+            await db.SaveChangesAsync();
+        }
+
+        var repo = new MissionRepository(tdb.Factory);
+
+        await repo.CloseMissionAsync(mission.Id, closeAt: new DateOnly(2026, 02, 10));
+
+        await using var db2 = await tdb.Factory.CreateDbContextAsync();
+        var reloaded = await db2.Missions.AsNoTracking().SingleAsync(x => x.Id == mission.Id);
+
+        Assert.Equal(new DateOnly(2026, 02, 10), reloaded.ClosedAt);
+    }
 }

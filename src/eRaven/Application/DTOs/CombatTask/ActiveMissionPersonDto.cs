@@ -7,13 +7,12 @@
 namespace eRaven.Application.DTOs.CombatTask;
 
 /// <summary>
-/// Використовується для відображення осіб, 
-/// які були активними у місії на певну дату 
-/// (для вибору осіб при завершенні участі в місії).
-/// 
-/// В CloseCombatTaskDrawer
+/// DTO активної людини на місії (за даними табеля/TaskSpan).
+/// Використовується для "повернути" (rollback) та службових операцій закриття фактів.
 /// </summary>
 public sealed record ActiveMissionPersonDto(
+    Guid CombatTaskDocumentId,
+    Guid MissionId,
     Guid PersonId,
     string Rnokpp,
     string FullName,
@@ -21,5 +20,4 @@ public sealed record ActiveMissionPersonDto(
     string? Rank,
     string? Position,
     string? Weapon,
-    DateOnly From
-);
+    DateOnly From);

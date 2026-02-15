@@ -7,28 +7,42 @@
 
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.CombatTask;
-using eRaven.Application.DTOs.CombatTask;
 using eRaven.Domain.Entities;
 using eRaven.Infrastructure.Repositories.CombatTaskRepository;
 
 namespace eRaven.Application.Handlers.CombatTask;
 
-public sealed class CreateCombatTaskCommandHandler(
-    ICombatTaskRepository repo,
-    IMissionAssignmentRepository assignments)
+/// <summary>
+/// Створює блок місії (<see cref="CombatTask"/>) у межах документа бойових завдань
+/// та зберігає snapshot-рядки (<see cref="CombatTaskDetails"/>).
+///
+/// <para>
+/// Примітка: цей хендлер відповідає лише за контент документа (editor CRUD).
+/// Планування (Draft) у табелі через <c>TimesheetTaskSpan</c> та формування факту
+/// <c>MissionAssignment</c> при Posted виконуються окремими командами/хендлерами.
+/// </para>
+/// </summary>
+public sealed class CreateCombatTaskCommandHandler(ICombatTaskRepository repo)
     : ICommandHandler<CreateCombatTaskCommand, Guid>
 {
     private readonly ICombatTaskRepository _repo = repo;
-    private readonly IMissionAssignmentRepository _assignments = assignments;
 
+    /// <inheritdoc />
     public async Task<Guid> HandleAsync(CreateCombatTaskCommand command, CancellationToken ct = default)
     {
+        if (command.DocumentId == Guid.Empty)
+            throw new ArgumentException("DocumentId is required.", nameof(command.DocumentId));
+
+        if (command.MissionId == Guid.Empty)
+            throw new ArgumentException("MissionId is required.", nameof(command.MissionId));
+
         var details = command.CombatTaskDetails
             .Select(x => new CombatTaskDetails
             {
+                // Id може бути порожнім — репозиторій має право згенерувати його при insert.
                 Id = x.CombatTaskDetailsId,
-                CombatTaskId = Guid.Empty,
-                CombatTask = null,
+                CombatTaskId = Guid.Empty,   // буде проставлено репозиторієм
+                CombatTask = null,           // не тягнемо граф
                 Kind = x.Kind,
                 EffectiveAt = x.EffectiveAt,
                 PersonId = x.PersonId,
@@ -38,26 +52,13 @@ public sealed class CreateCombatTaskCommandHandler(
             })
             .ToList();
 
-        var combatTaskId = await _repo.CreateCombatTask(
+        // Створюємо блок місії в документі (без будь-яких проєкцій/табеля)
+        var combatTaskId = await _repo.CreateCombatTaskAsync(
             documentId: command.DocumentId,
             missionId: command.MissionId,
             sourceDocument: command.SourceDocument,
             combatTaskDetails: details,
             ct: ct);
-
-        // Draft = план → пишемо Planned проєкцію
-        var taskDetails = command.CombatTaskDetails
-            .Select(x => new ApplyCombatTaskDetailsDto(
-                DocumentId: command.DocumentId,
-                CombatTaskId: combatTaskId,
-                DetailsId: x.CombatTaskDetailsId,
-                MissionId: command.MissionId,
-                PersonId: x.PersonId,
-                Kind: x.Kind,
-                EffectiveAt: x.EffectiveAt))
-            .ToList();
-
-        await _assignments.ApplyDraftCombatTaskDocumentAsync(taskDetails, ct);
 
         return combatTaskId;
     }

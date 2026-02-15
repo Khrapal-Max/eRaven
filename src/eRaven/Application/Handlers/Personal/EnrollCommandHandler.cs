@@ -12,14 +12,18 @@ using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.Personal;
 
+/// <summary>
+/// Command handler: переводить особу в життєвий цикл "В табелі" та відкриває (за потреби) епізод табеля.
+/// </summary>
 public sealed class EnrollCommandHandler(
     IPersonRepository repo,
-    ITimesheetLifecycleRepository timesheetRepo)
+    ITimesheetEpisodeRepository timesheetRepo)
     : ICommandHandler<EnrollCommand>
 {
     private readonly IPersonRepository _repo = repo;
-    private readonly ITimesheetLifecycleRepository _timesheet = timesheetRepo;
+    private readonly ITimesheetEpisodeRepository _timesheet = timesheetRepo;
 
+    /// <inheritdoc />
     public async Task HandleAsync(EnrollCommand command, CancellationToken ct = default)
     {
         // 1) Person lifecycle
@@ -36,7 +40,7 @@ public sealed class EnrollCommandHandler(
             command.NowUtc,
             ct);
 
-        // 2) Timesheet lifecycle: відкриваємо шкали + ставимо Main=Т
+        // 2) Timesheet lifecycle: відкриваємо епізод + ставимо дефолтний main-код з дати зарахування
         await _timesheet.OpenOnEnrollAsync(
             personId: command.PersonId,
             enrollDate: command.EnrollDate,

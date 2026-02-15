@@ -14,16 +14,28 @@ using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.Timesheet;
 
+/// <summary>
+/// Command handler: виконує перехід табельного стану для особи.
+///
+/// <para>Ключові правила:</para>
+/// <list type="bullet">
+/// <item><description>Перехід виконується лише в межах активного епізоду табеля (OpenedAt..ClosedAt).</description></item>
+/// <item><description>Перехід із системного стану <c>НБ</c> заборонений (це derived, не подія).</description></item>
+/// <item><description>Переходи валідуюються політикою кодів (<see cref="ITimesheetPolicyRepository"/>).</description></item>
+/// <item><description>Якщо на дату нового стану є активне завдання (task span) — ручні події блокуються.</description></item>
+/// </list>
+/// </summary>
 public sealed class TransitionTimesheetStateCommandHandler(
-    ITimesheetTimelineRepository timelines,
+    ITimesheetEpisodeRepository episodes,
     ITimesheetEntryRepository entries,
     ITimesheetPolicyRepository policy)
     : ICommandHandler<TransitionTimesheetStateCommand, Guid>
 {
-    private readonly ITimesheetTimelineRepository _timelines = timelines;
+    private readonly ITimesheetEpisodeRepository _episodes = episodes;
     private readonly ITimesheetEntryRepository _entries = entries;
     private readonly ITimesheetPolicyRepository _policy = policy;
 
+    /// <inheritdoc />
     public async Task<Guid> HandleAsync(TransitionTimesheetStateCommand command, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -42,22 +54,23 @@ public sealed class TransitionTimesheetStateCommandHandler(
 
         var nextCode = command.NextCode.Trim();
 
-        // 1) Таймлайн (місяць) має бути відкритим
-        var timeline = await _timelines.GetTimelineOnDateAsync(command.PersonId, command.AnchorDate, ct)
+        // 1) Епізод табеля має існувати та бути відкритим
+        var episode = await _episodes.LoadEpisodeOnDateForUpdateAsync(command.PersonId, command.AnchorDate, ct)
             ?? throw new InvalidOperationException("Табель за обраний період не знайдено.");
 
-        if (timeline.ClosedAt is not null)
+        if (episode.ClosedAt is not null)
             throw new InvalidOperationException("Табель закритий. Зміни заборонені.");
 
-        if (command.InputDate < timeline.OpenedAt)
+        if (command.InputDate < episode.OpenedAt)
             throw new InvalidOperationException(
-                $"Дата події {command.InputDate:yyyy-MM-dd} раніше відкриття табеля {timeline.OpenedAt:yyyy-MM-dd}.");
+                $"Дата події {command.InputDate:yyyy-MM-dd} раніше відкриття табеля {episode.OpenedAt:yyyy-MM-dd}.");
 
+        // operational rule: події вперед від AnchorDate, корекції робимо в персональному табелі
         if (command.InputDate < command.AnchorDate)
             throw new InvalidOperationException("Дата події не може бути раніше поточного дня.");
 
         // 2) Поточний активний запис на AnchorDate
-        var prevEntry = await _entries.GetActiveEntryOnDateAsync(timeline.Id, command.PersonId, command.AnchorDate, ct)
+        var prevEntry = await _entries.GetActiveEntryOnDateAsync(episode.Id, command.PersonId, command.AnchorDate, ct)
             ?? throw new InvalidOperationException("Не знайдено активний запис на обрану дату.");
 
         if (prevEntry.TimesheetCodeDefinition is null)
@@ -69,13 +82,13 @@ public sealed class TransitionTimesheetStateCommandHandler(
             throw new InvalidOperationException("Поточний код табеля не визначений.");
 
         if (string.Equals(prevCode, TimesheetSystemCodes.NotInTimesheet, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Перехід із “НБ” неможливий (це не подія табеля).");
+            throw new InvalidOperationException("Перехід із “НБ” неможливий (це не подія табеля). ");
 
-        // 3) Підтягуємо довідник кодів (includeInactive=true, щоб не ламати історію)
+        // 3) Довідник кодів (includeInactive=true, щоб не ламати історію)
         var allCodes = await _policy.GetCodesAsync(includeInactive: true, ct);
 
         var prevDef = allCodes.FirstOrDefault(x => x.Id == prevEntry.TimesheetCodeDefinitionId)
-            ?? throw new InvalidOperationException($"Для поточного коду немає запису у політиці.");
+            ?? throw new InvalidOperationException("Для поточного коду немає запису у політиці.");
 
         var nextDef = allCodes.FirstOrDefault(x =>
             string.Equals(x.Code?.Trim(), nextCode, StringComparison.OrdinalIgnoreCase))
@@ -91,16 +104,24 @@ public sealed class TransitionTimesheetStateCommandHandler(
         if (shift < 0)
             throw new InvalidOperationException("Некоректне правило політики: StartShiftDays < 0.");
 
-        // InputDate = "дата події" (введена користувачем)
+        // InputDate = дата події (введена користувачем)
         // shift=0 => новий код активний цього ж дня
         // shift=1 => цей день ще старий код, новий з наступного дня
         var nextFrom = command.InputDate.AddDays(shift);
         var prevTo = nextFrom.AddDays(-1);
 
+        // 4.1) Ручні події блокуються, якщо на дату нового стану є активне завдання
+        if (episode.HasActiveTaskOn(nextFrom))
+            throw new InvalidOperationException("Є активне завдання на цю дату. Ручні події табеля заблоковані.");
+
+        // 4.2) Для non-correction режиму: не дозволяємо "вставляти" подію, якщо є наступна
         if (!command.IsCorrection)
         {
             var nextExisting = await _entries.GetNextEntryAfterDateAsync(
-                timeline.Id, command.PersonId, nextFrom.AddDays(-1), ct);
+                episode.Id,
+                command.PersonId,
+                nextFrom.AddDays(-1),
+                ct);
 
             if (nextExisting is not null)
                 throw new InvalidOperationException(
@@ -108,7 +129,7 @@ public sealed class TransitionTimesheetStateCommandHandler(
         }
 
         // 5) Не можна закривати попередній стан раніше його старту.
-        //    Але дозволяємо "replace", якщо новий стартує рівно з prev.From.
+        //    Але дозволяємо 'replace', якщо новий стартує рівно з prev.From.
         if (prevTo < prevEntry.From)
         {
             if (nextFrom != prevEntry.From)
@@ -132,7 +153,7 @@ public sealed class TransitionTimesheetStateCommandHandler(
         var nextEntry = new TimesheetEntry
         {
             Id = Guid.NewGuid(),
-            TimelineId = timeline.Id,
+            TimesheetId = episode.Id,
             PersonId = command.PersonId,
             TimesheetCodeDefinitionId = nextDef.Id,
             From = nextFrom,
