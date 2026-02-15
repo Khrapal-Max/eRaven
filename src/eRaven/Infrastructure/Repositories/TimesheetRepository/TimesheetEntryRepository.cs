@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
+using eRaven.Domain.Aggregates;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
@@ -35,7 +36,7 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
 
     /// <inheritdoc />
     public async Task<TimesheetEntry?> GetNextEntryAfterDateAsync(
-        Guid timelineId,
+        Guid timesheetId,
         Guid personId,
         DateOnly date,
         CancellationToken ct = default)
@@ -45,7 +46,7 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
         return await db.TimesheetEntries
             .AsNoTracking()
             .Where(x => !x.IsDeleted)
-            .Where(x => x.TimelineId == timelineId)
+            .Where(x => x.TimesheetId == timesheetId)
             .Where(x => x.PersonId == personId)
             .Where(x => x.From > date)
             .OrderBy(x => x.From)
@@ -101,7 +102,7 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
 
     /// <inheritdoc />
     public async Task<TimesheetEntry?> GetActiveEntryOnDateAsync(
-        Guid timelineId,
+        Guid timesheetId,
         Guid personId,
         DateOnly date,
         CancellationToken ct = default)
@@ -112,42 +113,12 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
             .AsNoTracking()
             .Include(x => x.TimesheetCodeDefinition)
             .Where(x => !x.IsDeleted)
-            .Where(x => x.TimelineId == timelineId)
+            .Where(x => x.TimesheetId == timesheetId)
             .Where(x => x.PersonId == personId)
             .Where(x => x.From <= date && (!x.To.HasValue || x.To.Value >= date))
             .OrderByDescending(x => x.From)
             .ThenByDescending(x => x.Id)
             .FirstOrDefaultAsync(ct);
-    }
-
-    /// <inheritdoc />
-    public async Task AddAsync(TimesheetEntry entry, CancellationToken ct = default)
-    {
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        var tl = await LoadTimelineForInsertAsync(db, entry.TimelineId, ct);
-
-        EnsureEntryWithinTimeline(tl, entry);
-
-        db.TimesheetEntries.Add(entry);
-        await db.SaveChangesAsync(ct);
-    }
-
-    /// <inheritdoc />
-    public async Task UpdateAsync(TimesheetEntry entry, CancellationToken ct = default)
-    {
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        var tl = await db.TimesheetTimelines
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == entry.TimelineId, ct)
-            ?? throw new InvalidOperationException("Таймлайн не знайдено.");
-
-        // update дозволяємо, але не дозволяємо зламати межі таймлайну
-        EnsureEntryWithinTimeline(tl, entry);
-
-        db.TimesheetEntries.Update(entry);
-        await db.SaveChangesAsync(ct);
     }
 
     /// <inheritdoc />
@@ -176,10 +147,10 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        var tl = await LoadTimelineForInsertAsync(db, prevUpdated.TimelineId, ct);
+        var tl = await LoadTimelineForInsertAsync(db, prevUpdated.TimesheetId, ct);
 
-        if (nextAdded.TimelineId != prevUpdated.TimelineId)
-            throw new InvalidOperationException("Перехід повинен виконуватись в межах одного таймлайну.");
+        if (nextAdded.TimesheetId != prevUpdated.TimesheetId)
+            throw new InvalidOperationException("Перехід повинен виконуватись в межах одного епізоду табеля.");
 
         EnsureEntryWithinTimeline(tl, prevUpdated);
         EnsureEntryWithinTimeline(tl, nextAdded);
@@ -195,30 +166,30 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
     /// Завантажує таймлайн для write-вставки/переходу та застосовує правило p.1:
     /// якщо таймлайн закритий — вставки/переходи заборонені.
     /// </summary>
-    private static async Task<TimesheetTimeline> LoadTimelineForInsertAsync(
+    private static async Task<TimeSheetAggregate> LoadTimelineForInsertAsync(
         AppDbContext db,
-        Guid timelineId,
+        Guid timesheetId,
         CancellationToken ct)
     {
-        var tl = await db.TimesheetTimelines
+        var tl = await db.TimeSheets
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == timelineId, ct)
-            ?? throw new InvalidOperationException("Таймлайн не знайдено (дані пошкоджені).");
+            .FirstOrDefaultAsync(x => x.Id == timesheetId, ct)
+            ?? throw new InvalidOperationException("Епізод табеля не знайдено (дані пошкоджені).");
 
         if (tl.ClosedAt.HasValue)
             throw new InvalidOperationException(
-                $"Таймлайн закритий {tl.ClosedAt.Value:yyyy-MM-dd}. Вставки/переходи заборонені.");
+                $"Епізод табеля закритий {tl.ClosedAt.Value:yyyy-MM-dd}. Вставки/переходи заборонені.");
 
         return tl;
     }
 
-    private static void EnsureEntryWithinTimeline(TimesheetTimeline tl, TimesheetEntry e)
+    private static void EnsureEntryWithinTimeline(TimeSheetAggregate tl, TimesheetEntry e)
     {
-        if (e.TimelineId != tl.Id)
-            throw new InvalidOperationException("TimesheetEntry.TimelineId не відповідає таймлайну.");
+        if (e.TimesheetId != tl.Id)
+            throw new InvalidOperationException("TimesheetEntry.TimesheetId не відповідає епізоду табеля.");
 
         if (e.PersonId != tl.PersonId)
-            throw new InvalidOperationException("TimesheetEntry.PersonId не відповідає власнику таймлайну.");
+            throw new InvalidOperationException("TimesheetEntry.PersonId не відповідає власнику епізоду табеля.");
 
         if (e.From < tl.OpenedAt)
             throw new InvalidOperationException(

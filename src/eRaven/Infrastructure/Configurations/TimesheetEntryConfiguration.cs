@@ -22,8 +22,8 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
             .HasColumnName("id")
             .IsRequired();
 
-        e.Property(x => x.TimelineId)
-            .HasColumnName("timeline_id")
+        e.Property(x => x.TimesheetId)
+            .HasColumnName("timesheet_id")
             .IsRequired();
 
         e.Property(x => x.PersonId)
@@ -82,11 +82,6 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
             .HasColumnName("delete_reason")
             .HasMaxLength(512);
 
-        e.HasOne(x => x.Timeline)
-            .WithMany(x => x.Entries)
-            .HasForeignKey(x => x.TimelineId)
-            .OnDelete(DeleteBehavior.Cascade);
-
         e.HasOne(x => x.TimesheetCodeDefinition)
             .WithMany()
             .HasForeignKey(x => x.TimesheetCodeDefinitionId)
@@ -95,7 +90,7 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
         e.HasIndex(x => new { x.PersonId, x.From, x.To })
             .HasDatabaseName("ix_ts_entries_person_range");
 
-        e.HasIndex(x => new { x.TimelineId, x.From })
-            .HasDatabaseName("ix_ts_entries_timeline_from");
+        e.HasIndex(x => new { x.TimesheetId, x.From })
+            .HasDatabaseName("ix_ts_entries_timesheet_from");
     }
 }

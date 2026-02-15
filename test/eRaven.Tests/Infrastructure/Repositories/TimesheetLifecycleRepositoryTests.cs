@@ -5,6 +5,7 @@
 // TimesheetLifecycleRepositoryTests
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
 using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using eRaven.Tests.Extensions;

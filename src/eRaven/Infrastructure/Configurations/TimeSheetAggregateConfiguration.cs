@@ -5,21 +5,21 @@
 // TimesheetTimelineConfiguration
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Entities;
+using eRaven.Domain.Aggregates;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
-public sealed class TimesheetTimelineConfiguration : IEntityTypeConfiguration<TimesheetTimeline>
+public sealed class TimeSheetAggregateConfiguration : IEntityTypeConfiguration<TimeSheetAggregate>
 {
-    public void Configure(EntityTypeBuilder<TimesheetTimeline> e)
+    public void Configure(EntityTypeBuilder<TimeSheetAggregate> e)
     {
-        e.ToTable("timesheet_timelines", t =>
+        e.ToTable("timesheet_aggregates", t =>
         {
             // Hard invariant: closed_at must be >= opened_at (when present)
             t.HasCheckConstraint(
-                "ck_ts_timelines_closed_gte_opened",
+                "ck_ts_aggregates_closed_gte_opened",
                 "closed_at IS NULL OR closed_at >= opened_at");
         });
 
@@ -58,21 +58,26 @@ public sealed class TimesheetTimelineConfiguration : IEntityTypeConfiguration<Ti
 
         // Fast lookup by person + state
         e.HasIndex(x => new { x.PersonId, x.ClosedAt })
-            .HasDatabaseName("ix_ts_timelines_person_closed");
+            .HasDatabaseName("ix_ts_aggregates_person_closed");
 
         // Fast lookup for "last closed episode" / ordering by opened
         e.HasIndex(x => new { x.PersonId, x.OpenedAt })
-            .HasDatabaseName("ix_ts_timelines_person_opened");
+            .HasDatabaseName("ix_ts_aggregates_person_opened");
 
         // Guarantee: only one active timeline per person (ClosedAt == null)
         e.HasIndex(x => x.PersonId)
             .IsUnique()
             .HasFilter("closed_at IS NULL")
-            .HasDatabaseName("ux_ts_timelines_person_active");
+            .HasDatabaseName("ux_ts_aggregates_person_active");
 
         e.HasMany(x => x.Entries)
-            .WithOne(x => x.Timeline)
-            .HasForeignKey(x => x.TimelineId)
+            .WithOne()
+            .HasForeignKey(x => x.TimesheetId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        e.HasMany(x => x.TaskSpans)
+            .WithOne()
+            .HasForeignKey(x => x.TimesheetId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

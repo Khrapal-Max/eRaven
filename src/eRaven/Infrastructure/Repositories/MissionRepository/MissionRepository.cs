@@ -16,6 +16,7 @@ public class MissionRepository(
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Mission>> GetMissionsAsync(CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
@@ -25,6 +26,7 @@ public class MissionRepository(
             .ToArrayAsync(ct);
     }
 
+    /// <inheritdoc />
     public async Task<Guid> AddMission(string positionArea, string? namePoint, string? typeDrone, string target, MissionMode missionMode, DateTime todayLocal, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(positionArea))
@@ -52,6 +54,7 @@ public class MissionRepository(
         return mission.Id;
     }
 
+    /// <inheritdoc />
     public async Task CloseMissionAsync(Guid id, DateOnly closeAt, CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);

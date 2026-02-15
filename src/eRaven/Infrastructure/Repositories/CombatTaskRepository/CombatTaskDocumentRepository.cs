@@ -17,6 +17,7 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<CombatTaskDocumentDto>> GetDocumentsAsync(
         int year,
         int month,
@@ -53,6 +54,7 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
             .ToListAsync(ct);
     }
 
+    /// <inheritdoc />
     public async Task<Guid> CreateDraftAsync(
         string orderTitle,
         DateOnly recordedAt,
@@ -80,6 +82,7 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
         return document.Id;
     }
 
+    /// <inheritdoc />
     public async Task PostAsync(Guid documentId, string author, DateTime nowUtc, CancellationToken ct = default)
     {
         if (documentId == Guid.Empty) throw new ArgumentException("DocumentId is required.", nameof(documentId));
@@ -103,6 +106,7 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
         await db.SaveChangesAsync(ct);
     }
 
+    /// <inheritdoc />
     public async Task CancelAsync(Guid documentId, string reason, string author, DateTime nowUtc, CancellationToken ct = default)
     {
         if (documentId == Guid.Empty) throw new ArgumentException("DocumentId is required.", nameof(documentId));

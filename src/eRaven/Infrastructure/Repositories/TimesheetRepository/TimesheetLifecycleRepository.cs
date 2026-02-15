@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
+using eRaven.Domain.Aggregates;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
@@ -14,7 +15,7 @@ namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 /// Write-repo для життєвого циклу табеля (епізоди).
 ///
 /// Ключова ідея:
-/// - Один епізод "в табелі" = один <see cref="TimesheetTimeline"/> (OpenedAt..ClosedAt).
+/// - Один епізод "в табелі" = один <see cref="TimeSheetAggregate"/> (OpenedAt..ClosedAt).
 /// - На кожне нове зарахування (після виключення) створюється НОВИЙ таймлайн.
 /// - Старі таймлайни не перезаписуються і не "перевідкриваються".
 ///
@@ -63,13 +64,13 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         // 1) Active episode (ClosedAt == null) — очікуємо максимум 1
-        var active = await db.TimesheetTimelines
+        var active = await db.TimeSheets
             .Where(x => x.PersonId == personId && x.ClosedAt == null)
             .OrderByDescending(x => x.OpenedAt)
             .ThenByDescending(x => x.Id)
             .ToListAsync(ct);
 
-        TimesheetTimeline timeline;
+        TimeSheetAggregate timeline;
 
         if (active.Count == 1)
         {
@@ -84,7 +85,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
         {
             // 2) Заборона відкривати НОВИЙ епізод "у минулому", який накладається на вже закриті епізоди.
             // Епізоди мають бути часово послідовні: enrollDate > lastClosedAt (якщо існує).
-            var lastClosed = await db.TimesheetTimelines
+            var lastClosed = await db.TimeSheets
                 .AsNoTracking()
                 .Where(x => x.PersonId == personId && x.ClosedAt != null)
                 .OrderByDescending(x => x.ClosedAt)
@@ -99,7 +100,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
                     "Табелі не можна накладати або відкривати 'заднім числом'.");
             }
 
-            timeline = new TimesheetTimeline
+            timeline = new TimeSheetAggregate
             {
                 Id = Guid.NewGuid(),
                 PersonId = personId,
@@ -109,7 +110,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
                 CreatedAtUtc = nowUtc
             };
 
-            db.TimesheetTimelines.Add(timeline);
+            db.TimeSheets.Add(timeline);
         }
         else
         {
@@ -131,7 +132,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
         var hasEntryOnEnrollDate = await db.TimesheetEntries
             .AsNoTracking()
             .Where(x => !x.IsDeleted)
-            .Where(x => x.TimelineId == timeline.Id)
+            .Where(x => x.TimesheetId == timeline.Id)
             .Where(x => x.From <= enrollDate && (!x.To.HasValue || x.To.Value >= enrollDate))
             .AnyAsync(ct);
 
@@ -140,7 +141,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
             db.TimesheetEntries.Add(new TimesheetEntry
             {
                 Id = Guid.NewGuid(),
-                TimelineId = timeline.Id,
+                TimesheetId = timeline.Id,
                 PersonId = personId,
                 TimesheetCodeDefinitionId = defaultCodeId,
                 From = enrollDate,
@@ -189,7 +190,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
         await ValidateCanCloseOnExcludeCoreAsync(db, personId, closeTo, ct);
 
         // 2) Load EXACTLY one active episode (не "закриваємо все підряд")
-        var active = await db.TimesheetTimelines
+        var active = await db.TimeSheets
             .Where(x => x.PersonId == personId && x.ClosedAt == null)
             .OrderByDescending(x => x.OpenedAt)
             .ThenByDescending(x => x.Id)
@@ -214,7 +215,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
 
         // 4) Clamp entries that extend beyond closeTo (or are open-ended)
         var toClamp = await db.TimesheetEntries
-            .Where(x => x.TimelineId == tl.Id && !x.IsDeleted)
+            .Where(x => x.TimesheetId == tl.Id && !x.IsDeleted)
             .Where(x => x.From <= closeTo)
             .Where(x => x.To == null || x.To > closeTo)
             .ToListAsync(ct);
@@ -228,7 +229,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
 
         // 5) Soft-delete future entries (From > closeTo)
         var future = await db.TimesheetEntries
-            .Where(x => x.TimelineId == tl.Id && !x.IsDeleted)
+            .Where(x => x.TimesheetId == tl.Id && !x.IsDeleted)
             .Where(x => x.From > closeTo)
             .ToListAsync(ct);
 
@@ -254,7 +255,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
         DateOnly closeTo,
         CancellationToken ct)
     {
-        var active = await db.TimesheetTimelines
+        var active = await db.TimeSheets
             .AsNoTracking()
             .Where(x => x.PersonId == personId && x.ClosedAt == null)
             .OrderByDescending(x => x.OpenedAt)
@@ -272,7 +273,7 @@ public sealed class TimesheetLifecycleRepository(IDbContextFactory<AppDbContext>
         var onDate = await db.TimesheetEntries
             .AsNoTracking()
             .Include(x => x.TimesheetCodeDefinition)
-            .Where(x => x.TimelineId == timeline.Id && !x.IsDeleted)
+            .Where(x => x.TimesheetId == timeline.Id && !x.IsDeleted)
             .Where(x => x.From <= closeTo && (!x.To.HasValue || x.To.Value >= closeTo))
             .OrderByDescending(x => x.From)
             .ThenByDescending(x => x.Id)

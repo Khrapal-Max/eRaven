@@ -7,6 +7,7 @@
 
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Domain.Entities;
+using eRaven.Domain.Aggregates;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
@@ -25,6 +26,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<TimesheetPersonMonthRowDto>> GetTimesheetMonthAsync(
         int year,
         int month,
@@ -41,7 +43,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         // 1) “Хто в табелі в цьому місяці” => будь-який timeline, який перетинає місяць
-        var inMonthQ = Overlapping(db.TimesheetTimelines.AsNoTracking(), monthStart, monthEnd);
+        var inMonthQ = Overlapping(db.TimeSheets.AsNoTracking(), monthStart, monthEnd);
 
         var personIdsQ = inMonthQ
             .Select(t => t.PersonId)
@@ -83,14 +85,14 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
 
         // 3) Timelines для вибраних осіб, що перетинають місяць
         var timelinesInMonthQ = Overlapping(
-            db.TimesheetTimelines.AsNoTracking()
+            db.TimeSheets.AsNoTracking()
                 .Where(t => selectedPersonIds.Contains(t.PersonId)),
             monthStart, monthEnd);
 
         // 4) Entries перетинають місяць + належать timelinesInMonthQ (JOIN) + JOIN codes
         var entries = await (
             from e in db.TimesheetEntries.AsNoTracking()
-            join t in timelinesInMonthQ on e.TimelineId equals t.Id
+            join t in timelinesInMonthQ on e.TimesheetId equals t.Id
             join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
                   && e.From <= monthEnd
@@ -166,6 +168,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         return rows;
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<TimesheetPersonRangeRowDto>> GetTimesheetRangeAsync(
         DateOnly from,
         DateOnly to,
@@ -188,7 +191,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         var nbCode = (nb.Code ?? TimesheetSystemCodes.NotInTimesheet).Trim();
 
         // 1) timelines, що перетинають [from..to]
-        var timelinesQ = db.TimesheetTimelines.AsNoTracking()
+        var timelinesQ = db.TimeSheets.AsNoTracking()
             .Where(t => t.OpenedAt <= to && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= from));
 
         var personIdsQ = timelinesQ.Select(t => t.PersonId).Distinct();
@@ -232,7 +235,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         // 3) entries, що перетинають [from..to] + належать selectedTimelinesQ
         var entries = await (
             from e in db.TimesheetEntries.AsNoTracking()
-            join t in selectedTimelinesQ on e.TimelineId equals t.Id
+            join t in selectedTimelinesQ on e.TimesheetId equals t.Id
             join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
                   && e.From <= to
@@ -317,6 +320,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         return rows;
     }
 
+    /// <inheritdoc />
     public async Task<TimesheetPersonMonthDto?> GetTimesheetPersonMonthAsync(
         Guid personId,
         int year,
@@ -355,13 +359,13 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
 
         // 2) Timelines that overlap the month — as query
         var timelinesInMonthQ = Overlapping(
-            db.TimesheetTimelines.AsNoTracking().Where(t => t.PersonId == personId),
+            db.TimeSheets.AsNoTracking().Where(t => t.PersonId == personId),
             monthStart, monthEnd);
 
         // 3) Entries overlapping month (JOIN) — source of truth + JOIN codes
         var entries = await (
             from e in db.TimesheetEntries.AsNoTracking()
-            join t in timelinesInMonthQ on e.TimelineId equals t.Id
+            join t in timelinesInMonthQ on e.TimesheetId equals t.Id
             join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
                   && e.From <= monthEnd
@@ -444,6 +448,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         );
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<TimesheetPersonDayRowDto>> GetTimesheetDayAsync(
         DateOnly date,
         string? search,
@@ -452,7 +457,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         // 1) who is "in timesheet" on this date (by timeline overlap)
-        var timelinesOnDateQ = db.TimesheetTimelines
+        var timelinesOnDateQ = db.TimeSheets
             .AsNoTracking()
             .Where(t => t.OpenedAt <= date
                         && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= date));
@@ -497,7 +502,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         var selectedPersonIds = persons.Select(x => x.Id).ToArray();
 
         // 3) timelines for selected persons on date
-        var timelinesQ = db.TimesheetTimelines
+        var timelinesQ = db.TimeSheets
             .AsNoTracking()
             .Where(t => selectedPersonIds.Contains(t.PersonId)
                         && t.OpenedAt <= date
@@ -506,7 +511,7 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         // 4) active entries on date (join timelines) + join codes
         var entries = await (
             from e in db.TimesheetEntries.AsNoTracking()
-            join t in timelinesQ on e.TimelineId equals t.Id
+            join t in timelinesQ on e.TimesheetId equals t.Id
             join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
                   && e.From <= date
@@ -562,8 +567,8 @@ public sealed class TimesheetMonthRepository(IDbContextFactory<AppDbContext> dbF
         return rows;
     }
 
-    private static IQueryable<TimesheetTimeline> Overlapping(
-        IQueryable<TimesheetTimeline> q,
+    private static IQueryable<TimeSheetAggregate> Overlapping(
+        IQueryable<TimeSheetAggregate> q,
         DateOnly from,
         DateOnly to)
         => q.Where(t => t.OpenedAt <= to && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= from));

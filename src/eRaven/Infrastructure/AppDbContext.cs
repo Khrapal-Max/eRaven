@@ -5,6 +5,7 @@
 // AppDbContext
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
 using eRaven.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -23,7 +24,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     // Timesheet   
     public DbSet<TimesheetEntry> TimesheetEntries { get; set; }
-    public DbSet<TimesheetTimeline> TimesheetTimelines { get; set; }
+    public DbSet<TimesheetTaskSpan> TimesheetTaskSpans { get; set; }
+    public DbSet<TimeSheetAggregate> TimeSheets { get; set; }
 
     // Combat Task
     public DbSet<Mission> Missions { get; set; }

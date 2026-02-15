@@ -57,6 +57,7 @@ public sealed class PersonRepository(
     // Read-side
     // =========================
 
+    /// <inheritdoc />
     public async Task<PagedResult<PersonListItemDto>> GetPageAsync(int page,
         int pageSize,
         string? search = null,
@@ -127,6 +128,7 @@ public sealed class PersonRepository(
         return new PagedResult<PersonListItemDto>(items, pageCount, size, total);
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<CombatTaskPersonLookupDto>> GetPersonsSearchAsync(string search, int takePersons, CancellationToken ct = default)
     {
         // TODO need tests
@@ -166,6 +168,7 @@ public sealed class PersonRepository(
             .ToListAsync(ct);
     }
 
+    /// <inheritdoc />
     public async Task<PersonDetailsDto?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
@@ -196,6 +199,7 @@ public sealed class PersonRepository(
         );
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<PersonEventDto>> GetHistoryAsync(Guid id, CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
@@ -221,6 +225,7 @@ public sealed class PersonRepository(
     // Commands aggregate
     // =========================
 
+    /// <inheritdoc />
     public async Task<Guid> CreateReservedAsync(string rnokpp,
         string lastName,
         string firstName,
@@ -245,6 +250,7 @@ public sealed class PersonRepository(
         return agg.Id;
     }
 
+    /// <inheritdoc />
     public async Task EnrollAsync(Guid personId,
         EnrollmentKind kind,
         string? reference,
@@ -273,6 +279,7 @@ public sealed class PersonRepository(
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
+    /// <inheritdoc />
     public async Task ExcludeAsync(Guid personId,
         string reason,
         DateOnly effectiveDate,
@@ -289,6 +296,7 @@ public sealed class PersonRepository(
     // Commands personal info
     // =========================
 
+    /// <inheritdoc />
     public async Task UpdatePersonalInfoAsync(Guid personId,
         string rnokpp,
         string lastName,
@@ -307,6 +315,7 @@ public sealed class PersonRepository(
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
+    /// <inheritdoc />
     public async Task ChangeRankAsync(Guid personId,
         DateOnly effectiveDate,
         string rank,
@@ -320,6 +329,7 @@ public sealed class PersonRepository(
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
+    /// <inheritdoc />
     public async Task ChangePositionAsync(Guid personId,
         DateOnly effectiveDate,
         int? positionSort,
@@ -334,6 +344,7 @@ public sealed class PersonRepository(
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
+    /// <inheritdoc />
     public async Task ChangeBzvpAsync(Guid personId,
         DateOnly effectiveDate,
         string bzvp,
@@ -347,6 +358,7 @@ public sealed class PersonRepository(
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
+    /// <inheritdoc />
     public async Task ChangeWeaponAsync(Guid personId,
         DateOnly effectiveDate,
         string? weapon,
@@ -359,6 +371,7 @@ public sealed class PersonRepository(
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
+    /// <inheritdoc />
     public async Task ChangeCallsignAsync(Guid personId,
         DateOnly effectiveDate,
         string? callsign,
@@ -371,6 +384,7 @@ public sealed class PersonRepository(
         await PersistAsync(agg, expectedVersion: agg.Version, ct);
     }
 
+    /// <inheritdoc />
     public async Task VoidEventAsync(Guid personId,
         Guid targetEventId,
         string reason,
@@ -413,6 +427,7 @@ public sealed class PersonRepository(
         return agg;
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlySet<string>> GetExistingRnokppsAsync(IReadOnlyCollection<string> rnokpps,
         CancellationToken ct = default)
     {
@@ -436,6 +451,7 @@ public sealed class PersonRepository(
         return new HashSet<string>(existing, StringComparer.Ordinal);
     }
 
+    /// <inheritdoc />
     public async Task<Guid> BootstrapCreateAndEnrollAsync(
         PersonBootstrapRowDto row,
         string author,

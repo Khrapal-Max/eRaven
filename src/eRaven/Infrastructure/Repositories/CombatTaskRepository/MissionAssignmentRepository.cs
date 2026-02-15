@@ -24,6 +24,7 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
     // Reads
     //======================================================================
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<ReadyCombatTaskPersonDto>> GetFreePersonForMissionsAsync(
         DateOnly onDate,
         bool includePlanned = false,
@@ -58,6 +59,7 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
             .ToListAsync(ct);
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveByMissionAsync(
         Guid missionId,
         DateOnly onDate,
@@ -123,6 +125,7 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
         return result;
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<MissionAssignment>> GetPersonAssignmentsAsync(
        Guid personId,
        DateOnly from,
@@ -147,6 +150,7 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
             .ToListAsync(ct);
     }
 
+    /// <inheritdoc />
     public async Task<MissionAssignment?> GetActiveForPersonAsync(
         Guid personId,
         DateOnly onDate,
@@ -173,6 +177,7 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
     // Write (apply draft and posted)
     //======================================================================
 
+    /// <inheritdoc />
     public async Task ApplyDraftCombatTaskDocumentAsync(IReadOnlyList<ApplyCombatTaskDetailsDto> taskDetails,
         CancellationToken ct = default)
     {
@@ -278,6 +283,7 @@ public sealed class MissionAssignmentRepository(IDbContextFactory<AppDbContext> 
         await tx.CommitAsync(ct);
     }
 
+    /// <inheritdoc />
     public async Task ApplyPostedCombatTaskDocumentAsync(Guid documentId, CancellationToken ct = default)
     {
         if (documentId == Guid.Empty)

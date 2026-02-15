@@ -39,7 +39,7 @@ public interface ITimesheetEntryRepository
     /// після вказаної дати для конкретної особи в межах таймлайну.
     /// </summary>
     Task<TimesheetEntry?> GetNextEntryAfterDateAsync(
-        Guid timelineId,
+        Guid timesheetId,
         Guid personId,
         DateOnly date,
         CancellationToken ct = default);
@@ -73,7 +73,7 @@ public interface ITimesheetEntryRepository
     /// який покриває дату, і ніколи не має "виходити" за межі OpenedAt/ClosedAt.
     /// </remarks>
     Task<TimesheetEntry?> GetActiveEntryOnDateAsync(
-        Guid timelineId,
+        Guid timesheetId,
         Guid personId,
         DateOnly date,
         CancellationToken ct = default);
@@ -81,16 +81,6 @@ public interface ITimesheetEntryRepository
     //======================================================================
     // Writes (CRUD)
     //======================================================================
-
-    /// <summary>
-    /// Додає новий запис табеля та зберігає зміни.
-    /// </summary>
-    Task AddAsync(TimesheetEntry entry, CancellationToken ct = default);
-
-    /// <summary>
-    /// Оновлює існуючий запис табеля та зберігає зміни.
-    /// </summary>
-    Task UpdateAsync(TimesheetEntry entry, CancellationToken ct = default);
 
     /// <summary>
     /// Soft-delete запису:

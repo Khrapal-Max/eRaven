@@ -18,7 +18,7 @@ namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 /// - Побудова денного зрізу.
 ///
 /// Джерело істини:
-/// - Дані читаються з <c>TimesheetTimelines</c> та <c>TimesheetEntries</c>.
+/// - Дані читаються з <c>TimeSheets</c> (aggregate episodes) та <c>TimesheetEntries</c>.
 /// - Для визначення "хто в табелі" використовуємо перетин активного timeline з потрібною датою/місяцем.
 /// - Записи <c>TimesheetEntry</c> з <c>IsDeleted = true</c> ігноруються.
 ///

@@ -17,6 +17,7 @@ public sealed class DashboardRepository(
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
+    /// <inheritdoc />
     public async Task<PersonnelDashboardSnapshot> GetPersonnelDashboardAsync(
         CancellationToken ct = default)
     {

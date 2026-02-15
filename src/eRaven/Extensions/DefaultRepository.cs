@@ -22,7 +22,6 @@ public static class DefaultRepository
         services.AddScoped<IDashboardRepository, DashboardRepository>();
         services.AddScoped<ITimesheetTimelineRepository, TimesheetTimelineRepository>();
         services.AddScoped<ITimesheetEntryRepository, TimesheetEntryRepository>();
-        services.AddScoped<ITimesheetLifecycleRepository, TimesheetLifecycleRepository>();
         services.AddScoped<ITimesheetPolicyRepository, TimesheetPolicyRepository>();
         services.AddScoped<ITimesheetMonthRepository, TimesheetMonthRepository>();
         services.AddScoped<ICombatTaskDocumentRepository, CombatTaskDocumentRepository>();

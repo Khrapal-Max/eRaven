@@ -5,12 +5,12 @@
 // ITimesheetTimelineRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Entities;
+using eRaven.Domain.Aggregates;
 
 namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 /// <summary>
-/// Репозиторій таймлайнів табеля (<see cref="TimesheetTimeline"/>).
+/// Репозиторій епізодів табеля (aggregate root) (<see cref="TimeSheetAggregate"/>).
 ///
 /// Таймлайн — це "контейнер життєвого циклу" табеля для особи:
 /// - відкривається в дату <c>OpenedAt</c> (зазвичай при зарахуванні),
@@ -33,7 +33,7 @@ public interface ITimesheetTimelineRepository
     /// <summary>
     /// Повертає таймлайн особи, який покриває вказану <paramref name="date"/>.
     /// </summary>
-    Task<TimesheetTimeline?> GetTimelineOnDateAsync(
+    Task<TimeSheetAggregate?> GetTimelineOnDateAsync(
         Guid personId,
         DateOnly date,
         CancellationToken ct = default);
@@ -42,24 +42,9 @@ public interface ITimesheetTimelineRepository
     /// Повертає активний (відкритий) таймлайн особи, тобто з <c>ClosedAt == null</c>.
     /// Якщо активних декілька (помилка даних) — реалізація має обрати детерміновано (наприклад, latest OpenedAt).
     /// </summary>
-    Task<TimesheetTimeline?> GetActiveTimelineAsync(
+    Task<TimeSheetAggregate?> GetActiveTimelineAsync(
         Guid personId,
         CancellationToken ct = default);
 
-    /// <summary>
-    /// Повертає всі таймлайни, що перетинаються з періодом <paramref name="from"/>.. <paramref name="to"/> (inclusive).
-    /// </summary>
-    Task<IReadOnlyList<TimesheetTimeline>> GetTimelinesOverlappingAsync(
-        DateOnly from,
-        DateOnly to,
-        CancellationToken ct = default);
-
-    /// <summary>
-    /// Повертає унікальний список ідентифікаторів осіб, для яких існує хоча б один таймлайн,
-    /// що перетинається з періодом <paramref name="from"/>.. <paramref name="to"/> (inclusive).
-    /// </summary>
-    Task<IReadOnlyList<Guid>> GetPersonIdsOverlappingAsync(
-        DateOnly from,
-        DateOnly to,
-        CancellationToken ct = default);
+    // NOTE: overlapping/personIds тримаємо в read-репозиторіях (Month/Range), щоб не змішувати CQRS.
 }

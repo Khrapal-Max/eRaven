@@ -5,6 +5,8 @@
 // TimesheetEntry
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Aggregates;
+
 namespace eRaven.Domain.Entities;
 
 /// <summary>
@@ -13,18 +15,18 @@ namespace eRaven.Domain.Entities;
 /// To == null means “open-ended”.
 ///
 /// IMPORTANT:
-/// - Every entry belongs to a <see cref="TimesheetTimeline"/>.
-/// - PersonId is denormalized for faster reads (must match Timeline.PersonId).
+/// - Every entry belongs to a <see cref="TimeSheetAggregate"/>.
+/// - PersonId is denormalized for faster reads (must match TimesheetId.PersonId).
 /// </summary>
 public sealed class TimesheetEntry
 {
     /// <summary>Primary key.</summary>
     public Guid Id { get; set; }
 
-    /// <summary>FK to owning timeline.</summary>
-    public Guid TimelineId { get; set; }
+    /// <summary>FK to owning Timesheet.</summary>
+    public Guid TimesheetId { get; set; }
 
-    public TimesheetTimeline? Timeline { get; set; }
+    public TimeSheetAggregate? TimeSheet { get; set; }
 
     /// <summary>
     /// Denormalized for faster reads (should match Timeline.PersonId).

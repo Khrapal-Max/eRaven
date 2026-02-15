@@ -13,7 +13,7 @@ namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 /// Репозиторій життєвого циклу табеля (епізоди зарахування/виключення).
 ///
 /// Модель:
-/// - Кожне зарахування (Enroll) створює НОВИЙ <see cref="TimesheetTimeline"/> (епізод),
+/// - Кожне зарахування (Enroll) створює НОВИЙ <see cref="eRaven.Domain.Aggregates.TimeSheetAggregate"/> (епізод),
 ///   якщо немає активного епізоду.
 /// - Старі (закриті) таймлайни НЕ перезаписуються і не "перевідкриваються".
 /// - Одночасно дозволено мати не більше одного активного таймлайну (ClosedAt == null).
@@ -28,7 +28,7 @@ public interface ITimesheetLifecycleRepository
     /// Відкриває табель при зарахуванні особи (створює епізод).
     ///
     /// Правила:
-    /// - Якщо активного епізоду немає — створюється новий <see cref="TimesheetTimeline"/> з OpenedAt=enrollDate
+    /// - Якщо активного епізоду немає — створюється новий <see cref="eRaven.Domain.Aggregates.TimeSheetAggregate"/> з OpenedAt=enrollDate
     ///   і додається дефолтний запис з кодом "Т", який покриває enrollDate.
     /// - Якщо активний епізод є — операція має бути ідемпотентною (не створює дублікати),
     ///   але НЕ змінює OpenedAt і НЕ створює новий епізод поверх старого.
