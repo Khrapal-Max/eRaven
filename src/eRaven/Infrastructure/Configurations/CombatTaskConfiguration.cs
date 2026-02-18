@@ -10,6 +10,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
+/// <summary>
+/// EF Core configuration for <see cref="CombatTask"/>.
+/// </summary>
 public sealed class CombatTaskConfiguration : IEntityTypeConfiguration<CombatTask>
 {
     public void Configure(EntityTypeBuilder<CombatTask> e)
@@ -30,10 +33,11 @@ public sealed class CombatTaskConfiguration : IEntityTypeConfiguration<CombatTas
             .HasColumnName("mission_id")
             .IsRequired();
 
+        // FIX: було "sourge_document" (опечатка), уніфікуємо в snake_case.
         e.Property(x => x.SourceDocument)
-          .HasColumnName("sourge_document")
-          .HasMaxLength(30)
-          .IsRequired();
+            .HasColumnName("source_document")
+            .HasMaxLength(128)
+            .IsRequired();
 
         // Relations
         e.HasOne(x => x.CombatTaskDocument)
@@ -52,7 +56,10 @@ public sealed class CombatTaskConfiguration : IEntityTypeConfiguration<CombatTas
             .OnDelete(DeleteBehavior.Restrict);
 
         // Indexes
-        e.HasIndex(x => x.CombatTaskDocumentId);
-        e.HasIndex(x => x.MissionId);
+        e.HasIndex(x => x.CombatTaskDocumentId)
+            .HasDatabaseName("ix_combat_tasks_document");
+
+        e.HasIndex(x => x.MissionId)
+            .HasDatabaseName("ix_combat_tasks_mission");
     }
 }

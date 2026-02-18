@@ -13,19 +13,7 @@ using eRaven.Infrastructure.Repositories.TimesheetRepository;
 namespace eRaven.Application.Handlers.CombatTask;
 
 /// <summary>
-/// Повертає список осіб, які перебувають на місії на конкретну дату.
-///
-/// <para>Джерело істини:</para>
-/// <list type="bullet">
-/// <item><description><c>TimesheetTaskSpan</c> (Draft/Posted) у табелі.</description></item>
-/// </list>
-///
-/// <para>Примітка:</para>
-/// <list type="bullet">
-/// <item><description>Цей запит не використовує <c>MissionAssignment</c>, оскільки це committed-only проєкція.</description></item>
-/// <item><description><paramref name="GetCombatTaskMissionPersonsQuery.IsPlanned"/> визначає,
-/// чи повертати план (Draft) або факт (Posted).</description></item>
-/// </list>
+/// Query handler: повертає людей, які активні по місії на дату (за табелем).
 /// </summary>
 public sealed class GetCombatTaskMissionPersonsQueryHandler(
     ITimesheetMissionPlanningRepository repo)
@@ -34,8 +22,8 @@ public sealed class GetCombatTaskMissionPersonsQueryHandler(
     private readonly ITimesheetMissionPlanningRepository _repo = repo;
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<ActiveMissionPersonDto>> HandleAsync(
+    public async Task<IReadOnlyList<ActiveMissionPersonDto>> HandleAsync(
         GetCombatTaskMissionPersonsQuery query,
         CancellationToken ct = default)
-        => _repo.GetActiveByMissionAsync(query.MissionId, query.OnDate, query.IsPlanned, ct);
+        => await _repo.GetActiveMissionClosablePersonsAsync(query.MissionId, query.OnDate, ct);
 }

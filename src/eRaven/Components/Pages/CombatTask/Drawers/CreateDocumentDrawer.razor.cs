@@ -14,12 +14,12 @@ using Microsoft.AspNetCore.Components.Forms;
 
 namespace eRaven.Components.Pages.CombatTask.Drawers;
 
-public partial class CreateDocumentDraftDrawer
+public partial class CreateDocumentDrawer
 {
     //==========================
     // DI
     //==========================
-    [Inject] public ICommandHandler<CreateCombatTaskDocumentDraftCommand, Guid> CreateHanler { get; set; } = default!;
+    [Inject] public ICommandHandler<CreateCombatTaskDocumentCommand, Guid> CreateHanler { get; set; } = default!;
     [Inject] public ToastService ToastService { get; set; } = default!;
     [Parameter] public bool IsOpen { get; set; }
 
@@ -36,7 +36,7 @@ public partial class CreateDocumentDraftDrawer
     private bool _wasOpen;
 
     private EditContext _editContext = default!;
-    protected CreateCombatTaskDraftModel Model { get; set; } = new();
+    protected CreateCombatTaskDocumentModel Model { get; set; } = new();
 
     private bool DisabledSave => _busy || string.IsNullOrWhiteSpace(Model.OrderTitle);
 
@@ -69,7 +69,7 @@ public partial class CreateDocumentDraftDrawer
     {
         _busy = false;
 
-        Model = new CreateCombatTaskDraftModel()
+        Model = new CreateCombatTaskDocumentModel()
         {
             OrderTitle = string.Empty,
             Description = string.Empty,
@@ -90,7 +90,7 @@ public partial class CreateDocumentDraftDrawer
             var title = (Model.OrderTitle ?? string.Empty).Trim();
             Model.OrderTitle = title;
 
-            var docId = await CreateHanler.HandleAsync(new CreateCombatTaskDocumentDraftCommand(
+            var docId = await CreateHanler.HandleAsync(new CreateCombatTaskDocumentCommand(
                 OrderTitle: Model.OrderTitle,
                 Description: Model.Description,
                 RecordedAt: Model.RecordedAt,

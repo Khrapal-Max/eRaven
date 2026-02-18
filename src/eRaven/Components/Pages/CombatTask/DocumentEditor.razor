@@ -52,13 +52,11 @@
                         <div class="d-flex align-content-center gap-2 p-2">
 
                             <Button Class="btn btn-success rounded-0"
-                                    IsDisabled="@(IsNotDraft)"
                                     OnClickButton="OpenStartForm">
                                 <i class="bi bi-file-earmark-plus"></i>
                                 </Button>
 
                             <Button Class="btn btn-warning rounded-0"
-                                    IsDisabled="@(IsNotDraft)"
                                     OnClickButton="OpenCloseForm">
                                 <i class="bi bi-file-earmark-minus"></i>
                                 </Button>
@@ -123,19 +121,7 @@
                     }
                 }
             </div>
-        }  
-
-        @if (_missions.Count != 0)
-        {
-            <div class="d-flex justify-content-end px-4 bg-secondary">
-                <Button Class="btn-primary rounded-0"
-                        IsDisabled="@(_posting || IsNotDraft)"
-                        OnClickButton="PostDocumentAsync">
-                    <i class="bi bi-check2-square"></i>
-                    Провести
-                </Button>
-            </div>
-        }       
+        }   
     </div>   
 </div>
 

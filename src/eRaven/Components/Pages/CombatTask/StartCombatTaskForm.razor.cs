@@ -193,7 +193,7 @@ public partial class StartCombatTaskForm : ComponentBase
         _personsLoading = true;
         try
         {
-            var res = await LookupPersons.HandleAsync(new GetCombatTaskPersonLookupQuery(onDate, IsPlanned: true));
+            var res = await LookupPersons.HandleAsync(new GetCombatTaskPersonLookupQuery(onDate));
 
             _personsAll = [.. res
                 .OrderBy(x => x.FullName)
@@ -370,8 +370,12 @@ public partial class StartCombatTaskForm : ComponentBase
                 PersonId: x.PersonId,
                 Rnokpp: x.Rnokpp,
                 FullName: x.FullName,
-                Callsign: x.Callsign
-            ))]);
+                Rank: x.Rank,
+                Position: x.Position,
+                Weapon: x.Weapon,
+                Callsign: x.Callsign))],
+                Author: "ui", // TODO aut user
+                NowUtc: DateTime.UtcNow);
 
             await CreateCombatTaskHandler.HandleAsync(command);
 

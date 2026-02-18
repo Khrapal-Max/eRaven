@@ -11,7 +11,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.MissionRepository;
 
-public class MissionRepository(
+/// <summary>
+/// Репозиторій точок місій.
+/// </summary>
+public sealed class MissionRepository(
     IDbContextFactory<AppDbContext> dbFactory) : IMissionRepository
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
@@ -27,7 +30,14 @@ public class MissionRepository(
     }
 
     /// <inheritdoc />
-    public async Task<Guid> AddMission(string positionArea, string? namePoint, string? typeDrone, string target, MissionMode missionMode, DateTime todayLocal, CancellationToken ct = default)
+    public async Task<Guid> AddMission(
+        string positionArea,
+        string? namePoint,
+        string? typeDrone,
+        string target,
+        MissionMode missionMode,
+        DateTime todayLocal,
+        CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(positionArea))
             throw new ArgumentException("Позиційний район не вказаний.", nameof(positionArea));
@@ -41,7 +51,10 @@ public class MissionRepository(
         {
             Id = Guid.NewGuid(),
             PositionArea = positionArea.Trim(),
-            NamePoint = string.IsNullOrWhiteSpace(namePoint) ? "" : namePoint.Trim(),
+
+            // Domain: nullable => null when missing (not "")
+            NamePoint = string.IsNullOrWhiteSpace(namePoint) ? null : namePoint.Trim(),
+
             TypeDrone = string.IsNullOrWhiteSpace(typeDrone) ? null : typeDrone.Trim(),
             Target = target.Trim(),
             MissionMode = missionMode,
@@ -63,16 +76,23 @@ public class MissionRepository(
             ?? throw new InvalidOperationException("Міссія не знайдена.");
 
         if (mission.ClosedAt is not null)
-            return; // або throw new InvalidOperationException("Місія вже закрита.");
+            return;
 
         if (closeAt < mission.CreatedAt)
             throw new InvalidOperationException("Дата закриття не може бути раніше дати створення.");
 
-        var isActive = await db.MissionAssignments
+        // Strategy: close mission only if there is NO active task fact for this mission at closeAt.
+        // Active = Status != Canceled AND FromDate <= closeAt AND (ToDate is null OR closeAt < ToDate)
+        var hasActiveAssignments = await db.TimesheetTaskSpans
             .AsNoTracking()
-            .AnyAsync(x => x.MissionId == id && x.To == null, ct);
+            .AnyAsync(x =>
+                x.MissionId == id
+                && x.Status != DocumentStatus.Canceled
+                && x.FromDate <= closeAt
+                && (!x.ToDate.HasValue || closeAt < x.ToDate.Value),
+                ct);
 
-        if (isActive)
+        if (hasActiveAssignments)
             throw new InvalidOperationException("Неможливо закрити міссію, оскільки вона має активні призначення.");
 
         mission.ClosedAt = closeAt;

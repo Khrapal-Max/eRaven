@@ -10,6 +10,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
+/// <summary>
+/// EF Core configuration for <see cref="CombatTaskDocument"/>.
+/// </summary>
 public sealed class CombatTaskDocumentConfiguration : IEntityTypeConfiguration<CombatTaskDocument>
 {
     public void Configure(EntityTypeBuilder<CombatTaskDocument> e)
@@ -24,6 +27,7 @@ public sealed class CombatTaskDocumentConfiguration : IEntityTypeConfiguration<C
 
         e.Property(x => x.Status)
             .HasColumnName("status")
+            .HasConversion<int>()
             .IsRequired();
 
         e.Property(x => x.OrderTitle)
@@ -32,8 +36,8 @@ public sealed class CombatTaskDocumentConfiguration : IEntityTypeConfiguration<C
             .IsRequired();
 
         e.Property(x => x.Description)
-           .HasColumnName("description")
-           .HasMaxLength(512);
+            .HasColumnName("description")
+            .HasMaxLength(512);
 
         e.Property(x => x.RecordedAt)
             .HasColumnName("recorded_at")
@@ -43,6 +47,7 @@ public sealed class CombatTaskDocumentConfiguration : IEntityTypeConfiguration<C
             .HasColumnName("canceled_reason")
             .HasMaxLength(512);
 
+        // Audit
         e.Property(x => x.CreatedBy)
             .HasColumnName("created_by")
             .HasMaxLength(64)
@@ -66,17 +71,19 @@ public sealed class CombatTaskDocumentConfiguration : IEntityTypeConfiguration<C
         e.Property(x => x.CanceledAtUtc)
             .HasColumnName("canceled_at_utc");
 
-        // Relations
+        // Indexes
+        e.HasIndex(x => x.OrderTitle)
+            .HasDatabaseName("ix_combat_task_documents_order_title");
+
+        e.HasIndex(x => x.RecordedAt)
+            .HasDatabaseName("ix_combat_task_documents_recorded_at");
+
+        e.HasIndex(x => x.Status)
+            .HasDatabaseName("ix_combat_task_documents_status");
+
         e.HasMany(x => x.CombatTasks)
             .WithOne(x => x.CombatTaskDocument)
             .HasForeignKey(x => x.CombatTaskDocumentId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        // Indexes
-        e.HasIndex(x => x.RecordedAt);
-        e.HasIndex(x => x.Status);
-
-        // TODO: краще зробити складений індекс (UnitId/Year/OrderTitle) коли додасте UnitId.
-        e.HasIndex(x => x.OrderTitle).IsUnique();
     }
 }

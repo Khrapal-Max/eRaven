@@ -66,7 +66,7 @@
                        KeySelector="@(r => r.PersonId)">
 
                     <TableHeader>
-                        <th class="text-center">Тип</th>
+                        <th class="text-center">Тип обліку</th>
                         <th class="text-center">Військовослужбовець</th>
                         <th class="text-center">Дії</th>
 
@@ -145,9 +145,8 @@
 <TimesheetTransitionDrawer IsOpen="@_drawerOpen"
                            IsOpenChanged="@(v => _drawerOpen = v)"
                            PersonId="@_drawerPersonId"
-                           CurrentCodeId="@_drawerCurrentCodeId"
-                           CurrentCode="@_drawerCurrentCode"
-                           AnchorDate="@_anchorDate"
+                           InitialDate="@_drawerInitialDate"
+                           OperatorDate="@_anchorDate"
                            PersonLabel="@_drawerPersonLabel"
                            OnApplied="ReloadAsync" />
 

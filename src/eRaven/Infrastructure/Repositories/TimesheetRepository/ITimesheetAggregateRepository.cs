@@ -6,43 +6,57 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Aggregates;
+using eRaven.Domain.Entities;
 
 namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 /// <summary>
-/// Write-репозиторій для <see cref="TimeSheetAggregate"/> (tracked).
+/// Репозиторій табеля (episode root: <see cref="TimeSheetAggregate"/>) для операцій,
+/// що синхронізують факти задач (TaskSpans) з документом бойових завдань.
 ///
-/// <para>Призначення:</para>
-/// <list type="bullet">
-/// <item><description>завантажити епізод з навігаціями (<c>Entries</c>, <c>TaskSpans</c>) для змін;</description></item>
-/// <item><description>зберегти зміни агрегату (<c>SaveChanges</c>).</description></item>
-/// </list>
-///
-/// <para>Примітка:</para>
-/// <list type="bullet">
-/// <item><description>Read-запити для UI/звітів залишаються у Month/Range репозиторії.</description></item>
-/// </list>
+/// <para>
+/// Спрощена модель: документ одразу формує факт у табелі; факт не видаляємо — лише
+/// компенсація (Cancel/Void).
+/// </para>
 /// </summary>
 public interface ITimesheetAggregateRepository
 {
     /// <summary>
-    /// Завантажує активний (ClosedAt == null) епізод для редагування.
-    /// Повертає tracked aggregate з включеними <c>Entries</c> та <c>TaskSpans</c>.
+    /// Застосовує/оновлює факти задач (TaskSpans) для конкретної місії документа
+    /// на основі <see cref="CombatTaskDetails"/> (Start/End).
     /// </summary>
-    Task<TimeSheetAggregate?> LoadActiveForUpdateAsync(
-        Guid personId,
+    Task ApplyCombatTaskFactsAsync(
+        Guid documentId,
+        Guid missionId,
+        IReadOnlyCollection<CombatTaskDetails> details,
+        string author,
+        DateTime nowUtc,
         CancellationToken ct = default);
 
     /// <summary>
-    /// Завантажує епізод, який покриває дату <paramref name="date"/>, для редагування.
+    /// Компенсація (Cancel/Void) для фактів задач, створених/закритих цим документом.
     /// </summary>
-    Task<TimeSheetAggregate?> LoadOnDateForUpdateAsync(
-        Guid personId,
-        DateOnly date,
+    Task CancelCombatTaskFactsAsync(
+        Guid documentId,
+        Guid missionId,
+        Guid reasonCodeId,
+        string? reference,
+        string author,
+        DateTime nowUtc,
         CancellationToken ct = default);
 
     /// <summary>
-    /// Зберігає зміни агрегату (SaveChanges).
+    /// Завантажує активний епізод табеля (ClosedAt == null) для подальших змін.
     /// </summary>
-    Task SaveAsync(CancellationToken ct = default);
+    Task<TimeSheetAggregate> LoadActiveAsync(Guid personId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Завантажує епізод табеля, який активний на дату <paramref name="onDate"/>, для подальших змін.
+    /// </summary>
+    Task<TimeSheetAggregate> LoadOnDateForUpdateAsync(Guid personId, DateOnly onDate, CancellationToken ct = default);
+
+    /// <summary>
+    /// Зберігає зміни в поточному DbContext, який використовується методами Load*.
+    /// </summary>
+    Task SaveChangesAsync(CancellationToken ct = default);
 }

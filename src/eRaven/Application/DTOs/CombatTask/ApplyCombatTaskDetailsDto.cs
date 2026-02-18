@@ -5,7 +5,6 @@
 // CombatTaskPostedDetailsDto
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 
 namespace eRaven.Application.DTOs.CombatTask;

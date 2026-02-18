@@ -24,6 +24,8 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
+    volumes:
+      - ./data-protection-keys:/data-protection-keys
 
   postgres:
     image: postgres:16
@@ -41,8 +43,27 @@ services:
       timeout: 3s
       retries: 20
     ports:
-      - "5432:5432"
+      - "5432:5432"  
+  
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4:latest    
+    restart: always
+    # A different set of environment variables, but the structure is the same.
+    environment:
+      PGADMIN_DEFAULT_EMAIL: postgres@dpostgres.com
+      PGADMIN_DEFAULT_PASSWORD: Norsk4741
+    ports:
+    #outside port:host in docker
+    - 5200:80
+    volumes:
+    - pgadmin:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  dpkeys:
+  pgadmin:
 

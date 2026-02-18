@@ -34,7 +34,8 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
     private static readonly HashSet<string> AllowedCloseCodes = new(StringComparer.OrdinalIgnoreCase)
     {
         TimesheetSystemCodes.BaseState,
-        TimesheetSystemCodes.Rozpor
+        TimesheetSystemCodes.Rozpor,
+        TimesheetSystemCodes.ReadyToCombatTask
     };
 
     /// <inheritdoc />

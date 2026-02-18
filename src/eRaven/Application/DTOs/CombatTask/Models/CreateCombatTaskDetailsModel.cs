@@ -29,5 +29,11 @@ public sealed class CreateCombatTaskDetailsModel
     [Required, MaxLength(512, ErrorMessage = "ПІБ не більше 512 символів.")]
     public string FullName { get; set; } = string.Empty;
 
+    public string? Rank { get; set; }
+
+    public string? Position { get; set; }
+
+    public string? Weapon { get; set; }
+
     public string? Callsign { get; set; }
 }

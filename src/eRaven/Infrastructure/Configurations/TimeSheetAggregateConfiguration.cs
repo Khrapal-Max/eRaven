@@ -1,8 +1,8 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-//----------------------------------------------------------------------------- 
-// TimesheetTimelineConfiguration
+//-----------------------------------------------------------------------------
+// TimeSheetAggregateConfiguration
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Aggregates;
@@ -11,6 +11,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
+/// <summary>
+/// EF Core configuration for <see cref="TimeSheetAggregate"/> (timesheet episode root).
+/// </summary>
 public sealed class TimeSheetAggregateConfiguration : IEntityTypeConfiguration<TimeSheetAggregate>
 {
     public void Configure(EntityTypeBuilder<TimeSheetAggregate> e)
@@ -60,21 +63,23 @@ public sealed class TimeSheetAggregateConfiguration : IEntityTypeConfiguration<T
         e.HasIndex(x => new { x.PersonId, x.ClosedAt })
             .HasDatabaseName("ix_ts_aggregates_person_closed");
 
-        // Fast lookup for "last closed episode" / ordering by opened
+        // Fast lookup for ordering by opened_at (last episode, etc.)
         e.HasIndex(x => new { x.PersonId, x.OpenedAt })
             .HasDatabaseName("ix_ts_aggregates_person_opened");
 
-        // Guarantee: only one active timeline per person (ClosedAt == null)
+        // Guarantee: only one active episode per person (ClosedAt == null)
         e.HasIndex(x => x.PersonId)
             .IsUnique()
             .HasFilter("closed_at IS NULL")
             .HasDatabaseName("ux_ts_aggregates_person_active");
 
+        // Entries: explicit navigation
         e.HasMany(x => x.Entries)
-            .WithOne()
+            .WithOne(x => x.TimeSheet)
             .HasForeignKey(x => x.TimesheetId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // TaskSpans: no navigation in entity (owned by TimesheetId)
         e.HasMany(x => x.TaskSpans)
             .WithOne()
             .HasForeignKey(x => x.TimesheetId)

@@ -41,8 +41,8 @@ public interface ITimesheetViewRepository
     /// Повертає матрицю табеля по всім особам за довільний діапазон дат (inclusive).
     /// </summary>
     Task<IReadOnlyList<TimesheetPersonRangeRowDto>> GetTimesheetRangeAsync(
-        DateOnly from,
-        DateOnly to,
+        DateOnly fromDate,
+        DateOnly toDate,
         string? search,
         CancellationToken ct = default);
 

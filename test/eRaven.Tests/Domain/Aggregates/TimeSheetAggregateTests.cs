@@ -6,524 +6,473 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Aggregates;
-using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
+using eRaven.Tests.Extensions;
+using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Tests.Domain.Aggregates;
 
+/// <summary>
+/// Тести для <see cref="TimeSheetAggregate"/>.
+///
+/// <para>
+/// Мета: зафіксувати стратегічні інваріанти агрегата (TaskSpans як факт):
+/// <list type="bullet">
+/// <item><description>інтервал задачі — half-open: <c>[FromDate..ToDate)</c>, де <c>ToDate</c> — EXCLUSIVE;</description></item>
+/// <item><description>заборонені перетини активних span’ів для однієї людини;</description></item>
+/// <item><description>Close/Cancel — компенсаційні дії без видалення фактів;</description></item>
+/// <item><description>EF зберігає/завантажує агрегат і snapshot TaskSpans без втрат.</description></item>
+/// </list>
+/// </para>
+/// </summary>
 public sealed class TimeSheetAggregateTests
 {
-    private static readonly DateTime NowUtc = new(2026, 02, 15, 12, 0, 0, DateTimeKind.Utc);
+    //======================================================================
+    // Domain-only tests (fast)
+    //======================================================================
 
-    private static TimeSheetAggregate NewEpisode(
-        DateOnly openedAt,
-        DateOnly? closedAt = null)
+    /// <summary>
+    /// UpsertTask має створювати span, проставляти snapshot+audit
+    /// та забезпечувати half-open семантику активності.
+    /// </summary>
+    [Fact]
+    public void UpsertTask_CreatesSpan_WithSnapshot_AndHalfOpenSemantics()
+    {
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+
+        var ep = NewEpisode(openedAt: new DateOnly(2026, 02, 01), nowUtc: now);
+
+        var documentId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+
+        ep.UpsertTask(
+            documentId: documentId,
+            missionId: missionId,
+            from: new DateOnly(2026, 02, 05),
+            toExclusive: null,
+            rnokpp: "1234567890",
+            fullName: "Test Person",
+            rank: "PVT",
+            position: "Operator",
+            weapon: "Rifle",
+            callsign: "FOX",
+            author: "tester",
+            nowUtc: now);
+
+        Assert.Single(ep.TaskSpans);
+
+        var span = ep.TaskSpans[0];
+
+        Assert.Equal(ep.Id, span.TimesheetId);
+        Assert.Equal(ep.PersonId, span.PersonId);
+
+        Assert.Equal(documentId, span.OpenedByCombatTaskDocumentId);
+        Assert.Equal(missionId, span.MissionId);
+
+        Assert.Equal(DocumentStatus.Active, span.Status);
+
+        Assert.Equal(new DateOnly(2026, 02, 05), span.FromDate);
+        Assert.Null(span.ToDate);
+
+        // Snapshot
+        Assert.Equal("1234567890", span.Rnokpp);
+        Assert.Equal("Test Person", span.FullName);
+        Assert.Equal("PVT", span.Rank);
+        Assert.Equal("Operator", span.Position);
+        Assert.Equal("Rifle", span.Weapon);
+        Assert.Equal("FOX", span.Callsign);
+
+        // Audit
+        Assert.Equal("tester", span.CreatedBy);
+        Assert.Equal(now, span.CreatedAtUtc);
+        Assert.Equal("tester", span.UpdatedBy);
+        Assert.Equal(now, span.UpdatedAtUtc);
+
+        // Closed fields cleared by Upsert
+        Assert.Null(span.ClosedByCombatTaskDocumentId);
+        Assert.Null(span.ClosedByCodeId);
+        Assert.Null(span.ClosedReference);
+
+        // Half-open active semantics:
+        Assert.False(span.IsActiveOn(new DateOnly(2026, 02, 04)));
+        Assert.True(span.IsActiveOn(new DateOnly(2026, 02, 05)));
+        Assert.True(span.IsActiveOn(new DateOnly(2026, 02, 10)));
+    }
+
+    /// <summary>
+    /// UpsertTask має забороняти перетини активних span’ів для однієї особи.
+    /// </summary>
+    [Fact]
+    public void UpsertTask_Throws_WhenOverlapsAnotherActiveSpan()
+    {
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+
+        var ep = NewEpisode(openedAt: new DateOnly(2026, 02, 01), nowUtc: now);
+
+        var doc1 = Guid.NewGuid();
+        var doc2 = Guid.NewGuid();
+        var m1 = Guid.NewGuid();
+        var m2 = Guid.NewGuid();
+
+        // span #1: [2026-02-05 .. 2026-02-10)
+        ep.UpsertTask(
+            documentId: doc1,
+            missionId: m1,
+            from: new DateOnly(2026, 02, 05),
+            toExclusive: new DateOnly(2026, 02, 10),
+            rnokpp: "1",
+            fullName: "A",
+            rank: null,
+            position: null,
+            weapon: null,
+            callsign: null,
+            author: "tester",
+            nowUtc: now);
+
+        // span #2 overlaps: [2026-02-09 .. 2026-02-12)
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            ep.UpsertTask(
+                documentId: doc2,
+                missionId: m2,
+                from: new DateOnly(2026, 02, 09),
+                toExclusive: new DateOnly(2026, 02, 12),
+                rnokpp: "2",
+                fullName: "B",
+                rank: null,
+                position: null,
+                weapon: null,
+                callsign: null,
+                author: "tester",
+                nowUtc: now));
+
+        Assert.Contains("overlap", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// CloseTask має виставляти <c>ToDate</c> як EXCLUSIVE межу
+    /// та робити span неактивним на даті <c>ToDate</c>.
+    /// </summary>
+ /*   [Fact]
+    public void CloseTask_SetsExclusiveToDate_AndMarksClosedByDocument()
+    {
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+
+        var ep = NewEpisode(openedAt: new DateOnly(2026, 02, 01), nowUtc: now);
+
+        var documentId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+
+        ep.UpsertTask(
+            documentId: documentId,
+            missionId: missionId,
+            from: new DateOnly(2026, 02, 10),
+            toExclusive: null,
+            rnokpp: "123",
+            fullName: "C",
+            rank: null,
+            position: null,
+            weapon: null,
+            callsign: null,
+            author: "tester",
+            nowUtc: now);
+
+        ep.CloseTaskByReason(
+            documentId: documentId,
+            missionId: missionId,
+            closeAtExclusive: new DateOnly(2026, 02, 12),
+            author: "tester2",
+            nowUtc: now.AddMinutes(1));
+
+        var span = ep.TaskSpans.Single();
+
+        Assert.Equal(new DateOnly(2026, 02, 12), span.ToDate);
+        Assert.Equal(documentId, span.ClosedByCombatTaskDocumentId);
+
+        // Active on last included day (11), inactive on ToDate (12)
+        Assert.True(span.IsActiveOn(new DateOnly(2026, 02, 11)));
+        Assert.False(span.IsActiveOn(new DateOnly(2026, 02, 12)));
+
+        // Updated audit changes
+        Assert.Equal("tester2", span.UpdatedBy);
+        Assert.Equal(now.AddMinutes(1), span.UpdatedAtUtc);
+    }*/
+
+    /// <summary>
+    /// CloseTaskByReason має закривати активний span на дату <paramref name="closeAtExclusive"/>
+    /// і проставляти причину (CodeId) та reference (trim).
+    ///
+    /// <para>
+    /// ВАЖЛИВО: домен забороняє перетини активних span’ів для однієї особи,
+    /// тому одночасно активним може бути лише один факт задачі.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void CloseTaskByReason_ClosesActiveSpan_AndSetsReason()
+    {
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+
+        var ep = NewEpisode(openedAt: new DateOnly(2026, 02, 01), nowUtc: now);
+
+        // Old span (non-active on close day): [2026-02-02 .. 2026-02-05)
+        ep.UpsertTask(
+            documentId: Guid.NewGuid(),
+            missionId: Guid.NewGuid(),
+            from: new DateOnly(2026, 02, 02),
+            toExclusive: new DateOnly(2026, 02, 05),
+            rnokpp: "0000000001",
+            fullName: "Old Span",
+            rank: null,
+            position: null,
+            weapon: null,
+            callsign: null,
+            author: "tester",
+            nowUtc: now);
+
+        // Active span to be closed: [2026-02-10 .. null)
+        var activeDoc = Guid.NewGuid();
+        var activeMission = Guid.NewGuid();
+
+        ep.UpsertTask(
+            documentId: activeDoc,
+            missionId: activeMission,
+            from: new DateOnly(2026, 02, 10),
+            toExclusive: null,
+            rnokpp: "0000000002",
+            fullName: "Active Span",
+            rank: null,
+            position: null,
+            weapon: null,
+            callsign: null,
+            author: "tester",
+            nowUtc: now);
+
+        var reasonCodeId = Guid.NewGuid();
+
+        ep.CloseTaskByReason(
+            closeAtExclusive: new DateOnly(2026, 02, 11),
+            reasonCodeId: reasonCodeId,
+            reference: "  F200  ",
+            author: "duty",
+            nowUtc: now.AddMinutes(2));
+
+        Assert.Equal(2, ep.TaskSpans.Count);
+
+        var oldSpan = ep.TaskSpans.Single(x => x.FullName == "Old Span");
+        var activeSpan = ep.TaskSpans.Single(x => x.FullName == "Active Span");
+
+        // Old span not active on 2026-02-11 => unchanged
+        Assert.Equal(new DateOnly(2026, 02, 05), oldSpan.ToDate);
+        Assert.Null(oldSpan.ClosedByCodeId);
+        Assert.Null(oldSpan.ClosedReference);
+
+        // Active span closed at 2026-02-11 (exclusive)
+        Assert.Equal(new DateOnly(2026, 02, 11), activeSpan.ToDate);
+        Assert.Equal(reasonCodeId, activeSpan.ClosedByCodeId);
+        Assert.Equal("F200", activeSpan.ClosedReference);
+        Assert.Equal("duty", activeSpan.UpdatedBy);
+        Assert.Equal(now.AddMinutes(2), activeSpan.UpdatedAtUtc);
+
+        // half-open semantics
+        Assert.True(activeSpan.IsActiveOn(new DateOnly(2026, 02, 10)));
+        Assert.False(activeSpan.IsActiveOn(new DateOnly(2026, 02, 11)));
+    }
+
+    /// <summary>
+    /// CancelTask має переводити span у Canceled (компенсація без видалення) та робити його неактивним.
+    /// </summary>
+    [Fact]
+    public void CancelTask_SetsCanceledStatus_AndDeactivatesSpan()
+    {
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+
+        var ep = NewEpisode(openedAt: new DateOnly(2026, 02, 01), nowUtc: now);
+
+        var documentId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+
+        ep.UpsertTask(
+            documentId: documentId,
+            missionId: missionId,
+            from: new DateOnly(2026, 02, 10),
+            toExclusive: null,
+            rnokpp: "123",
+            fullName: "C",
+            rank: null,
+            position: null,
+            weapon: null,
+            callsign: null,
+            author: "tester",
+            nowUtc: now);
+
+        var reasonCodeId = Guid.NewGuid();
+
+        ep.CancelTask(
+            documentId: documentId,
+            missionId: missionId,
+            reasonCodeId: reasonCodeId,
+            reference: "  VOID  ",
+            author: "auditor",
+            nowUtc: now.AddMinutes(5));
+
+        var span = ep.TaskSpans.Single();
+
+        Assert.Equal(DocumentStatus.Canceled, span.Status);
+        Assert.Equal(reasonCodeId, span.ClosedByCodeId);
+        Assert.Equal("VOID", span.ClosedReference);
+
+        // canceled => not active on any date
+        Assert.False(span.IsActiveOn(new DateOnly(2026, 02, 10)));
+        Assert.False(span.IsActiveOn(new DateOnly(2026, 02, 11)));
+    }
+
+    /// <summary>
+    /// Якщо span мав причину закриття — повторний UpsertTask має очистити поля Closed*,
+    /// бо факт актуалізується документом.
+    /// </summary>
+    [Fact]
+    public void UpsertTask_ClearsClosedFields_AfterReasonClose()
+    {
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+
+        var ep = NewEpisode(openedAt: new DateOnly(2026, 02, 01), nowUtc: now);
+
+        var doc = Guid.NewGuid();
+        var mission = Guid.NewGuid();
+
+        ep.UpsertTask(
+            documentId: doc,
+            missionId: mission,
+            from: new DateOnly(2026, 02, 10),
+            toExclusive: null,
+            rnokpp: "1",
+            fullName: "P1",
+            rank: null,
+            position: null,
+            weapon: null,
+            callsign: null,
+            author: "tester",
+            nowUtc: now);
+
+        ep.CloseTaskByReason(
+            closeAtExclusive: new DateOnly(2026, 02, 11),
+            reasonCodeId: Guid.NewGuid(),
+            reference: "F100",
+            author: "duty",
+            nowUtc: now.AddMinutes(1));
+
+        var span = ep.TaskSpans.Single();
+        Assert.NotNull(span.ClosedByCodeId);
+        Assert.NotNull(span.ClosedReference);
+
+        // Upsert again should clear closed fields
+        ep.UpsertTask(
+            documentId: doc,
+            missionId: mission,
+            from: new DateOnly(2026, 02, 10),
+            toExclusive: null,
+            rnokpp: "1",
+            fullName: "P1",
+            rank: null,
+            position: null,
+            weapon: null,
+            callsign: null,
+            author: "tester2",
+            nowUtc: now.AddMinutes(2));
+
+        span = ep.TaskSpans.Single();
+
+        Assert.Null(span.ClosedByCombatTaskDocumentId);
+        Assert.Null(span.ClosedByCodeId);
+        Assert.Null(span.ClosedReference);
+    }
+
+    //======================================================================
+    // EF persistence tests (SqliteTestDb)
+    //======================================================================
+
+    /// <summary>
+    /// Перевіряє, що агрегат з TaskSpans коректно зберігається/завантажується через EF (SQLite InMemory).
+    /// Це фіксує відповідність домену та EF-конфігів після міграцій.
+    /// </summary>
+    [Fact]
+    public async Task Ef_Roundtrip_PersistsTaskSpanSnapshotAndAudit()
+    {
+        await using var testDb = new SqliteTestDb();
+
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+
+        var ep = NewEpisode(openedAt: new DateOnly(2026, 02, 01), nowUtc: now);
+
+        var doc = Guid.NewGuid();
+        var mission = Guid.NewGuid();
+
+        ep.UpsertTask(
+            documentId: doc,
+            missionId: mission,
+            from: new DateOnly(2026, 02, 05),
+            toExclusive: null,
+            rnokpp: "1234567890",
+            fullName: "Persisted Person",
+            rank: "SGT",
+            position: "Operator",
+            weapon: "Rifle",
+            callsign: "FOX",
+            author: "tester",
+            nowUtc: now);
+
+        // Save
+        await using (var db = await testDb.Factory.CreateDbContextAsync())
+        {
+            db.TimeSheets.Add(ep);
+            await db.SaveChangesAsync();
+        }
+
+        // Load
+        await using (var db = await testDb.Factory.CreateDbContextAsync())
+        {
+            var loaded = await db.TimeSheets
+                .Include(x => x.TaskSpans)
+                .SingleAsync(x => x.Id == ep.Id);
+
+            Assert.Single(loaded.TaskSpans);
+
+            var span = loaded.TaskSpans[0];
+
+            Assert.Equal("1234567890", span.Rnokpp);
+            Assert.Equal("Persisted Person", span.FullName);
+            Assert.Equal("SGT", span.Rank);
+            Assert.Equal("Operator", span.Position);
+            Assert.Equal("Rifle", span.Weapon);
+            Assert.Equal("FOX", span.Callsign);
+
+            Assert.Equal("tester", span.CreatedBy);
+            Assert.Equal(now, span.CreatedAtUtc);
+            Assert.Equal("tester", span.UpdatedBy);
+            Assert.Equal(now, span.UpdatedAtUtc);
+
+            // half-open semantics survives roundtrip
+            Assert.True(span.IsActiveOn(new DateOnly(2026, 02, 05)));
+            Assert.True(span.IsActiveOn(new DateOnly(2026, 02, 10)));
+        }
+    }
+
+    //======================================================================
+    // Test helpers
+    //======================================================================
+
+    /// <summary>
+    /// Створює мінімально валідний епізод для тестів.
+    /// </summary>
+    private static TimeSheetAggregate NewEpisode(DateOnly openedAt, DateTime nowUtc)
         => new()
         {
             Id = Guid.NewGuid(),
             PersonId = Guid.NewGuid(),
             OpenedAt = openedAt,
-            ClosedAt = closedAt,
-            CreatedBy = "tester",
-            CreatedAtUtc = NowUtc
+            ClosedAt = null,
+            CreatedBy = "seed",
+            CreatedAtUtc = nowUtc,
+            ClosedBy = null,
+            ClosedAtUtc = null
         };
-
-    // =========================
-    // basics
-    // =========================
-
-    [Fact]
-    public void IsActiveOn_when_open_ended_should_be_true_from_openedAt_and_false_before()
-    {
-        var openedAt = new DateOnly(2026, 02, 10);
-        var sut = NewEpisode(openedAt);
-
-        Assert.False(sut.IsActiveOn(openedAt.AddDays(-1)));
-        Assert.True(sut.IsActiveOn(openedAt));
-        Assert.True(sut.IsActiveOn(openedAt.AddDays(10)));
-    }
-
-    [Fact]
-    public void IsActiveOn_when_closed_should_be_inclusive_of_closedAt()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 10), new DateOnly(2026, 02, 12));
-
-        Assert.True(sut.IsActiveOn(new DateOnly(2026, 02, 10)));
-        Assert.True(sut.IsActiveOn(new DateOnly(2026, 02, 12)));
-        Assert.False(sut.IsActiveOn(new DateOnly(2026, 02, 13)));
-    }
-
-    [Fact]
-    public void HasActiveTaskOn_should_respect_span_is_active_on_and_ignore_canceled()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        sut.TaskSpans.Add(new TimesheetTaskSpan
-        {
-            Id = Guid.NewGuid(),
-            TimesheetId = sut.Id,
-            PersonId = sut.PersonId,
-            CombatTaskDocumentId = Guid.NewGuid(),
-            MissionId = Guid.NewGuid(),
-            FromDate = new DateOnly(2026, 02, 10),
-            ToDate = new DateOnly(2026, 02, 10),
-            Status = DocumentStatus.Canceled,
-            UpdatedBy = "tester",
-            UpdatedAtUtc = NowUtc
-        });
-
-        sut.TaskSpans.Add(new TimesheetTaskSpan
-        {
-            Id = Guid.NewGuid(),
-            TimesheetId = sut.Id,
-            PersonId = sut.PersonId,
-            CombatTaskDocumentId = Guid.NewGuid(),
-            MissionId = Guid.NewGuid(),
-            FromDate = new DateOnly(2026, 02, 11),
-            ToDate = null,
-            Status = DocumentStatus.Draft,
-            UpdatedBy = "tester",
-            UpdatedAtUtc = NowUtc
-        });
-
-        Assert.False(sut.HasActiveTaskOn(new DateOnly(2026, 02, 10)));
-        Assert.True(sut.HasActiveTaskOn(new DateOnly(2026, 02, 11)));
-        Assert.True(sut.HasActiveTaskOn(new DateOnly(2026, 03, 01)));
-    }
-
-    [Fact]
-    public void EnsureNotClosed_when_closed_should_throw()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01), new DateOnly(2026, 02, 05));
-
-        var ex = Assert.Throws<InvalidOperationException>(() => sut.EnsureNotClosed());
-        Assert.Equal("Timesheet episode is closed.", ex.Message);
-    }
-
-    [Fact]
-    public void EnsureInBounds_when_before_openedAt_should_throw()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 10));
-
-        var ex = Assert.Throws<InvalidOperationException>(() => sut.EnsureInBounds(new DateOnly(2026, 02, 09)));
-        Assert.Contains("before OpenedAt", ex.Message);
-    }
-
-    [Fact]
-    public void EnsureInBounds_when_after_closedAt_should_throw()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 10), new DateOnly(2026, 02, 12));
-
-        var ex = Assert.Throws<InvalidOperationException>(() => sut.EnsureInBounds(new DateOnly(2026, 02, 13)));
-        Assert.Contains("after ClosedAt", ex.Message);
-    }
-
-    // =========================
-    // UpsertTask
-    // =========================
-
-    [Fact]
-    public void UpsertTask_when_span_missing_should_create_span_and_set_denormalized_fields()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        var docId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-
-        sut.UpsertTask(
-            documentId: docId,
-            missionId: missionId,
-            from: new DateOnly(2026, 02, 10),
-            to: new DateOnly(2026, 02, 12),
-            status: DocumentStatus.Draft,
-            author: "planner",
-            nowUtc: NowUtc);
-
-        Assert.Single(sut.TaskSpans);
-
-        var span = sut.TaskSpans[0];
-        Assert.NotEqual(Guid.Empty, span.Id);
-        Assert.Equal(sut.Id, span.TimesheetId);
-        Assert.Equal(sut.PersonId, span.PersonId);
-        Assert.Equal(docId, span.CombatTaskDocumentId);
-        Assert.Equal(missionId, span.MissionId);
-        Assert.Equal(new DateOnly(2026, 02, 10), span.FromDate);
-        Assert.Equal(new DateOnly(2026, 02, 12), span.ToDate);
-        Assert.Equal(DocumentStatus.Draft, span.Status);
-        Assert.Equal("planner", span.UpdatedBy);
-        Assert.Equal(NowUtc, span.UpdatedAtUtc);
-        Assert.Null(span.ClosedByCodeId);
-        Assert.Null(span.ClosedReference);
-    }
-
-    [Fact]
-    public void UpsertTask_when_status_not_canceled_should_clear_closed_fields()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        var docId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-
-        sut.TaskSpans.Add(new TimesheetTaskSpan
-        {
-            Id = Guid.NewGuid(),
-            TimesheetId = sut.Id,
-            PersonId = sut.PersonId,
-            CombatTaskDocumentId = docId,
-            MissionId = missionId,
-            FromDate = new DateOnly(2026, 02, 10),
-            ToDate = new DateOnly(2026, 02, 12),
-            Status = DocumentStatus.Canceled,
-            ClosedByCodeId = Guid.NewGuid(),
-            ClosedReference = "ref",
-            UpdatedBy = "tester",
-            UpdatedAtUtc = NowUtc.AddMinutes(-1)
-        });
-
-        sut.UpsertTask(docId, missionId,
-            from: new DateOnly(2026, 02, 10),
-            to: new DateOnly(2026, 02, 12),
-            status: DocumentStatus.Draft,
-            author: "planner",
-            nowUtc: NowUtc);
-
-        Assert.Single(sut.TaskSpans);
-        var span = sut.TaskSpans[0];
-        Assert.Equal(DocumentStatus.Draft, span.Status);
-        Assert.Null(span.ClosedByCodeId);
-        Assert.Null(span.ClosedReference);
-    }
-
-    [Fact]
-    public void UpsertTask_when_to_before_from_should_throw()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            sut.UpsertTask(Guid.NewGuid(), Guid.NewGuid(),
-                from: new DateOnly(2026, 02, 10),
-                to: new DateOnly(2026, 02, 09),
-                status: DocumentStatus.Draft,
-                author: "tester",
-                nowUtc: NowUtc));
-
-        Assert.Equal("TaskSpan.To must be >= From.", ex.Message);
-    }
-
-    [Fact]
-    public void UpsertTask_when_episode_closed_should_throw()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01), new DateOnly(2026, 02, 10));
-
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            sut.UpsertTask(Guid.NewGuid(), Guid.NewGuid(),
-                from: new DateOnly(2026, 02, 05),
-                to: null,
-                status: DocumentStatus.Draft,
-                author: "tester",
-                nowUtc: NowUtc));
-
-        Assert.Equal("Timesheet episode is closed.", ex.Message);
-    }
-
-    [Fact]
-    public void UpsertTask_when_overlaps_with_other_active_span_should_throw_including_shared_day()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        sut.UpsertTask(
-            documentId: Guid.NewGuid(),
-            missionId: Guid.NewGuid(),
-            from: new DateOnly(2026, 02, 10),
-            to: new DateOnly(2026, 02, 12),
-            status: DocumentStatus.Draft,
-            author: "tester",
-            nowUtc: NowUtc);
-
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            sut.UpsertTask(
-                documentId: Guid.NewGuid(),
-                missionId: Guid.NewGuid(),
-                from: new DateOnly(2026, 02, 12),
-                to: new DateOnly(2026, 02, 15),
-                status: DocumentStatus.Draft,
-                author: "tester",
-                nowUtc: NowUtc));
-
-        Assert.Equal("Task spans overlap for the same person.", ex.Message);
-    }
-
-    [Fact]
-    public void UpsertTask_when_overlaps_with_open_ended_active_span_should_throw()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        sut.UpsertTask(
-            documentId: Guid.NewGuid(),
-            missionId: Guid.NewGuid(),
-            from: new DateOnly(2026, 02, 10),
-            to: null,
-            status: DocumentStatus.Posted,
-            author: "tester",
-            nowUtc: NowUtc);
-
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            sut.UpsertTask(
-                documentId: Guid.NewGuid(),
-                missionId: Guid.NewGuid(),
-                from: new DateOnly(2026, 02, 20),
-                to: new DateOnly(2026, 02, 21),
-                status: DocumentStatus.Draft,
-                author: "tester",
-                nowUtc: NowUtc));
-
-        Assert.Equal("Task spans overlap for the same person.", ex.Message);
-    }
-
-    [Fact]
-    public void UpsertTask_when_non_overlapping_should_allow_next_day()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        sut.UpsertTask(
-            documentId: Guid.NewGuid(),
-            missionId: Guid.NewGuid(),
-            from: new DateOnly(2026, 02, 10),
-            to: new DateOnly(2026, 02, 12),
-            status: DocumentStatus.Draft,
-            author: "tester",
-            nowUtc: NowUtc);
-
-        sut.UpsertTask(
-            documentId: Guid.NewGuid(),
-            missionId: Guid.NewGuid(),
-            from: new DateOnly(2026, 02, 13),
-            to: new DateOnly(2026, 02, 15),
-            status: DocumentStatus.Draft,
-            author: "tester",
-            nowUtc: NowUtc);
-
-        Assert.Equal(2, sut.TaskSpans.Count);
-    }
-
-    [Fact]
-    public void UpsertTask_when_overlaps_with_canceled_span_should_allow()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        sut.TaskSpans.Add(new TimesheetTaskSpan
-        {
-            Id = Guid.NewGuid(),
-            TimesheetId = sut.Id,
-            PersonId = sut.PersonId,
-            CombatTaskDocumentId = Guid.NewGuid(),
-            MissionId = Guid.NewGuid(),
-            FromDate = new DateOnly(2026, 02, 10),
-            ToDate = new DateOnly(2026, 02, 20),
-            Status = DocumentStatus.Canceled,
-            UpdatedBy = "tester",
-            UpdatedAtUtc = NowUtc
-        });
-
-        sut.UpsertTask(
-            documentId: Guid.NewGuid(),
-            missionId: Guid.NewGuid(),
-            from: new DateOnly(2026, 02, 15),
-            to: new DateOnly(2026, 02, 16),
-            status: DocumentStatus.Draft,
-            author: "tester",
-            nowUtc: NowUtc);
-
-        Assert.Equal(2, sut.TaskSpans.Count);
-    }
-
-    [Fact]
-    public void UpsertTask_when_same_document_and_mission_should_update_in_place()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        var docId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-
-        sut.UpsertTask(docId, missionId,
-            from: new DateOnly(2026, 02, 10),
-            to: new DateOnly(2026, 02, 12),
-            status: DocumentStatus.Draft,
-            author: "tester",
-            nowUtc: NowUtc.AddMinutes(-1));
-
-        sut.UpsertTask(docId, missionId,
-            from: new DateOnly(2026, 02, 11),
-            to: new DateOnly(2026, 02, 13),
-            status: DocumentStatus.Posted,
-            author: "poster",
-            nowUtc: NowUtc);
-
-        Assert.Single(sut.TaskSpans);
-        var span = sut.TaskSpans[0];
-        Assert.Equal(new DateOnly(2026, 02, 11), span.FromDate);
-        Assert.Equal(new DateOnly(2026, 02, 13), span.ToDate);
-        Assert.Equal(DocumentStatus.Posted, span.Status);
-        Assert.Equal("poster", span.UpdatedBy);
-        Assert.Equal(NowUtc, span.UpdatedAtUtc);
-    }
-
-    // =========================
-    // RemoveTaskForPerson
-    // =========================
-
-    [Fact]
-    public void RemoveTaskForPerson_when_exists_should_remove()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        var docId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-
-        sut.UpsertTask(docId, missionId,
-            from: new DateOnly(2026, 02, 10),
-            to: null,
-            status: DocumentStatus.Draft,
-            author: "tester",
-            nowUtc: NowUtc);
-
-        Assert.Single(sut.TaskSpans);
-
-        sut.RemoveTaskForPerson(docId, missionId);
-
-        Assert.Empty(sut.TaskSpans);
-    }
-
-    [Fact]
-    public void RemoveTaskForPerson_when_missing_should_noop()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        sut.RemoveTaskForPerson(Guid.NewGuid(), Guid.NewGuid());
-
-        Assert.Empty(sut.TaskSpans);
-    }
-
-    // =========================
-    // CloseTaskByReason
-    // =========================
-
-    [Fact]
-    public void CloseTaskByReason_should_set_toDate_and_mark_span_canceled_and_set_reason_fields()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        var docId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-        sut.UpsertTask(docId, missionId,
-            from: new DateOnly(2026, 02, 10),
-            to: null,
-            status: DocumentStatus.Posted,
-            author: "poster",
-            nowUtc: NowUtc.AddMinutes(-5));
-
-        var reasonId = Guid.NewGuid();
-        sut.CloseTaskByReason(docId, missionId,
-            closeAt: new DateOnly(2026, 02, 12),
-            reasonCodeId: reasonId,
-            reference: "  F200  ",
-            author: "ops",
-            nowUtc: NowUtc);
-
-        var span = Assert.Single(sut.TaskSpans);
-        Assert.Equal(new DateOnly(2026, 02, 12), span.ToDate);
-        Assert.Equal(DocumentStatus.Canceled, span.Status);
-        Assert.Equal(reasonId, span.ClosedByCodeId);
-        Assert.Equal("F200", span.ClosedReference);
-        Assert.Equal("ops", span.UpdatedBy);
-        Assert.Equal(NowUtc, span.UpdatedAtUtc);
-    }
-
-    [Fact]
-    public void CloseTaskByReason_when_toDate_is_before_closeAt_should_keep_existing_toDate()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        var docId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-        sut.UpsertTask(docId, missionId,
-            from: new DateOnly(2026, 02, 10),
-            to: new DateOnly(2026, 02, 11),
-            status: DocumentStatus.Posted,
-            author: "poster",
-            nowUtc: NowUtc.AddMinutes(-5));
-
-        sut.CloseTaskByReason(docId, missionId,
-            closeAt: new DateOnly(2026, 02, 12),
-            reasonCodeId: Guid.NewGuid(),
-            reference: null,
-            author: "ops",
-            nowUtc: NowUtc);
-
-        var span = Assert.Single(sut.TaskSpans);
-        Assert.Equal(new DateOnly(2026, 02, 11), span.ToDate);
-        Assert.Equal(DocumentStatus.Canceled, span.Status);
-        Assert.Null(span.ClosedReference);
-    }
-
-    [Fact]
-    public void CloseTaskByReason_when_reference_is_whitespace_should_store_null()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        var docId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-        sut.UpsertTask(docId, missionId,
-            from: new DateOnly(2026, 02, 10),
-            to: null,
-            status: DocumentStatus.Posted,
-            author: "poster",
-            nowUtc: NowUtc.AddMinutes(-5));
-
-        sut.CloseTaskByReason(docId, missionId,
-            closeAt: new DateOnly(2026, 02, 12),
-            reasonCodeId: Guid.NewGuid(),
-            reference: "   ",
-            author: "ops",
-            nowUtc: NowUtc);
-
-        var span = Assert.Single(sut.TaskSpans);
-        Assert.Null(span.ClosedReference);
-    }
-
-    [Fact]
-    public void CloseTaskByReason_when_span_missing_should_throw()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01));
-
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            sut.CloseTaskByReason(
-                documentId: Guid.NewGuid(),
-                missionId: Guid.NewGuid(),
-                closeAt: new DateOnly(2026, 02, 10),
-                reasonCodeId: Guid.NewGuid(),
-                reference: null,
-                author: "tester",
-                nowUtc: NowUtc));
-
-        Assert.Equal("Task span not found.", ex.Message);
-    }
-
-    [Fact]
-    public void CloseTaskByReason_when_episode_closed_should_throw()
-    {
-        var sut = NewEpisode(new DateOnly(2026, 02, 01), new DateOnly(2026, 02, 05));
-
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            sut.CloseTaskByReason(
-                documentId: Guid.NewGuid(),
-                missionId: Guid.NewGuid(),
-                closeAt: new DateOnly(2026, 02, 03),
-                reasonCodeId: Guid.NewGuid(),
-                reference: null,
-                author: "tester",
-                nowUtc: NowUtc));
-
-        Assert.Equal("Timesheet episode is closed.", ex.Message);
-    }
 }

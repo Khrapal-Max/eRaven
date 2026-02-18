@@ -2,14 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// CreateCombatTaskDocumentDraftCommand
+// GetTimesheetTransitionContextQuery
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Commands.CombatTask;
+namespace eRaven.Application.Queries.Timesheet;
 
-public sealed record CreateCombatTaskDocumentDraftCommand(
-    string OrderTitle,
-    DateOnly RecordedAt,
-    string? Description,
-    string Author,
-    DateTime NowUtc);
+/// <summary>
+/// Повертає контекст переходу табеля для особи на конкретну дату:
+/// поточний код + дозволені переходи.
+/// </summary>
+public sealed record GetTimesheetTransitionContextQuery(
+    Guid PersonId,
+    DateOnly OnDate);

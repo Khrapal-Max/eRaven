@@ -12,49 +12,59 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.CombatTaskRepository;
 
-public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFactory) : ICombatTaskDocumentRepository
+/// <summary>
+/// EF Core repository for <see cref="CombatTaskDocument"/>.
+/// </summary>
+public sealed class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFactory)
+    : ICombatTaskDocumentRepository
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<CombatTaskDocumentDto>> GetDocumentsAsync(
-        int year,
-        int month,
+        int? year,
+        int? month,
         DocumentStatus? status,
         string? search,
         CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var from = new DateOnly(year, month, 1);
-        var to = from.AddMonths(1);
+        var q = db.CombatTaskDocuments
+            .AsNoTracking();
 
-        var query = db.CombatTaskDocuments
-            .AsNoTracking()
-            .Where(d => d.RecordedAt >= from && d.RecordedAt < to);
+        if (year.HasValue)
+            q = q.Where(x => x.RecordedAt.Year == year.Value);
 
-        if (status is not null)
-            query = query.Where(d => d.Status == status.Value);
+        if (month.HasValue)
+            q = q.Where(x => x.RecordedAt.Month == month.Value);
+
+        if (status.HasValue)
+            q = q.Where(x => x.Status == status.Value);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim();
-            query = query.Where(d => d.OrderTitle.Contains(s));
+            q = q.Where(x =>
+                EF.Functions.ILike(x.OrderTitle, $"%{s}%")
+                || (x.Description != null && EF.Functions.ILike(x.Description, $"%{s}%")));
         }
 
-        return await query
-            .Select(d => new CombatTaskDocumentDto(
-                DocumentId: d.Id,
-                OrderTitle: d.OrderTitle,
-                Description: d.Description,
-                Status: d.Status,
-                RecordedAt: d.RecordedAt,
-                CanceledReason: d.CanceledReason ?? string.Empty))
+        return await q
+            .OrderByDescending(x => x.RecordedAt)
+            .ThenByDescending(x => x.CreatedAtUtc)
+            .Select(x => new CombatTaskDocumentDto(
+                DocumentId: x.Id,
+                OrderTitle: x.OrderTitle,
+                Description: x.Description,
+                Status: x.Status,
+                RecordedAt: x.RecordedAt,
+                CanceledReason: x.CanceledReason ?? string.Empty))
             .ToListAsync(ct);
     }
 
     /// <inheritdoc />
-    public async Task<Guid> CreateDraftAsync(
+    public async Task<Guid> CreateAsync(
         string orderTitle,
         DateOnly recordedAt,
         string? description,
@@ -62,70 +72,71 @@ public class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext> dbFact
         DateTime nowUtc,
         CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(orderTitle))
+            throw new ArgumentException("Order title is required.", nameof(orderTitle));
+
+        if (recordedAt == default)
+            throw new ArgumentException("RecordedAt must be set.", nameof(recordedAt));
+
+        if (string.IsNullOrWhiteSpace(author))
+            throw new ArgumentException("author is required.", nameof(author));
+
+        if (nowUtc == default)
+            throw new ArgumentException("nowUtc must be set.", nameof(nowUtc));
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var document = new CombatTaskDocument
+        var doc = new CombatTaskDocument
         {
             Id = Guid.NewGuid(),
-            OrderTitle = orderTitle,
-            Description = description,
+            Status = DocumentStatus.Active,
+            OrderTitle = orderTitle.Trim(),
+            Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
             RecordedAt = recordedAt,
-            Status = DocumentStatus.Draft,
             CreatedBy = author,
-            CreatedAtUtc = nowUtc
+            CreatedAtUtc = nowUtc,
+            UpdatedBy = author,
+            UpdatedAtUtc = nowUtc
         };
 
-        db.CombatTaskDocuments.Add(document);
+        db.CombatTaskDocuments.Add(doc);
         await db.SaveChangesAsync(ct);
-
-        return document.Id;
+        return doc.Id;
     }
 
     /// <inheritdoc />
-    public async Task PostAsync(Guid documentId, string author, DateTime nowUtc, CancellationToken ct = default)
+    public async Task CancelAsync(
+        Guid documentId,
+        string? reason,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
     {
-        if (documentId == Guid.Empty) throw new ArgumentException("DocumentId is required.", nameof(documentId));
+        if (documentId == default)
+            throw new ArgumentException("documentId must be set.", nameof(documentId));
+
+        if (string.IsNullOrWhiteSpace(author))
+            throw new ArgumentException("author is required.", nameof(author));
+
+        if (nowUtc == default)
+            throw new ArgumentException("nowUtc must be set.", nameof(nowUtc));
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var document = await db.CombatTaskDocuments
-            .FirstOrDefaultAsync(x => x.Id == documentId, ct)
-            ?? throw new InvalidOperationException("Документ не знайдено.");
+        var doc = await db.CombatTaskDocuments
+            .SingleOrDefaultAsync(x => x.Id == documentId, ct)
+            ?? throw new InvalidOperationException("CombatTaskDocument not found.");
 
-        if (document.Status == DocumentStatus.Posted)
-            return;
+        if (doc.Status == DocumentStatus.Canceled)
+            return; // idempotent
 
-        if (document.Status == DocumentStatus.Canceled)
-            throw new InvalidOperationException("Документ відмінений і не може бути проведений.");
+        doc.Status = DocumentStatus.Canceled;
+        doc.CanceledBy = author;
+        doc.CanceledAtUtc = nowUtc;
+        doc.CanceledReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
 
-        document.Status = DocumentStatus.Posted;
-        document.UpdatedBy = author;
-        document.UpdatedAtUtc = nowUtc;
-
-        await db.SaveChangesAsync(ct);
-    }
-
-    /// <inheritdoc />
-    public async Task CancelAsync(Guid documentId, string reason, string author, DateTime nowUtc, CancellationToken ct = default)
-    {
-        if (documentId == Guid.Empty) throw new ArgumentException("DocumentId is required.", nameof(documentId));
-
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        var document = await db.CombatTaskDocuments
-            .FirstOrDefaultAsync(x => x.Id == documentId, ct)
-            ?? throw new InvalidOperationException("Документ не знайдено.");
-
-        if (document.Status == DocumentStatus.Posted)
-            throw new InvalidOperationException("Документ вже проведений.");
-
-        if (document.Status == DocumentStatus.Canceled)
-            return;
-
-        document.Status = DocumentStatus.Canceled;
-        document.CanceledReason = reason;
-        document.CanceledBy = author;
-        document.CanceledAtUtc = nowUtc;
+        doc.UpdatedBy = author;
+        doc.UpdatedAtUtc = nowUtc;
 
         await db.SaveChangesAsync(ct);
     }

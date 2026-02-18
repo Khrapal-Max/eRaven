@@ -8,12 +8,14 @@
 namespace eRaven.Application.DTOs.Timesheet;
 
 /// <summary>
-/// Опція для селекта "дозволені переходи" (з уже підставленим правилом 0/1).
+/// Опція переходу табеля (для UI): вибираємо за Id коду, відображаємо Code + Display.
 /// </summary>
+/// <param name="TransitionCodeId">Id коду, який буде застосовано як наступний стан.</param>
+/// <param name="Code">Текстовий код (наприклад: 30, ЛХ, Ф100).</param>
+/// <param name="Display">Людинозрозуміла назва/заголовок коду.</param>
+/// <param name="StartShiftDays">Зсув старту (0 = з дати події, 1 = ще поточний).</param>
 public sealed record TimesheetTransitionOptionDto(
+    Guid TransitionCodeId,
     string Code,
-    string Title,
-    int StartShiftDays)
-{
-    public string Display => $"{Code} — {Title}";
-}
+    string Display,
+    int StartShiftDays);

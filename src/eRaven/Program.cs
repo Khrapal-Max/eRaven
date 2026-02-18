@@ -13,6 +13,7 @@ using eRaven.Infrastructure;
 using eRaven.Infrastructure.Projectors;
 using eRaven.Presentation.Errors;
 using eRaven.Presentation.Toasts;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,6 +26,10 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 {
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")); // або ваш провайдер
 });
+
+// DataProtection keys must survive restarts and be shared across instances
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo("/data-protection-keys"));
 
 // Stateless
 builder.Services.AddSingleton<IPersonReadModelProjector, PersonReadModelProjector>();

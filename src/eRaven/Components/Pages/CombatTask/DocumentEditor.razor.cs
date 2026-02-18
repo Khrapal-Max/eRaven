@@ -5,8 +5,6 @@
 // DocumentEditor
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Commands;
-using eRaven.Application.Commands.CombatTask;
 using eRaven.Application.DTOs.CombatTask;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.CombatTask;
@@ -22,7 +20,6 @@ public partial class DocumentEditor : ComponentBase
     // DI
     //======================================================================
     [Inject] public IQueryHandler<GetCombatTaskDetailsByDocumentIdQuery, CombatTaskEditorDto?> GetCombatTaskHandler { get; set; } = default!;
-    [Inject] public ICommandHandler<PostCombatTaskDocumentCommand> PostCombatTaskDocumentHandler { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
 
@@ -37,8 +34,6 @@ public partial class DocumentEditor : ComponentBase
 
     private bool _loading;
 
-    private bool _posting;
-    private bool IsNotDraft => (_combatTaskDocument?.Status) != DocumentStatus.Draft;
     private CombatTaskEditorDto? _combatTaskDocument;
     private IReadOnlyCollection<CombatTaskMissionBlockDto> _missions = [];
 
@@ -84,36 +79,6 @@ public partial class DocumentEditor : ComponentBase
         finally
         {
             _loading = false;
-        }
-    }
-
-    //======================================================================
-    // Commands
-    //======================================================================
-    private async Task PostDocumentAsync()
-    {
-        if (IsNotDraft || _posting)
-            return;
-
-        _posting = true;
-
-        try
-        {
-            await PostCombatTaskDocumentHandler.HandleAsync(new PostCombatTaskDocumentCommand(
-                DocumentId: DocumentId,
-                Author: "ui", // TODO : replace with real user
-                NowUtc: DateTime.UtcNow));
-
-            Toasts.Success("Документ проведено в табель.");
-            await LoadAsync();
-        }
-        catch (Exception ex)
-        {
-            Toasts.Error(ex.Message);
-        }
-        finally
-        {
-            _posting = false;
         }
     }
 

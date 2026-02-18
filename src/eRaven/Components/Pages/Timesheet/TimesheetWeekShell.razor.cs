@@ -51,8 +51,7 @@ public partial class TimesheetWeekShell : ComponentBase
     //======================================================================
     private bool _drawerOpen;
     private Guid _drawerPersonId;
-    private Guid _drawerCurrentCodeId;
-    private string _drawerCurrentCode = string.Empty;
+    private DateOnly _drawerInitialDate;
     private string? _drawerPersonLabel;
 
     private bool _personDrawerOpen;
@@ -75,7 +74,7 @@ public partial class TimesheetWeekShell : ComponentBase
         var ct = _reloadCts.Token;
 
         _loading = true;
-        await InvokeAsync(StateHasChanged); // показати overlay одразу
+        await InvokeAsync(StateHasChanged);
 
         _fromDate = _anchorDate.AddDays(-_offsetFrom);
         _toDate = _anchorDate.AddDays(_offsetTo);
@@ -94,7 +93,7 @@ public partial class TimesheetWeekShell : ComponentBase
 
             if (ct.IsCancellationRequested) return;
 
-            _rows = res; // важливо: НЕ чистимо _rows на старті — старі дані лишаються
+            _rows = res;
         }
         catch (OperationCanceledException)
         {
@@ -103,7 +102,6 @@ public partial class TimesheetWeekShell : ComponentBase
         catch (Exception ex)
         {
             Toasts.Error(ex.Message);
-            // не обнуляй _rows — інакше знову флеш
         }
         finally
         {
@@ -150,13 +148,12 @@ public partial class TimesheetWeekShell : ComponentBase
     //======================================================================
     private bool CanOpenTransition(TimesheetPersonRangeRowDto r)
     {
-        // CurrentCodeId беремо з anchor-колонки.
+        // Мінімальна перевірка для операційного табеля:
+        // - якщо "НБ" на операційний день (anchor) — людина не в табелі => події заборонені
         var anchor = GetAnchorDay(r);
-
-        // якщо "НБ" на anchor — людина не в табелі на цю дату => події заборонені
         if (IsNb(anchor.Code)) return false;
 
-        // додатково можна підсилити правилами життєвого циклу:
+        // додатково: якщо виключений — не даємо створювати події
         if (r.ExcludedAt.HasValue) return false;
 
         return true;
@@ -166,19 +163,18 @@ public partial class TimesheetWeekShell : ComponentBase
     {
         if (!CanOpenTransition(r)) return;
 
-        var anchor = GetAnchorDay(r);
-
         _drawerPersonId = r.PersonId;
-        _drawerCurrentCodeId = anchor.CodeId;
-        _drawerCurrentCode = anchor.Code;
-        _drawerPersonLabel = $"{r.Rank} {r.FullName} ({r.RNOKPP})".Trim();
 
+        // Drawer сам визначить поточний код і дозволені переходи для обраної дати.
+        // Тут передаємо лише стартову дату (за замовчуванням — операційний день).
+        _drawerInitialDate = _anchorDate;
+
+        _drawerPersonLabel = $"{r.Rank} {r.FullName} ({r.RNOKPP})".Trim();
         _drawerOpen = true;
     }
 
     private void OpenPersonDrawer(TimesheetPersonRangeRowDto r)
     {
-        // Адаптер RangeRow -> MonthRow (drawer так очікує)
         var codes = r.Days.Select(d => (d.Code ?? "").Trim()).ToArray();
         var refs = r.Days.Select(d => string.IsNullOrWhiteSpace(d.Reference) ? null : d.Reference.Trim()).ToArray();
 
@@ -206,7 +202,6 @@ public partial class TimesheetWeekShell : ComponentBase
 
     private TimesheetRangeDayDto GetAnchorDay(TimesheetPersonRangeRowDto r)
     {
-        // надійніше ніж індекс: шукаємо день по Date
         var hit = r.Days.FirstOrDefault(x => x.Date == _anchorDate);
         if (hit is not null) return hit;
 
@@ -237,7 +232,7 @@ public partial class TimesheetWeekShell : ComponentBase
         EnrollmentKind.Unit => "ШТ",
         EnrollmentKind.AttachedByList => "НК",
         EnrollmentKind.AttachedByOrder => "БР",
-        _ => "—"
+        _ => "РЕЗЕРВ"
     };
 
     private static string ShortCode(string code)
@@ -266,7 +261,6 @@ public partial class TimesheetWeekShell : ComponentBase
     {
         var c = (code ?? "").Trim().ToUpperInvariant();
 
-        // контрастні "subtle" фони — тільки bootstrap
         var baseCls = c switch
         {
             var x when x == TimesheetSystemCodes.NotInTimesheet => "bg-info-subtle",
@@ -278,7 +272,6 @@ public partial class TimesheetWeekShell : ComponentBase
             _ => "bg-warning-subtle"
         };
 
-        // активна колонка: рамка + легка тінь (контраст без CSS)
         var anchorCls = isAnchor ? " border border-2 border-primary shadow-sm" : "";
 
         return baseCls + anchorCls;
@@ -288,7 +281,6 @@ public partial class TimesheetWeekShell : ComponentBase
     {
         var c = (code ?? "").Trim().ToUpperInvariant();
 
-        // текст під фон (emphasis — bootstrap 5.3)
         var text = c switch
         {
             var x when x == TimesheetSystemCodes.NotInTimesheet => "text-info-emphasis",
@@ -300,7 +292,6 @@ public partial class TimesheetWeekShell : ComponentBase
             _ => "text-warning-emphasis"
         };
 
-        // читабельність
         var weight = isAnchor ? " fw-bold" : " fw-semibold";
         return "small " + text + weight;
     }

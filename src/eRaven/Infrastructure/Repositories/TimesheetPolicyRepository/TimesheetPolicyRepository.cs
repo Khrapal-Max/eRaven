@@ -143,8 +143,8 @@ public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> db
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<TimesheetCodeTransition>> GetAllowedTransitionsAsync(
-    Guid fromCodeId,
-    CancellationToken ct = default)
+        Guid fromCodeId,
+        CancellationToken ct = default)
     {
         if (fromCodeId == Guid.Empty)
             throw new ArgumentException("fromCodeId is required.", nameof(fromCodeId));
@@ -155,9 +155,12 @@ public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> db
             .AsNoTracking()
             .Where(x => x.FromCodeId == fromCodeId)
             .Include(x => x.ToCode)
-            // UI/handler не повинні бачити переходи у закриті або системні коди
+
+            // UI/handler не повинні бачити переходи у неактивні або системні коди
             .Where(x => x.ToCode.IsActive)
-            .Where(x => !x.ToCode.Code.Equals(TimesheetSystemCodes.NotInTimesheet))
+            .Where(x => x.ToCode.Code != TimesheetSystemCodes.NotInTimesheet)
+            .Where(x => x.ToCode.Code != TimesheetSystemCodes.DoesTheCombatTask) // ✅ 100 — системний
+
             .OrderBy(x => x.ToCode.SortOrder)
             .ThenBy(x => x.ToCode.Priority)
             .ThenBy(x => x.ToCode.Code)

@@ -10,14 +10,14 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
+/// <summary>
+/// EF Core configuration for <see cref="CombatTaskDetails"/>.
+/// </summary>
 public sealed class CombatTaskDetailsConfiguration : IEntityTypeConfiguration<CombatTaskDetails>
 {
     public void Configure(EntityTypeBuilder<CombatTaskDetails> e)
     {
-        e.ToTable("combat_task_lines", t =>
-        {
-            t.HasCheckConstraint("ck_combat_task_lines_kind_valid", "kind IN (1, 2)");
-        });
+        e.ToTable("combat_task_details");
 
         e.HasKey(x => x.Id);
 
@@ -31,6 +31,7 @@ public sealed class CombatTaskDetailsConfiguration : IEntityTypeConfiguration<Co
 
         e.Property(x => x.Kind)
             .HasColumnName("kind")
+            .HasConversion<int>()
             .IsRequired();
 
         e.Property(x => x.EffectiveAt)
@@ -41,7 +42,7 @@ public sealed class CombatTaskDetailsConfiguration : IEntityTypeConfiguration<Co
             .HasColumnName("person_id")
             .IsRequired();
 
-        // light snapshot для звітів / ідентифікації
+        // Snapshot fields
         e.Property(x => x.Rnokpp)
             .HasColumnName("rnokpp")
             .HasMaxLength(10)
@@ -52,17 +53,33 @@ public sealed class CombatTaskDetailsConfiguration : IEntityTypeConfiguration<Co
             .HasMaxLength(512)
             .IsRequired();
 
+        e.Property(x => x.Rank)
+            .HasColumnName("rank")
+            .HasMaxLength(128);
+
+        e.Property(x => x.Position)
+            .HasColumnName("position")
+            .HasMaxLength(512);
+
+        e.Property(x => x.Weapon)
+            .HasColumnName("weapon")
+            .HasMaxLength(128);
+
         e.Property(x => x.Callsign)
             .HasColumnName("callsign")
             .HasMaxLength(128);
 
-        // Швидкі вибірки
-        e.HasIndex(x => x.CombatTaskId);
-        e.HasIndex(x => new { x.PersonId, x.EffectiveAt });
-        e.HasIndex(x => x.Kind);
+        // Indexes
+        e.HasIndex(x => x.CombatTaskId)
+            .HasDatabaseName("ix_combat_task_details_task");
 
-        // Захист від дублю одного й того ж рядка
-        e.HasIndex(x => new { x.CombatTaskId, x.PersonId, x.Kind, x.EffectiveAt })
-            .IsUnique();
+        e.HasIndex(x => new { x.PersonId, x.EffectiveAt })
+            .HasDatabaseName("ix_combat_task_details_person_date");
+
+        // FK
+        e.HasOne(x => x.CombatTask)
+            .WithMany(x => x.CombatTaskDetails)
+            .HasForeignKey(x => x.CombatTaskId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

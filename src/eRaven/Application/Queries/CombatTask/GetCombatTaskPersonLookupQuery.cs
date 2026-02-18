@@ -8,12 +8,7 @@
 namespace eRaven.Application.Queries.CombatTask;
 
 /// <summary>
-/// Повертає список осіб, які можуть бути призначені на завдання, 
-/// тобто не мають інших завдань на вказану дату. 
-/// Використовується для заповнення випадаючого списку при створенні/редагуванні завдання.
-/// 
-/// <see cref="IsPlanned"/> визначає, чи враховувати заплановані завдання
-/// (тобто ті, які ще не почалися, але вже призначені).
-/// true - враховувати заплановані завдання, false - не враховувати.
+/// Повертає список осіб, які можуть бути призначені на завдання на дату <paramref name="OnDate"/>.
+/// Джерело правди — факти табеля (поточний код + відсутність активного TaskSpan).
 /// </summary>
-public record GetCombatTaskPersonLookupQuery(DateOnly OnDate, bool IsPlanned);
+public record GetCombatTaskPersonLookupQuery(DateOnly OnDate);

@@ -11,6 +11,10 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
+/// <summary>
+/// EF Core configuration for <see cref="TimesheetTaskSpan"/> (task fact / blocking interval).
+/// NOTE: ToDate is treated as EXCLUSIVE bound: [FromDate..ToDate).
+/// </summary>
 public sealed class TimesheetTaskSpanConfiguration : IEntityTypeConfiguration<TimesheetTaskSpan>
 {
     public void Configure(EntityTypeBuilder<TimesheetTaskSpan> e)
@@ -26,20 +30,23 @@ public sealed class TimesheetTaskSpanConfiguration : IEntityTypeConfiguration<Ti
 
         e.Property(x => x.Id)
             .HasColumnName("id")
+            .ValueGeneratedNever()
             .IsRequired();
 
         e.Property(x => x.TimesheetId)
             .HasColumnName("timesheet_id")
             .IsRequired();
 
-        // NEW (recommended)
         e.Property(x => x.PersonId)
             .HasColumnName("person_id")
             .IsRequired();
 
-        e.Property(x => x.CombatTaskDocumentId)
-            .HasColumnName("combat_task_document_id")
+        e.Property(x => x.OpenedByCombatTaskDocumentId)
+            .HasColumnName("opened_by_combat_task_document_id")
             .IsRequired();
+
+        e.Property(x => x.ClosedByCombatTaskDocumentId)
+            .HasColumnName("closed_by_combat_task_document_id");
 
         e.Property(x => x.MissionId)
             .HasColumnName("mission_id")
@@ -54,33 +61,82 @@ public sealed class TimesheetTaskSpanConfiguration : IEntityTypeConfiguration<Ti
 
         e.Property(x => x.Status)
             .HasColumnName("status")
-            .HasConversion<int>();
+            .HasConversion<int>()
+            .IsRequired();
 
+        // Snapshot
+        e.Property(x => x.Rnokpp)
+            .HasColumnName("rnokpp")
+            .HasMaxLength(10)
+            .IsRequired();
+
+        e.Property(x => x.FullName)
+            .HasColumnName("full_name")
+            .HasMaxLength(256)
+            .IsRequired();
+
+        e.Property(x => x.Rank)
+            .HasColumnName("rank")
+            .HasMaxLength(128);
+
+        e.Property(x => x.Position)
+            .HasColumnName("position")
+            .HasMaxLength(256);
+
+        e.Property(x => x.Weapon)
+            .HasColumnName("weapon")
+            .HasMaxLength(128);
+
+        e.Property(x => x.Callsign)
+            .HasColumnName("callsign")
+            .HasMaxLength(128);
+
+        // Close metadata
         e.Property(x => x.ClosedByCodeId)
             .HasColumnName("closed_by_code_id");
 
         e.Property(x => x.ClosedReference)
             .HasColumnName("closed_reference")
-            .HasMaxLength(512);
+            .HasMaxLength(256);
+
+        // Audit
+        e.Property(x => x.CreatedBy)
+            .HasColumnName("created_by")
+            .HasMaxLength(64)
+            .IsRequired();
+
+        e.Property(x => x.CreatedAtUtc)
+            .HasColumnName("created_at_utc")
+            .IsRequired();
 
         e.Property(x => x.UpdatedBy)
             .HasColumnName("updated_by")
-            .HasMaxLength(128)
+            .HasMaxLength(64)
             .IsRequired();
 
         e.Property(x => x.UpdatedAtUtc)
             .HasColumnName("updated_at_utc")
             .IsRequired();
 
-        /// <summary>
-        /// Інваріант: один інтервал на особу для (Document, Mission).
-        /// </summary>
-        e.HasIndex(x => new { x.PersonId, x.CombatTaskDocumentId, x.MissionId })
-            .IsUnique();
+        // ---- Indexes ----
 
-        // індекси під запити
-        e.HasIndex(x => new { x.MissionId, x.FromDate, x.ToDate, x.Status });
-        e.HasIndex(x => new { x.CombatTaskDocumentId, x.Status });
-        e.HasIndex(x => new { x.PersonId, x.FromDate, x.ToDate });
+        e.HasIndex(x => new { x.PersonId, x.FromDate, x.ToDate })
+            .HasDatabaseName("ix_ts_task_spans_person_from_to");
+
+        e.HasIndex(x => new { x.MissionId, x.FromDate, x.ToDate })
+            .HasDatabaseName("ix_ts_task_spans_mission_from_to");
+
+        e.HasIndex(x => new { x.OpenedByCombatTaskDocumentId, x.MissionId })
+            .HasDatabaseName("ix_ts_task_spans_openedby_mission");
+
+        e.HasIndex(x => x.ClosedByCombatTaskDocumentId)
+            .HasDatabaseName("ix_ts_task_spans_closedby");
+
+        e.HasIndex(x => new { x.PersonId, x.Status })
+            .HasDatabaseName("ix_ts_task_spans_person_status");
+
+        e.HasIndex(x => new { x.TimesheetId, x.OpenedByCombatTaskDocumentId, x.MissionId })
+            .IsUnique()
+            .HasDatabaseName("ux_ts_task_spans_timesheet_openedby_mission");
     }
 }

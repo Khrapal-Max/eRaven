@@ -220,7 +220,7 @@ public partial class CloseCombatTaskForm : ComponentBase
         try
         {
             var res = await LookupMissionPersons.HandleAsync(
-                new GetCombatTaskMissionPersonsQuery(_model.MissionId, IsPlanned: true, _at));
+                new GetCombatTaskMissionPersonsQuery(_model.MissionId, _at));
 
             _personsAll = [.. res
                 .OrderBy(x => x.FullName)
@@ -387,8 +387,13 @@ public partial class CloseCombatTaskForm : ComponentBase
                     PersonId: x.PersonId,
                     Rnokpp: x.Rnokpp,
                     FullName: x.FullName,
+                    Rank: x.Rank,
+                    Position: x.Position,
+                    Weapon: x.Weapon,
                     Callsign: x.Callsign
-                ))]);
+                ))],
+                Author: "ui", // TODO aut user
+                NowUtc: DateTime.UtcNow);
 
             await CreateCombatTaskHandler.HandleAsync(command);
 

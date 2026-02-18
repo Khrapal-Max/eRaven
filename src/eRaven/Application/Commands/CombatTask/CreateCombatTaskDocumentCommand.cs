@@ -2,16 +2,22 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// PostCombatTaskDocumentCommand
+// CreateCombatTaskDocumentCommand
 //-----------------------------------------------------------------------------
 
 namespace eRaven.Application.Commands.CombatTask;
 
 /// <summary>
-/// Проводе документ в стан posted
+/// Створення документа бойових завдань.
+///
+/// <para>
+/// Примітка: у спрощеній моделі документ одразу створюється як чинний (Active)
+/// і формує факт у табелі.
+/// </para>
 /// </summary>
-public sealed record PostCombatTaskDocumentCommand(
-    Guid DocumentId,
+public sealed record CreateCombatTaskDocumentCommand(
+    string OrderTitle,
+    DateOnly RecordedAt,
+    string? Description,
     string Author,
-    DateTime NowUtc
-);
+    DateTime NowUtc);

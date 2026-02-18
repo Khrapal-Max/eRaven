@@ -30,8 +30,7 @@
                         value="@_statusRaw"
                         @onchange="OnStatusChanged">
                     <option value="">Всі</option>
-                    <option value="@DocumentStatus.Draft">Чернетка</option>
-                    <option value="@DocumentStatus.Posted">Проведений</option>
+                    <option value="@DocumentStatus.Active">Діючий</option>
                     <option value="@DocumentStatus.Canceled">Відмінений</option>
                 </select>
             </div>
@@ -45,7 +44,7 @@
             </div>
 
             <Button Class="btn-sm btn-primary rounded-0"
-                    Label=" + Чернетка"
+                    Label=" + Документ"
                     IsDisabled="@_loading"
                     OnClickButton="OpenCreateDraft" />
 
@@ -96,8 +95,8 @@
         }
 
         <!-- Drawer create draft -->
-        <CreateDocumentDraftDrawer IsOpen="_createDraftOpen"
-                                   IsOpenChanged="@(v => _createDraftOpen = v)"
-                                   OnCreated="HandleDraftCreated" />
+        <CreateDocumentDrawer IsOpen="_createDraftOpen"
+                              IsOpenChanged="@(v => _createDraftOpen = v)"
+                              OnCreated="HandleDraftCreated" />
     </div>
 </div>       

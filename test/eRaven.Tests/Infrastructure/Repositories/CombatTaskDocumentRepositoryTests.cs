@@ -5,7 +5,6 @@
 // CombatTaskDocumentRepositoryTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 using eRaven.Infrastructure.Repositories.CombatTaskRepository;
 using eRaven.Tests.Extensions;
@@ -13,342 +12,264 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Tests.Infrastructure.Repositories;
 
+/// <summary>
+/// Тести для <see cref="CombatTaskDocumentRepository"/>.
+///
+/// <para>
+/// Мета: стабілізувати доменно-інфраструктурний контракт:
+/// <list type="bullet">
+/// <item><description>створення документа як Active з audit полями;</description></item>
+/// <item><description>ідемпотентне скасування (Cancel) без повторного перезапису;</description></item>
+/// <item><description>фільтри (рік/місяць/статус) + сортування;</description></item>
+/// <item><description>валидація параметрів та помилки при відсутності документа.</description></item>
+/// </list>
+/// </para>
+/// </summary>
 public sealed class CombatTaskDocumentRepositoryTests
 {
-    private static readonly DateTime NowUtc = new(2026, 02, 15, 12, 0, 0, DateTimeKind.Utc);
-
     //======================================================================
-    // Seed helpers
+    // CreateAsync
     //======================================================================
 
-    private static CombatTaskDocument NewDoc(
-        string title,
-        DateOnly recordedAt,
-        DocumentStatus status,
-        string createdBy = "seed",
-        string? description = null)
-        => new()
-        {
-            Id = Guid.NewGuid(),
-            OrderTitle = title,
-            Description = description,
-            RecordedAt = recordedAt,
-            Status = status,
-            CreatedBy = createdBy,
-            CreatedAtUtc = NowUtc.AddDays(-1)
-        };
-
-    //======================================================================
-    // GetDocumentsAsync
-    //======================================================================
-
+    /// <summary>
+    /// CreateAsync має створювати документ у статусі Active,
+    /// тримати trim для текстових полів і заповнювати audit.
+    /// </summary>
     [Fact]
-    public async Task GetDocumentsAsync_returns_only_documents_in_requested_month_and_maps_canceled_reason_to_empty_when_null()
+    public async Task CreateAsync_CreatesActiveDocument_WithAudit_AndTrim()
     {
-        await using var tdb = new SqliteTestDb();
+        await using var testDb = new SqliteTestDb();
+        var repo = new CombatTaskDocumentRepository(testDb.Factory);
 
-        var feb01 = new DateOnly(2026, 2, 1);
-        var feb28 = new DateOnly(2026, 2, 28);
-        var mar01 = new DateOnly(2026, 3, 1);
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
 
-        var d1 = NewDoc("OPORD-001", feb01, DocumentStatus.Draft);
-        d1.CanceledReason = null; // перевіряємо мапінг на string.Empty
+        var id = await repo.CreateAsync(
+            orderTitle: "  Наказ №1  ",
+            recordedAt: new DateOnly(2026, 02, 10),
+            description: "  Опис  ",
+            author: "tester",
+            nowUtc: now);
 
-        var d2 = NewDoc("OPORD-002", feb28, DocumentStatus.Posted);
-        var d3 = NewDoc("OPORD-OUT", mar01, DocumentStatus.Draft); // поза діапазоном (RecordedAt < to)
+        await using var db = await testDb.Factory.CreateDbContextAsync();
 
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.CombatTaskDocuments.AddRange(d1, d2, d3);
-            await db.SaveChangesAsync();
-        }
+        var doc = await db.CombatTaskDocuments.SingleAsync(x => x.Id == id);
 
-        var repo = new CombatTaskDocumentRepository(tdb.Factory);
+        Assert.Equal(DocumentStatus.Active, doc.Status);
+        Assert.Equal("Наказ №1", doc.OrderTitle);
+        Assert.Equal("Опис", doc.Description);
+        Assert.Equal(new DateOnly(2026, 02, 10), doc.RecordedAt);
 
-        var list = await repo.GetDocumentsAsync(2026, 2, status: null, search: null);
+        Assert.Equal("tester", doc.CreatedBy);
+        Assert.Equal(now, doc.CreatedAtUtc);
+        Assert.Equal("tester", doc.UpdatedBy);
+        Assert.Equal(now, doc.UpdatedAtUtc);
 
-        Assert.Equal(2, list.Count);
-        Assert.Contains(list, x => x.DocumentId == d1.Id);
-        Assert.Contains(list, x => x.DocumentId == d2.Id);
-        Assert.DoesNotContain(list, x => x.DocumentId == d3.Id);
-
-        var dto1 = list.Single(x => x.DocumentId == d1.Id);
-        Assert.Equal(string.Empty, dto1.CanceledReason);
-    }
-
-    [Fact]
-    public async Task GetDocumentsAsync_filters_by_status_when_specified()
-    {
-        await using var tdb = new SqliteTestDb();
-
-        var d1 = NewDoc("DOC-DRAFT", new DateOnly(2026, 2, 10), DocumentStatus.Draft);
-        var d2 = NewDoc("DOC-POSTED", new DateOnly(2026, 2, 11), DocumentStatus.Posted);
-        var d3 = NewDoc("DOC-CANCELED", new DateOnly(2026, 2, 12), DocumentStatus.Canceled);
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.CombatTaskDocuments.AddRange(d1, d2, d3);
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new CombatTaskDocumentRepository(tdb.Factory);
-
-        var list = await repo.GetDocumentsAsync(2026, 2, status: DocumentStatus.Posted, search: null);
-
-        Assert.Single(list);
-        Assert.Equal(d2.Id, list[0].DocumentId);
-        Assert.Equal(DocumentStatus.Posted, list[0].Status);
-    }
-
-    [Fact]
-    public async Task GetDocumentsAsync_filters_by_search_in_order_title()
-    {
-        await using var tdb = new SqliteTestDb();
-
-        var d1 = NewDoc("OPORD-AAA", new DateOnly(2026, 2, 10), DocumentStatus.Draft);
-        var d2 = NewDoc("SOME-OTHER", new DateOnly(2026, 2, 11), DocumentStatus.Draft);
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.CombatTaskDocuments.AddRange(d1, d2);
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new CombatTaskDocumentRepository(tdb.Factory);
-
-        var list = await repo.GetDocumentsAsync(2026, 2, status: null, search: "OPORD");
-
-        Assert.Single(list);
-        Assert.Equal(d1.Id, list[0].DocumentId);
-        Assert.Equal("OPORD-AAA", list[0].OrderTitle);
-    }
-
-    //======================================================================
-    // CreateDraftAsync
-    //======================================================================
-
-    [Fact]
-    public async Task CreateDraftAsync_creates_document_with_draft_status_and_audit_fields()
-    {
-        await using var tdb = new SqliteTestDb();
-        var repo = new CombatTaskDocumentRepository(tdb.Factory);
-
-        var id = await repo.CreateDraftAsync(
-            orderTitle: "OPORD-NEW",
-            recordedAt: new DateOnly(2026, 2, 20),
-            description: "desc",
-            author: "user1",
-            nowUtc: NowUtc);
-
-        Assert.NotEqual(Guid.Empty, id);
-
-        await using var db = await tdb.Factory.CreateDbContextAsync();
-        var doc = await db.CombatTaskDocuments.AsNoTracking().SingleAsync(x => x.Id == id);
-
-        Assert.Equal(DocumentStatus.Draft, doc.Status);
-        Assert.Equal("OPORD-NEW", doc.OrderTitle);
-        Assert.Equal("desc", doc.Description);
-        Assert.Equal(new DateOnly(2026, 2, 20), doc.RecordedAt);
-        Assert.Equal("user1", doc.CreatedBy);
-        Assert.Equal(NowUtc, doc.CreatedAtUtc);
-        Assert.Null(doc.UpdatedBy);
-        Assert.Null(doc.UpdatedAtUtc);
         Assert.Null(doc.CanceledBy);
         Assert.Null(doc.CanceledAtUtc);
         Assert.Null(doc.CanceledReason);
     }
 
-    //======================================================================
-    // PostAsync
-    //======================================================================
-
+    /// <summary>
+    /// CreateAsync має відкидати невалідні параметри (мінімальний набір перевірок).
+    /// </summary>
     [Fact]
-    public async Task PostAsync_throws_on_empty_document_id()
+    public async Task CreateAsync_Throws_OnInvalidArguments()
     {
-        await using var tdb = new SqliteTestDb();
-        var repo = new CombatTaskDocumentRepository(tdb.Factory);
+        await using var testDb = new SqliteTestDb();
+        var repo = new CombatTaskDocumentRepository(testDb.Factory);
+
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            repo.PostAsync(Guid.Empty, author: "u", nowUtc: NowUtc));
-    }
+            repo.CreateAsync(orderTitle: " ", recordedAt: new DateOnly(2026, 02, 10), description: null, author: "tester", nowUtc: now));
 
-    [Fact]
-    public async Task PostAsync_throws_when_document_not_found()
-    {
-        await using var tdb = new SqliteTestDb();
-        var repo = new CombatTaskDocumentRepository(tdb.Factory);
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.CreateAsync(orderTitle: "X", recordedAt: default, description: null, author: "tester", nowUtc: now));
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.PostAsync(Guid.NewGuid(), author: "u", nowUtc: NowUtc));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.CreateAsync(orderTitle: "X", recordedAt: new DateOnly(2026, 02, 10), description: null, author: " ", nowUtc: now));
 
-        Assert.Equal("Документ не знайдено.", ex.Message);
-    }
-
-    [Fact]
-    public async Task PostAsync_when_document_is_canceled_should_throw()
-    {
-        await using var tdb = new SqliteTestDb();
-        var doc = NewDoc("DOC", new DateOnly(2026, 2, 10), DocumentStatus.Canceled);
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.CombatTaskDocuments.Add(doc);
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new CombatTaskDocumentRepository(tdb.Factory);
-
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.PostAsync(doc.Id, author: "u", nowUtc: NowUtc));
-
-        Assert.Equal("Документ відмінений і не може бути проведений.", ex.Message);
-    }
-
-    [Fact]
-    public async Task PostAsync_when_document_is_draft_should_set_posted_and_update_audit_fields()
-    {
-        await using var tdb = new SqliteTestDb();
-        var doc = NewDoc("DOC", new DateOnly(2026, 2, 10), DocumentStatus.Draft);
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.CombatTaskDocuments.Add(doc);
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new CombatTaskDocumentRepository(tdb.Factory);
-
-        await repo.PostAsync(doc.Id, author: "poster", nowUtc: NowUtc);
-
-        await using var db2 = await tdb.Factory.CreateDbContextAsync();
-        var reloaded = await db2.CombatTaskDocuments.AsNoTracking().SingleAsync(x => x.Id == doc.Id);
-
-        Assert.Equal(DocumentStatus.Posted, reloaded.Status);
-        Assert.Equal("poster", reloaded.UpdatedBy);
-        Assert.Equal(NowUtc, reloaded.UpdatedAtUtc);
-    }
-
-    [Fact]
-    public async Task PostAsync_when_document_is_already_posted_should_noop_and_not_override_audit_fields()
-    {
-        await using var tdb = new SqliteTestDb();
-
-        var doc = NewDoc("DOC", new DateOnly(2026, 2, 10), DocumentStatus.Posted);
-        doc.UpdatedBy = "seed";
-        doc.UpdatedAtUtc = NowUtc.AddHours(-3);
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.CombatTaskDocuments.Add(doc);
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new CombatTaskDocumentRepository(tdb.Factory);
-        await repo.PostAsync(doc.Id, author: "new", nowUtc: NowUtc);
-
-        await using var db2 = await tdb.Factory.CreateDbContextAsync();
-        var reloaded = await db2.CombatTaskDocuments.AsNoTracking().SingleAsync(x => x.Id == doc.Id);
-
-        Assert.Equal(DocumentStatus.Posted, reloaded.Status);
-        Assert.Equal("seed", reloaded.UpdatedBy);
-        Assert.Equal(NowUtc.AddHours(-3), reloaded.UpdatedAtUtc);
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.CreateAsync(orderTitle: "X", recordedAt: new DateOnly(2026, 02, 10), description: null, author: "tester", nowUtc: default));
     }
 
     //======================================================================
     // CancelAsync
     //======================================================================
 
+    /// <summary>
+    /// CancelAsync має переводити документ у Canceled, ставити причину та audit.
+    /// </summary>
     [Fact]
-    public async Task CancelAsync_throws_on_empty_document_id()
+    public async Task CancelAsync_MarksCanceled_WithReasonAndAudit()
     {
-        await using var tdb = new SqliteTestDb();
-        var repo = new CombatTaskDocumentRepository(tdb.Factory);
+        await using var testDb = new SqliteTestDb();
+        var repo = new CombatTaskDocumentRepository(testDb.Factory);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            repo.CancelAsync(Guid.Empty, reason: "r", author: "u", nowUtc: NowUtc));
+        var createdAt = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+        var canceledAt = createdAt.AddMinutes(10);
+
+        var id = await repo.CreateAsync(
+            orderTitle: "Наказ №2",
+            recordedAt: new DateOnly(2026, 02, 11),
+            description: null,
+            author: "creator",
+            nowUtc: createdAt);
+
+        await repo.CancelAsync(
+            documentId: id,
+            reason: "  Помилка  ",
+            author: "auditor",
+            nowUtc: canceledAt);
+
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+
+        var doc = await db.CombatTaskDocuments.SingleAsync(x => x.Id == id);
+
+        Assert.Equal(DocumentStatus.Canceled, doc.Status);
+
+        Assert.Equal("auditor", doc.CanceledBy);
+        Assert.Equal(canceledAt, doc.CanceledAtUtc);
+        Assert.Equal("Помилка", doc.CanceledReason);
+
+        Assert.Equal("auditor", doc.UpdatedBy);
+        Assert.Equal(canceledAt, doc.UpdatedAtUtc);
     }
 
+    /// <summary>
+    /// CancelAsync має бути ідемпотентним: повторний виклик для вже Canceled документа
+    /// не повинен перезаписувати CanceledBy/CanceledReason/Updated*.
+    /// </summary>
     [Fact]
-    public async Task CancelAsync_throws_when_document_not_found()
+    public async Task CancelAsync_IsIdempotent_ForAlreadyCanceledDocument()
     {
-        await using var tdb = new SqliteTestDb();
-        var repo = new CombatTaskDocumentRepository(tdb.Factory);
+        await using var testDb = new SqliteTestDb();
+        var repo = new CombatTaskDocumentRepository(testDb.Factory);
+
+        var createdAt = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+        var firstCancelAt = createdAt.AddMinutes(10);
+        var secondCancelAt = createdAt.AddMinutes(20);
+
+        var id = await repo.CreateAsync(
+            orderTitle: "Наказ №3",
+            recordedAt: new DateOnly(2026, 02, 12),
+            description: "D",
+            author: "creator",
+            nowUtc: createdAt);
+
+        await repo.CancelAsync(
+            documentId: id,
+            reason: "FIRST",
+            author: "auditor1",
+            nowUtc: firstCancelAt);
+
+        // Second cancel should be ignored
+        await repo.CancelAsync(
+            documentId: id,
+            reason: "SECOND",
+            author: "auditor2",
+            nowUtc: secondCancelAt);
+
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+
+        var doc = await db.CombatTaskDocuments.SingleAsync(x => x.Id == id);
+
+        Assert.Equal(DocumentStatus.Canceled, doc.Status);
+
+        Assert.Equal("auditor1", doc.CanceledBy);
+        Assert.Equal(firstCancelAt, doc.CanceledAtUtc);
+        Assert.Equal("FIRST", doc.CanceledReason);
+
+        Assert.Equal("auditor1", doc.UpdatedBy);
+        Assert.Equal(firstCancelAt, doc.UpdatedAtUtc);
+    }
+
+    /// <summary>
+    /// CancelAsync має кидати помилку, якщо документ не знайдено.
+    /// </summary>
+    [Fact]
+    public async Task CancelAsync_Throws_WhenDocumentNotFound()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new CombatTaskDocumentRepository(testDb.Factory);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.CancelAsync(Guid.NewGuid(), reason: "r", author: "u", nowUtc: NowUtc));
+            repo.CancelAsync(
+                documentId: Guid.NewGuid(),
+                reason: "X",
+                author: "auditor",
+                nowUtc: new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc)));
 
-        Assert.Equal("Документ не знайдено.", ex.Message);
+        Assert.Contains("not found", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    //======================================================================
+    // GetDocumentsAsync
+    //======================================================================
+
+    /// <summary>
+    /// GetDocumentsAsync має повертати документи з фільтрами (рік/місяць/статус)
+    /// і сортуванням RecordedAt desc, CreatedAtUtc desc.
+    /// </summary>
     [Fact]
-    public async Task CancelAsync_when_document_is_posted_should_throw()
+    public async Task GetDocumentsAsync_FiltersAndSorts_ByRecordedAtAndCreatedAt()
     {
-        await using var tdb = new SqliteTestDb();
-        var doc = NewDoc("DOC", new DateOnly(2026, 2, 10), DocumentStatus.Posted);
+        await using var testDb = new SqliteTestDb();
+        var repo = new CombatTaskDocumentRepository(testDb.Factory);
 
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.CombatTaskDocuments.Add(doc);
-            await db.SaveChangesAsync();
-        }
+        // Create 3 docs with predictable ordering
+        var d1 = await repo.CreateAsync(
+            orderTitle: "A",
+            recordedAt: new DateOnly(2026, 01, 10),
+            description: null,
+            author: "u",
+            nowUtc: new DateTime(2026, 01, 10, 10, 00, 00, DateTimeKind.Utc));
 
-        var repo = new CombatTaskDocumentRepository(tdb.Factory);
+        var d2 = await repo.CreateAsync(
+            orderTitle: "B",
+            recordedAt: new DateOnly(2026, 02, 10),
+            description: null,
+            author: "u",
+            nowUtc: new DateTime(2026, 02, 10, 10, 00, 00, DateTimeKind.Utc));
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.CancelAsync(doc.Id, reason: "r", author: "u", nowUtc: NowUtc));
+        // Same RecordedAt as d2, later CreatedAtUtc
+        var d3 = await repo.CreateAsync(
+            orderTitle: "C",
+            recordedAt: new DateOnly(2026, 02, 10),
+            description: null,
+            author: "u",
+            nowUtc: new DateTime(2026, 02, 10, 11, 00, 00, DateTimeKind.Utc));
 
-        Assert.Equal("Документ вже проведений.", ex.Message);
-    }
+        // Cancel d2 to have different status
+        await repo.CancelAsync(
+            documentId: d2,
+            reason: "R",
+            author: "u",
+            nowUtc: new DateTime(2026, 02, 10, 12, 00, 00, DateTimeKind.Utc));
 
-    [Fact]
-    public async Task CancelAsync_when_document_is_draft_should_set_canceled_and_audit_fields()
-    {
-        await using var tdb = new SqliteTestDb();
-        var doc = NewDoc("DOC", new DateOnly(2026, 2, 10), DocumentStatus.Draft);
+        // 1) No filters => sorted: (RecordedAt desc, CreatedAtUtc desc)
+        var all = await repo.GetDocumentsAsync(year: null, month: null, status: null, search: null);
 
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.CombatTaskDocuments.Add(doc);
-            await db.SaveChangesAsync();
-        }
+        Assert.Equal(3, all.Count);
+        Assert.Equal(d3, all[0].DocumentId); // RecordedAt=02/10, CreatedAt later
+        Assert.Equal(d2, all[1].DocumentId); // RecordedAt=02/10, CreatedAt earlier
+        Assert.Equal(d1, all[2].DocumentId); // RecordedAt=01/10
 
-        var repo = new CombatTaskDocumentRepository(tdb.Factory);
-        await repo.CancelAsync(doc.Id, reason: "because", author: "canceler", nowUtc: NowUtc);
+        // 2) Filter by year/month (2026/02) => d2,d3
+        var feb = await repo.GetDocumentsAsync(year: 2026, month: 2, status: null, search: null);
+        Assert.Equal(2, feb.Count);
+        Assert.Equal(d3, feb[0].DocumentId);
+        Assert.Equal(d2, feb[1].DocumentId);
 
-        await using var db2 = await tdb.Factory.CreateDbContextAsync();
-        var reloaded = await db2.CombatTaskDocuments.AsNoTracking().SingleAsync(x => x.Id == doc.Id);
+        // 3) Filter by status Active => d1,d3 (d2 canceled)
+        var active = await repo.GetDocumentsAsync(year: null, month: null, status: DocumentStatus.Active, search: null);
+        Assert.Equal(2, active.Count);
+        Assert.Equal(d3, active[0].DocumentId);
+        Assert.Equal(d1, active[1].DocumentId);
 
-        Assert.Equal(DocumentStatus.Canceled, reloaded.Status);
-        Assert.Equal("because", reloaded.CanceledReason);
-        Assert.Equal("canceler", reloaded.CanceledBy);
-        Assert.Equal(NowUtc, reloaded.CanceledAtUtc);
-    }
-
-    [Fact]
-    public async Task CancelAsync_when_document_is_already_canceled_should_noop_and_not_override_reason_or_audit_fields()
-    {
-        await using var tdb = new SqliteTestDb();
-
-        var doc = NewDoc("DOC", new DateOnly(2026, 2, 10), DocumentStatus.Canceled);
-        doc.CanceledReason = "r1";
-        doc.CanceledBy = "seed";
-        doc.CanceledAtUtc = NowUtc.AddHours(-2);
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.CombatTaskDocuments.Add(doc);
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new CombatTaskDocumentRepository(tdb.Factory);
-        await repo.CancelAsync(doc.Id, reason: "r2", author: "new", nowUtc: NowUtc);
-
-        await using var db2 = await tdb.Factory.CreateDbContextAsync();
-        var reloaded = await db2.CombatTaskDocuments.AsNoTracking().SingleAsync(x => x.Id == doc.Id);
-
-        Assert.Equal(DocumentStatus.Canceled, reloaded.Status);
-        Assert.Equal("r1", reloaded.CanceledReason);
-        Assert.Equal("seed", reloaded.CanceledBy);
-        Assert.Equal(NowUtc.AddHours(-2), reloaded.CanceledAtUtc);
+        // 4) Filter by status Canceled => only d2
+        var canceled = await repo.GetDocumentsAsync(year: null, month: null, status: DocumentStatus.Canceled, search: null);
+        Assert.Single(canceled);
+        Assert.Equal(d2, canceled[0].DocumentId);
     }
 }

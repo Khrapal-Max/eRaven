@@ -20,108 +20,134 @@ namespace eRaven.Components.Pages.Timesheet.Drawers;
 
 public partial class TimesheetTransitionDrawer : ComponentBase
 {
-    //======================================================================
+    //========================================
     // DI
-    //======================================================================
-
-    [Inject] public IQueryHandler<GetTimesheetPolicyForCodeQuery, IReadOnlyList<TimesheetTransitionOptionDto>> GetOptions { get; set; } = default!;
+    //========================================
+    [Inject] public IQueryHandler<GetTimesheetTransitionContextQuery, TimesheetTransitionContextDto> GetContext { get; set; } = default!;
     [Inject] public ICommandHandler<TransitionTimesheetStateCommand, Guid> Transition { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
 
-    //======================================================================
-    // Params
-    //======================================================================
-
+    //========================================
+    // Parameters
+    //========================================
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
 
     [Parameter] public Guid PersonId { get; set; }
-    [Parameter] public Guid CurrentCodeId { get; set; }                  // код табеля на цю дату
 
-    [Parameter] public string CurrentCode { get; set; } = string.Empty;   // код табеля на цю дату
-    [Parameter] public DateOnly AnchorDate { get; set; }                 // дата кліку/рядка   
+    /// <summary>
+    /// Стартова дата для форми (за замовчуванням — операційна дата/курсор).
+    /// Drawer може змінювати цю дату в UI і сам перезавантажує контекст.
+    /// </summary>
+    [Parameter] public DateOnly InitialDate { get; set; }
+
+    /// <summary>
+    /// Операційна дата (курсор/сьогодні): події створюємо не раніше цієї дати.
+    /// Корекції — в персональному табелі.
+    /// </summary>
+    [Parameter] public DateOnly OperatorDate { get; set; }
 
     [Parameter] public string? PersonLabel { get; set; }
-    [Parameter] public EventCallback OnApplied { get; set; }             // ReloadAsync у батька
+    [Parameter] public EventCallback OnApplied { get; set; }
 
-    //======================================================================
-    // State
-    //======================================================================
-
+    //========================================
+    // UI state
+    //========================================
     private bool _loading;
     private bool _busy;
+
     private int SelectSize => Math.Clamp(_options.Count, 2, 20);
 
     private TransitionModel _model = new();
     private EditContext _editContext = default!;
-
     private IReadOnlyList<TimesheetTransitionOptionDto> _options = [];
 
-    // щоб не перевантажувати щоразу при кожному ререндері
-    private (Guid PersonId, DateOnly AnchorDate, string Code)? _loadedKey;
+    private Guid _currentCodeId;
+    private string _currentCode = TimesheetSystemCodes.NotInTimesheet;
 
-    //======================================================================
+    private (Guid PersonId, DateOnly InitialDate, DateOnly OperatorDate)? _loadedKey;
+
+    //========================================
     // Lifecycle
-    //======================================================================
-
+    //========================================
     protected override async Task OnParametersSetAsync()
     {
-        // ✅ При закритті — скинути стан (включно з _loadedKey)
         if (!IsOpen)
         {
             if (_loadedKey is not null || _options.Count > 0 || _busy || _loading)
                 ResetState();
-
             return;
         }
 
-        // якщо той самий контекст — не вантажимо повторно
-        var key = (PersonId, AnchorDate, (CurrentCode ?? string.Empty).Trim());
+        var key = (PersonId, InitialDate, OperatorDate);
         if (_loadedKey.HasValue && _loadedKey.Value.Equals(key))
             return;
 
         _loadedKey = key;
 
-        await LoadAsync();
+        _model = new TransitionModel
+        {
+            InputDate = InitialDate == default ? OperatorDate : InitialDate,
+            CodeId = null
+        };
+        _editContext = new EditContext(_model);
+
+        await LoadContextAsync(_model.InputDate);
     }
 
-    private async Task LoadAsync()
+    private async Task OnInputDateChangedAsync()
+        => await LoadContextAsync(_model.InputDate);
+
+    private async Task LoadContextAsync(DateOnly onDate)
     {
         _loading = true;
         _busy = false;
 
-        // reset форми
-        _model = new TransitionModel
-        {
-            InputDate = AnchorDate
-        };
-        _editContext = new EditContext(_model);
-
         _options = [];
+        _currentCodeId = Guid.Empty;
+        _currentCode = TimesheetSystemCodes.NotInTimesheet;
 
         try
         {
-            var code = (CurrentCode ?? string.Empty).Trim();
-
-            if (string.IsNullOrWhiteSpace(code))
+            if (PersonId == Guid.Empty)
             {
-                Toasts.Error("Поточний код порожній.");
+                Toasts.Error("PersonId не задано.");
                 return;
             }
 
-            if (string.Equals(code, TimesheetSystemCodes.NotInTimesheet, StringComparison.OrdinalIgnoreCase))
+            if (onDate == default)
             {
-                Toasts.Warning("Стан 'НБ' не застосовується як подія.");
+                Toasts.Error("Дата події некоректна.");
                 return;
             }
 
-            _options = await GetOptions.HandleAsync(new GetTimesheetPolicyForCodeQuery(CurrentCodeId));
+            var ctx = await GetContext.HandleAsync(new GetTimesheetTransitionContextQuery(PersonId, onDate));
+
+            _currentCodeId = ctx.CurrentCodeId;
+            _currentCode = (ctx.CurrentCode ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(_currentCode))
+                _currentCode = TimesheetSystemCodes.NotInTimesheet;
+
+            if (string.Equals(_currentCode, TimesheetSystemCodes.NotInTimesheet, StringComparison.OrdinalIgnoreCase))
+            {
+                // derived або помилковий entry — переходи не пропонуємо
+                _options = [];
+                _model.CodeId = null;
+                return;
+            }
+
+            _options = ctx.Options ?? [];
 
             if (_options.Count == 0)
+            {
+                _model.CodeId = null;
                 return;
+            }
 
-            // дефолтний вибір
-            _model.Code = _options[0].Code;
+            // Зберігаємо вибір, якщо він ще валідний; інакше — перша опція.
+            if (!_model.CodeId.HasValue || !_options.Any(x => x.TransitionCodeId == _model.CodeId.Value))
+                _model.CodeId = _options[0].TransitionCodeId;
         }
         catch (Exception ex)
         {
@@ -134,10 +160,6 @@ public partial class TimesheetTransitionDrawer : ComponentBase
         }
     }
 
-    //======================================================================
-    // UI helpers
-    //======================================================================
-
     private static string ShiftLabel(int shift)
         => shift switch
         {
@@ -148,15 +170,15 @@ public partial class TimesheetTransitionDrawer : ComponentBase
 
     private TimesheetTransitionOptionDto? SelectedOption()
     {
-        var code = (_model.Code ?? string.Empty).Trim();
-        return _options.FirstOrDefault(x =>
-            string.Equals(x.Code?.Trim(), code, StringComparison.OrdinalIgnoreCase));
+        if (!_model.CodeId.HasValue || _model.CodeId.Value == Guid.Empty)
+            return null;
+
+        return _options.FirstOrDefault(x => x.TransitionCodeId == _model.CodeId.Value);
     }
 
-    //======================================================================
-    // Actions
-    //======================================================================
-
+    //========================================
+    // Commands
+    //========================================
     private async Task SubmitAsync()
     {
         if (_busy) return;
@@ -164,10 +186,22 @@ public partial class TimesheetTransitionDrawer : ComponentBase
         if (_editContext is not null && !_editContext.Validate())
             return;
 
-        var nextCode = (_model.Code ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(nextCode))
+        if (_model.InputDate < OperatorDate)
+        {
+            Toasts.Warning("Корекції виконуються у персональному табелі.");
+            return;
+        }
+
+        if (!_model.CodeId.HasValue || _model.CodeId.Value == Guid.Empty)
         {
             Toasts.Error("Оберіть наступний код.");
+            return;
+        }
+
+        var selected = _options.FirstOrDefault(x => x.TransitionCodeId == _model.CodeId.Value);
+        if (selected is null)
+        {
+            Toasts.Error("Обраний код не знайдено у списку опцій.");
             return;
         }
 
@@ -177,9 +211,9 @@ public partial class TimesheetTransitionDrawer : ComponentBase
         {
             var cmd = new TransitionTimesheetStateCommand(
                 PersonId: PersonId,
-                AnchorDate: AnchorDate,
+                AnchorDate: OperatorDate,
                 InputDate: _model.InputDate,
-                NextCode: nextCode,
+                NextCode: selected.TransitionCodeId,
                 Reference: string.IsNullOrWhiteSpace(_model.Reference) ? null : _model.Reference.Trim(),
                 Note: string.IsNullOrWhiteSpace(_model.Note) ? null : _model.Note.Trim(),
                 IsCorrection: false,
@@ -189,7 +223,7 @@ public partial class TimesheetTransitionDrawer : ComponentBase
 
             await Transition.HandleAsync(cmd);
 
-            Toasts.Success("Застосовано", $"Подію встановлено: {nextCode}.");
+            Toasts.Success("Застосовано", $"Подію встановлено: {selected.Code}.");
 
             if (OnApplied.HasDelegate)
                 await OnApplied.InvokeAsync();
@@ -212,12 +246,12 @@ public partial class TimesheetTransitionDrawer : ComponentBase
         _busy = false;
 
         _options = [];
+        _currentCodeId = Guid.Empty;
+        _currentCode = TimesheetSystemCodes.NotInTimesheet;
 
-        // чистимо модель, щоб не лишались Reference/Note/Code
         _model = new TransitionModel();
         _editContext = new EditContext(_model);
 
-        // дозволяємо перезавантаження при повторному відкритті
         _loadedKey = null;
     }
 

@@ -16,9 +16,12 @@ public sealed class PersonReadModelConfiguration : IEntityTypeConfiguration<Pers
     public void Configure(EntityTypeBuilder<PersonReadModel> e)
     {
         e.ToTable("person_read");
+
         e.HasKey(x => x.Id);
 
-        e.Property(x => x.Id).HasColumnName("id");
+        e.Property(x => x.Id)
+          .HasColumnName("id")
+          .IsRequired();
 
         e.Property(x => x.Lifecycle)
             .HasColumnName("lifecycle")

@@ -13,14 +13,20 @@ using Microsoft.EntityFrameworkCore;
 namespace eRaven.Infrastructure.Repositories.CombatTaskRepository;
 
 /// <summary>
-/// EF Core реалізація <see cref="ICombatTaskRepository"/>.
+/// Репозиторій контенту документа бойових завдань:
+/// <see cref="CombatTask"/> та <see cref="CombatTaskDetails"/>.
+///
+/// <para>
+/// Спрощена модель: документ одразу чинний (Active) і формує факт у табелі;
+/// чернеток/Posted немає; факт не видаляємо — тільки компенсація через Cancel.
+/// </para>
 /// </summary>
 public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFactory) : ICombatTaskRepository
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
     //======================================================================
-    // Read
+    // Read: Editor
     //======================================================================
 
     /// <inheritdoc />
@@ -36,10 +42,8 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
             .FirstOrDefaultAsync(x => x.Id == documentId, ct)
             ?? throw new InvalidOperationException("Документ не знайдено.");
 
-        // AsSplitQuery: уникаємо важкого JOIN-графа (особливо коли багато рядків).
         var tasks = await db.CombatTasks
             .AsNoTracking()
-            .AsSplitQuery()
             .Where(x => x.CombatTaskDocumentId == documentId)
             .Include(x => x.Mission)
             .Include(x => x.CombatTaskDetails)
@@ -64,12 +68,18 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
                         EffectiveAt: l.EffectiveAt,
                         PersonId: l.PersonId,
                         Rnokpp: l.Rnokpp,
+                        Rank: l.Rank,
                         FullName: l.FullName,
+                        Position: l.Position,
+                        Weapon: l.Weapon,
                         Callsign: l.Callsign
                     ))]
             ))
             .ToList();
 
+        // NOTE:
+        // - OrderTitle/RecordedAt замінені на Description/ReferenceNumber/OnDate.
+        // - Для сумісності з поточним DTO: DocumentName беремо з ReferenceNumber або Description.
         return new CombatTaskEditorDto(
             DocumentId: documentId,
             DocumentName: document.OrderTitle,
@@ -77,6 +87,25 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
             Status: document.Status,
             RecordedAt: document.RecordedAt,
             Missions: missions);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> GetDocumentMissionIdsAsync(
+        Guid documentId,
+        CancellationToken ct = default)
+    {
+        if (documentId == Guid.Empty)
+            throw new ArgumentException("DocumentId is required.", nameof(documentId));
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        return await db.CombatTasks
+            .AsNoTracking()
+            .Where(x => x.CombatTaskDocumentId == documentId)
+            .Select(x => x.MissionId)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToListAsync(ct);
     }
 
     //======================================================================
@@ -102,36 +131,32 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
             .FirstOrDefaultAsync(x => x.Id == documentId, ct)
             ?? throw new InvalidOperationException("Документ не знайдено.");
 
-        EnsureDraft(doc);
+        if (doc.Status == DocumentStatus.Canceled)
+            throw new InvalidOperationException("Документ відмінений і не може редагуватися.");
 
         var exists = await db.CombatTasks
             .AsNoTracking()
             .AnyAsync(x => x.CombatTaskDocumentId == documentId && x.MissionId == missionId, ct);
 
         if (exists)
-            throw new InvalidOperationException("Блок по цій місії вже існує. Використайте UpsertCombatTaskAsync().");
-
-        ValidateDetails(combatTaskDetails);
+            throw new InvalidOperationException("Завдання для цієї місії вже існує у документі.");
 
         var task = new CombatTask
         {
             Id = Guid.NewGuid(),
             CombatTaskDocumentId = documentId,
             MissionId = missionId,
-            SourceDocument = (sourceDocument ?? string.Empty).Trim()
+            SourceDocument = sourceDocument.Trim(),
+            CombatTaskDetails = [.. combatTaskDetails]
         };
 
         db.CombatTasks.Add(task);
-
-        PrepareLinesForInsert(task.Id, combatTaskDetails);
-        db.CombatTaskDetails.AddRange(combatTaskDetails);
-
         await db.SaveChangesAsync(ct);
         return task.Id;
     }
 
     //======================================================================
-    // Write: Upsert (replace details)
+    // Write: Upsert
     //======================================================================
 
     /// <inheritdoc />
@@ -146,21 +171,39 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
             throw new ArgumentException("DocumentId is required.", nameof(documentId));
         if (missionId == Guid.Empty)
             throw new ArgumentException("MissionId is required.", nameof(missionId));
+        if (string.IsNullOrWhiteSpace(sourceDocument))
+            throw new ArgumentException("SourceDocument is required.", nameof(sourceDocument));
+        ArgumentNullException.ThrowIfNull(combatTaskDetails);
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         var doc = await db.CombatTaskDocuments
             .FirstOrDefaultAsync(x => x.Id == documentId, ct)
             ?? throw new InvalidOperationException("Документ не знайдено.");
 
-        EnsureDraft(doc);
-
-        ValidateDetails(combatTaskDetails);
+        if (doc.Status == DocumentStatus.Canceled)
+            throw new InvalidOperationException("Документ відмінений і не може редагуватися.");
 
         var task = await db.CombatTasks
             .Include(x => x.CombatTaskDetails)
             .FirstOrDefaultAsync(x => x.CombatTaskDocumentId == documentId && x.MissionId == missionId, ct);
+
+        // Матеріалізуємо та нормалізуємо рядки (FK + валідація ключа)
+        static List<CombatTaskDetails> NormalizeDetails(Guid combatTaskId, IEnumerable<CombatTaskDetails> rows)
+        {
+            var list = rows.ToList();
+
+            foreach (var d in list)
+            {
+                if (d.Id == Guid.Empty)
+                    throw new InvalidOperationException("CombatTaskDetails.Id must be set (non-empty).");
+
+                d.CombatTaskId = combatTaskId;
+                d.CombatTask = null; // уникнути перенесення навігації з інших контекстів
+            }
+
+            return list;
+        }
 
         if (task is null)
         {
@@ -169,31 +212,34 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
                 Id = Guid.NewGuid(),
                 CombatTaskDocumentId = documentId,
                 MissionId = missionId,
-                SourceDocument = (sourceDocument ?? string.Empty).Trim()
+                SourceDocument = sourceDocument.Trim(),
+                CombatTaskDetails = []
             };
 
+            var newDetails = NormalizeDetails(task.Id, combatTaskDetails);
+
+            // Add(task) протягне граф як Added, але ми все одно явно додаємо залежні,
+            // щоб не залежати від евристик EF щодо ключів.
             db.CombatTasks.Add(task);
-
-            PrepareLinesForInsert(task.Id, combatTaskDetails);
-            db.CombatTaskDetails.AddRange(combatTaskDetails);
-
-            await db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-            return task.Id;
+            db.CombatTaskDetails.AddRange(newDetails);
+            task.CombatTaskDetails = newDetails;
         }
+        else
+        {
+            task.SourceDocument = sourceDocument.Trim();
 
-        // Update header
-        task.SourceDocument = (sourceDocument ?? string.Empty).Trim();
-
-        // Replace details (atomic)
-        if (task.CombatTaskDetails.Count > 0)
+            // replace-all: DELETE старих + INSERT нових
             db.CombatTaskDetails.RemoveRange(task.CombatTaskDetails);
 
-        PrepareLinesForInsert(task.Id, combatTaskDetails);
-        db.CombatTaskDetails.AddRange(combatTaskDetails);
+            var newDetails = NormalizeDetails(task.Id, combatTaskDetails);
+
+            // ВАЖЛИВО: для Guid-ключів EF може помилково трактувати рядки як "існуючі"
+            // і спробувати UPDATE замість INSERT => concurrency exception.
+            db.CombatTaskDetails.AddRange(newDetails);
+            task.CombatTaskDetails = newDetails;
+        }
 
         await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
         return task.Id;
     }
 
@@ -212,13 +258,11 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var doc = await db.CombatTaskDocuments
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == documentId, ct);
+            .FirstOrDefaultAsync(x => x.Id == documentId, ct)
+            ?? throw new InvalidOperationException("Документ не знайдено.");
 
-        if (doc is null)
-            return;
-
-        EnsureDraft(doc);
+        if (doc.Status == DocumentStatus.Canceled)
+            throw new InvalidOperationException("Документ відмінений і не може редагуватися.");
 
         var task = await db.CombatTasks
             .FirstOrDefaultAsync(x => x.Id == combatTaskId && x.CombatTaskDocumentId == documentId, ct);
@@ -228,81 +272,5 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
 
         db.CombatTasks.Remove(task);
         await db.SaveChangesAsync(ct);
-    }
-
-    //======================================================================
-    // Helpers
-    //======================================================================
-
-    /// <summary>
-    /// Забороняє зміну контенту, якщо документ не у Draft.
-    /// Це захист цілісності аудиту.
-    /// </summary>
-    private static void EnsureDraft(CombatTaskDocument doc)
-    {
-        if (doc.Status == DocumentStatus.Posted)
-            throw new InvalidOperationException("Документ проведений і не може редагуватися.");
-        if (doc.Status == DocumentStatus.Canceled)
-            throw new InvalidOperationException("Документ відмінений і не може редагуватися.");
-    }
-
-    /// <summary>
-    /// Приводить lines до інваріанту перед insert:
-    /// <list type="bullet">
-    /// <item><description>гарантує <c>Id</c>;</description></item>
-    /// <item><description>проставляє FK <c>CombatTaskId</c>;</description></item>
-    /// <item><description>скидає navigation, щоб EF не тягнув зайвий граф.</description></item>
-    /// </list>
-    /// </summary>
-    private static void PrepareLinesForInsert(Guid combatTaskId, IEnumerable<CombatTaskDetails> lines)
-    {
-        foreach (var line in lines)
-        {
-            if (line.Id == Guid.Empty)
-                line.Id = Guid.NewGuid();
-
-            line.CombatTaskId = combatTaskId;
-            line.CombatTask = null;
-        }
-    }
-
-    /// <summary>
-    /// Мінімальна перевірка цілісності рядків:
-    /// <list type="bullet">
-    /// <item><description><c>PersonId</c> / <c>EffectiveAt</c> заповнені;</description></item>
-    /// <item><description>snapshot поля <c>Rnokpp/FullName</c> заповнені;</description></item>
-    /// <item><description>в межах одного CombatTask немає дублікатів (PersonId, Kind, EffectiveAt).</description></item>
-    /// </list>
-    /// </summary>
-    private static void ValidateDetails(IReadOnlyCollection<CombatTaskDetails> lines)
-    {
-        ArgumentNullException.ThrowIfNull(lines);
-
-        if (lines.Count == 0)
-            return;
-
-        var dup = new HashSet<(Guid PersonId, CombatTaskDetailsKind Kind, DateOnly EffectiveAt)>();
-
-        foreach (var x in lines)
-        {
-            if (x.PersonId == Guid.Empty)
-                throw new InvalidOperationException("Рядок містить порожній PersonId.");
-
-            if (x.EffectiveAt == default)
-                throw new InvalidOperationException("Рядок містить некоректну EffectiveAt дату.");
-
-            if (string.IsNullOrWhiteSpace(x.Rnokpp))
-                throw new InvalidOperationException("Rnokpp обов'язковий для рядка (light snapshot).");
-
-            if (string.IsNullOrWhiteSpace(x.FullName))
-                throw new InvalidOperationException("FullName обов'язковий для рядка (light snapshot).");
-
-            var key = (x.PersonId, x.Kind, x.EffectiveAt);
-            if (!dup.Add(key))
-            {
-                throw new InvalidOperationException(
-                    $"Дублікат рядка: PersonId={x.PersonId}, Kind={x.Kind}, EffectiveAt={x.EffectiveAt:yyyy-MM-dd}.");
-            }
-        }
     }
 }

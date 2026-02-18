@@ -16,6 +16,7 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
     public void Configure(EntityTypeBuilder<TimesheetEntry> e)
     {
         e.ToTable("timesheet_entries");
+
         e.HasKey(x => x.Id);
 
         e.Property(x => x.Id)

@@ -153,11 +153,26 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
         var tl = await LoadTimelineForInsertAsync(db, updated.TimesheetId, ct);
         EnsureEntryWithinTimeline(tl, updated);
 
-        db.TimesheetEntries.Update(updated);
+        // IMPORTANT:
+        // Never DbSet.Update(updated) on detached graphs (can overwrite FK back to navigation).
+        var existing = await db.TimesheetEntries
+            .FirstOrDefaultAsync(x => x.Id == updated.Id && !x.IsDeleted, ct)
+            ?? throw new InvalidOperationException("Timesheet entry not found.");
+
+        if (existing.TimesheetId != updated.TimesheetId)
+            throw new InvalidOperationException("Entry timesheet mismatch.");
+
+        existing.TimesheetCodeDefinitionId = updated.TimesheetCodeDefinitionId;
+        existing.From = updated.From;
+        existing.To = updated.To;
+        existing.Reference = updated.Reference;
+        existing.Note = updated.Note;
+        existing.UpdatedBy = updated.UpdatedBy;
+        existing.UpdatedAtUtc = updated.UpdatedAtUtc;
+
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
     }
-
 
     /// <inheritdoc />
     public async Task SaveTransitionAsync(TimesheetEntry prevUpdated, TimesheetEntry nextAdded, CancellationToken ct = default)
@@ -173,7 +188,14 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
         EnsureEntryWithinTimeline(tl, prevUpdated);
         EnsureEntryWithinTimeline(tl, nextAdded);
 
-        db.TimesheetEntries.Update(prevUpdated);
+        var prev = await db.TimesheetEntries
+            .FirstOrDefaultAsync(x => x.Id == prevUpdated.Id && !x.IsDeleted, ct)
+            ?? throw new InvalidOperationException("Previous timesheet entry not found.");
+
+        prev.To = prevUpdated.To;
+        prev.UpdatedBy = prevUpdated.UpdatedBy;
+        prev.UpdatedAtUtc = prevUpdated.UpdatedAtUtc;
+
         db.TimesheetEntries.Add(nextAdded);
 
         await db.SaveChangesAsync(ct);

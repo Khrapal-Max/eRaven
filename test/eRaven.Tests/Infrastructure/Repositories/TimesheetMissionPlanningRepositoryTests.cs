@@ -8,493 +8,787 @@
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
+using eRaven.Infrastructure;
 using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using eRaven.Tests.Extensions;
+using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Tests.Infrastructure.Repositories;
 
+/// <summary>
+/// Тести для <see cref="TimesheetMissionPlanningRepository"/>.
+///
+/// <para>
+/// Фіксуємо read-стратегію планування/звітів по місіях на основі фактів табеля:
+/// <list type="bullet">
+/// <item><description>ActiveMissionPersons: бере лише active (Status != Canceled) spans з half-open інтервалом [FromDate..ToDate).</description></item>
+/// <item><description>ActiveMissionPersonsByDocument: фільтр по openedBy/closedBy документу + half-open інтервал.</description></item>
+/// <item><description>FreePersonForMissions: люди з поточним кодом "30" (ReadyToCombatTask) та без active span на дату.</description></item>
+/// </list>
+/// </para>
+/// </summary>
 public sealed class TimesheetMissionPlanningRepositoryTests
 {
-    private static readonly DateTime NowUtc = new(2026, 02, 15, 10, 0, 0, DateTimeKind.Utc);
+    //======================================================================
+    // GetActiveMissionPersonsAsync
+    //======================================================================
 
-    // ======================================================================
-    // GetFreePersonForMissionsAsync
-    // ======================================================================
-
-    [Fact(DisplayName = "TimesheetMissionPlanningRepo: GetFreePersonForMissionsAsync кидає коли onDate=default")]
-    public async Task GetFreePersonForMissionsAsync_throws_when_onDate_default()
+    /// <summary>
+    /// Повертає лише активні (не canceled) spans для місії на дату onDate.
+    /// Half-open: якщо onDate == ToDate, span НЕ активний.
+    /// </summary>
+    [Fact]
+    public async Task GetActiveMissionPersonsAsync_ReturnsOnlyActiveNonCanceled_HalfOpen()
     {
         await using var testDb = new SqliteTestDb();
         var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            repo.GetFreePersonForMissionsAsync(default));
-    }
-
-    [Fact(DisplayName = "TimesheetMissionPlanningRepo: GetFreePersonForMissionsAsync повертає тільки тих, хто в табелі та не зайнятий активним TaskSpan")]
-    public async Task GetFreePersonForMissionsAsync_returns_only_in_timesheet_and_not_busy()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
-
+        var now = Utc(2026, 02, 17, 10, 00);
         var onDate = new DateOnly(2026, 02, 10);
 
-        var p1 = Guid.NewGuid(); // in timesheet, free
-        var p2 = Guid.NewGuid(); // in timesheet, busy (draft)
-        var p3 = Guid.NewGuid(); // NOT in timesheet on date
-        var p4 = Guid.NewGuid(); // in timesheet, has canceled span => still free
-
-        var t1 = Guid.NewGuid();
-        var t2 = Guid.NewGuid();
-        var t3 = Guid.NewGuid();
-        var t4 = Guid.NewGuid();
-
-        var m1 = Guid.NewGuid();
-
-        await using (var db = await testDb.Factory.CreateDbContextAsync())
-        {
-            db.PersonRead.AddRange(
-                NewPerson(p1, "0000000001", "Alpha A"),
-                NewPerson(p2, "0000000002", "Bravo B"),
-                NewPerson(p3, "0000000003", "Charlie C"),
-                NewPerson(p4, "0000000004", "Delta D")
-            );
-
-            // active episodes for p1, p2, p4
-            db.TimeSheets.AddRange(
-                NewEpisode(t1, p1, openedAt: new DateOnly(2026, 02, 01), closedAt: null),
-                NewEpisode(t2, p2, openedAt: new DateOnly(2026, 02, 01), closedAt: null),
-                NewEpisode(t4, p4, openedAt: new DateOnly(2026, 02, 01), closedAt: null),
-
-                // closed episode for p3 (not active on onDate)
-                NewEpisode(t3, p3, openedAt: new DateOnly(2026, 01, 01), closedAt: new DateOnly(2026, 02, 05))
-            );
-
-            // p2 busy (active draft span)
-            db.TimesheetTaskSpans.Add(NewSpan(
-                timesheetId: t2,
-                personId: p2,
-                documentId: Guid.NewGuid(),
-                missionId: m1,
-                from: new DateOnly(2026, 02, 05),
-                to: null,
-                status: DocumentStatus.Draft));
-
-            // p4 has canceled span (should NOT make busy)
-            db.TimesheetTaskSpans.Add(NewSpan(
-                timesheetId: t4,
-                personId: p4,
-                documentId: Guid.NewGuid(),
-                missionId: m1,
-                from: new DateOnly(2026, 02, 05),
-                to: null,
-                status: DocumentStatus.Canceled));
-
-            await db.SaveChangesAsync();
-        }
-
-        var free = await repo.GetFreePersonForMissionsAsync(onDate);
-
-        Assert.Equal(2, free.Count);
-
-        // order: FullName, then Rnokpp
-        Assert.Equal(p1, free[0].PersonId);
-        Assert.Equal("Alpha A", free[0].FullName);
-
-        Assert.Equal(p4, free[1].PersonId);
-        Assert.Equal("Delta D", free[1].FullName);
-    }
-
-    [Fact(DisplayName = "TimesheetMissionPlanningRepo: GetFreePersonForMissionsAsync не вважає busy якщо span поза датою (ToDate < onDate)")]
-    public async Task GetFreePersonForMissionsAsync_span_outside_date_does_not_block()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
-
-        var onDate = new DateOnly(2026, 02, 10);
-
-        var personId = Guid.NewGuid();
-        var timesheetId = Guid.NewGuid();
         var missionId = Guid.NewGuid();
 
+        // person A -> active (open-ended)
+        var pA = NewPerson("111", "Alpha A");
+        var tsA = await SeedEpisodeAsync(testDb, pA.Id, openedAt: new DateOnly(2026, 02, 01), closedAt: null, nowUtc: now);
+        await SeedPersonAsync(testDb, pA);
+
+        await SeedSpanAsync(testDb, new TimesheetTaskSpan
+        {
+            Id = Guid.NewGuid(),
+            TimesheetId = tsA,
+            PersonId = pA.Id,
+            MissionId = missionId,
+            OpenedByCombatTaskDocumentId = Guid.NewGuid(),
+            ClosedByCombatTaskDocumentId = null,
+            FromDate = new DateOnly(2026, 02, 01),
+            ToDate = null,
+            Status = DocumentStatus.Active,
+            Rnokpp = pA.Rnokpp,
+            FullName = pA.FullName,
+            Rank = pA.Rank,
+            Position = pA.Position,
+            Weapon = pA.Weapon,
+            Callsign = pA.Callsign,
+            CreatedBy = "seed",
+            CreatedAtUtc = now,
+            UpdatedBy = "seed",
+            UpdatedAtUtc = now
+        });
+
+        // person B -> ToDate == onDate (exclusive) => NOT active on onDate
+        var pB = NewPerson("222", "Bravo B");
+        var tsB = await SeedEpisodeAsync(testDb, pB.Id, new DateOnly(2026, 02, 01), null, now);
+        await SeedPersonAsync(testDb, pB);
+
+        await SeedSpanAsync(testDb, new TimesheetTaskSpan
+        {
+            Id = Guid.NewGuid(),
+            TimesheetId = tsB,
+            PersonId = pB.Id,
+            MissionId = missionId,
+            OpenedByCombatTaskDocumentId = Guid.NewGuid(),
+            ClosedByCombatTaskDocumentId = null,
+            FromDate = new DateOnly(2026, 02, 05),
+            ToDate = onDate, // half-open => onDate is excluded
+            Status = DocumentStatus.Active,
+            Rnokpp = pB.Rnokpp,
+            FullName = pB.FullName,
+            Rank = pB.Rank,
+            Position = pB.Position,
+            Weapon = pB.Weapon,
+            Callsign = pB.Callsign,
+            CreatedBy = "seed",
+            CreatedAtUtc = now,
+            UpdatedBy = "seed",
+            UpdatedAtUtc = now
+        });
+
+        // person C -> canceled => excluded
+        var pC = NewPerson("333", "Charlie C");
+        var tsC = await SeedEpisodeAsync(testDb, pC.Id, new DateOnly(2026, 02, 01), null, now);
+        await SeedPersonAsync(testDb, pC);
+
+        await SeedSpanAsync(testDb, new TimesheetTaskSpan
+        {
+            Id = Guid.NewGuid(),
+            TimesheetId = tsC,
+            PersonId = pC.Id,
+            MissionId = missionId,
+            OpenedByCombatTaskDocumentId = Guid.NewGuid(),
+            ClosedByCombatTaskDocumentId = null,
+            FromDate = new DateOnly(2026, 02, 09),
+            ToDate = new DateOnly(2026, 02, 12),
+            Status = DocumentStatus.Canceled,
+            Rnokpp = pC.Rnokpp,
+            FullName = pC.FullName,
+            Rank = pC.Rank,
+            Position = pC.Position,
+            Weapon = pC.Weapon,
+            Callsign = pC.Callsign,
+            ClosedByCodeId = Guid.NewGuid(),
+            ClosedReference = "X",
+            CreatedBy = "seed",
+            CreatedAtUtc = now,
+            UpdatedBy = "seed",
+            UpdatedAtUtc = now
+        });
+
+        // person D -> different mission => excluded
+        var pD = NewPerson("444", "Delta D");
+        var tsD = await SeedEpisodeAsync(testDb, pD.Id, new DateOnly(2026, 02, 01), null, now);
+        await SeedPersonAsync(testDb, pD);
+
+        await SeedSpanAsync(testDb, new TimesheetTaskSpan
+        {
+            Id = Guid.NewGuid(),
+            TimesheetId = tsD,
+            PersonId = pD.Id,
+            MissionId = Guid.NewGuid(), // other mission
+            OpenedByCombatTaskDocumentId = Guid.NewGuid(),
+            ClosedByCombatTaskDocumentId = null,
+            FromDate = new DateOnly(2026, 02, 01),
+            ToDate = null,
+            Status = DocumentStatus.Active,
+            Rnokpp = pD.Rnokpp,
+            FullName = pD.FullName,
+            Rank = pD.Rank,
+            Position = pD.Position,
+            Weapon = pD.Weapon,
+            Callsign = pD.Callsign,
+            CreatedBy = "seed",
+            CreatedAtUtc = now,
+            UpdatedBy = "seed",
+            UpdatedAtUtc = now
+        });
+
+        var result = await repo.GetActiveMissionPersonsAsync(missionId, onDate);
+
+        Assert.Single(result);
+
+        var dto = result[0];
+        Assert.Equal(pA.Id, dto.PersonId);
+        Assert.Equal(pA.Rnokpp, dto.Rnokpp);
+        Assert.Equal(pA.FullName, dto.FullName);
+        Assert.Equal(new DateOnly(2026, 02, 01), dto.From);
+    }
+
+    /// <summary>
+    /// Результат сортується за FullName, потім за From.
+    /// </summary>
+    [Fact]
+    public async Task GetActiveMissionPersonsAsync_OrdersByFullName_ThenByFrom()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
+
+        var now = Utc(2026, 02, 17, 10, 00);
+        var onDate = new DateOnly(2026, 02, 10);
+
+        var missionId = Guid.NewGuid();
+
+        // Two active persons (names ensure ordering)
+        var p1 = NewPerson("555", "Alpha");
+        var p2 = NewPerson("666", "Alpha"); // same name, different From => order by From
+
+        await SeedPersonAsync(testDb, p1);
+        await SeedPersonAsync(testDb, p2);
+
+        var ts1 = await SeedEpisodeAsync(testDb, p1.Id, new DateOnly(2026, 02, 01), null, now);
+        var ts2 = await SeedEpisodeAsync(testDb, p2.Id, new DateOnly(2026, 02, 01), null, now);
+
+        await SeedSpanAsync(testDb, NewSpan(ts1, p1, missionId, from: new DateOnly(2026, 02, 05), toExclusive: null, now));
+        await SeedSpanAsync(testDb, NewSpan(ts2, p2, missionId, from: new DateOnly(2026, 02, 03), toExclusive: null, now));
+
+        var result = await repo.GetActiveMissionPersonsAsync(missionId, onDate);
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal(p2.Id, result[0].PersonId); // Alpha, From 02-03
+        Assert.Equal(p1.Id, result[1].PersonId); // Alpha, From 02-05
+    }
+
+    //======================================================================
+    // GetActiveMissionPersonsByDocumentAsync
+    //======================================================================
+
+    /// <summary>
+    /// Фільтр по документу працює і для openedBy, і для closedBy. Half-open інтервал також враховується.
+    /// </summary>
+    [Fact]
+    public async Task GetActiveMissionPersonsByDocumentAsync_ReturnsOpenedOrClosedByDocument()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
+
+        var now = Utc(2026, 02, 17, 10, 00);
+        var onDate = new DateOnly(2026, 02, 10);
+
+        var documentId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+
+        // A: openedBy == documentId (active)
+        var pA = NewPerson("701", "Alpha Doc");
+        await SeedPersonAsync(testDb, pA);
+        var tsA = await SeedEpisodeAsync(testDb, pA.Id, new DateOnly(2026, 02, 01), null, now);
+
+        await SeedSpanAsync(testDb, new TimesheetTaskSpan
+        {
+            Id = Guid.NewGuid(),
+            TimesheetId = tsA,
+            PersonId = pA.Id,
+            MissionId = missionId,
+            OpenedByCombatTaskDocumentId = documentId,
+            ClosedByCombatTaskDocumentId = null,
+            FromDate = new DateOnly(2026, 02, 05),
+            ToDate = null,
+            Status = DocumentStatus.Active,
+            Rnokpp = pA.Rnokpp,
+            FullName = pA.FullName,
+            Rank = pA.Rank,
+            Position = pA.Position,
+            Weapon = pA.Weapon,
+            Callsign = pA.Callsign,
+            CreatedBy = "seed",
+            CreatedAtUtc = now,
+            UpdatedBy = "seed",
+            UpdatedAtUtc = now
+        });
+
+        // B: closedBy == documentId (active on onDate; ToDate > onDate)
+        var pB = NewPerson("702", "Bravo Doc");
+        await SeedPersonAsync(testDb, pB);
+        var tsB = await SeedEpisodeAsync(testDb, pB.Id, new DateOnly(2026, 02, 01), null, now);
+
+        await SeedSpanAsync(testDb, new TimesheetTaskSpan
+        {
+            Id = Guid.NewGuid(),
+            TimesheetId = tsB,
+            PersonId = pB.Id,
+            MissionId = missionId,
+            OpenedByCombatTaskDocumentId = Guid.NewGuid(),
+            ClosedByCombatTaskDocumentId = documentId,
+            FromDate = new DateOnly(2026, 02, 01),
+            ToDate = new DateOnly(2026, 02, 11),
+            Status = DocumentStatus.Active,
+            Rnokpp = pB.Rnokpp,
+            FullName = pB.FullName,
+            Rank = pB.Rank,
+            Position = pB.Position,
+            Weapon = pB.Weapon,
+            Callsign = pB.Callsign,
+            CreatedBy = "seed",
+            CreatedAtUtc = now,
+            UpdatedBy = "seed",
+            UpdatedAtUtc = now
+        });
+
+        // C: unrelated document => excluded
+        var pC = NewPerson("703", "Charlie Other");
+        await SeedPersonAsync(testDb, pC);
+        var tsC = await SeedEpisodeAsync(testDb, pC.Id, new DateOnly(2026, 02, 01), null, now);
+
+        await SeedSpanAsync(testDb, NewSpan(tsC, pC, missionId, from: new DateOnly(2026, 02, 01), toExclusive: null, now));
+
+        // D: half-open boundary: ToDate == onDate => excluded even if doc matches
+        var pD = NewPerson("704", "Delta Boundary");
+        await SeedPersonAsync(testDb, pD);
+        var tsD = await SeedEpisodeAsync(testDb, pD.Id, new DateOnly(2026, 02, 01), null, now);
+
+        await SeedSpanAsync(testDb, new TimesheetTaskSpan
+        {
+            Id = Guid.NewGuid(),
+            TimesheetId = tsD,
+            PersonId = pD.Id,
+            MissionId = missionId,
+            OpenedByCombatTaskDocumentId = documentId,
+            ClosedByCombatTaskDocumentId = null,
+            FromDate = new DateOnly(2026, 02, 01),
+            ToDate = onDate, // excluded by half-open
+            Status = DocumentStatus.Active,
+            Rnokpp = pD.Rnokpp,
+            FullName = pD.FullName,
+            Rank = pD.Rank,
+            Position = pD.Position,
+            Weapon = pD.Weapon,
+            Callsign = pD.Callsign,
+            CreatedBy = "seed",
+            CreatedAtUtc = now,
+            UpdatedBy = "seed",
+            UpdatedAtUtc = now
+        });
+
+        var result = await repo.GetActiveMissionPersonsByDocumentAsync(documentId, onDate);
+
+        Assert.Equal(2, result.Count);
+
+        // ordered by FullName
+        Assert.Equal(pA.Id, result[0].PersonId);
+        Assert.Equal(pB.Id, result[1].PersonId);
+    }
+
+    //======================================================================
+    // GetActiveMissionClosablePersonsAsync
+    //======================================================================
+    /// <summary>
+    /// Повертає тіх у кого не закриті місії 
+    /// </summary>
+
+    [Fact]
+    public async Task GetActiveMissionClosablePersonsAsync_ReturnsOnlyOpenActiveNotFinalizedSpans()
+    {
+        await using var testDb = new SqliteTestDb();
+
+        var missionId = Guid.NewGuid();
+        var otherMissionId = Guid.NewGuid();
+
+        var onDate = new DateOnly(2026, 02, 20);
+        var openedAt = new DateOnly(2026, 02, 01);
+
+        var now = new DateTime(2026, 02, 18, 10, 00, 00, DateTimeKind.Utc);
+
+        // Persons
+        var p1 = Guid.NewGuid(); // ✅ open + active + not finalized -> must be returned
+        var p2 = Guid.NewGuid(); // closed by document -> excluded
+        var p3 = Guid.NewGuid(); // closed by code -> excluded
+        var p4 = Guid.NewGuid(); // canceled -> excluded
+        var p5 = Guid.NewGuid(); // starts after onDate -> excluded
+        var p6 = Guid.NewGuid(); // other mission -> excluded
+
+        var docOpen = Guid.NewGuid();
+        var docClose = Guid.NewGuid();
+        var reasonCodeId = Guid.NewGuid();
+
         await using (var db = await testDb.Factory.CreateDbContextAsync())
         {
-            db.PersonRead.Add(NewPerson(personId, "0000000010", "Zulu Z"));
+            await db.Database.EnsureCreatedAsync();
 
-            db.TimeSheets.Add(NewEpisode(timesheetId, personId,
-                openedAt: new DateOnly(2026, 02, 01),
-                closedAt: null));
+            // Episodes (FK target)
+            var ep1 = await SeedEpisodeAsync(db, p1, openedAt, now);
+            var ep2 = await SeedEpisodeAsync(db, p2, openedAt, now);
+            var ep3 = await SeedEpisodeAsync(db, p3, openedAt, now);
+            var ep4 = await SeedEpisodeAsync(db, p4, openedAt, now);
+            var ep5 = await SeedEpisodeAsync(db, p5, openedAt, now);
+            var ep6 = await SeedEpisodeAsync(db, p6, openedAt, now);
 
-            // span ends BEFORE onDate => NOT busy
+            // p1: open, active, not finalized => should be returned
             db.TimesheetTaskSpans.Add(NewSpan(
-                timesheetId: timesheetId,
-                personId: personId,
-                documentId: Guid.NewGuid(),
+                timesheetId: ep1.Id,
+                personId: p1,
                 missionId: missionId,
-                from: new DateOnly(2026, 02, 05),
-                to: new DateOnly(2026, 02, 08),
-                status: DocumentStatus.Posted));
+                openedByDocId: docOpen,
+                from: new DateOnly(2026, 02, 18),
+                toExclusive: null,
+                status: DocumentStatus.Active,
+                closedByDocId: null,
+                closedByCodeId: null,
+                nowUtc: now,
+                fullName: "A Person"));
+
+            // p2: active on onDate but finalized by another document => excluded
+            db.TimesheetTaskSpans.Add(NewSpan(
+                timesheetId: ep2.Id,
+                personId: p2,
+                missionId: missionId,
+                openedByDocId: docOpen,
+                from: new DateOnly(2026, 02, 18),
+                toExclusive: new DateOnly(2026, 02, 21), // half-open => includes 20.02
+                status: DocumentStatus.Active,
+                closedByDocId: docClose,
+                closedByCodeId: null,
+                nowUtc: now,
+                fullName: "B ClosedByDoc"));
+
+            // p3: active on onDate but finalized by reason code => excluded
+            db.TimesheetTaskSpans.Add(NewSpan(
+                timesheetId: ep3.Id,
+                personId: p3,
+                missionId: missionId,
+                openedByDocId: docOpen,
+                from: new DateOnly(2026, 02, 18),
+                toExclusive: new DateOnly(2026, 02, 21),
+                status: DocumentStatus.Active,
+                closedByDocId: null,
+                closedByCodeId: reasonCodeId,
+                nowUtc: now,
+                fullName: "C ClosedByCode"));
+
+            // p4: canceled => excluded
+            db.TimesheetTaskSpans.Add(NewSpan(
+                timesheetId: ep4.Id,
+                personId: p4,
+                missionId: missionId,
+                openedByDocId: docOpen,
+                from: new DateOnly(2026, 02, 18),
+                toExclusive: null,
+                status: DocumentStatus.Canceled,
+                closedByDocId: null,
+                closedByCodeId: null,
+                nowUtc: now,
+                fullName: "D Canceled"));
+
+            // p5: starts AFTER onDate => must be excluded (важлива перевірка!)
+            db.TimesheetTaskSpans.Add(NewSpan(
+                timesheetId: ep5.Id,
+                personId: p5,
+                missionId: missionId,
+                openedByDocId: docOpen,
+                from: new DateOnly(2026, 02, 22),
+                toExclusive: null,
+                status: DocumentStatus.Active,
+                closedByDocId: null,
+                closedByCodeId: null,
+                nowUtc: now,
+                fullName: "E FutureStart"));
+
+            // p6: other mission => excluded
+            db.TimesheetTaskSpans.Add(NewSpan(
+                timesheetId: ep6.Id,
+                personId: p6,
+                missionId: otherMissionId,
+                openedByDocId: docOpen,
+                from: new DateOnly(2026, 02, 18),
+                toExclusive: null,
+                status: DocumentStatus.Active,
+                closedByDocId: null,
+                closedByCodeId: null,
+                nowUtc: now,
+                fullName: "F OtherMission"));
 
             await db.SaveChangesAsync();
         }
 
-        var free = await repo.GetFreePersonForMissionsAsync(onDate);
-
-        Assert.Single(free);
-        Assert.Equal(personId, free[0].PersonId);
-    }
-
-    // ======================================================================
-    // GetActiveByMissionAsync
-    // ======================================================================
-
-    [Fact(DisplayName = "TimesheetMissionPlanningRepo: GetActiveByMissionAsync кидає коли missionId=empty або onDate=default")]
-    public async Task GetActiveByMissionAsync_throws_on_bad_args()
-    {
-        await using var testDb = new SqliteTestDb();
         var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            repo.GetActiveByMissionAsync(Guid.Empty, new DateOnly(2026, 02, 10), includeDraft: true));
+        // Act
+        var closable = await repo.GetActiveMissionClosablePersonsAsync(missionId, onDate);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            repo.GetActiveByMissionAsync(Guid.NewGuid(), default, includeDraft: true));
+        // Assert
+        Assert.Single(closable);
+
+        var x = closable[0];
+        Assert.Equal(p1, x.PersonId);
+        Assert.Equal("A Person", x.FullName);
+        Assert.Equal(new DateOnly(2026, 02, 18), x.From);
     }
 
-    [Fact(DisplayName = "TimesheetMissionPlanningRepo: GetActiveByMissionAsync(includeDraft=false) повертає тільки Posted")]
-    public async Task GetActiveByMissionAsync_includeDraft_false_returns_posted_only()
+    //======================================================================
+    // Helpers
+    //======================================================================
+
+    private static async Task<TimeSheetAggregate> SeedEpisodeAsync(
+        AppDbContext db,
+        Guid personId,
+        DateOnly openedAt,
+        DateTime nowUtc)
     {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
-
-        var onDate = new DateOnly(2026, 02, 10);
-        var missionId = Guid.NewGuid();
-
-        var p1 = Guid.NewGuid(); // posted
-        var p2 = Guid.NewGuid(); // draft
-        var p3 = Guid.NewGuid(); // canceled
-
-        var t1 = Guid.NewGuid();
-        var t2 = Guid.NewGuid();
-        var t3 = Guid.NewGuid();
-
-        var dPosted = Guid.NewGuid();
-        var dDraft = Guid.NewGuid();
-        var dCanceled = Guid.NewGuid();
-
-        await using (var db = await testDb.Factory.CreateDbContextAsync())
+        var ep = new TimeSheetAggregate
         {
-            db.PersonRead.AddRange(
-                NewPerson(p1, "0000000101", "Alpha A"),
-                NewPerson(p2, "0000000102", "Bravo B"),
-                NewPerson(p3, "0000000103", "Charlie C")
-            );
-
-            db.TimeSheets.AddRange(
-                NewEpisode(t1, p1, new DateOnly(2026, 02, 01), null),
-                NewEpisode(t2, p2, new DateOnly(2026, 02, 01), null),
-                NewEpisode(t3, p3, new DateOnly(2026, 02, 01), null)
-            );
-
-            db.TimesheetTaskSpans.AddRange(
-                NewSpan(t1, p1, dPosted, missionId, new DateOnly(2026, 02, 09), null, DocumentStatus.Posted),
-                NewSpan(t2, p2, dDraft, missionId, new DateOnly(2026, 02, 08), null, DocumentStatus.Draft),
-                NewSpan(t3, p3, dCanceled, missionId, new DateOnly(2026, 02, 07), null, DocumentStatus.Canceled)
-            );
-
-            await db.SaveChangesAsync();
-        }
-
-        var active = await repo.GetActiveByMissionAsync(missionId, onDate, includeDraft: false);
-
-        Assert.Single(active);
-
-        Assert.Equal(dPosted, active[0].CombatTaskDocumentId);
-        Assert.Equal(missionId, active[0].MissionId);
-        Assert.Equal(p1, active[0].PersonId);
-        Assert.Equal("Alpha A", active[0].FullName);
-        Assert.Equal(new DateOnly(2026, 02, 09), active[0].From);
-    }
-
-    [Fact(DisplayName = "TimesheetMissionPlanningRepo: GetActiveByMissionAsync(includeDraft=true) повертає Draft + Posted (Canceled ігнорує)")]
-    public async Task GetActiveByMissionAsync_includeDraft_true_includes_draft_and_posted()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
-
-        var onDate = new DateOnly(2026, 02, 10);
-        var missionId = Guid.NewGuid();
-
-        var p1 = Guid.NewGuid();
-        var p2 = Guid.NewGuid();
-
-        var t1 = Guid.NewGuid();
-        var t2 = Guid.NewGuid();
-
-        var d1 = Guid.NewGuid();
-        var d2 = Guid.NewGuid();
-
-        await using (var db = await testDb.Factory.CreateDbContextAsync())
-        {
-            db.PersonRead.AddRange(
-                NewPerson(p1, "0000000201", "Alpha A"),
-                NewPerson(p2, "0000000202", "Bravo B")
-            );
-
-            db.TimeSheets.AddRange(
-                NewEpisode(t1, p1, new DateOnly(2026, 02, 01), null),
-                NewEpisode(t2, p2, new DateOnly(2026, 02, 01), null)
-            );
-
-            db.TimesheetTaskSpans.AddRange(
-                NewSpan(t1, p1, d1, missionId, new DateOnly(2026, 02, 09), null, DocumentStatus.Posted),
-                NewSpan(t2, p2, d2, missionId, new DateOnly(2026, 02, 08), null, DocumentStatus.Draft)
-            );
-
-            await db.SaveChangesAsync();
-        }
-
-        var active = await repo.GetActiveByMissionAsync(missionId, onDate, includeDraft: true);
-
-        Assert.Equal(2, active.Count);
-        Assert.Contains(active, x => x.PersonId == p1 && x.CombatTaskDocumentId == d1);
-        Assert.Contains(active, x => x.PersonId == p2 && x.CombatTaskDocumentId == d2);
-    }
-
-    [Fact(DisplayName = "TimesheetMissionPlanningRepo: GetActiveByMissionAsync бере найсвіжіший span на людину (max FromDate), та сортує по FromDate")]
-    public async Task GetActiveByMissionAsync_picks_latest_span_per_person_and_orders_by_from()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
-
-        var onDate = new DateOnly(2026, 02, 15);
-        var missionId = Guid.NewGuid();
-
-        var p1 = Guid.NewGuid();
-        var p2 = Guid.NewGuid();
-
-        var t1 = Guid.NewGuid();
-        var t2 = Guid.NewGuid();
-
-        var dOld = Guid.NewGuid();
-        var dNew = Guid.NewGuid();
-        var dP2 = Guid.NewGuid();
-
-        await using (var db = await testDb.Factory.CreateDbContextAsync())
-        {
-            db.PersonRead.AddRange(
-                NewPerson(p1, "0000000301", "Bravo B"),
-                NewPerson(p2, "0000000302", "Alpha A")
-            );
-
-            db.TimeSheets.AddRange(
-                NewEpisode(t1, p1, new DateOnly(2026, 02, 01), null),
-                NewEpisode(t2, p2, new DateOnly(2026, 02, 01), null)
-            );
-
-            // p1 has TWO spans on same mission (bad data), repo must pick later FromDate
-            db.TimesheetTaskSpans.AddRange(
-                NewSpan(t1, p1, dOld, missionId, new DateOnly(2026, 02, 01), null, DocumentStatus.Posted),
-                NewSpan(t1, p1, dNew, missionId, new DateOnly(2026, 02, 09), null, DocumentStatus.Posted),
-
-                // p2 FromDate earlier => should come first in result ordering by FromDate asc
-                NewSpan(t2, p2, dP2, missionId, new DateOnly(2026, 02, 05), null, DocumentStatus.Posted)
-            );
-
-            await db.SaveChangesAsync();
-        }
-
-        var active = await repo.GetActiveByMissionAsync(missionId, onDate, includeDraft: false);
-
-        Assert.Equal(2, active.Count);
-
-        // ordered by FromDate ascending => p2 (02-05) first, then p1 (02-09)
-        Assert.Equal(p2, active[0].PersonId);
-        Assert.Equal(new DateOnly(2026, 02, 05), active[0].From);
-
-        Assert.Equal(p1, active[1].PersonId);
-        Assert.Equal(new DateOnly(2026, 02, 09), active[1].From);
-        Assert.Equal(dNew, active[1].CombatTaskDocumentId); // latest span chosen
-    }
-
-    // ======================================================================
-    // GetActiveByDocumentAsync
-    // ======================================================================
-
-    [Fact(DisplayName = "TimesheetMissionPlanningRepo: GetActiveByDocumentAsync кидає коли documentId=empty або onDate=default")]
-    public async Task GetActiveByDocumentAsync_throws_on_bad_args()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
-
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            repo.GetActiveByDocumentAsync(Guid.Empty, new DateOnly(2026, 02, 10), includeDraft: true));
-
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            repo.GetActiveByDocumentAsync(Guid.NewGuid(), default, includeDraft: true));
-    }
-
-    [Fact(DisplayName = "TimesheetMissionPlanningRepo: GetActiveByDocumentAsync(includeDraft=false) повертає тільки Posted по конкретному документу")]
-    public async Task GetActiveByDocumentAsync_includeDraft_false_filters_posted_and_document()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
-
-        var onDate = new DateOnly(2026, 02, 10);
-        var documentId = Guid.NewGuid();
-
-        var mission1 = Guid.NewGuid();
-        var mission2 = Guid.NewGuid();
-
-        var p1 = Guid.NewGuid(); // posted in document
-        var p2 = Guid.NewGuid(); // draft in document (excluded when includeDraft=false)
-        var p3 = Guid.NewGuid(); // posted but different document (must be ignored)
-
-        var t1 = Guid.NewGuid();
-        var t2 = Guid.NewGuid();
-        var t3 = Guid.NewGuid();
-
-        await using (var db = await testDb.Factory.CreateDbContextAsync())
-        {
-            db.PersonRead.AddRange(
-                NewPerson(p1, "0000000401", "Alpha A"),
-                NewPerson(p2, "0000000402", "Bravo B"),
-                NewPerson(p3, "0000000403", "Charlie C")
-            );
-
-            db.TimeSheets.AddRange(
-                NewEpisode(t1, p1, new DateOnly(2026, 02, 01), null),
-                NewEpisode(t2, p2, new DateOnly(2026, 02, 01), null),
-                NewEpisode(t3, p3, new DateOnly(2026, 02, 01), null)
-            );
-
-            db.TimesheetTaskSpans.AddRange(
-                NewSpan(t1, p1, documentId, mission1, new DateOnly(2026, 02, 09), null, DocumentStatus.Posted),
-                NewSpan(t2, p2, documentId, mission2, new DateOnly(2026, 02, 08), null, DocumentStatus.Draft),
-                NewSpan(t3, p3, Guid.NewGuid(), mission1, new DateOnly(2026, 02, 07), null, DocumentStatus.Posted)
-            );
-
-            await db.SaveChangesAsync();
-        }
-
-        var active = await repo.GetActiveByDocumentAsync(documentId, onDate, includeDraft: false);
-
-        Assert.Single(active);
-        Assert.Equal(p1, active[0].PersonId);
-        Assert.Equal(documentId, active[0].CombatTaskDocumentId);
-        Assert.Equal(mission1, active[0].MissionId);
-    }
-
-    [Fact(DisplayName = "TimesheetMissionPlanningRepo: GetActiveByDocumentAsync(includeDraft=true) повертає Draft + Posted по документу")]
-    public async Task GetActiveByDocumentAsync_includeDraft_true_includes_draft_and_posted()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
-
-        var onDate = new DateOnly(2026, 02, 10);
-        var documentId = Guid.NewGuid();
-        var mission1 = Guid.NewGuid();
-        var mission2 = Guid.NewGuid();
-
-        var p1 = Guid.NewGuid();
-        var p2 = Guid.NewGuid();
-
-        var t1 = Guid.NewGuid();
-        var t2 = Guid.NewGuid();
-
-        await using (var db = await testDb.Factory.CreateDbContextAsync())
-        {
-            db.PersonRead.AddRange(
-                NewPerson(p1, "0000000501", "Alpha A"),
-                NewPerson(p2, "0000000502", "Bravo B")
-            );
-
-            db.TimeSheets.AddRange(
-                NewEpisode(t1, p1, new DateOnly(2026, 02, 01), null),
-                NewEpisode(t2, p2, new DateOnly(2026, 02, 01), null)
-            );
-
-            db.TimesheetTaskSpans.AddRange(
-                NewSpan(t1, p1, documentId, mission1, new DateOnly(2026, 02, 09), null, DocumentStatus.Posted),
-                NewSpan(t2, p2, documentId, mission2, new DateOnly(2026, 02, 08), null, DocumentStatus.Draft)
-            );
-
-            await db.SaveChangesAsync();
-        }
-
-        var active = await repo.GetActiveByDocumentAsync(documentId, onDate, includeDraft: true);
-
-        Assert.Equal(2, active.Count);
-        Assert.Contains(active, x => x.PersonId == p1 && x.MissionId == mission1 && x.CombatTaskDocumentId == documentId);
-        Assert.Contains(active, x => x.PersonId == p2 && x.MissionId == mission2 && x.CombatTaskDocumentId == documentId);
-    }
-
-    // ======================================================================
-    // helpers
-    // ======================================================================
-
-    private static PersonReadModel NewPerson(Guid id, string rnokpp, string fullName)
-        => new()
-        {
-            Id = id,
-            Lifecycle = PersonLifecycle.Enrolled,
-            EnrollmentKind = null,
-            EnrollmentReference = null,
-
-            Rnokpp = rnokpp,
-            LastName = fullName,
-            FirstName = fullName,
-            MiddleName = null,
-            FullName = fullName,
-
-            Rank = "Рядовий",
-            PositionSort = null,
-            Position = "Стрілець",
-            Bzvp = null,
-            Weapon = "АК",
-            Callsign = null,
-
-            EnrolledAt = new DateOnly(2026, 02, 01),
-            ExcludedAt = null,
-
-            Version = 1,
-            UpdatedAtUtc = NowUtc
-        };
-
-    private static TimeSheetAggregate NewEpisode(Guid timesheetId, Guid personId, DateOnly openedAt, DateOnly? closedAt)
-        => new()
-        {
-            Id = timesheetId,
+            Id = Guid.NewGuid(),
             PersonId = personId,
             OpenedAt = openedAt,
-            ClosedAt = closedAt,
+            ClosedAt = null,
             CreatedBy = "seed",
-            CreatedAtUtc = NowUtc,
-            ClosedBy = null,
-            ClosedAtUtc = null
+            CreatedAtUtc = nowUtc
         };
+
+        db.TimeSheets.Add(ep);
+        await db.SaveChangesAsync();
+        return ep;
+    }
 
     private static TimesheetTaskSpan NewSpan(
         Guid timesheetId,
         Guid personId,
-        Guid documentId,
         Guid missionId,
+        Guid openedByDocId,
         DateOnly from,
-        DateOnly? to,
-        DocumentStatus status)
+        DateOnly? toExclusive,
+        DocumentStatus status,
+        Guid? closedByDocId,
+        Guid? closedByCodeId,
+        DateTime nowUtc,
+        string fullName)
         => new()
         {
             Id = Guid.NewGuid(),
             TimesheetId = timesheetId,
             PersonId = personId,
-            CombatTaskDocumentId = documentId,
             MissionId = missionId,
+            OpenedByCombatTaskDocumentId = openedByDocId,
+            ClosedByCombatTaskDocumentId = closedByDocId,
             FromDate = from,
-            ToDate = to,
+            ToDate = toExclusive,
             Status = status,
-            ClosedByCodeId = null,
+
+            ClosedByCodeId = closedByCodeId,
             ClosedReference = null,
+
+            Rnokpp = "0000000000",
+            FullName = fullName,
+            Rank = null,
+            Position = null,
+            Weapon = null,
+            Callsign = null,
+
+            CreatedBy = "seed",
+            CreatedAtUtc = nowUtc,
             UpdatedBy = "seed",
-            UpdatedAtUtc = NowUtc
+            UpdatedAtUtc = nowUtc
         };
+
+    //======================================================================
+    // GetFreePersonForMissionsAsync
+    //======================================================================
+
+    /// <summary>
+    /// Free persons: current code == ReadyToCombatTask ("30") AND no active task span on date.
+    /// </summary>
+    [Fact]
+    public async Task GetFreePersonForMissionsAsync_ReturnsReadyWithoutActiveTask()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
+
+        var now = Utc(2026, 02, 17, 10, 00);
+        var onDate = new DateOnly(2026, 02, 10);
+
+        // codes
+        var readyCodeId = await SeedCodeAsync(testDb, TimesheetSystemCodes.ReadyToCombatTask);
+        var baseCodeId = await SeedCodeAsync(testDb, TimesheetSystemCodes.BaseState);
+
+        // P1: ready + no task => included
+        var p1 = NewPerson("801", "Alpha Free");
+        await SeedPersonAsync(testDb, p1);
+        var ts1 = await SeedEpisodeAsync(testDb, p1.Id, new DateOnly(2026, 02, 01), null, now);
+        await SeedEntryAsync(testDb, NewEntry(ts1, p1.Id, readyCodeId, from: new DateOnly(2026, 02, 01), to: null, now, isDeleted: false));
+
+        // P2: ready + HAS active task => excluded
+        var p2 = NewPerson("802", "Bravo Busy");
+        await SeedPersonAsync(testDb, p2);
+        var ts2 = await SeedEpisodeAsync(testDb, p2.Id, new DateOnly(2026, 02, 01), null, now);
+        await SeedEntryAsync(testDb, NewEntry(ts2, p2.Id, readyCodeId, new DateOnly(2026, 02, 01), null, now, false));
+
+        await SeedSpanAsync(testDb, new TimesheetTaskSpan
+        {
+            Id = Guid.NewGuid(),
+            TimesheetId = ts2,
+            PersonId = p2.Id,
+            MissionId = Guid.NewGuid(),
+            OpenedByCombatTaskDocumentId = Guid.NewGuid(),
+            ClosedByCombatTaskDocumentId = null,
+            FromDate = new DateOnly(2026, 02, 09),
+            ToDate = null, // active on onDate
+            Status = DocumentStatus.Active,
+            Rnokpp = p2.Rnokpp,
+            FullName = p2.FullName,
+            Rank = p2.Rank,
+            Position = p2.Position,
+            Weapon = p2.Weapon,
+            Callsign = p2.Callsign,
+            CreatedBy = "seed",
+            CreatedAtUtc = now,
+            UpdatedBy = "seed",
+            UpdatedAtUtc = now
+        });
+
+        // P3: NOT ready => excluded
+        var p3 = NewPerson("803", "Charlie NotReady");
+        await SeedPersonAsync(testDb, p3);
+        var ts3 = await SeedEpisodeAsync(testDb, p3.Id, new DateOnly(2026, 02, 01), null, now);
+        await SeedEntryAsync(testDb, NewEntry(ts3, p3.Id, baseCodeId, new DateOnly(2026, 02, 01), null, now, false));
+
+        // P4: ready entry but deleted => excluded
+        var p4 = NewPerson("804", "Delta DeletedEntry");
+        await SeedPersonAsync(testDb, p4);
+        var ts4 = await SeedEpisodeAsync(testDb, p4.Id, new DateOnly(2026, 02, 01), null, now);
+        await SeedEntryAsync(testDb, NewEntry(ts4, p4.Id, readyCodeId, new DateOnly(2026, 02, 01), null, now, isDeleted: true));
+
+        // P5: had ready, but later entry overrides to base => excluded (current code chosen by max From)
+        var p5 = NewPerson("805", "Echo Overridden");
+        await SeedPersonAsync(testDb, p5);
+        var ts5 = await SeedEpisodeAsync(testDb, p5.Id, new DateOnly(2026, 02, 01), null, now);
+
+        await SeedEntryAsync(testDb, NewEntry(ts5, p5.Id, readyCodeId, new DateOnly(2026, 02, 01), null, now, false));
+        await SeedEntryAsync(testDb, NewEntry(ts5, p5.Id, baseCodeId, new DateOnly(2026, 02, 05), null, now.AddMinutes(1), false));
+
+        var result = await repo.GetFreePersonForMissionsAsync(onDate);
+
+        Assert.Single(result);
+
+        var dto = result[0];
+        Assert.Equal(p1.Id, dto.PersonId);
+        Assert.Equal(p1.Rnokpp, dto.Rnokpp);
+        Assert.Equal(p1.FullName, dto.FullName);
+    }
+
+    /// <summary>
+    /// Якщо системний код ReadyToCombatTask ("30") відсутній у довіднику — метод падає (SingleAsync).
+    /// Це важливий контракт: seed кодів має гарантувати наявність "30".
+    /// </summary>
+    [Fact]
+    public async Task GetFreePersonForMissionsAsync_Throws_WhenReadyCodeMissing()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repo.GetFreePersonForMissionsAsync(new DateOnly(2026, 02, 10)));
+    }
+
+    /// <summary>
+    /// Валідація аргументів: onDate != default.
+    /// </summary>
+    [Fact]
+    public async Task Methods_Throw_WhenOnDateDefault()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetMissionPlanningRepository(testDb.Factory);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.GetActiveMissionPersonsAsync(Guid.NewGuid(), default));
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.GetActiveMissionPersonsByDocumentAsync(Guid.NewGuid(), default));
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.GetFreePersonForMissionsAsync(default));
+    }
+
+    //======================================================================
+    // Helpers
+    //======================================================================
+
+    private static DateTime Utc(int y, int m, int d, int hh, int mm)
+        => new(y, m, d, hh, mm, 0, DateTimeKind.Utc);
+
+    private static PersonReadModel NewPerson(string rnokpp, string fullName)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            Lifecycle = PersonLifecycle.Enrolled,
+            Rnokpp = rnokpp,
+            LastName = fullName,
+            FirstName = fullName,
+            FullName = fullName,
+            Rank = "R",
+            Position = "P",
+            Weapon = "W",
+            Callsign = "C",
+            Version = 1,
+            UpdatedAtUtc = Utc(2026, 02, 17, 10, 00)
+        };
+
+    private static TimesheetTaskSpan NewSpan(Guid timesheetId, PersonReadModel p, Guid missionId, DateOnly from, DateOnly? toExclusive, DateTime nowUtc)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            TimesheetId = timesheetId,
+            PersonId = p.Id,
+            MissionId = missionId,
+            OpenedByCombatTaskDocumentId = Guid.NewGuid(),
+            ClosedByCombatTaskDocumentId = null,
+            FromDate = from,
+            ToDate = toExclusive,
+            Status = DocumentStatus.Active,
+            Rnokpp = p.Rnokpp,
+            FullName = p.FullName,
+            Rank = p.Rank,
+            Position = p.Position,
+            Weapon = p.Weapon,
+            Callsign = p.Callsign,
+            CreatedBy = "seed",
+            CreatedAtUtc = nowUtc,
+            UpdatedBy = "seed",
+            UpdatedAtUtc = nowUtc
+        };
+
+    private static TimesheetEntry NewEntry(Guid timesheetId, Guid personId, Guid codeId, DateOnly from, DateOnly? to, DateTime nowUtc, bool isDeleted)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            TimesheetId = timesheetId,
+            PersonId = personId,
+            TimesheetCodeDefinitionId = codeId,
+            From = from,
+            To = to,
+            CreatedBy = "seed",
+            CreatedAtUtc = nowUtc,
+            IsDeleted = isDeleted,
+            DeletedBy = isDeleted ? "seed" : null,
+            DeletedAtUtc = isDeleted ? nowUtc : null,
+            DeleteReason = isDeleted ? "test" : null
+        };
+
+    private static async Task<Guid> SeedCodeAsync(SqliteTestDb testDb, string code)
+    {
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+
+        var existing = await db.TimesheetCodes.SingleOrDefaultAsync(x => x.Code == code);
+        if (existing is not null)
+            return existing.Id;
+
+        var e = new TimesheetCodeDefinition
+        {
+            Id = Guid.NewGuid(),
+            Code = code,
+            Title = code,
+            Description = null,
+            SortOrder = 0,
+            Priority = 0,
+            IsTerminal = false,
+            IsActive = true,
+            CreatedBy = "seed",
+            CreatedAtUtc = Utc(2026, 02, 17, 10, 00)
+        };
+
+        db.TimesheetCodes.Add(e);
+        await db.SaveChangesAsync();
+
+        return e.Id;
+    }
+
+    private static async Task SeedPersonAsync(SqliteTestDb testDb, PersonReadModel p)
+    {
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+        db.PersonRead.Add(p);
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task<Guid> SeedEpisodeAsync(
+        SqliteTestDb testDb,
+        Guid personId,
+        DateOnly openedAt,
+        DateOnly? closedAt,
+        DateTime nowUtc)
+    {
+        var ep = new TimeSheetAggregate
+        {
+            Id = Guid.NewGuid(),
+            PersonId = personId,
+            OpenedAt = openedAt,
+            ClosedAt = closedAt,
+            CreatedBy = "seed",
+            CreatedAtUtc = nowUtc
+        };
+
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+        db.TimeSheets.Add(ep);
+        await db.SaveChangesAsync();
+
+        return ep.Id;
+    }
+
+    private static async Task SeedEntryAsync(SqliteTestDb testDb, TimesheetEntry entry)
+    {
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+        db.TimesheetEntries.Add(entry);
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task SeedSpanAsync(SqliteTestDb testDb, TimesheetTaskSpan span)
+    {
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+        db.TimesheetTaskSpans.Add(span);
+        await db.SaveChangesAsync();
+    }
 }

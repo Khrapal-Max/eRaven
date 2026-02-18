@@ -16,6 +16,7 @@ public sealed class PersonEventRecordConfiguration : IEntityTypeConfiguration<Pe
     public void Configure(EntityTypeBuilder<PersonEventRecord> e)
     {
         e.ToTable("person_events");
+
         e.HasKey(x => x.EventId);
 
         e.Property(x => x.EventId)

@@ -9,29 +9,22 @@ using System.ComponentModel.DataAnnotations;
 
 namespace eRaven.Application.DTOs.Timesheet.Models;
 
-//======================================================================
-// Form model (minimal validation)
-//======================================================================
-
 /// <summary>
 /// Модель форми для переходу стану.
-/// Валідація мінімальна: InputDate і NextCode обов’язкові.
+/// Валідація мінімальна: InputDate і CodeId обов’язкові.
 /// </summary>
 public sealed class TransitionModel
 {
-    /// <summary>Цільова особа.</summary>
-    public Guid PersonId { get; set; }
-
     /// <summary>
     /// Дата, яку вводить користувач (“по/закінчення”).
-    /// Трактування залежить від EndDateMeaning поточного коду.
+    /// Трактування залежить від StartShiftDays/політики поточного коду.
     /// </summary>
     [Required]
     public DateOnly InputDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
 
-    /// <summary>Наступний код (має бути дозволений політикою).</summary>
+    /// <summary>Id наступного коду (має бути дозволений політикою).</summary>
     [Required(ErrorMessage = "Оберіть наступний код.")]
-    public string Code { get; set; } = string.Empty;
+    public Guid? CodeId { get; set; }
 
     /// <summary>Опційний референс/підстава.</summary>
     public string? Reference { get; set; }

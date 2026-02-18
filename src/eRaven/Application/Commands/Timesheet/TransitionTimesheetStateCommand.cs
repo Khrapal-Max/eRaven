@@ -11,7 +11,7 @@ public sealed record TransitionTimesheetStateCommand(
     Guid PersonId,
     DateOnly AnchorDate,
     DateOnly InputDate,
-    string NextCode,
+    Guid NextCode,
     string? Reference,
     string? Note,
     bool IsCorrection,

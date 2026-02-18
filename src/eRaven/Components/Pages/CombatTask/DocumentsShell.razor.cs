@@ -127,8 +127,7 @@ public partial class DocumentsShell : ComponentBase
     private static string StatusText(DocumentStatus s)
         => s switch
         {
-            DocumentStatus.Draft => "Чернетка",
-            DocumentStatus.Posted => "Проведений",
+            DocumentStatus.Active => "Діючий",
             DocumentStatus.Canceled => "Відмінений",
             _ => "—"
         };

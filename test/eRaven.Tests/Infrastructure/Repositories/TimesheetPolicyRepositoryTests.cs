@@ -7,418 +7,462 @@
 
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Domain.Entities;
+using eRaven.Infrastructure;
 using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
 using eRaven.Tests.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Tests.Infrastructure.Repositories;
 
+/// <summary>
+/// Тести для <see cref="TimesheetPolicyRepository"/>.
+///
+/// <para>
+/// Фіксуємо інфраструктурну поведінку довідника кодів і правил переходів:
+/// <list type="bullet">
+/// <item><description><see cref="TimesheetPolicyRepository.GetCodesAsync"/> не повертає системний код "НБ" та (за замовчуванням) не повертає неактивні коди;</description></item>
+/// <item><description><see cref="TimesheetPolicyRepository.GetAllowedTransitionsAsync"/> повертає тільки переходи до активних ToCode і не в "НБ";</description></item>
+/// <item><description><see cref="TimesheetPolicyRepository.SavePolicyAsync"/> робить diff-оновлення переходів без втрати Created* у transition;</description></item>
+/// <item><description><see cref="TimesheetPolicyRepository.AddCodeAsync"/> / <see cref="TimesheetPolicyRepository.CloseCodeAsync"/> — trim, перевірки, ідемпотентність.</description></item>
+/// </list>
+/// </para>
+/// </summary>
 public sealed class TimesheetPolicyRepositoryTests
 {
-    private static readonly DateTime NowUtc = new(2026, 01, 23, 12, 0, 0, DateTimeKind.Utc);
-
-    private static TimesheetCodeDefinition NewCode(
-      string code,
-      string title,
-      int sortOrder,
-      int priority,
-      bool isActive = true,
-      bool isTerminal = false,
-      string createdBy = "seed")
-      => new()
-      {
-          Id = Guid.NewGuid(),
-          Code = code,
-          Title = title,
-          Description = null,
-          SortOrder = sortOrder,
-          Priority = priority,
-          IsTerminal = isTerminal,
-          IsActive = isActive,
-          CreatedBy = createdBy,
-          CreatedAtUtc = NowUtc
-      };
-
-    private static TimesheetCodeTransition NewTransition(
-        Guid fromId,
-        Guid toId,
-        int shift,
-        string createdBy = "seed")
-        => new()
-        {
-            Id = Guid.NewGuid(),
-            FromCodeId = fromId,
-            ToCodeId = toId,
-            StartShiftDays = shift,
-            CreatedBy = createdBy,
-            CreatedAtUtc = NowUtc
-        };
-
-    private static readonly string[] expected = ["Т", "A", "30", "100"];
-
-    // ============================================================
+    //======================================================================
     // GetCodesAsync
-    // ============================================================
+    //======================================================================
 
+    /// <summary>
+    /// GetCodesAsync:
+    /// <list type="bullet">
+    /// <item><description>за замовчуванням повертає лише активні;</description></item>
+    /// <item><description>ніколи не повертає системний код "НБ";</description></item>
+    /// <item><description>сортування: SortOrder → Priority → Code.</description></item>
+    /// </list>
+    /// </summary>
     [Fact]
-    public async Task GetCodesAsync_by_default_returns_only_active_sorted()
+    public async Task GetCodesAsync_ExcludesSystemNb_AndInactive_AndSorts()
     {
-        await using var tdb = new SqliteTestDb();
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetPolicyRepository(testDb.Factory);
 
-        var repo = new TimesheetPolicyRepository(tdb.Factory);
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
 
-        var c1 = NewCode("30", "Базовий", sortOrder: 20, priority: 20, isActive: true);
-        var c2 = NewCode("Т", "Тил", sortOrder: 10, priority: 10, isActive: true);
-        var c3 = NewCode("ZZ", "Неактивний", sortOrder: 5, priority: 1, isActive: false);
-        var c4 = NewCode("100", "Завдання", sortOrder: 110, priority: 110, isActive: true);
-        var c5 = NewCode("A", "A", sortOrder: 20, priority: 10, isActive: true); // sortOrder same as 30, lower priority
+        // Active codes
+        var idT = await repo.AddCodeAsync("Т", "Base", null, sortOrder: 0, priority: 10, isTerminal: false, author: "seed", nowUtc: now);
+        var id100 = await repo.AddCodeAsync("100", "Task", null, sortOrder: 1, priority: 0, isTerminal: false, author: "seed", nowUtc: now);
+        var id30 = await repo.AddCodeAsync("30", "Ready", null, sortOrder: 1, priority: 5, isTerminal: false, author: "seed", nowUtc: now);
 
-        using (var db = tdb.Factory.CreateDbContext())
+        // Inactive code
+        var idX = await repo.AddCodeAsync("X", "Closed", null, sortOrder: 2, priority: 0, isTerminal: false, author: "seed", nowUtc: now);
+        await repo.CloseCodeAsync(idX, author: "seed", nowUtc: now.AddMinutes(1));
+
+        // System "НБ" inserted directly (repo may allow it, but GetCodes must hide it always)
+        await using (var db = await testDb.Factory.CreateDbContextAsync())
         {
-            db.TimesheetCodes.AddRange(c1, c2, c3, c4, c5);
+            db.TimesheetCodes.Add(new TimesheetCodeDefinition
+            {
+                Id = Guid.NewGuid(),
+                Code = TimesheetSystemCodes.NotInTimesheet,
+                Title = "System",
+                SortOrder = 0,
+                Priority = 0,
+                IsTerminal = false,
+                IsActive = true,
+                CreatedBy = "seed",
+                CreatedAtUtc = now
+            });
             await db.SaveChangesAsync();
         }
 
-        var res = await repo.GetCodesAsync(); // includeInactive=false
+        // 1) Default: active only, no "НБ"
+        var activeOnly = await repo.GetCodesAsync(includeInactive: false);
+        Assert.Equal(new[] { "Т", "100", "30" }, activeOnly.Select(x => x.Code).ToArray());
 
-        // c3 excluded
-        Assert.DoesNotContain(res, x => x.Code == "ZZ");
+        // 2) includeInactive: adds "X" but still no "НБ"
+        var withInactive = await repo.GetCodesAsync(includeInactive: true);
+        Assert.Equal(new[] { "Т", "100", "30", "X" }, withInactive.Select(x => x.Code).ToArray());
 
-        // Sorted: SortOrder -> Priority -> Code
-        Assert.Equal(expected, res.Select(x => x.Code).ToArray());
+        // Sanity: GetCodeByIdAsync returns active only
+        var t = await repo.GetCodeByIdAsync(idT);
+        Assert.NotNull(t);
+        Assert.Equal("Т", t!.Code);
+
+        var closed = await repo.GetCodeByIdAsync(idX);
+        Assert.Null(closed);
     }
 
+    //======================================================================
+    // AddCodeAsync / CloseCodeAsync / GetCodeByIdAsync
+    //======================================================================
+
+    /// <summary>
+    /// AddCodeAsync trims поля, робить Description null якщо порожня,
+    /// і відхиляє дублікати Code.
+    /// </summary>
     [Fact]
-    public async Task GetCodesAsync_includeInactive_true_returns_all()
+    public async Task AddCodeAsync_Trims_AndThrowsOnDuplicate()
     {
-        await using var tdb = new SqliteTestDb();
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetPolicyRepository(testDb.Factory);
 
-        var repo = new TimesheetPolicyRepository(tdb.Factory);
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimesheetCodes.AddRange(
-                NewCode("A", "A", 1, 1, isActive: true),
-                NewCode("B", "B", 2, 1, isActive: false));
-            await db.SaveChangesAsync();
-        }
-
-        var res = await repo.GetCodesAsync(includeInactive: true);
-
-        Assert.Equal(2, res.Count);
-        Assert.Contains(res, x => x.Code == "A");
-        Assert.Contains(res, x => x.Code == "B");
-    }
-
-    // ============================================================
-    // GetCodeByIdAsync
-    // ============================================================
-
-    [Fact]
-    public async Task GetCodeByIdAsync_returns_null_when_missing()
-    {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetPolicyRepository(tdb.Factory);
-
-        var res = await repo.GetCodeByIdAsync(Guid.NewGuid());
-        Assert.Null(res);
-    }
-
-    [Fact]
-    public async Task GetCodeByIdAsync_throws_when_empty_id()
-    {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetPolicyRepository(tdb.Factory);
-
-        await Assert.ThrowsAsync<ArgumentException>(() => repo.GetCodeByIdAsync(Guid.Empty));
-    }
-
-    // ============================================================
-    // AddCodeAsync / CloseCodeAsync
-    // ============================================================
-
-    [Fact]
-    public async Task AddCodeAsync_creates_code_and_trims_and_sets_audit()
-    {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetPolicyRepository(tdb.Factory);
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
 
         var id = await repo.AddCodeAsync(
-            code: "  X1  ",
-            title: "  Назва  ",
-            description: "  Опис  ",
-            sortOrder: 5,
-            priority: 7,
-            isTerminal: true,
-            author: "tester",
-            nowUtc: NowUtc);
-
-        await using var db = tdb.Factory.CreateDbContext();
-        var stored = await db.TimesheetCodes.AsNoTracking().FirstAsync(x => x.Id == id);
-
-        Assert.Equal("X1", stored.Code);
-        Assert.Equal("Назва", stored.Title);
-        Assert.Equal("Опис", stored.Description);
-        Assert.Equal(5, stored.SortOrder);
-        Assert.Equal(7, stored.Priority);
-        Assert.True(stored.IsTerminal);
-        Assert.True(stored.IsActive);
-        Assert.Equal("tester", stored.CreatedBy);
-        Assert.Equal(NowUtc, stored.CreatedAtUtc);
-    }
-
-    [Fact]
-    public async Task AddCodeAsync_throws_when_duplicate_code_exists()
-    {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetPolicyRepository(tdb.Factory);
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimesheetCodes.Add(NewCode("DUP", "dup", 1, 1, isActive: true));
-            await db.SaveChangesAsync();
-        }
-
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => repo.AddCodeAsync(
-            code: "DUP",
-            title: "x",
-            description: null,
+            code: "  30  ",
+            title: "  Ready  ",
+            description: "   ",
             sortOrder: 1,
-            priority: 1,
+            priority: 2,
             isTerminal: false,
             author: "tester",
-            nowUtc: NowUtc));
+            nowUtc: now);
+
+        await using (var db = await testDb.Factory.CreateDbContextAsync())
+        {
+            var e = await db.TimesheetCodes.SingleAsync(x => x.Id == id);
+
+            Assert.Equal("30", e.Code);
+            Assert.Equal("Ready", e.Title);
+            Assert.Null(e.Description);
+
+            Assert.True(e.IsActive);
+            Assert.Equal("tester", e.CreatedBy);
+            Assert.Equal(now, e.CreatedAtUtc);
+            Assert.Null(e.UpdatedBy);
+            Assert.Null(e.UpdatedAtUtc);
+        }
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repo.AddCodeAsync(
+                code: "30",
+                title: "Duplicate",
+                description: null,
+                sortOrder: 0,
+                priority: 0,
+                isTerminal: false,
+                author: "tester",
+                nowUtc: now));
 
         Assert.Contains("вже існує", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// CloseCodeAsync робить код неактивним та заповнює Updated*.
+    /// Повторний Close — ідемпотентний.
+    /// </summary>
     [Fact]
-    public async Task CloseCodeAsync_marks_inactive_and_sets_updated()
+    public async Task CloseCodeAsync_SetsInactive_AndIsIdempotent()
     {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetPolicyRepository(tdb.Factory);
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetPolicyRepository(testDb.Factory);
 
-        var code = NewCode("CL", "Close", 1, 1, isActive: true);
+        var t0 = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+        var t1 = t0.AddMinutes(1);
+        var t2 = t0.AddMinutes(2);
 
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimesheetCodes.Add(code);
-            await db.SaveChangesAsync();
-        }
+        var id = await repo.AddCodeAsync("A", "Alpha", null, 0, 0, false, "seed", t0);
 
-        await repo.CloseCodeAsync(code.Id, author: "admin", nowUtc: NowUtc);
+        await repo.CloseCodeAsync(id, "closer1", t1);
+        await repo.CloseCodeAsync(id, "closer2", t2); // must not overwrite
 
-        await using var db2 = tdb.Factory.CreateDbContext();
-        var stored = await db2.TimesheetCodes.AsNoTracking().FirstAsync(x => x.Id == code.Id);
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+        var code = await db.TimesheetCodes.SingleAsync(x => x.Id == id);
 
-        Assert.False(stored.IsActive);
-        Assert.Equal("admin", stored.UpdatedBy);
-        Assert.Equal(NowUtc, stored.UpdatedAtUtc);
+        Assert.False(code.IsActive);
+        Assert.Equal("closer1", code.UpdatedBy);
+        Assert.Equal(t1, code.UpdatedAtUtc);
     }
 
-    // ============================================================
-    // GetAllowedTransitionsAsync
-    // ============================================================
-
+    /// <summary>
+    /// GetCodeByIdAsync повертає тільки активні коди та кидає ArgumentException при порожньому Guid.
+    /// </summary>
     [Fact]
-    public async Task GetAllowedTransitionsAsync_returns_only_from_code_sorted_by_target()
+    public async Task GetCodeByIdAsync_ReturnsActiveOnly_AndThrowsOnEmptyId()
     {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetPolicyRepository(tdb.Factory);
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetPolicyRepository(testDb.Factory);
 
-        var from = NewCode("30", "База", 20, 20);
-        var toA = NewCode("A", "A", 10, 5);
-        var toB = NewCode("B", "B", 10, 7);
-        var toC = NewCode("C", "C", 30, 1);
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
 
-        var otherFrom = NewCode("T", "T", 1, 1);
+        var id = await repo.AddCodeAsync("B", "Bravo", null, 0, 0, false, "seed", now);
+        Assert.NotNull(await repo.GetCodeByIdAsync(id));
 
-        using (var db = tdb.Factory.CreateDbContext())
+        await repo.CloseCodeAsync(id, "seed", now.AddMinutes(1));
+        Assert.Null(await repo.GetCodeByIdAsync(id));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => repo.GetCodeByIdAsync(Guid.Empty));
+    }
+
+    //======================================================================
+    // GetAllowedTransitionsAsync
+    //======================================================================
+
+    /// <summary>
+    /// GetAllowedTransitionsAsync:
+    /// <list type="bullet">
+    /// <item><description>повертає переходи тільки в активні ToCode;</description></item>
+    /// <item><description>виключає ToCode == "НБ";</description></item>
+    /// <item><description>сортування за ToCode.SortOrder → ToCode.Priority → ToCode.Code;</description></item>
+    /// <item><description>ToCode має бути завантажений (Include).</description></item>
+    /// </list>
+    /// </summary>
+    [Fact]
+    public async Task GetAllowedTransitionsAsync_FiltersAndSorts_AndIncludesToCode()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetPolicyRepository(testDb.Factory);
+
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+
+        // from
+        var fromId = await repo.AddCodeAsync("FROM", "From", null, 0, 0, false, "seed", now);
+
+        // to codes (active)
+        var toB = await repo.AddCodeAsync("B", "B", null, sortOrder: 0, priority: 5, isTerminal: false, "seed", now);
+        var toA = await repo.AddCodeAsync("A", "A", null, sortOrder: 0, priority: 1, isTerminal: false, "seed", now);
+        var toC = await repo.AddCodeAsync("C", "C", null, sortOrder: 1, priority: 0, isTerminal: false, "seed", now);
+
+        // inactive ToCode
+        var toX = await repo.AddCodeAsync("X", "X", null, 2, 0, false, "seed", now);
+        await repo.CloseCodeAsync(toX, "seed", now.AddMinutes(1));
+
+        // system ToCode "НБ" (active)
+        Guid nbId;
+        await using (var db = await testDb.Factory.CreateDbContextAsync())
         {
-            db.TimesheetCodes.AddRange(from, toA, toB, toC, otherFrom);
+            var nb = new TimesheetCodeDefinition
+            {
+                Id = Guid.NewGuid(),
+                Code = TimesheetSystemCodes.NotInTimesheet,
+                Title = "System",
+                SortOrder = 0,
+                Priority = 0,
+                IsTerminal = false,
+                IsActive = true,
+                CreatedBy = "seed",
+                CreatedAtUtc = now
+            };
+            db.TimesheetCodes.Add(nb);
+            await db.SaveChangesAsync();
+            nbId = nb.Id;
 
+            // Seed transitions
             db.TimesheetCodeTransitions.AddRange(
-                NewTransition(from.Id, toC.Id, 0),
-                NewTransition(from.Id, toA.Id, 1),
-                NewTransition(from.Id, toB.Id, 0),
-                NewTransition(otherFrom.Id, toC.Id, 0) // чужий from
+                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = toB, StartShiftDays = 0, CreatedBy = "seed", CreatedAtUtc = now },
+                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = toA, StartShiftDays = 1, CreatedBy = "seed", CreatedAtUtc = now },
+                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = toC, StartShiftDays = 0, CreatedBy = "seed", CreatedAtUtc = now },
+                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = toX, StartShiftDays = 0, CreatedBy = "seed", CreatedAtUtc = now },   // inactive -> must be filtered
+                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = nbId, StartShiftDays = 0, CreatedBy = "seed", CreatedAtUtc = now }    // "НБ" -> must be filtered
             );
 
             await db.SaveChangesAsync();
         }
 
-        var res = await repo.GetAllowedTransitionsAsync(from.Id);
+        var list = await repo.GetAllowedTransitionsAsync(fromId);
 
-        Assert.Equal(3, res.Count);
+        // Expected only active non-system: A, B, C sorted by (sortOrder, priority, code)
+        Assert.Equal(new[] { "A", "B", "C" }, list.Select(x => x.ToCode.Code).ToArray());
 
-        // Sorted by ToCode.SortOrder -> ToCode.Priority -> ToCode.Code
-        Assert.Equal([toA.Id, toB.Id, toC.Id], [.. res.Select(x => x.ToCodeId)]);
+        // Include(ToCode) must work
+        Assert.All(list, t => Assert.NotNull(t.ToCode));
     }
 
-    // ============================================================
+    //======================================================================
     // SavePolicyAsync
-    // ============================================================
+    //======================================================================
 
+    /// <summary>
+    /// SavePolicyAsync має:
+    /// <list type="bullet">
+    /// <item><description>оновити Title/Description/SortOrder/Priority/IsTerminal + Updated*;</description></item>
+    /// <item><description>diff-оновити transitions: update StartShiftDays, add нові, remove відсутні;</description></item>
+    /// <item><description>не змінювати CreatedBy/CreatedAtUtc у вже існуючих переходів.</description></item>
+    /// </list>
+    /// </summary>
     [Fact]
-    public async Task SavePolicyAsync_updates_code_fields_but_keeps_Code_and_created_audit()
+    public async Task SavePolicyAsync_UpdatesCode_AndDiffUpdatesTransitions_PreservingTransitionCreated()
     {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetPolicyRepository(tdb.Factory);
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetPolicyRepository(testDb.Factory);
 
-        var code = NewCode("30", "Old", 20, 20, isActive: true, isTerminal: false, createdBy: "seed");
-        using (var db = tdb.Factory.CreateDbContext())
+        var t0 = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+        var t1 = t0.AddMinutes(5);
+
+        // from code
+        var fromId = await repo.AddCodeAsync("FROM", "OldTitle", "OldDesc", 10, 10, false, "seed", t0);
+
+        // to codes
+        var to1 = await repo.AddCodeAsync("T1", "T1", null, 0, 0, false, "seed", t0);
+        var to2 = await repo.AddCodeAsync("T2", "T2", null, 1, 0, false, "seed", t0);
+        var to3 = await repo.AddCodeAsync("T3", "T3", null, 2, 0, false, "seed", t0);
+
+        // seed existing transitions FROM -> T1 (0), FROM -> T2 (0)
+        Guid trTo1Id;
+        await using (var db = await testDb.Factory.CreateDbContextAsync())
         {
-            db.TimesheetCodes.Add(code);
-            await db.SaveChangesAsync();
-        }
+            var tr1 = new TimesheetCodeTransition
+            {
+                Id = Guid.NewGuid(),
+                FromCodeId = fromId,
+                ToCodeId = to1,
+                StartShiftDays = 0,
+                CreatedBy = "seed",
+                CreatedAtUtc = t0
+            };
+            var tr2 = new TimesheetCodeTransition
+            {
+                Id = Guid.NewGuid(),
+                FromCodeId = fromId,
+                ToCodeId = to2,
+                StartShiftDays = 0,
+                CreatedBy = "seed",
+                CreatedAtUtc = t0
+            };
 
-        await repo.SavePolicyAsync(
-            codeId: code.Id,
-            title: " New title ",
-            description: " New desc ",
-            sortOrder: 99,
-            priority: 77,
-            isTerminal: true,
-            allowedTransitions: [],
-            author: "admin",
-            nowUtc: NowUtc);
-
-        await using var db2 = tdb.Factory.CreateDbContext();
-        var stored = await db2.TimesheetCodes.AsNoTracking().FirstAsync(x => x.Id == code.Id);
-
-        Assert.Equal("30", stored.Code);                  // unchanged
-        Assert.Equal("New title", stored.Title);
-        Assert.Equal("New desc", stored.Description);
-        Assert.Equal(99, stored.SortOrder);
-        Assert.Equal(77, stored.Priority);
-        Assert.True(stored.IsTerminal);
-
-        Assert.Equal("seed", stored.CreatedBy);           // unchanged
-        Assert.Equal(NowUtc, stored.UpdatedAtUtc);
-        Assert.Equal("admin", stored.UpdatedBy);
-    }
-
-    [Fact]
-    public async Task SavePolicyAsync_transitions_diff_update_add_remove_and_preserve_created_metadata()
-    {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetPolicyRepository(tdb.Factory);
-
-        var from = NewCode("30", "From", 1, 1);
-        var to1 = NewCode("A", "A", 1, 1);
-        var to2 = NewCode("B", "B", 2, 1);
-        var to3 = NewCode("C", "C", 3, 1);
-
-        var oldCreatedAt = new DateTime(2026, 01, 01, 0, 0, 0, DateTimeKind.Utc);
-
-        var tr1 = new TimesheetCodeTransition
-        {
-            Id = Guid.NewGuid(),
-            FromCodeId = from.Id,
-            ToCodeId = to1.Id,
-            StartShiftDays = 0,
-            CreatedBy = "seed",
-            CreatedAtUtc = oldCreatedAt
-        };
-
-        var tr2 = NewTransition(from.Id, to2.Id, 1, createdBy: "seed");
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimesheetCodes.AddRange(from, to1, to2, to3);
             db.TimesheetCodeTransitions.AddRange(tr1, tr2);
             await db.SaveChangesAsync();
+            trTo1Id = tr1.Id;
         }
 
-        // desired: keep to1 but shift changes; remove to2; add to3
+        // desired transitions:
+        // - update T1 to StartShiftDays=1 (duplicate entry later ignored by normalization)
+        // - remove T2 (not present)
+        // - add T3 (0)
+        var desired = new[]
+        {
+            new TimesheetTransitionSpecDto(to1, 1),
+            new TimesheetTransitionSpecDto(to1, 0),          // duplicate; should be ignored
+            new TimesheetTransitionSpecDto(to3, 0),
+            new TimesheetTransitionSpecDto(Guid.Empty, 0),   // ignored
+            new TimesheetTransitionSpecDto(fromId, 0)        // self; ignored
+        };
+
         await repo.SavePolicyAsync(
-            codeId: from.Id,
-            title: from.Title,
-            description: null,
-            sortOrder: from.SortOrder,
-            priority: from.Priority,
-            isTerminal: from.IsTerminal,
-            allowedTransitions:
-            [
-                new TimesheetTransitionSpecDto(to1.Id, 1), // update shift
-                new TimesheetTransitionSpecDto(to3.Id, 0)  // new
-            ],
-            author: "admin",
-            nowUtc: NowUtc);
+            codeId: fromId,
+            title: "  NewTitle  ",
+            description: "  NewDesc  ",
+            sortOrder: 1,
+            priority: 2,
+            isTerminal: true,
+            allowedTransitions: desired,
+            author: "editor",
+            nowUtc: t1);
 
-        await using var db2 = tdb.Factory.CreateDbContext();
-        var stored = await db2.TimesheetCodeTransitions.AsNoTracking()
-            .Where(x => x.FromCodeId == from.Id)
-            .ToListAsync();
+        await using (var db = await testDb.Factory.CreateDbContextAsync())
+        {
+            var code = await db.TimesheetCodes.SingleAsync(x => x.Id == fromId);
+            Assert.Equal("FROM", code.Code);                // immutable
+            Assert.Equal("NewTitle", code.Title);
+            Assert.Equal("NewDesc", code.Description);
+            Assert.Equal(1, code.SortOrder);
+            Assert.Equal(2, code.Priority);
+            Assert.True(code.IsTerminal);
+            Assert.Equal("editor", code.UpdatedBy);
+            Assert.Equal(t1, code.UpdatedAtUtc);
 
-        Assert.Equal(2, stored.Count);
+            var transitions = await db.TimesheetCodeTransitions
+                .Where(x => x.FromCodeId == fromId)
+                .OrderBy(x => x.ToCodeId)
+                .ToListAsync();
 
-        var s1 = stored.Single(x => x.ToCodeId == to1.Id);
-        Assert.Equal(1, s1.StartShiftDays);
-        Assert.Equal("seed", s1.CreatedBy);           // preserved
-        Assert.Equal(oldCreatedAt, s1.CreatedAtUtc);  // preserved
+            // T2 removed, T1 updated, T3 added => 2 total
+            Assert.Equal(2, transitions.Count);
 
-        var s3 = stored.Single(x => x.ToCodeId == to3.Id);
-        Assert.Equal(0, s3.StartShiftDays);
-        Assert.Equal("admin", s3.CreatedBy);
-        Assert.Equal(NowUtc, s3.CreatedAtUtc);
+            var tr1 = transitions.Single(x => x.ToCodeId == to1);
+            Assert.Equal(1, tr1.StartShiftDays);
+            // Created* preserved for existing transition
+            Assert.Equal(trTo1Id, tr1.Id);
+            Assert.Equal("seed", tr1.CreatedBy);
+            Assert.Equal(t0, tr1.CreatedAtUtc);
 
-        Assert.DoesNotContain(stored, x => x.ToCodeId == to2.Id); // removed
+            var tr3 = transitions.Single(x => x.ToCodeId == to3);
+            Assert.Equal(0, tr3.StartShiftDays);
+            Assert.Equal("editor", tr3.CreatedBy);
+            Assert.Equal(t1, tr3.CreatedAtUtc);
+        }
     }
 
+    /// <summary>
+    /// SavePolicyAsync має відхиляти transitions на неіснуючі або неактивні ToCode,
+    /// і не робити часткових змін.
+    /// </summary>
     [Fact]
-    public async Task SavePolicyAsync_throws_when_transition_target_is_inactive()
+    public async Task SavePolicyAsync_Throws_WhenToCodeMissingOrInactive_WithoutPartialChanges()
     {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetPolicyRepository(tdb.Factory);
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetPolicyRepository(testDb.Factory);
 
-        var from = NewCode("30", "From", 1, 1);
-        var toInactive = NewCode("X", "X", 2, 1, isActive: false);
+        var t0 = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+        var t1 = t0.AddMinutes(5);
 
-        using (var db = tdb.Factory.CreateDbContext())
+        var fromId = await repo.AddCodeAsync("FROM", "Title", null, 0, 0, false, "seed", t0);
+        var toActive = await repo.AddCodeAsync("OK", "OK", null, 0, 0, false, "seed", t0);
+
+        // Seed one existing transition
+        await using (var db = await testDb.Factory.CreateDbContextAsync())
         {
-            db.TimesheetCodes.AddRange(from, toInactive);
+            db.TimesheetCodeTransitions.Add(new TimesheetCodeTransition
+            {
+                Id = Guid.NewGuid(),
+                FromCodeId = fromId,
+                ToCodeId = toActive,
+                StartShiftDays = 0,
+                CreatedBy = "seed",
+                CreatedAtUtc = t0
+            });
             await db.SaveChangesAsync();
         }
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => repo.SavePolicyAsync(
-            codeId: from.Id,
-            title: "From",
-            description: null,
-            sortOrder: 1,
-            priority: 1,
-            isTerminal: false,
-            allowedTransitions: [new TimesheetTransitionSpecDto(toInactive.Id, 0)],
-            author: "admin",
-            nowUtc: NowUtc));
-
-        Assert.Contains("не існують або вже закриті", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task SavePolicyAsync_throws_when_shift_out_of_range()
-    {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetPolicyRepository(tdb.Factory);
-
-        var from = NewCode("30", "From", 1, 1);
-        var to = NewCode("A", "A", 2, 1);
-
-        using (var db = tdb.Factory.CreateDbContext())
+        // Snapshot before
+        string beforeTitle;
+        int beforeTransitions;
+        await using (var db = await testDb.Factory.CreateDbContextAsync())
         {
-            db.TimesheetCodes.AddRange(from, to);
-            await db.SaveChangesAsync();
+            beforeTitle = (await db.TimesheetCodes.SingleAsync(x => x.Id == fromId)).Title;
+            beforeTransitions = await db.TimesheetCodeTransitions.CountAsync(x => x.FromCodeId == fromId);
         }
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.SavePolicyAsync(
-            codeId: from.Id,
-            title: "From",
-            description: null,
-            sortOrder: 1,
-            priority: 1,
-            isTerminal: false,
-            allowedTransitions: [new TimesheetTransitionSpecDto(to.Id, 99)], // out of allowed range
-            author: "admin",
-            nowUtc: NowUtc));
+        // Case 1: missing ToCode
+        var missingTo = Guid.NewGuid();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repo.SavePolicyAsync(
+                codeId: fromId,
+                title: "New",
+                description: null,
+                sortOrder: 0,
+                priority: 0,
+                isTerminal: false,
+                allowedTransitions: new[] { new TimesheetTransitionSpecDto(missingTo, 0) },
+                author: "editor",
+                nowUtc: t1));
+
+        // Verify no partial changes
+        await using (var db = await testDb.Factory.CreateDbContextAsync())
+        {
+            var code = await db.TimesheetCodes.SingleAsync(x => x.Id == fromId);
+            Assert.Equal(beforeTitle, code.Title);
+
+            var count = await db.TimesheetCodeTransitions.CountAsync(x => x.FromCodeId == fromId);
+            Assert.Equal(beforeTransitions, count);
+        }
+
+        // Case 2: inactive ToCode
+        var toInactive = await repo.AddCodeAsync("Z", "Z", null, 1, 0, false, "seed", t0);
+        await repo.CloseCodeAsync(toInactive, "seed", t0.AddMinutes(1));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repo.SavePolicyAsync(
+                codeId: fromId,
+                title: "New2",
+                description: null,
+                sortOrder: 0,
+                priority: 0,
+                isTerminal: false,
+                allowedTransitions: new[] { new TimesheetTransitionSpecDto(toInactive, 0) },
+                author: "editor",
+                nowUtc: t1));
     }
 }

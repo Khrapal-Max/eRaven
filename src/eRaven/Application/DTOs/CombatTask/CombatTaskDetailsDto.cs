@@ -19,4 +19,7 @@ public sealed record CombatTaskDetailsDto(
     Guid PersonId,
     string Rnokpp,
     string FullName,
+    string? Rank,
+    string? Position,
+    string? Weapon,
     string? Callsign);

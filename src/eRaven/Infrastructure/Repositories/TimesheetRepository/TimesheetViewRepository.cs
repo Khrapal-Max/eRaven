@@ -7,6 +7,8 @@
 
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Domain.Aggregates;
+using eRaven.Domain.Entities;
+using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
@@ -14,11 +16,17 @@ namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 /// <summary>
 /// Read-repo:
 /// 1) Місячна матриця табеля по всім особам (UI grid).
-/// 2) Місячний табель однієї особи: Person + Entries (source of truth).
+/// 2) Місячний табель однієї особи: Person + Entries (manual події) + overlay TaskSpans.
+/// 3) Денні/діапазонні вибірки для Operational UI.
 ///
-/// IMPORTANT (current stage):
-/// - Timesheet is a "fact" only.
-/// - TaskCodes are returned as empty strings (reserved for future task subsystem).
+/// <para>
+/// Важливо:
+/// <list type="bullet">
+/// <item><description><see cref="TimesheetEntry"/> — джерело правди для ручних подій.</description></item>
+/// <item><description><see cref="TimesheetTaskSpan"/> — факт “на завданні” (код 100), формується документом.</description></item>
+/// <item><description>У read-моделі TaskSpans накладаються поверх Entries (щоб UI бачив 100 і референс документа).</description></item>
+/// </list>
+/// </para>
 /// </summary>
 public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFactory)
     : ITimesheetViewRepository
@@ -41,7 +49,7 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // 1) “Хто в табелі в цьому місяці” => будь-який timeline, який перетинає місяць
+        // 1) “Хто в табелі в цьому місяці” => будь-який episode, який перетинає місяць
         var inMonthQ = Overlapping(db.TimeSheets.AsNoTracking(), monthStart, monthEnd);
 
         var personIdsQ = inMonthQ
@@ -82,16 +90,16 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
 
         var selectedPersonIds = persons.Select(x => x.Id).ToArray();
 
-        // 3) Timelines для вибраних осіб, що перетинають місяць
-        var timelinesInMonthQ = Overlapping(
+        // 3) Episodes для вибраних осіб, що перетинають місяць
+        var episodesInMonthQ = Overlapping(
             db.TimeSheets.AsNoTracking()
                 .Where(t => selectedPersonIds.Contains(t.PersonId)),
             monthStart, monthEnd);
 
-        // 4) Entries перетинають місяць + належать timelinesInMonthQ (JOIN) + JOIN codes
+        // 4) Entries перетинають місяць + належать episodesInMonthQ (JOIN) + JOIN codes
         var entries = await (
             from e in db.TimesheetEntries.AsNoTracking()
-            join t in timelinesInMonthQ on e.TimesheetId equals t.Id
+            join t in episodesInMonthQ on e.TimesheetId equals t.Id
             join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
                   && e.From <= monthEnd
@@ -100,7 +108,6 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
             select new
             {
                 e.PersonId,
-                CodeId = c.Id,
                 c.Code,
                 e.From,
                 e.To,
@@ -108,8 +115,14 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
             }
         ).ToListAsync(ct);
 
-        var byPerson = entries
+        var byPersonEntries = entries
             .GroupBy(e => e.PersonId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // 4.1) TaskSpans overlay (100 + reference)
+        var spans = await LoadTaskSpanOverlaysAsync(db, episodesInMonthQ, monthStart, monthEnd, ct);
+        var byPersonSpans = spans
+            .GroupBy(x => x.PersonId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         // 5) Будуємо матрицю: default code = "НБ"
@@ -123,7 +136,8 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
             for (var i = 0; i < daysInMonth; i++)
                 dayCodes[i] = TimesheetSystemCodes.NotInTimesheet;
 
-            if (byPerson.TryGetValue(p.Id, out var list))
+            // 5.1) Entries (manual/events)
+            if (byPersonEntries.TryGetValue(p.Id, out var list))
             {
                 foreach (var e in list)
                 {
@@ -143,12 +157,17 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
                             ? TimesheetSystemCodes.NotInTimesheet
                             : code;
 
+                        // reference показуємо лише для alert-кодів
                         referenses[idx] = IsAlert(code)
                             ? (string.IsNullOrWhiteSpace(e.Reference) ? null : e.Reference.Trim())
                             : null;
                     }
                 }
             }
+
+            // 5.2) TaskSpans overlay (100 поверх entries)
+            if (byPersonSpans.TryGetValue(p.Id, out var spanList))
+                ApplyTaskOverlayMonth(spanList, monthStart, monthEnd, dayCodes, referenses);
 
             rows.Add(new TimesheetPersonMonthRowDto(
                 PersonId: p.Id,
@@ -169,14 +188,14 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<TimesheetPersonRangeRowDto>> GetTimesheetRangeAsync(
-        DateOnly from,
-        DateOnly to,
+        DateOnly fromDate,
+        DateOnly toDate,
         string? search,
         CancellationToken ct = default)
     {
-        if (to < from) throw new ArgumentException("To must be >= From.", nameof(to));
+        if (toDate < fromDate) throw new ArgumentException("To must be >= From.", nameof(toDate));
 
-        var days = to.DayNumber - from.DayNumber + 1;
+        var days = toDate.DayNumber - fromDate.DayNumber + 1;
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
@@ -189,11 +208,20 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
         var nbId = nb.Id;
         var nbCode = (nb.Code ?? TimesheetSystemCodes.NotInTimesheet).Trim();
 
-        // 1) timelines, що перетинають [from..to]
-        var timelinesQ = db.TimeSheets.AsNoTracking()
-            .Where(t => t.OpenedAt <= to && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= from));
+        // код 100 (для overlay)
+        var taskDef = await db.TimesheetCodes.AsNoTracking()
+            .Where(x => x.Code == TimesheetSystemCodes.DoesTheCombatTask)
+            .Select(x => new { x.Id, x.Code })
+            .SingleAsync(ct);
 
-        var personIdsQ = timelinesQ.Select(t => t.PersonId).Distinct();
+        var taskCodeId = taskDef.Id;
+        var taskCode = (taskDef.Code ?? TimesheetSystemCodes.DoesTheCombatTask).Trim();
+
+        // 1) episodes, що перетинають [from..to]
+        var episodesQ = db.TimeSheets.AsNoTracking()
+            .Where(t => t.OpenedAt <= toDate && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= fromDate));
+
+        var personIdsQ = episodesQ.Select(t => t.PersonId).Distinct();
 
         // 2) persons (з пошуком)
         var personsQ = db.PersonRead.AsNoTracking()
@@ -229,16 +257,16 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
 
         var selectedIds = persons.Select(x => x.Id).ToArray();
 
-        var selectedTimelinesQ = timelinesQ.Where(t => selectedIds.Contains(t.PersonId));
+        var selectedEpisodesQ = episodesQ.Where(t => selectedIds.Contains(t.PersonId));
 
-        // 3) entries, що перетинають [from..to] + належать selectedTimelinesQ
+        // 3) entries, що перетинають [from..to] + належать selectedEpisodesQ
         var entries = await (
             from e in db.TimesheetEntries.AsNoTracking()
-            join t in selectedTimelinesQ on e.TimesheetId equals t.Id
+            join t in selectedEpisodesQ on e.TimesheetId equals t.Id
             join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
-                  && e.From <= to
-                  && (!e.To.HasValue || e.To.Value >= @from)
+                  && e.From <= toDate
+                  && (!e.To.HasValue || e.To.Value >= fromDate)
             orderby e.PersonId, e.From, e.Id
             select new
             {
@@ -251,7 +279,13 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
             }
         ).ToListAsync(ct);
 
-        var byPerson = entries
+        var byPersonEntries = entries
+            .GroupBy(x => x.PersonId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // 3.1) TaskSpans overlay
+        var spans = await LoadTaskSpanOverlaysAsync(db, selectedEpisodesQ, fromDate, toDate, ct);
+        var byPersonSpans = spans
             .GroupBy(x => x.PersonId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
@@ -263,7 +297,7 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
 
             for (var i = 0; i < days; i++)
             {
-                var d = from.AddDays(i);
+                var d = fromDate.AddDays(i);
                 dayDtos[i] = new TimesheetRangeDayDto(
                     Date: d,
                     CodeId: nbId,
@@ -271,17 +305,17 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
                     Reference: null);
             }
 
-            if (byPerson.TryGetValue(p.Id, out var list))
+            // Entries
+            if (byPersonEntries.TryGetValue(p.Id, out var list))
             {
                 foreach (var e in list)
                 {
-                    var start = e.From < from ? from : e.From;
-                    var end = e.To is null ? to : (e.To.Value > to ? to : e.To.Value);
+                    var start = e.From < fromDate ? fromDate : e.From;
+                    var end = e.To is null ? toDate : (e.To.Value > toDate ? toDate : e.To.Value);
 
                     var code = (e.Code ?? "").Trim();
 
-                    // ⚠️ важливо: якщо Code пустий — це NB і по CodeId теж має бути NB,
-                    // інакше в drawer прилетить "лівий" id при відображенні "НБ".
+                    // якщо Code пустий — це NB і по CodeId теж має бути NB
                     var effectiveCodeId = code.Length == 0 ? nbId : e.CodeId;
                     var effectiveCode = code.Length == 0 ? nbCode : code;
 
@@ -291,7 +325,7 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
 
                     for (var d = start; d <= end; d = d.AddDays(1))
                     {
-                        var idx = d.DayNumber - from.DayNumber;
+                        var idx = d.DayNumber - fromDate.DayNumber;
                         if ((uint)idx >= (uint)days) continue;
 
                         dayDtos[idx] = new TimesheetRangeDayDto(
@@ -302,6 +336,10 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
                     }
                 }
             }
+
+            // TaskSpans overlay (100)
+            if (byPersonSpans.TryGetValue(p.Id, out var spanList))
+                ApplyTaskOverlayRange(spanList, fromDate, toDate, dayDtos, taskCodeId, taskCode);
 
             rows.Add(new TimesheetPersonRangeRowDto(
                 PersonId: p.Id,
@@ -356,15 +394,15 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
         if (p is null)
             return null;
 
-        // 2) Timelines that overlap the month — as query
-        var timelinesInMonthQ = Overlapping(
+        // 2) Episodes that overlap the month — as query
+        var episodesInMonthQ = Overlapping(
             db.TimeSheets.AsNoTracking().Where(t => t.PersonId == personId),
             monthStart, monthEnd);
 
         // 3) Entries overlapping month (JOIN) — source of truth + JOIN codes
         var entries = await (
             from e in db.TimesheetEntries.AsNoTracking()
-            join t in timelinesInMonthQ on e.TimesheetId equals t.Id
+            join t in episodesInMonthQ on e.TimesheetId equals t.Id
             join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
                   && e.From <= monthEnd
@@ -372,7 +410,6 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
             orderby e.From, e.Id
             select new
             {
-                CodeId = c.Id,
                 c.Code,
                 e.From,
                 e.To,
@@ -416,6 +453,10 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
             }
         }
 
+        // 4.1) TaskSpans overlay for this person/month
+        var spans = await LoadTaskSpanOverlaysAsync(db, episodesInMonthQ, monthStart, monthEnd, ct);
+        ApplyTaskOverlayMonth(spans, monthStart, monthEnd, dayCodes, referenses);
+
         var personRow = new TimesheetPersonMonthRowDto(
             PersonId: p.Id,
             FullName: p.FullName ?? "",
@@ -455,13 +496,13 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // 1) who is "in timesheet" on this date (by timeline overlap)
-        var timelinesOnDateQ = db.TimeSheets
+        // 1) who is "in timesheet" on this date (by episode overlap)
+        var episodesOnDateQ = db.TimeSheets
             .AsNoTracking()
             .Where(t => t.OpenedAt <= date
                         && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= date));
 
-        var personIdsQ = timelinesOnDateQ
+        var personIdsQ = episodesOnDateQ
             .Select(t => t.PersonId)
             .Distinct();
 
@@ -500,17 +541,14 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
 
         var selectedPersonIds = persons.Select(x => x.Id).ToArray();
 
-        // 3) timelines for selected persons on date
-        var timelinesQ = db.TimeSheets
-            .AsNoTracking()
-            .Where(t => selectedPersonIds.Contains(t.PersonId)
-                        && t.OpenedAt <= date
-                        && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= date));
+        // 3) episodes for selected persons on date
+        var selectedEpisodesQ = episodesOnDateQ
+            .Where(t => selectedPersonIds.Contains(t.PersonId));
 
-        // 4) active entries on date (join timelines) + join codes
+        // 4) active entries on date (join episodes) + join codes
         var entries = await (
             from e in db.TimesheetEntries.AsNoTracking()
-            join t in timelinesQ on e.TimesheetId equals t.Id
+            join t in selectedEpisodesQ on e.TimesheetId equals t.Id
             join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
                   && e.From <= date
@@ -531,8 +569,25 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
             .GroupBy(x => x.PersonId)
             .ToDictionary(g => g.Key, g => g.Last());
 
+        // 4.1) task spans active on this date
+        var spans = await LoadTaskSpanOverlaysAsync(db, selectedEpisodesQ, date, date, ct);
+        var spanByPerson = spans
+            .GroupBy(x => x.PersonId)
+            .ToDictionary(g => g.Key, g => g.First());
+
         TimesheetDayStateDto DayState(Guid pid)
         {
+            // TaskSpan має пріоритет (100)
+            if (spanByPerson.TryGetValue(pid, out var s))
+            {
+                var reference = SelectReferenceForDay(s, date);
+                return new TimesheetDayStateDto(
+                    CodeId: Guid.Empty, // Day view зараз не потребує CodeId, але залишаємо для сумісності
+                    Code: TimesheetSystemCodes.DoesTheCombatTask,
+                    Reference: reference,
+                    Note: null);
+            }
+
             if (lastByPerson.TryGetValue(pid, out var v))
             {
                 var code = TrimCode(v.Code);
@@ -566,11 +621,213 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
         return rows;
     }
 
+    //======================================================================
+    // Task overlay helpers
+    //======================================================================
+
+    private sealed record TaskSpanOverlay(
+        Guid PersonId,
+        Guid MissionId,
+        DateOnly FromDate,
+        DateOnly? ToDateExclusive,
+        string? OpenReference,
+        string? CloseReference);
+
+    /// <summary>
+    /// Завантажує TaskSpans для періоду (inclusive) та готує overlay-дані:
+    /// reference для <c>100</c> береться з <c>CombatTaskDocument.OrderTitle</c>.
+    /// </summary>
+    private static async Task<IReadOnlyList<TaskSpanOverlay>> LoadTaskSpanOverlaysAsync(
+        AppDbContext db,
+        IQueryable<TimeSheetAggregate> episodesQ,
+        DateOnly fromDate,
+        DateOnly toDate,
+        CancellationToken ct)
+    {
+        // NOTE: ToDate — exclusive, тому overlap: ToDate > from (а не >=)
+        var raw = await (
+            from s in db.TimesheetTaskSpans.AsNoTracking()
+            join t in episodesQ on s.TimesheetId equals t.Id
+            where s.Status != DocumentStatus.Canceled
+                  && s.FromDate <= toDate
+                  && (!s.ToDate.HasValue || s.ToDate.Value > fromDate)
+            select new
+            {
+                s.PersonId,
+                s.MissionId,
+                s.FromDate,
+                s.ToDate,
+                s.OpenedByCombatTaskDocumentId,
+                s.ClosedByCombatTaskDocumentId
+            }
+        ).ToListAsync(ct);
+
+        if (raw.Count == 0)
+            return [];
+
+        var docIds = raw
+            .Select(x => x.OpenedByCombatTaskDocumentId)
+            .Concat(raw.Where(x => x.ClosedByCombatTaskDocumentId.HasValue).Select(x => x.ClosedByCombatTaskDocumentId!.Value))
+            .Distinct()
+            .ToList();
+
+        // Reference для 100: виключно "назва документа"
+        // (у твоїй моделі це CombatTaskDocument.OrderTitle)
+        var docTitles = await db.CombatTaskDocuments.AsNoTracking()
+            .Where(d => docIds.Contains(d.Id))
+            .Select(d => new { d.Id, d.OrderTitle })
+            .ToListAsync(ct);
+
+        var docTitleMap = docTitles
+            .Where(x => !string.IsNullOrWhiteSpace(x.OrderTitle))
+            .ToDictionary(x => x.Id, x => x.OrderTitle!.Trim());
+
+        static string? PickDocTitle(Dictionary<Guid, string> byDoc, Guid docId)
+            => byDoc.TryGetValue(docId, out var t) && !string.IsNullOrWhiteSpace(t) ? t.Trim() : null;
+
+        var result = new List<TaskSpanOverlay>(raw.Count);
+
+        foreach (var x in raw)
+        {
+            var openRef = PickDocTitle(docTitleMap, x.OpenedByCombatTaskDocumentId);
+
+            string? closeRef = null;
+            if (x.ClosedByCombatTaskDocumentId.HasValue)
+                closeRef = PickDocTitle(docTitleMap, x.ClosedByCombatTaskDocumentId.Value);
+
+            // fallback: якщо closeRef порожній, але openRef є — використовуємо openRef
+            closeRef ??= openRef;
+
+            result.Add(new TaskSpanOverlay(
+                PersonId: x.PersonId,
+                MissionId: x.MissionId,
+                FromDate: x.FromDate,
+                ToDateExclusive: x.ToDate,
+                OpenReference: openRef,
+                CloseReference: closeRef));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Накладає task spans (код 100) на місячні масиви Codes/References.
+    /// </summary>
+    private static void ApplyTaskOverlayMonth(
+        IReadOnlyList<TaskSpanOverlay> spans,
+        DateOnly monthStart,
+        DateOnly monthEnd,
+        string[] dayCodes,
+        string?[] references)
+    {
+        var monthEndExclusive = monthEnd.AddDays(1);
+
+        foreach (var s in spans)
+        {
+            var start = s.FromDate < monthStart ? monthStart : s.FromDate;
+
+            var endExclusive = s.ToDateExclusive ?? monthEndExclusive;
+            if (endExclusive > monthEndExclusive) endExclusive = monthEndExclusive;
+
+            if (endExclusive <= start)
+                continue;
+
+            // базовий референс для 100
+            var openRef = string.IsNullOrWhiteSpace(s.OpenReference) ? null : s.OpenReference.Trim();
+
+            for (var d = start; d < endExclusive; d = d.AddDays(1))
+            {
+                var idx = d.Day - 1;
+                if ((uint)idx >= (uint)dayCodes.Length) continue;
+
+                dayCodes[idx] = TimesheetSystemCodes.DoesTheCombatTask;
+                references[idx] = openRef;
+            }
+
+            // якщо є "closing document" — для останнього дня span ставимо closing reference
+            if (s.ToDateExclusive.HasValue && !string.IsNullOrWhiteSpace(s.CloseReference))
+            {
+                var lastDay = s.ToDateExclusive.Value.AddDays(-1);
+                if (lastDay >= monthStart && lastDay <= monthEnd)
+                {
+                    var idx = lastDay.Day - 1;
+                    if ((uint)idx < (uint)references.Length)
+                        references[idx] = s.CloseReference.Trim();
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Накладає task spans (код 100) на діапазонні day DTO.
+    /// </summary>
+    private static void ApplyTaskOverlayRange(
+        IReadOnlyList<TaskSpanOverlay> spans,
+        DateOnly fromDate,
+        DateOnly toDate,
+        TimesheetRangeDayDto[] days,
+        Guid taskCodeId,
+        string taskCode)
+    {
+        var toExclusive = toDate.AddDays(1);
+
+        foreach (var s in spans)
+        {
+            var start = s.FromDate < fromDate ? fromDate : s.FromDate;
+
+            var endExclusive = s.ToDateExclusive ?? toExclusive;
+            if (endExclusive > toExclusive) endExclusive = toExclusive;
+
+            if (endExclusive <= start)
+                continue;
+
+            var openRef = string.IsNullOrWhiteSpace(s.OpenReference) ? null : s.OpenReference.Trim();
+
+            for (var d = start; d < endExclusive; d = d.AddDays(1))
+            {
+                var idx = d.DayNumber - fromDate.DayNumber;
+                if ((uint)idx >= (uint)days.Length) continue;
+
+                var refForDay = openRef;
+
+                if (s.ToDateExclusive.HasValue && d == s.ToDateExclusive.Value.AddDays(-1) && !string.IsNullOrWhiteSpace(s.CloseReference))
+                    refForDay = s.CloseReference.Trim();
+
+                days[idx] = new TimesheetRangeDayDto(
+                    Date: d,
+                    CodeId: taskCodeId,
+                    Code: taskCode,
+                    Reference: refForDay);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Повертає референс для конкретного дня (для day-view): openRef або closeRef на останній день.
+    /// </summary>
+    private static string? SelectReferenceForDay(TaskSpanOverlay s, DateOnly date)
+    {
+        var openRef = string.IsNullOrWhiteSpace(s.OpenReference) ? null : s.OpenReference.Trim();
+
+        if (s.ToDateExclusive.HasValue
+            && date == s.ToDateExclusive.Value.AddDays(-1)
+            && !string.IsNullOrWhiteSpace(s.CloseReference))
+        {
+            return s.CloseReference.Trim();
+        }
+
+        return openRef;
+    }
+
+    //======================================================================
+    // Common helpers
+    //======================================================================
+
     private static IQueryable<TimeSheetAggregate> Overlapping(
         IQueryable<TimeSheetAggregate> q,
-        DateOnly from,
-        DateOnly to)
-        => q.Where(t => t.OpenedAt <= to && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= from));
+        DateOnly fromDate,
+        DateOnly toDate)
+        => q.Where(t => t.OpenedAt <= toDate && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= fromDate));
 
     private static string TrimCode(string? code) => (code ?? "").Trim();
 

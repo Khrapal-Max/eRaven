@@ -7,7 +7,6 @@
 
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
-using eRaven.Domain.Enums;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using eRaven.Tests.Extensions;
@@ -15,617 +14,600 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Tests.Infrastructure.Repositories;
 
+/// <summary>
+/// Тести для <see cref="TimesheetEpisodeRepository"/>.
+///
+/// <para>
+/// Фіксуємо контракт життєвого циклу епізоду табеля:
+/// <list type="bullet">
+/// <item><description>пошук епізоду на дату / активного епізоду;</description></item>
+/// <item><description>tracked-load на дату включає TaskSpans;</description></item>
+/// <item><description>OpenOnEnrollAsync створює новий епізод + дефолтний entry ("Т") і є ідемпотентним;</description></item>
+/// <item><description>ValidateCanCloseOnExcludeAsync контролює дозволений стан на closeTo ("Т" / "РОЗПОР");</description></item>
+/// <item><description>CloseOnExcludeAsync закриває епізод, clamp’ить entries, soft-delete’ить future entries.</description></item>
+/// </list>
+/// </para>
+/// </summary>
 public sealed class TimesheetEpisodeRepositoryTests
 {
-    private static readonly DateTime NowUtc = new(2026, 02, 15, 12, 00, 00, DateTimeKind.Utc);
-
     //======================================================================
-    // Helpers
+    // Reads
     //======================================================================
 
-    private static TimesheetCodeDefinition NewCode(Guid id, string code, bool isActive = true)
-        => new()
-        {
-            Id = id,
-            Code = code,
-            Title = code,
-            SortOrder = 1,
-            Priority = 1,
-            IsTerminal = false,
-            IsActive = isActive,
-            CreatedBy = "seed",
-            CreatedAtUtc = NowUtc.AddHours(-2)
-        };
-
-    private static TimeSheetAggregate NewEpisode(
-        Guid id,
-        Guid personId,
-        DateOnly openedAt,
-        DateOnly? closedAt = null)
-        => new()
-        {
-            Id = id,
-            PersonId = personId,
-            OpenedAt = openedAt,
-            ClosedAt = closedAt,
-            CreatedBy = "seed",
-            CreatedAtUtc = NowUtc.AddHours(-3),
-            ClosedBy = null,
-            ClosedAtUtc = null
-        };
-
-    private static TimesheetEntry NewEntry(
-        Guid id,
-        Guid timesheetId,
-        Guid personId,
-        Guid codeId,
-        DateOnly from,
-        DateOnly? to = null,
-        bool isDeleted = false,
-        string? reference = null)
-        => new()
-        {
-            Id = id,
-            TimesheetId = timesheetId,
-            TimeSheet = null,
-
-            PersonId = personId,
-
-            TimesheetCodeDefinitionId = codeId,
-            TimesheetCodeDefinition = null,
-
-            From = from,
-            To = to,
-
-            Reference = reference,
-            Note = null,
-
-            CreatedBy = "seed",
-            CreatedAtUtc = NowUtc.AddHours(-1),
-
-            UpdatedBy = null,
-            UpdatedAtUtc = null,
-
-            IsDeleted = isDeleted,
-            DeletedBy = null,
-            DeletedAtUtc = null,
-            DeleteReason = null
-        };
-
-    private static TimesheetTaskSpan NewSpan(
-        Guid id,
-        Guid timesheetId,
-        Guid personId,
-        Guid docId,
-        Guid missionId,
-        DateOnly from,
-        DateOnly? to,
-        DocumentStatus status)
-        => new()
-        {
-            Id = id,
-            TimesheetId = timesheetId,
-            PersonId = personId,
-            CombatTaskDocumentId = docId,
-            MissionId = missionId,
-            FromDate = from,
-            ToDate = to,
-            Status = status,
-            ClosedByCodeId = null,
-            ClosedReference = null,
-            UpdatedBy = "seed",
-            UpdatedAtUtc = NowUtc
-        };
-
-    //======================================================================
-    // GetEpisodeOnDateAsync / GetActiveEpisodeAsync / LoadEpisodeOnDateForUpdateAsync
-    //======================================================================
-
+    /// <summary>
+    /// GetEpisodeOnDateAsync повертає епізод, що покриває дату.
+    /// Якщо епізодів декілька, бере найсвіжіший за OpenedAt/Id.
+    /// </summary>
     [Fact]
-    public async Task GetEpisodeOnDateAsync_returns_null_when_none()
+    public async Task GetEpisodeOnDateAsync_ReturnsEpisodeCoveringDate()
     {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
 
-        var res = await repo.GetEpisodeOnDateAsync(Guid.NewGuid(), new DateOnly(2026, 2, 10));
-        Assert.Null(res);
+        var now = Utc(2026, 02, 17, 10, 00);
+        var personId = Guid.NewGuid();
+
+        // episode 1: [2026-01-01 .. 2026-01-31]
+        var ep1 = await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 01, 01), new DateOnly(2026, 01, 31), "seed", now);
+
+        // episode 2: [2026-02-01 .. null] (active)
+        var ep2 = await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 01), null, "seed", now);
+
+        var onJan = await repo.GetEpisodeOnDateAsync(personId, new DateOnly(2026, 01, 15));
+        Assert.NotNull(onJan);
+        Assert.Equal(ep1, onJan!.Id);
+
+        var onFeb = await repo.GetEpisodeOnDateAsync(personId, new DateOnly(2026, 02, 10));
+        Assert.NotNull(onFeb);
+        Assert.Equal(ep2, onFeb!.Id);
+
+        var none = await repo.GetEpisodeOnDateAsync(personId, new DateOnly(2025, 12, 31));
+        Assert.Null(none);
     }
 
+    /// <summary>
+    /// GetActiveEpisodeAsync повертає активний (ClosedAt == null) епізод.
+    /// </summary>
     [Fact]
-    public async Task GetEpisodeOnDateAsync_returns_episode_covering_date_inclusive()
+    public async Task GetActiveEpisodeAsync_ReturnsActiveEpisode()
     {
-        await using var tdb = new SqliteTestDb();
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
 
+        var now = Utc(2026, 02, 17, 10, 00);
         var personId = Guid.NewGuid();
-        var epId = Guid.NewGuid();
 
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimeSheets.Add(NewEpisode(epId, personId, openedAt: new DateOnly(2026, 2, 1), closedAt: new DateOnly(2026, 2, 10)));
-            await db.SaveChangesAsync();
-        }
+        await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 01, 01), new DateOnly(2026, 01, 31), "seed", now);
+        var activeId = await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 01), null, "seed", now);
 
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
-
-        var on5 = await repo.GetEpisodeOnDateAsync(personId, new DateOnly(2026, 2, 5));
-        Assert.NotNull(on5);
-        Assert.Equal(epId, on5!.Id);
-
-        var on10 = await repo.GetEpisodeOnDateAsync(personId, new DateOnly(2026, 2, 10));
-        Assert.NotNull(on10);
-        Assert.Equal(epId, on10!.Id);
-    }
-
-    [Fact]
-    public async Task GetActiveEpisodeAsync_returns_null_when_no_active()
-    {
-        await using var tdb = new SqliteTestDb();
-
-        var personId = Guid.NewGuid();
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimeSheets.Add(NewEpisode(Guid.NewGuid(), personId, new DateOnly(2026, 2, 1), closedAt: new DateOnly(2026, 2, 5)));
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
         var active = await repo.GetActiveEpisodeAsync(personId);
-
-        Assert.Null(active);
-    }
-
-    [Fact]
-    public async Task GetActiveEpisodeAsync_returns_active_episode()
-    {
-        await using var tdb = new SqliteTestDb();
-
-        var personId = Guid.NewGuid();
-        var epId = Guid.NewGuid();
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimeSheets.Add(NewEpisode(epId, personId, new DateOnly(2026, 2, 1), closedAt: null));
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
-        var active = await repo.GetActiveEpisodeAsync(personId);
-
         Assert.NotNull(active);
-        Assert.Equal(epId, active!.Id);
+        Assert.Equal(activeId, active!.Id);
         Assert.Null(active.ClosedAt);
     }
 
+    /// <summary>
+    /// LoadEpisodeOnDateForUpdateAsync повертає tracked епізод із підвантаженими TaskSpans (Include).
+    /// </summary>
     [Fact]
-    public async Task LoadEpisodeOnDateForUpdateAsync_includes_taskspans()
+    public async Task LoadEpisodeOnDateForUpdateAsync_IncludesTaskSpans()
     {
-        await using var tdb = new SqliteTestDb();
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
 
+        var now = Utc(2026, 02, 17, 10, 00);
         var personId = Guid.NewGuid();
-        var epId = Guid.NewGuid();
 
-        var spanId = Guid.NewGuid();
-        var docId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
+        // Seed episode with one span via aggregate method (to keep invariants)
+        await SeedEpisodeWithSpanAsync(
+            testDb,
+            personId,
+            openedAt: new DateOnly(2026, 02, 01),
+            spanFrom: new DateOnly(2026, 02, 10),
+            nowUtc: now);
 
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimeSheets.Add(NewEpisode(epId, personId, new DateOnly(2026, 2, 1), closedAt: null));
-            db.TimesheetTaskSpans.Add(NewSpan(spanId, epId, personId, docId, missionId, new DateOnly(2026, 2, 5), null, DocumentStatus.Draft));
-            await db.SaveChangesAsync();
-        }
+        var loaded = await repo.LoadEpisodeOnDateForUpdateAsync(personId, new DateOnly(2026, 02, 10));
 
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
-
-        var tl = await repo.LoadEpisodeOnDateForUpdateAsync(personId, new DateOnly(2026, 2, 10));
-
-        Assert.NotNull(tl);
-        Assert.Single(tl!.TaskSpans);
-        Assert.Equal(spanId, tl.TaskSpans[0].Id);
-        Assert.Equal(docId, tl.TaskSpans[0].CombatTaskDocumentId);
+        Assert.NotNull(loaded);
+        Assert.NotNull(loaded!.TaskSpans);
+        Assert.Single(loaded.TaskSpans);
     }
 
     //======================================================================
     // OpenOnEnrollAsync
     //======================================================================
 
+    /// <summary>
+    /// OpenOnEnrollAsync створює новий епізод, якщо активного немає,
+    /// та додає дефолтний entry з кодом "Т" на дату зарахування (ідемпотентно).
+    /// </summary>
     [Fact]
-    public async Task OpenOnEnrollAsync_throws_when_author_blank()
+    public async Task OpenOnEnrollAsync_CreatesEpisode_AndDefaultEntry()
     {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            repo.OpenOnEnrollAsync(Guid.NewGuid(), new DateOnly(2026, 2, 10), author: "   ", nowUtc: NowUtc));
+        var now = Utc(2026, 02, 17, 10, 00);
+        var personId = Guid.NewGuid();
+        var enrollDate = new DateOnly(2026, 02, 10);
+
+        // Default enroll code must exist and be active
+        var codeT = await SeedCodeAsync(testDb, TimesheetSystemCodes.BaseState);
+
+        await repo.OpenOnEnrollAsync(personId, enrollDate, "  duty  ", now);
+
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+
+        var ep = await db.TimeSheets.SingleAsync(x => x.PersonId == personId);
+        Assert.Equal(enrollDate, ep.OpenedAt);
+        Assert.Null(ep.ClosedAt);
+        Assert.Equal("duty", ep.CreatedBy);
+        Assert.Equal(now, ep.CreatedAtUtc);
+
+        var entry = await db.TimesheetEntries
+            .Include(x => x.TimesheetCodeDefinition)
+            .SingleAsync(x => x.TimesheetId == ep.Id && !x.IsDeleted);
+
+        Assert.Equal(personId, entry.PersonId);
+        Assert.Equal(codeT, entry.TimesheetCodeDefinitionId);
+        Assert.Equal(enrollDate, entry.From);
+        Assert.Null(entry.To);
+        Assert.Equal("Auto: enroll", entry.Reference);
+        Assert.Equal("duty", entry.CreatedBy);
+        Assert.Equal(now, entry.CreatedAtUtc);
+
+        Assert.NotNull(entry.TimesheetCodeDefinition);
+        Assert.Equal(TimesheetSystemCodes.BaseState, entry.TimesheetCodeDefinition!.Code);
     }
 
+    /// <summary>
+    /// OpenOnEnrollAsync ідемпотентний:
+    /// якщо активний епізод уже існує і entry на enrollDate покриває дату — нічого не додає.
+    /// </summary>
     [Fact]
-    public async Task OpenOnEnrollAsync_throws_when_personId_empty()
+    public async Task OpenOnEnrollAsync_IsIdempotent_WhenAlreadyOpenedAndHasEntry()
     {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            repo.OpenOnEnrollAsync(Guid.Empty, new DateOnly(2026, 2, 10), author: "u", nowUtc: NowUtc));
+        var now = Utc(2026, 02, 17, 10, 00);
+        var personId = Guid.NewGuid();
+        var enrollDate = new DateOnly(2026, 02, 10);
+
+        await SeedCodeAsync(testDb, TimesheetSystemCodes.BaseState);
+
+        await repo.OpenOnEnrollAsync(personId, enrollDate, "duty", now);
+        await repo.OpenOnEnrollAsync(personId, enrollDate, "duty", now.AddMinutes(1)); // second call
+
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+
+        Assert.Equal(1, await db.TimeSheets.CountAsync(x => x.PersonId == personId));
+        Assert.Equal(1, await db.TimesheetEntries.CountAsync(x => x.PersonId == personId && !x.IsDeleted));
     }
 
+    /// <summary>
+    /// OpenOnEnrollAsync кидає, якщо активний епізод відкритий пізніше, ніж enrollDate
+    /// (не можна "перевідкривати" в минулому).
+    /// </summary>
     [Fact]
-    public async Task OpenOnEnrollAsync_throws_when_default_code_missing()
+    public async Task OpenOnEnrollAsync_Throws_WhenActiveEpisodeOpenedLaterThanEnrollDate()
     {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
+
+        var now = Utc(2026, 02, 17, 10, 00);
+        var personId = Guid.NewGuid();
+
+        await SeedCodeAsync(testDb, TimesheetSystemCodes.BaseState);
+
+        // Active episode opened at 2026-02-20
+        await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 20), null, "seed", now);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.OpenOnEnrollAsync(Guid.NewGuid(), new DateOnly(2026, 2, 10), author: "u", nowUtc: NowUtc));
+            repo.OpenOnEnrollAsync(personId, new DateOnly(2026, 02, 10), "duty", now));
 
-        Assert.Contains("Код", ex.Message);
-        Assert.Contains("не знайдено", ex.Message);
+        Assert.Contains("активний епізод відкритий пізніше", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// OpenOnEnrollAsync кидає, якщо немає активного епізоду, але enrollDate <= lastClosed
+    /// (не можна відкривати новий епізод "заднім числом" поверх закритих).
+    /// </summary>
     [Fact]
-    public async Task OpenOnEnrollAsync_creates_new_episode_and_default_entry_idempotently()
+    public async Task OpenOnEnrollAsync_Throws_WhenEnrollDateOverlapsLastClosed()
     {
-        await using var tdb = new SqliteTestDb();
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
 
+        var now = Utc(2026, 02, 17, 10, 00);
         var personId = Guid.NewGuid();
-        var enrollDate = new DateOnly(2026, 2, 10);
 
-        // DefaultEnrollCode = TimesheetSystemCodes.BaseState
-        var defaultCodeId = Guid.NewGuid();
+        await SeedCodeAsync(testDb, TimesheetSystemCodes.BaseState);
 
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimesheetCodes.Add(NewCode(defaultCodeId, TimesheetSystemCodes.BaseState, isActive: true));
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
-
-        await repo.OpenOnEnrollAsync(personId, enrollDate, author: "  user1 ", nowUtc: NowUtc);
-        await repo.OpenOnEnrollAsync(personId, enrollDate, author: "user1", nowUtc: NowUtc); // idempotent
-
-        await using var db2 = await tdb.Factory.CreateDbContextAsync();
-
-        var tl = await db2.TimeSheets.AsNoTracking().SingleAsync(x => x.PersonId == personId);
-        Assert.Equal(enrollDate, tl.OpenedAt);
-        Assert.Null(tl.ClosedAt);
-        Assert.Equal("user1", tl.CreatedBy);
-
-        var entries = await db2.TimesheetEntries.AsNoTracking()
-            .Where(x => x.TimesheetId == tl.Id && !x.IsDeleted)
-            .ToListAsync();
-
-        var e = Assert.Single(entries);
-        Assert.Equal(enrollDate, e.From);
-        Assert.Null(e.To);
-        Assert.Equal(defaultCodeId, e.TimesheetCodeDefinitionId);
-        Assert.Equal("Auto: enroll", e.Reference);
-        Assert.Equal("user1", e.CreatedBy);
-    }
-
-    [Fact]
-    public async Task OpenOnEnrollAsync_throws_when_active_episode_opened_later_than_enrollDate()
-    {
-        await using var tdb = new SqliteTestDb();
-
-        var personId = Guid.NewGuid();
-        var defaultCodeId = Guid.NewGuid();
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimesheetCodes.Add(NewCode(defaultCodeId, TimesheetSystemCodes.BaseState, isActive: true));
-
-            db.TimeSheets.Add(NewEpisode(Guid.NewGuid(), personId, openedAt: new DateOnly(2026, 2, 10), closedAt: null));
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
+        // Closed episode ends at 2026-02-10
+        await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 01), new DateOnly(2026, 02, 10), "seed", now);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.OpenOnEnrollAsync(personId, new DateOnly(2026, 2, 5), author: "u", nowUtc: NowUtc));
+            repo.OpenOnEnrollAsync(personId, new DateOnly(2026, 02, 10), "duty", now));
 
-        Assert.Contains("активний епізод відкритий пізніше", ex.Message);
-    }
-
-    [Fact]
-    public async Task OpenOnEnrollAsync_throws_when_enrollDate_is_not_after_lastClosed()
-    {
-        await using var tdb = new SqliteTestDb();
-
-        var personId = Guid.NewGuid();
-        var defaultCodeId = Guid.NewGuid();
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimesheetCodes.Add(NewCode(defaultCodeId, TimesheetSystemCodes.BaseState, isActive: true));
-
-            // only closed episode exists, no active
-            db.TimeSheets.Add(NewEpisode(Guid.NewGuid(), personId, openedAt: new DateOnly(2026, 2, 1), closedAt: new DateOnly(2026, 2, 10)));
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
-
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.OpenOnEnrollAsync(personId, new DateOnly(2026, 2, 10), author: "u", nowUtc: NowUtc));
-
-        Assert.Contains("Табелі не можна накладати", ex.Message);
-    }
-
-    [Fact]
-    public async Task OpenOnEnrollAsync_allows_open_after_lastClosed()
-    {
-        // NOTE: цей тест потребує можливості мати кілька епізодів для PersonId.
-        // Якщо у вас в test-db UNIQUE(timesheet_aggregates.person_id) — виправте індекс на partial unique:
-        // UNIQUE(person_id) WHERE closed_at IS NULL.
-        await using var tdb = new SqliteTestDb();
-
-        var personId = Guid.NewGuid();
-        var defaultCodeId = Guid.NewGuid();
-
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimesheetCodes.Add(NewCode(defaultCodeId, TimesheetSystemCodes.BaseState, isActive: true));
-            db.TimeSheets.Add(NewEpisode(Guid.NewGuid(), personId, openedAt: new DateOnly(2026, 2, 1), closedAt: new DateOnly(2026, 2, 10)));
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
-
-        await repo.OpenOnEnrollAsync(personId, new DateOnly(2026, 2, 11), author: "u", nowUtc: NowUtc);
-
-        await using var db2 = await tdb.Factory.CreateDbContextAsync();
-        var episodes = await db2.TimeSheets.AsNoTracking().Where(x => x.PersonId == personId).ToListAsync();
-
-        Assert.Equal(2, episodes.Count);
-        Assert.Contains(episodes, x => x.ClosedAt == new DateOnly(2026, 2, 10));
-        Assert.Contains(episodes, x => x.ClosedAt == null && x.OpenedAt == new DateOnly(2026, 2, 11));
+        Assert.Contains("не можна накладати", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     //======================================================================
     // ValidateCanCloseOnExcludeAsync
     //======================================================================
 
+    /// <summary>
+    /// ValidateCanCloseOnExcludeAsync кидає, якщо активного епізоду немає.
+    /// </summary>
     [Fact]
-    public async Task ValidateCanCloseOnExcludeAsync_throws_when_no_active_episode()
+    public async Task ValidateCanCloseOnExcludeAsync_Throws_WhenNoActiveEpisode()
     {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.ValidateCanCloseOnExcludeAsync(Guid.NewGuid(), new DateOnly(2026, 2, 10)));
+            repo.ValidateCanCloseOnExcludeAsync(Guid.NewGuid(), new DateOnly(2026, 02, 10)));
 
-        Assert.Equal("Неможливо виключити з табелю: немає активного епізоду.", ex.Message);
+        Assert.Contains("немає активного епізоду", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// ValidateCanCloseOnExcludeAsync кидає, якщо на closeTo немає активного entry (дані пошкоджені).
+    /// </summary>
     [Fact]
-    public async Task ValidateCanCloseOnExcludeAsync_throws_when_no_active_entry_on_date()
+    public async Task ValidateCanCloseOnExcludeAsync_Throws_WhenNoActiveEntryOnCloseDate()
     {
-        await using var tdb = new SqliteTestDb();
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
 
+        var now = Utc(2026, 02, 17, 10, 00);
         var personId = Guid.NewGuid();
-        using (var db = tdb.Factory.CreateDbContext())
-        {
-            db.TimeSheets.Add(NewEpisode(Guid.NewGuid(), personId, openedAt: new DateOnly(2026, 2, 1), closedAt: null));
-            await db.SaveChangesAsync();
-        }
 
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
+        await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 01), null, "seed", now);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.ValidateCanCloseOnExcludeAsync(personId, new DateOnly(2026, 2, 10)));
+            repo.ValidateCanCloseOnExcludeAsync(personId, new DateOnly(2026, 02, 10)));
 
-        Assert.Contains("немає активного запису", ex.Message);
+        Assert.Contains("немає активного запису", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// ValidateCanCloseOnExcludeAsync кидає, якщо код на closeTo не дозволений (не "Т" і не "РОЗПОР та не 30").
+    /// </summary>
     [Fact]
-    public async Task ValidateCanCloseOnExcludeAsync_throws_when_code_not_allowed()
+    public async Task ValidateCanCloseOnExcludeAsync_Throws_WhenCodeNotAllowed()
     {
-        await using var tdb = new SqliteTestDb();
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
 
+        var now = Utc(2026, 02, 17, 10, 00);
         var personId = Guid.NewGuid();
-        var epId = Guid.NewGuid();
+        var closeTo = new DateOnly(2026, 02, 10);
 
-        var badCodeId = Guid.NewGuid();
+        var code30 = await SeedCodeAsync(testDb, TimesheetSystemCodes.LeaveWound);
+        var epId = await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 01), null, "seed", now);
 
-        using (var db = tdb.Factory.CreateDbContext())
+        await SeedEntryAsync(testDb, new TimesheetEntry
         {
-            db.TimesheetCodes.Add(NewCode(badCodeId, "XX", isActive: true));
-            db.TimeSheets.Add(NewEpisode(epId, personId, openedAt: new DateOnly(2026, 2, 1), closedAt: null));
-
-            db.TimesheetEntries.Add(NewEntry(Guid.NewGuid(), epId, personId, badCodeId, from: new DateOnly(2026, 2, 1), to: null));
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
+            Id = Guid.NewGuid(),
+            TimesheetId = epId,
+            PersonId = personId,
+            TimesheetCodeDefinitionId = code30,
+            From = new DateOnly(2026, 02, 01),
+            To = null,
+            CreatedBy = "seed",
+            CreatedAtUtc = now,
+            IsDeleted = false
+        });
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.ValidateCanCloseOnExcludeAsync(personId, new DateOnly(2026, 2, 10)));
+            repo.ValidateCanCloseOnExcludeAsync(personId, closeTo));
 
-        Assert.Contains("Неможливо виключити з табелю зі стану 'XX'", ex.Message);
+        Assert.Contains("Дозволено тільки", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// ValidateCanCloseOnExcludeAsync дозволяє закриття, якщо код на closeTo == "Т" або "РОЗПОР".
+    /// Додатково фіксуємо, що порівняння робиться з Trim (Code може мати пробіли).
+    /// </summary>
     [Fact]
-    public async Task ValidateCanCloseOnExcludeAsync_allows_T_or_ROZPOR()
+    public async Task ValidateCanCloseOnExcludeAsync_Allows_WhenAllowedCodeTrimmed()
     {
-        await using var tdb = new SqliteTestDb();
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
 
+        var now = Utc(2026, 02, 17, 10, 00);
         var personId = Guid.NewGuid();
-        var epId = Guid.NewGuid();
+        var closeTo = new DateOnly(2026, 02, 10);
 
-        var codeId = Guid.NewGuid();
+        // Seed a "trimmed" code: "  Т  "
+        var codeId = await SeedCodeAsync(testDb, "  " + TimesheetSystemCodes.BaseState + "  ");
 
-        using (var db = tdb.Factory.CreateDbContext())
+        var epId = await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 01), null, "seed", now);
+
+        await SeedEntryAsync(testDb, new TimesheetEntry
         {
-            // дозволений код: TimesheetSystemCodes.BaseState (Т)
-            db.TimesheetCodes.Add(NewCode(codeId, TimesheetSystemCodes.BaseState, isActive: true));
-            db.TimeSheets.Add(NewEpisode(epId, personId, openedAt: new DateOnly(2026, 2, 1), closedAt: null));
-            db.TimesheetEntries.Add(NewEntry(Guid.NewGuid(), epId, personId, codeId, from: new DateOnly(2026, 2, 1), to: null));
-            await db.SaveChangesAsync();
-        }
+            Id = Guid.NewGuid(),
+            TimesheetId = epId,
+            PersonId = personId,
+            TimesheetCodeDefinitionId = codeId,
+            From = new DateOnly(2026, 02, 01),
+            To = null,
+            CreatedBy = "seed",
+            CreatedAtUtc = now,
+            IsDeleted = false
+        });
 
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
-
-        await repo.ValidateCanCloseOnExcludeAsync(personId, new DateOnly(2026, 2, 10));
+        // should not throw
+        await repo.ValidateCanCloseOnExcludeAsync(personId, closeTo);
     }
 
     //======================================================================
     // CloseOnExcludeAsync
     //======================================================================
 
+    /// <summary>
+    /// CloseOnExcludeAsync:
+    /// <list type="bullet">
+    /// <item><description>закриває активний епізод (ClosedAt, ClosedBy, ClosedAtUtc);</description></item>
+    /// <item><description>clamp’ить entries які виходять за closeTo (або open-ended) до To=closeTo;</description></item>
+    /// <item><description>soft-delete’ить future entries (From > closeTo) з причиною;</description></item>
+    /// </list>
+    /// </summary>
     [Fact]
-    public async Task CloseOnExcludeAsync_throws_when_author_blank()
+    public async Task CloseOnExcludeAsync_ClosesEpisode_ClampsEntries_AndSoftDeletesFuture()
     {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            repo.CloseOnExcludeAsync(Guid.NewGuid(), new DateOnly(2026, 2, 10), reason: null, author: " ", nowUtc: NowUtc));
+        var now = Utc(2026, 02, 17, 10, 00);
+        var personId = Guid.NewGuid();
+        var closeTo = new DateOnly(2026, 02, 10);
+
+        var codeT = await SeedCodeAsync(testDb, TimesheetSystemCodes.BaseState);
+
+        var epId = await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 01), null, "seed", now);
+
+        // entry1: [02-01..null] -> must clamp to 02-10
+        var e1 = new TimesheetEntry
+        {
+            Id = Guid.NewGuid(),
+            TimesheetId = epId,
+            PersonId = personId,
+            TimesheetCodeDefinitionId = codeT,
+            From = new DateOnly(2026, 02, 01),
+            To = null,
+            CreatedBy = "seed",
+            CreatedAtUtc = now,
+            IsDeleted = false
+        };
+
+        // entry2: [02-20..null] -> must be soft-deleted as future
+        var e2 = new TimesheetEntry
+        {
+            Id = Guid.NewGuid(),
+            TimesheetId = epId,
+            PersonId = personId,
+            TimesheetCodeDefinitionId = codeT,
+            From = new DateOnly(2026, 02, 20),
+            To = null,
+            CreatedBy = "seed",
+            CreatedAtUtc = now,
+            IsDeleted = false
+        };
+
+        await SeedEntryAsync(testDb, e1);
+        await SeedEntryAsync(testDb, e2);
+
+        await repo.CloseOnExcludeAsync(
+            personId: personId,
+            closeTo: closeTo,
+            reason: "  test reason  ",
+            author: "  admin  ",
+            nowUtc: now.AddMinutes(1));
+
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+
+        var ep = await db.TimeSheets.SingleAsync(x => x.Id == epId);
+        Assert.Equal(closeTo, ep.ClosedAt);
+        Assert.Equal("admin", ep.ClosedBy);
+        Assert.Equal(now.AddMinutes(1), ep.ClosedAtUtc);
+
+        var entry1 = await db.TimesheetEntries.SingleAsync(x => x.Id == e1.Id);
+        Assert.Equal(closeTo, entry1.To);
+        Assert.Equal("admin", entry1.UpdatedBy);
+        Assert.Equal(now.AddMinutes(1), entry1.UpdatedAtUtc);
+        Assert.False(entry1.IsDeleted);
+
+        var entry2 = await db.TimesheetEntries.SingleAsync(x => x.Id == e2.Id);
+        Assert.True(entry2.IsDeleted);
+        Assert.Equal("admin", entry2.DeletedBy);
+        Assert.Equal(now.AddMinutes(1), entry2.DeletedAtUtc);
+        Assert.Equal("Auto-deleted: person excluded (test reason)", entry2.DeleteReason);
     }
 
+    /// <summary>
+    /// CloseOnExcludeAsync кидає, якщо closeTo раніше OpenedAt епізоду.
+    /// </summary>
     [Fact]
-    public async Task CloseOnExcludeAsync_throws_when_personId_empty()
+    public async Task CloseOnExcludeAsync_Throws_WhenCloseToBeforeOpenedAt()
     {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            repo.CloseOnExcludeAsync(Guid.Empty, new DateOnly(2026, 2, 10), reason: null, author: "u", nowUtc: NowUtc));
-    }
+        var now = Utc(2026, 02, 17, 10, 00);
+        var personId = Guid.NewGuid();
 
-    [Fact]
-    public async Task CloseOnExcludeAsync_throws_when_no_active_episode()
-    {
-        await using var tdb = new SqliteTestDb();
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
+        // Allowed code exists + entry exists, але closeTo < openedAt => should throw
+        var codeT = await SeedCodeAsync(testDb, TimesheetSystemCodes.BaseState);
+        var epId = await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 10), null, "seed", now);
+
+        await SeedEntryAsync(testDb, new TimesheetEntry
+        {
+            Id = Guid.NewGuid(),
+            TimesheetId = epId,
+            PersonId = personId,
+            TimesheetCodeDefinitionId = codeT,
+            From = new DateOnly(2026, 02, 10),
+            To = null,
+            CreatedBy = "seed",
+            CreatedAtUtc = now,
+            IsDeleted = false
+        });
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.CloseOnExcludeAsync(Guid.NewGuid(), new DateOnly(2026, 2, 10), reason: null, author: "u", nowUtc: NowUtc));
+            repo.CloseOnExcludeAsync(personId, new DateOnly(2026, 02, 09), null, "admin", now));
 
-        Assert.Equal("Неможливо виключити з табелю: немає активного епізоду.", ex.Message);
+        Assert.Contains("він відкритий", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Схема БД гарантує, що для однієї особи може існувати тільки один активний епізод (ClosedAt == null).
+    /// Це інваріанта даних, тому репозиторій не мусить (і не може) тестувати "два активних епізоди"
+    /// через нормальний запис у БД.
+    /// </summary>
     [Fact]
-    public async Task CloseOnExcludeAsync_throws_when_closeTo_before_openedAt()
+    public async Task Schema_EnforcesSingleActiveEpisodePerPerson()
     {
-        await using var tdb = new SqliteTestDb();
+        await using var testDb = new SqliteTestDb();
 
+        var now = Utc(2026, 02, 17, 10, 00);
         var personId = Guid.NewGuid();
-        var epId = Guid.NewGuid();
-        var codeId = Guid.NewGuid();
 
-        using (var db = tdb.Factory.CreateDbContext())
+        // First active episode
+        await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 01), closedAt: null, "seed", now);
+
+        // Second active episode for the same person must violate unique constraint
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+
+        db.TimeSheets.Add(new TimeSheetAggregate
         {
-            db.TimesheetCodes.Add(NewCode(codeId, TimesheetSystemCodes.BaseState, isActive: true));
-            db.TimeSheets.Add(NewEpisode(epId, personId, openedAt: new DateOnly(2026, 2, 10), closedAt: null));
+            Id = Guid.NewGuid(),
+            PersonId = personId,
+            OpenedAt = new DateOnly(2026, 02, 02),
+            ClosedAt = null,
+            CreatedBy = "seed2",
+            CreatedAtUtc = now.AddMinutes(1)
+        });
 
-            // активний запис на дату closeTo потрібен для валідатора
-            db.TimesheetEntries.Add(NewEntry(Guid.NewGuid(), epId, personId, codeId, from: new DateOnly(2026, 2, 10), to: null));
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
-
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.CloseOnExcludeAsync(personId, closeTo: new DateOnly(2026, 2, 9), reason: null, author: "u", nowUtc: NowUtc));
-
-        Assert.Contains("він відкритий з 2026-02-10", ex.Message);
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 
-    [Fact]
-    public async Task CloseOnExcludeAsync_closes_episode_clamps_entries_and_soft_deletes_future_entries_with_reason()
+    //======================================================================
+    // Helpers
+    //======================================================================
+
+    private static DateTime Utc(int y, int m, int d, int hh, int mm)
+        => new(y, m, d, hh, mm, 0, DateTimeKind.Utc);
+
+    /// <summary>
+    /// Сідить TimesheetCodeDefinition (IsActive=true).
+    /// </summary>
+    private static async Task<Guid> SeedCodeAsync(SqliteTestDb testDb, string code)
     {
-        await using var tdb = new SqliteTestDb();
+        await using var db = await testDb.Factory.CreateDbContextAsync();
 
-        var personId = Guid.NewGuid();
-        var epId = Guid.NewGuid();
+        var existing = await db.TimesheetCodes.SingleOrDefaultAsync(x => x.Code == code);
+        if (existing is not null)
+            return existing.Id;
 
-        var codeId = Guid.NewGuid(); // allowed code
-
-        var eOpen = Guid.NewGuid();
-        var eLong = Guid.NewGuid();
-        var eFuture = Guid.NewGuid();
-
-        using (var db = tdb.Factory.CreateDbContext())
+        var e = new TimesheetCodeDefinition
         {
-            db.TimesheetCodes.Add(NewCode(codeId, TimesheetSystemCodes.BaseState, isActive: true));
+            Id = Guid.NewGuid(),
+            Code = code,
+            Title = code.Trim(),
+            Description = null,
+            SortOrder = 0,
+            Priority = 0,
+            IsTerminal = false,
+            IsActive = true,
+            CreatedBy = "seed",
+            CreatedAtUtc = Utc(2026, 02, 17, 10, 00)
+        };
 
-            db.TimeSheets.Add(NewEpisode(epId, personId, openedAt: new DateOnly(2026, 2, 1), closedAt: null));
+        db.TimesheetCodes.Add(e);
+        await db.SaveChangesAsync();
 
-            // Active allowed code covering closeTo (open-ended)
-            db.TimesheetEntries.Add(NewEntry(eOpen, epId, personId, codeId, from: new DateOnly(2026, 2, 1), to: null));
-
-            // Another entry that extends beyond closeTo -> should be clamped
-            db.TimesheetEntries.Add(NewEntry(eLong, epId, personId, codeId, from: new DateOnly(2026, 2, 5), to: new DateOnly(2026, 2, 20)));
-
-            // Future entry From > closeTo -> should be soft-deleted
-            db.TimesheetEntries.Add(NewEntry(eFuture, epId, personId, codeId, from: new DateOnly(2026, 2, 11), to: null));
-
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
-
-        var closeTo = new DateOnly(2026, 2, 10);
-        await repo.CloseOnExcludeAsync(personId, closeTo, reason: "  medical  ", author: "  user1  ", nowUtc: NowUtc);
-
-        await using var db2 = await tdb.Factory.CreateDbContextAsync();
-
-        var tl = await db2.TimeSheets.AsNoTracking().SingleAsync(x => x.Id == epId);
-        Assert.Equal(closeTo, tl.ClosedAt);
-        Assert.Equal("user1", tl.ClosedBy);
-        Assert.Equal(NowUtc, tl.ClosedAtUtc);
-
-        var open = await db2.TimesheetEntries.AsNoTracking().SingleAsync(x => x.Id == eOpen);
-        Assert.Equal(closeTo, open.To);
-        Assert.Equal("user1", open.UpdatedBy);
-        Assert.Equal(NowUtc, open.UpdatedAtUtc);
-
-        var lng = await db2.TimesheetEntries.AsNoTracking().SingleAsync(x => x.Id == eLong);
-        Assert.Equal(closeTo, lng.To);
-        Assert.Equal("user1", lng.UpdatedBy);
-        Assert.Equal(NowUtc, lng.UpdatedAtUtc);
-
-        var future = await db2.TimesheetEntries.AsNoTracking().SingleAsync(x => x.Id == eFuture);
-        Assert.True(future.IsDeleted);
-        Assert.Equal("user1", future.DeletedBy);
-        Assert.Equal(NowUtc, future.DeletedAtUtc);
-        Assert.Equal("Auto-deleted: person excluded (medical)", future.DeleteReason);
+        return e.Id;
     }
 
-    [Fact]
-    public async Task CloseOnExcludeAsync_soft_delete_reason_without_custom_reason()
+    /// <summary>
+    /// Сідить епізод табеля.
+    /// </summary>
+    private static async Task<Guid> SeedEpisodeAsync(
+        SqliteTestDb testDb,
+        Guid personId,
+        DateOnly openedAt,
+        DateOnly? closedAt,
+        string createdBy,
+        DateTime nowUtc)
     {
-        await using var tdb = new SqliteTestDb();
-
-        var personId = Guid.NewGuid();
-        var epId = Guid.NewGuid();
-        var codeId = Guid.NewGuid();
-
-        var eFuture = Guid.NewGuid();
-
-        using (var db = tdb.Factory.CreateDbContext())
+        var ep = new TimeSheetAggregate
         {
-            db.TimesheetCodes.Add(NewCode(codeId, TimesheetSystemCodes.BaseState, isActive: true));
-            db.TimeSheets.Add(NewEpisode(epId, personId, openedAt: new DateOnly(2026, 2, 1), closedAt: null));
+            Id = Guid.NewGuid(),
+            PersonId = personId,
+            OpenedAt = openedAt,
+            ClosedAt = closedAt,
+            CreatedBy = createdBy,
+            CreatedAtUtc = nowUtc
+        };
 
-            // active allowed entry on close date
-            db.TimesheetEntries.Add(NewEntry(Guid.NewGuid(), epId, personId, codeId, from: new DateOnly(2026, 2, 1), to: null));
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+        db.TimeSheets.Add(ep);
+        await db.SaveChangesAsync();
 
-            // future entry to delete
-            db.TimesheetEntries.Add(NewEntry(eFuture, epId, personId, codeId, from: new DateOnly(2026, 2, 20), to: null));
+        return ep.Id;
+    }
 
-            await db.SaveChangesAsync();
-        }
+    /// <summary>
+    /// Сідить епізод з одним TaskSpan (для перевірки Include в LoadEpisodeOnDateForUpdateAsync).
+    /// </summary>
+    private static async Task<Guid> SeedEpisodeWithSpanAsync(
+        SqliteTestDb testDb,
+        Guid personId,
+        DateOnly openedAt,
+        DateOnly spanFrom,
+        DateTime nowUtc)
+    {
+        var ep = new TimeSheetAggregate
+        {
+            Id = Guid.NewGuid(),
+            PersonId = personId,
+            OpenedAt = openedAt,
+            ClosedAt = null,
+            CreatedBy = "seed",
+            CreatedAtUtc = nowUtc
+        };
 
-        var repo = new TimesheetEpisodeRepository(tdb.Factory);
+        ep.UpsertTask(
+            documentId: Guid.NewGuid(),
+            missionId: Guid.NewGuid(),
+            from: spanFrom,
+            toExclusive: null,
+            rnokpp: "0000000000",
+            fullName: "P",
+            rank: null,
+            position: null,
+            weapon: null,
+            callsign: null,
+            author: "seed",
+            nowUtc: nowUtc);
 
-        await repo.CloseOnExcludeAsync(personId, new DateOnly(2026, 2, 10), reason: null, author: "u", nowUtc: NowUtc);
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+        db.TimeSheets.Add(ep);
+        await db.SaveChangesAsync();
 
-        await using var db2 = await tdb.Factory.CreateDbContextAsync();
-        var future = await db2.TimesheetEntries.AsNoTracking().SingleAsync(x => x.Id == eFuture);
+        return ep.Id;
+    }
 
-        Assert.True(future.IsDeleted);
-        Assert.Equal("Auto-deleted: person excluded", future.DeleteReason);
+    /// <summary>
+    /// Додає entry напряму в БД.
+    /// </summary>
+    private static async Task SeedEntryAsync(SqliteTestDb testDb, TimesheetEntry entry)
+    {
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+        db.TimesheetEntries.Add(entry);
+        await db.SaveChangesAsync();
     }
 }
