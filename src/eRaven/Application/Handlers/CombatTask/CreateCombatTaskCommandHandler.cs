@@ -5,15 +5,15 @@
 // CreateCombatTaskCommandHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.CombatTaskRepository;
+using eRaven.Application.Abstractions.PersonRepository;
+using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.CombatTask;
 using eRaven.Application.DTOs.CombatTask;
 using eRaven.Application.DTOs.Person;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
-using eRaven.Infrastructure.Repositories.CombatTaskRepository;
-using eRaven.Infrastructure.Repositories.PersonRepository;
-using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.CombatTask;
 

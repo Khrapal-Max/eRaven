@@ -8,7 +8,7 @@
 using eRaven.Application.DTOs.CombatTask;
 using eRaven.Domain.Enums;
 
-namespace eRaven.Infrastructure.Repositories.CombatTaskRepository;
+namespace eRaven.Application.Abstractions.CombatTaskRepository;
 
 /// <summary>
 /// Репозиторій документів бойових завдань.

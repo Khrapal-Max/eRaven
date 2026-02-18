@@ -8,7 +8,7 @@
 using eRaven.Application.DTOs.CombatTask;
 using eRaven.Domain.Entities;
 
-namespace eRaven.Infrastructure.Repositories.CombatTaskRepository;
+namespace eRaven.Application.Abstractions.CombatTaskRepository;
 
 public interface ICombatTaskRepository
 {

@@ -5,13 +5,13 @@
 // GetPersonalHistoriesQueryHandlersTests
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.EventJson;
 using eRaven.Application.Handlers.Personal;
 using eRaven.Application.Presenter;
 using eRaven.Application.Queries.Personal;
 using eRaven.Domain.Events.PersonEvents.Info;
-using eRaven.Infrastructure.Repositories.PersonRepository;
 using Moq;
 
 namespace eRaven.Tests.Application.Handlers.Personal;

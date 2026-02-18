@@ -7,7 +7,7 @@
 
 using eRaven.Domain.Entities;
 
-namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
+namespace eRaven.Application.Abstractions.TimesheetRepository;
 
 /// <summary>
 /// Репозиторій CRUD для <see cref="TimesheetEntry"/>.

@@ -9,7 +9,7 @@ using eRaven.Application.DTOs.Excel;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Events.PersonEvents.Info;
 using eRaven.Domain.Events.PersonEvents.Move;
-using eRaven.Infrastructure.Projectors;
+using eRaven.Infrastructure.Projections.Person;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 using eRaven.Tests.Extensions;
 using Microsoft.EntityFrameworkCore;

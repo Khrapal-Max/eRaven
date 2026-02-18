@@ -5,10 +5,10 @@
 // GetCombatTaskDocumentsQueryHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.CombatTaskRepository;
 using eRaven.Application.DTOs.CombatTask;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.CombatTask;
-using eRaven.Infrastructure.Repositories.CombatTaskRepository;
 
 namespace eRaven.Application.Handlers.CombatTask;
 

@@ -10,7 +10,7 @@ using eRaven.Application.Presenter;
 using eRaven.Components;
 using eRaven.Extensions;
 using eRaven.Infrastructure;
-using eRaven.Infrastructure.Projectors;
+using eRaven.Infrastructure.Projections.Person;
 using eRaven.Presentation.Errors;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.DataProtection;

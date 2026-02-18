@@ -39,8 +39,20 @@ public sealed class TimesheetTaskSpan
     /// <summary>Document that opened the span.</summary>
     public Guid OpenedByCombatTaskDocumentId { get; set; }
 
+    /// <summary>
+    /// Людський референс документа, який ВІДКРИВ span (snapshot, наприклад OrderTitle/№ наказу).
+    /// Використовується для відображення у табелі/звітах без JOIN до документів.
+    /// </summary>
+    public string? OpenedByDocumentReference { get; set; }
+
     /// <summary>Document that closed/canceled the span (if any).</summary>
     public Guid? ClosedByCombatTaskDocumentId { get; set; }
+
+    /// <summary>
+    /// Людський референс документа, який ЗАКРИВ span (snapshot).
+    /// Якщо span закрито reason-кодом — поле може бути <c>null</c>.
+    /// </summary>
+    public string? ClosedByDocumentReference { get; set; }
 
     /// <summary>Start date (inclusive).</summary>
     public DateOnly FromDate { get; set; }

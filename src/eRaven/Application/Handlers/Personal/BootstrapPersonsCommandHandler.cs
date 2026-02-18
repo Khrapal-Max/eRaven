@@ -5,10 +5,10 @@
 // BootstrapPersonsCommandHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.PersonRepository;
+using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
-using eRaven.Infrastructure.Repositories.PersonRepository;
-using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Application.Handlers.Personal;

@@ -5,9 +5,9 @@
 // SaveTimesheetPolicyCommandHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.TimesheetPolicyRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Timesheet;
-using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
 
 namespace eRaven.Application.Handlers.Timesheet;
 

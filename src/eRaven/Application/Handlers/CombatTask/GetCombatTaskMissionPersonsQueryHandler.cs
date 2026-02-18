@@ -5,10 +5,10 @@
 // GetCombatTaskMissionPersonsQueryHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.DTOs.CombatTask;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.CombatTask;
-using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.CombatTask;
 

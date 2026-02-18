@@ -260,6 +260,7 @@ public sealed class MissionRepositoryTests
             position: null,
             weapon: null,
             callsign: null,
+            openedByDocumentReference: "DOC1",
             author: "seed",
             nowUtc: now);
 

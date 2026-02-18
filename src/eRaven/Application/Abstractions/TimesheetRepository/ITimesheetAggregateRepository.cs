@@ -8,7 +8,7 @@
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
 
-namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
+namespace eRaven.Application.Abstractions.TimesheetRepository;
 
 /// <summary>
 /// Репозиторій табеля (episode root: <see cref="TimeSheetAggregate"/>) для операцій,

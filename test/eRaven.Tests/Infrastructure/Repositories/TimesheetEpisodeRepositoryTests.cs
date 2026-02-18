@@ -593,6 +593,7 @@ public sealed class TimesheetEpisodeRepositoryTests
             position: null,
             weapon: null,
             callsign: null,
+            openedByDocumentReference: "DOC1",
             author: "seed",
             nowUtc: nowUtc);
 

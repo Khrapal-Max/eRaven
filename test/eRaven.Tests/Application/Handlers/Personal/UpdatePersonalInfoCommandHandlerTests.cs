@@ -5,9 +5,9 @@
 // UpdatePersonalInfoCommandHandlerTests
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Handlers.Personal;
-using eRaven.Infrastructure.Repositories.PersonRepository;
 using Moq;
 
 namespace eRaven.Tests.Application.Handlers.Personal;

@@ -5,12 +5,12 @@
 // TransitionTimesheetStateCommandHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.TimesheetPolicyRepository;
+using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Timesheet;
 using eRaven.Domain.Entities;
 using eRaven.Infrastructure;
-using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
-using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.Timesheet;
 

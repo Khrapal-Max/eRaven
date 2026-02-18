@@ -5,10 +5,10 @@
 // GetTimesheetPolicyForCodeQueryHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.TimesheetPolicyRepository;
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheet;
-using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
 
 namespace eRaven.Application.Handlers.Timesheet;
 

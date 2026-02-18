@@ -5,10 +5,10 @@
 // GetMissionsQueryHandlerTests
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.MissionRepository;
 using eRaven.Application.Handlers.Mission;
 using eRaven.Application.Queries.Mission;
 using eRaven.Domain.Enums;
-using eRaven.Infrastructure.Repositories.MissionRepository;
 using Moq;
 
 namespace eRaven.Tests.Application.Handlers.Mission;

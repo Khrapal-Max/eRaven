@@ -71,18 +71,19 @@ public sealed class TimeSheetAggregate
     }
 
     public void UpsertTask(
-        Guid documentId,
-        Guid missionId,
-        DateOnly from,
-        DateOnly? toExclusive,
-        string rnokpp,
-        string fullName,
-        string? rank,
-        string? position,
-        string? weapon,
-        string? callsign,
-        string author,
-        DateTime nowUtc)
+    Guid documentId,
+    Guid missionId,
+    DateOnly from,
+    DateOnly? toExclusive,
+    string? rnokpp,
+    string? fullName,
+    string? rank,
+    string? position,
+    string? weapon,
+    string? callsign,
+    string? openedByDocumentReference,
+    string author,
+    DateTime nowUtc)
     {
         EnsureNotClosed();
         EnsureInBounds(from);
@@ -126,6 +127,10 @@ public sealed class TimeSheetAggregate
         span.FromDate = from;
         span.ToDate = toExclusive;
 
+
+        span.OpenedByDocumentReference = string.IsNullOrWhiteSpace(openedByDocumentReference)
+            ? null : openedByDocumentReference.Trim();
+
         span.Rnokpp = (rnokpp ?? string.Empty).Trim();
         span.FullName = (fullName ?? string.Empty).Trim();
         span.Rank = string.IsNullOrWhiteSpace(rank) ? null : rank.Trim();
@@ -141,6 +146,7 @@ public sealed class TimeSheetAggregate
         span.ClosedByCombatTaskDocumentId = null;
         span.ClosedByCodeId = null;
         span.ClosedReference = null;
+        span.ClosedByDocumentReference = null;
     }
 
     /// <summary>
@@ -153,17 +159,18 @@ public sealed class TimeSheetAggregate
     /// <para>Також оновлює snapshot (ПІБ/звання/посада/зброя/позивний) даними документа, що закриває.</para>
     /// </summary>
     public void CloseTaskByDocument(
-        Guid closingDocumentId,
-        Guid missionId,
-        DateOnly closeAtExclusive,
-        string rnokpp,
-        string fullName,
-        string? rank,
-        string? position,
-        string? weapon,
-        string? callsign,
-        string author,
-        DateTime nowUtc)
+    Guid closingDocumentId,
+    Guid missionId,
+    DateOnly closeAtExclusive,
+    string rnokpp,
+    string fullName,
+    string? rank,
+    string? position,
+    string? weapon,
+    string? callsign,
+    string? closedByDocumentReference,
+    string author,
+    DateTime nowUtc)
     {
         EnsureNotClosed();
         EnsureTaskToInBounds(closeAtExclusive);
@@ -181,6 +188,11 @@ public sealed class TimeSheetAggregate
             span.ToDate = closeAtExclusive;
 
         span.ClosedByCombatTaskDocumentId = closingDocumentId;
+
+        // ✅ NEW: snapshot референса документа, що закрив
+        span.ClosedByDocumentReference = string.IsNullOrWhiteSpace(closedByDocumentReference)
+            ? null
+            : closedByDocumentReference.Trim();
 
         // Документне закриття не є "закриттям по коду"
         span.ClosedByCodeId = null;
@@ -238,6 +250,7 @@ public sealed class TimeSheetAggregate
 
             // Закриття по причині не є "закриттям документом"
             span.ClosedByCombatTaskDocumentId = null;
+            span.ClosedByDocumentReference = null;
 
             span.UpdatedBy = author;
             span.UpdatedAtUtc = nowUtc;
@@ -248,7 +261,7 @@ public sealed class TimeSheetAggregate
         Guid documentId,
         Guid missionId,
         Guid reasonCodeId,
-        string? reference,
+        string reference,
         string author,
         DateTime nowUtc)
     {
@@ -264,6 +277,7 @@ public sealed class TimeSheetAggregate
 
         span.ClosedByCodeId = reasonCodeId;
         span.ClosedReference = string.IsNullOrWhiteSpace(reference) ? null : reference.Trim();
+
         span.UpdatedBy = author;
         span.UpdatedAtUtc = nowUtc;
     }

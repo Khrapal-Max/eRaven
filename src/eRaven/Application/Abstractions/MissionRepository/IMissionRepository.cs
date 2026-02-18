@@ -8,7 +8,7 @@
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 
-namespace eRaven.Infrastructure.Repositories.MissionRepository;
+namespace eRaven.Application.Abstractions.MissionRepository;
 
 /// <summary>
 /// Репозиторій точек місій.

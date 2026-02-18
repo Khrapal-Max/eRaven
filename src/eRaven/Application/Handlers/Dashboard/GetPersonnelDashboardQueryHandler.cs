@@ -5,10 +5,10 @@
 // GetPersonnelDashboardQueryHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.DashboardRepository;
 using eRaven.Application.DTOs.Dashboard;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Dashboard;
-using eRaven.Infrastructure.Repositories.DashboardRepository;
 
 namespace eRaven.Application.Handlers.Dashboard;
 

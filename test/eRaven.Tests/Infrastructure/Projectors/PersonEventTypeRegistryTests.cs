@@ -7,7 +7,7 @@
 
 using eRaven.Domain.Entities;
 using eRaven.Domain.Events.PersonEvents.Info;
-using eRaven.Infrastructure.Projectors;
+using eRaven.Infrastructure.Projections.Person;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 

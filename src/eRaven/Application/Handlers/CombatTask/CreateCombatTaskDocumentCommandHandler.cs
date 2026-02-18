@@ -5,9 +5,9 @@
 // CreateCombatTaskDocumentCommandHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.CombatTaskRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.CombatTask;
-using eRaven.Infrastructure.Repositories.CombatTaskRepository;
 
 namespace eRaven.Application.Handlers.CombatTask;
 

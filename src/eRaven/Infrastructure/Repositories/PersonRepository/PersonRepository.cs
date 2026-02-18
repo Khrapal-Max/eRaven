@@ -5,6 +5,7 @@
 // PersonRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.DTOs.Excel;
 using eRaven.Application.DTOs.Person;
 using eRaven.Domain;
@@ -15,7 +16,7 @@ using eRaven.Domain.Events.PersonEvents.Info;
 using eRaven.Domain.Events.PersonEvents.Move;
 using eRaven.Domain.ValueObjects;
 using eRaven.Exceptions;
-using eRaven.Infrastructure.Projectors;
+using eRaven.Infrastructure.Projections.Person;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.Json.Serialization;

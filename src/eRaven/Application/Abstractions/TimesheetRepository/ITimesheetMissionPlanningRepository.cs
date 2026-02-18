@@ -7,7 +7,7 @@
 
 using eRaven.Application.DTOs.CombatTask;
 
-namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
+namespace eRaven.Application.Abstractions.TimesheetRepository;
 
 /// <summary>
 /// Read-репозиторій для задач планування/звітів по місіях, що базуються на фактах табеля.

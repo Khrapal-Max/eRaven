@@ -5,10 +5,10 @@
 // CreateMissionCommandHandlerTests
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.MissionRepository;
 using eRaven.Application.Commands.Mission;
 using eRaven.Application.Handlers.Mission;
 using eRaven.Domain.Enums;
-using eRaven.Infrastructure.Repositories.MissionRepository;
 using Moq;
 
 namespace eRaven.Tests.Application.Handlers.Mission;

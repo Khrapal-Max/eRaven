@@ -8,7 +8,7 @@
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Domain.Entities;
 
-namespace eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
+namespace eRaven.Application.Abstractions.TimesheetPolicyRepository;
 
 /// <summary>
 /// Репозиторій політик табеля (довідник кодів + дозволені переходи + трактовка дати події).

@@ -5,10 +5,10 @@
 // EnrollCommandHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.PersonRepository;
+using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonMove;
-using eRaven.Infrastructure.Repositories.PersonRepository;
-using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.Personal;
 

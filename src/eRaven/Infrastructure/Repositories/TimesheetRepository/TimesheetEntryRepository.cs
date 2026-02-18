@@ -5,6 +5,7 @@
 // TimesheetEntryRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
 using Microsoft.EntityFrameworkCore;

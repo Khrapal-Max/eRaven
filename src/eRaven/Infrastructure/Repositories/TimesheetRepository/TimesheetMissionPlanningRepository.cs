@@ -5,6 +5,7 @@
 // TimesheetMissionPlanningRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.DTOs.CombatTask;
 using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;

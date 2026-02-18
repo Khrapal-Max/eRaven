@@ -2,15 +2,14 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// IPersonReadModelProjector
+// IDashboardRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Entities;
+using eRaven.Application.DTOs.Dashboard;
 
-namespace eRaven.Infrastructure.Projectors;
+namespace eRaven.Application.Abstractions.DashboardRepository;
 
-public interface IPersonReadModelProjector
+public interface IDashboardRepository
 {
-    Task ProjectAsync(AppDbContext db, PersonEventRecord record, CancellationToken ct = default);
-    Task RebuildAsync(AppDbContext db, Guid aggregateId, CancellationToken ct = default);
+    Task<PersonnelDashboardSnapshot> GetPersonnelDashboardAsync(CancellationToken ct = default);
 }

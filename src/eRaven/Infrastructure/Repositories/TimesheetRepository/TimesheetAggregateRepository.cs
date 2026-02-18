@@ -5,6 +5,7 @@
 // TimesheetAggregateRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
@@ -51,6 +52,14 @@ public sealed class TimesheetAggregateRepository(IDbContextFactory<AppDbContext>
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        var documentRef = await db.CombatTaskDocuments
+            .AsNoTracking()
+            .Where(d => d.Id == documentId)
+            .Select(d => d.OrderTitle)
+            .SingleOrDefaultAsync(ct);
+
+        documentRef = string.IsNullOrWhiteSpace(documentRef) ? null : documentRef.Trim();
 
         var perPerson = details
             .GroupBy(x => x.PersonId)
@@ -106,6 +115,7 @@ public sealed class TimesheetAggregateRepository(IDbContextFactory<AppDbContext>
                     position: snap.Position,
                     weapon: snap.Weapon,
                     callsign: snap.Callsign,
+                    openedByDocumentReference: documentRef,
                     author: author,
                     nowUtc: nowUtc);
             }
@@ -125,6 +135,7 @@ public sealed class TimesheetAggregateRepository(IDbContextFactory<AppDbContext>
                     position: snap.Position,
                     weapon: snap.Weapon,
                     callsign: snap.Callsign,
+                    closedByDocumentReference: documentRef,
                     author: author,
                     nowUtc: nowUtc);
             }

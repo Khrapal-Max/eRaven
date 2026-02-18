@@ -5,6 +5,7 @@
 // DashboardRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.DashboardRepository;
 using eRaven.Application.DTOs.Dashboard;
 using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;

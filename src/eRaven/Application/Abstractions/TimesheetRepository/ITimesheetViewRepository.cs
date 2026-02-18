@@ -7,7 +7,7 @@
 
 using eRaven.Application.DTOs.Timesheet;
 
-namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
+namespace eRaven.Application.Abstractions.TimesheetRepository;
 
 /// <summary>
 /// Read-репозиторій табеля для UI/звітів.

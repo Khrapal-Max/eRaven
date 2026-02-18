@@ -5,10 +5,10 @@
 // GetTimesheetRangeQueryHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.DTOs.Timesheet;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheet;
-using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.Timesheet;
 

@@ -5,6 +5,12 @@
 // DefaultRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.CombatTaskRepository;
+using eRaven.Application.Abstractions.DashboardRepository;
+using eRaven.Application.Abstractions.MissionRepository;
+using eRaven.Application.Abstractions.PersonRepository;
+using eRaven.Application.Abstractions.TimesheetPolicyRepository;
+using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Infrastructure.Repositories.CombatTaskRepository;
 using eRaven.Infrastructure.Repositories.DashboardRepository;
 using eRaven.Infrastructure.Repositories.MissionRepository;

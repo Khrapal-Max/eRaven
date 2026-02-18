@@ -5,6 +5,7 @@
 // MissionRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.MissionRepository;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;

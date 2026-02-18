@@ -5,10 +5,10 @@
 // GetMissionsQueryHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.MissionRepository;
 using eRaven.Application.DTOs.Mission;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Mission;
-using eRaven.Infrastructure.Repositories.MissionRepository;
 
 namespace eRaven.Application.Handlers.Mission;
 

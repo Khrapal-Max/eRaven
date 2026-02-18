@@ -5,9 +5,9 @@
 // CloseMissionCommandHandlerTests
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.MissionRepository;
 using eRaven.Application.Commands.Mission;
 using eRaven.Application.Handlers.Mission;
-using eRaven.Infrastructure.Repositories.MissionRepository;
 using Moq;
 
 namespace eRaven.Tests.Application.Handlers.Mission;

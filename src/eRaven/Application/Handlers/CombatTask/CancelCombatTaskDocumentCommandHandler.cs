@@ -5,12 +5,12 @@
 // CancelCombatTaskDocumentCommandHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.CombatTaskRepository;
+using eRaven.Application.Abstractions.TimesheetPolicyRepository;
+using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.CombatTask;
 using eRaven.Infrastructure;
-using eRaven.Infrastructure.Repositories.CombatTaskRepository;
-using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
-using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Application.Handlers.CombatTask;
 

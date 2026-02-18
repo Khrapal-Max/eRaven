@@ -45,8 +45,16 @@ public sealed class TimesheetTaskSpanConfiguration : IEntityTypeConfiguration<Ti
             .HasColumnName("opened_by_combat_task_document_id")
             .IsRequired();
 
+        e.Property(x => x.OpenedByDocumentReference)
+            .HasColumnName("opened_by_document_reference")
+            .HasMaxLength(512);
+
         e.Property(x => x.ClosedByCombatTaskDocumentId)
             .HasColumnName("closed_by_combat_task_document_id");
+
+        e.Property(x => x.ClosedByDocumentReference)
+            .HasColumnName("closed_by_document_reference")
+            .HasMaxLength(512);
 
         e.Property(x => x.MissionId)
             .HasColumnName("mission_id")

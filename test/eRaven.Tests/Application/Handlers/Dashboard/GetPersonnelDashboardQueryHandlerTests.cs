@@ -5,10 +5,10 @@
 // GetPersonnelDashboardQueryHandlerTests
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.DashboardRepository;
 using eRaven.Application.DTOs.Dashboard;
 using eRaven.Application.Handlers.Dashboard;
 using eRaven.Application.Queries.Dashboard;
-using eRaven.Infrastructure.Repositories.DashboardRepository;
 using Moq;
 
 namespace eRaven.Tests.Application.Handlers.Dashboard;

@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// TimeSheetAggregateTests
+// TimeSheetAggregateTests (updated to the latest aggregate signature)
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Aggregates;
@@ -56,6 +56,7 @@ public sealed class TimeSheetAggregateTests
             position: "Operator",
             weapon: "Rifle",
             callsign: "FOX",
+            openedByDocumentReference: "DOC1",
             author: "tester",
             nowUtc: now);
 
@@ -82,6 +83,9 @@ public sealed class TimeSheetAggregateTests
         Assert.Equal("Rifle", span.Weapon);
         Assert.Equal("FOX", span.Callsign);
 
+        // Document reference
+        Assert.Equal("DOC1", span.OpenedByDocumentReference);
+
         // Audit
         Assert.Equal("tester", span.CreatedBy);
         Assert.Equal(now, span.CreatedAtUtc);
@@ -92,6 +96,7 @@ public sealed class TimeSheetAggregateTests
         Assert.Null(span.ClosedByCombatTaskDocumentId);
         Assert.Null(span.ClosedByCodeId);
         Assert.Null(span.ClosedReference);
+        Assert.Null(span.ClosedByDocumentReference);
 
         // Half-open active semantics:
         Assert.False(span.IsActiveOn(new DateOnly(2026, 02, 04)));
@@ -126,6 +131,7 @@ public sealed class TimeSheetAggregateTests
             position: null,
             weapon: null,
             callsign: null,
+            openedByDocumentReference: "DOC1",
             author: "tester",
             nowUtc: now);
 
@@ -142,6 +148,7 @@ public sealed class TimeSheetAggregateTests
                 position: null,
                 weapon: null,
                 callsign: null,
+                openedByDocumentReference: "DOC2",
                 author: "tester",
                 nowUtc: now));
 
@@ -149,62 +156,8 @@ public sealed class TimeSheetAggregateTests
     }
 
     /// <summary>
-    /// CloseTask має виставляти <c>ToDate</c> як EXCLUSIVE межу
-    /// та робити span неактивним на даті <c>ToDate</c>.
-    /// </summary>
- /*   [Fact]
-    public void CloseTask_SetsExclusiveToDate_AndMarksClosedByDocument()
-    {
-        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
-
-        var ep = NewEpisode(openedAt: new DateOnly(2026, 02, 01), nowUtc: now);
-
-        var documentId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-
-        ep.UpsertTask(
-            documentId: documentId,
-            missionId: missionId,
-            from: new DateOnly(2026, 02, 10),
-            toExclusive: null,
-            rnokpp: "123",
-            fullName: "C",
-            rank: null,
-            position: null,
-            weapon: null,
-            callsign: null,
-            author: "tester",
-            nowUtc: now);
-
-        ep.CloseTaskByReason(
-            documentId: documentId,
-            missionId: missionId,
-            closeAtExclusive: new DateOnly(2026, 02, 12),
-            author: "tester2",
-            nowUtc: now.AddMinutes(1));
-
-        var span = ep.TaskSpans.Single();
-
-        Assert.Equal(new DateOnly(2026, 02, 12), span.ToDate);
-        Assert.Equal(documentId, span.ClosedByCombatTaskDocumentId);
-
-        // Active on last included day (11), inactive on ToDate (12)
-        Assert.True(span.IsActiveOn(new DateOnly(2026, 02, 11)));
-        Assert.False(span.IsActiveOn(new DateOnly(2026, 02, 12)));
-
-        // Updated audit changes
-        Assert.Equal("tester2", span.UpdatedBy);
-        Assert.Equal(now.AddMinutes(1), span.UpdatedAtUtc);
-    }*/
-
-    /// <summary>
     /// CloseTaskByReason має закривати активний span на дату <paramref name="closeAtExclusive"/>
     /// і проставляти причину (CodeId) та reference (trim).
-    ///
-    /// <para>
-    /// ВАЖЛИВО: домен забороняє перетини активних span’ів для однієї особи,
-    /// тому одночасно активним може бути лише один факт задачі.
-    /// </para>
     /// </summary>
     [Fact]
     public void CloseTaskByReason_ClosesActiveSpan_AndSetsReason()
@@ -225,6 +178,7 @@ public sealed class TimeSheetAggregateTests
             position: null,
             weapon: null,
             callsign: null,
+            openedByDocumentReference: "DOC1",
             author: "tester",
             nowUtc: now);
 
@@ -243,6 +197,7 @@ public sealed class TimeSheetAggregateTests
             position: null,
             weapon: null,
             callsign: null,
+            openedByDocumentReference: "DOC2",
             author: "tester",
             nowUtc: now);
 
@@ -271,6 +226,10 @@ public sealed class TimeSheetAggregateTests
         Assert.Equal("F200", activeSpan.ClosedReference);
         Assert.Equal("duty", activeSpan.UpdatedBy);
         Assert.Equal(now.AddMinutes(2), activeSpan.UpdatedAtUtc);
+
+        // close-by-reason clears doc-close markers
+        Assert.Null(activeSpan.ClosedByCombatTaskDocumentId);
+        Assert.Null(activeSpan.ClosedByDocumentReference);
 
         // half-open semantics
         Assert.True(activeSpan.IsActiveOn(new DateOnly(2026, 02, 10)));
@@ -301,6 +260,7 @@ public sealed class TimeSheetAggregateTests
             position: null,
             weapon: null,
             callsign: null,
+            openedByDocumentReference: "DOC1",
             author: "tester",
             nowUtc: now);
 
@@ -350,6 +310,7 @@ public sealed class TimeSheetAggregateTests
             position: null,
             weapon: null,
             callsign: null,
+            openedByDocumentReference: "DOC1",
             author: "tester",
             nowUtc: now);
 
@@ -376,6 +337,7 @@ public sealed class TimeSheetAggregateTests
             position: null,
             weapon: null,
             callsign: null,
+            openedByDocumentReference: "DOC1",
             author: "tester2",
             nowUtc: now.AddMinutes(2));
 
@@ -384,6 +346,7 @@ public sealed class TimeSheetAggregateTests
         Assert.Null(span.ClosedByCombatTaskDocumentId);
         Assert.Null(span.ClosedByCodeId);
         Assert.Null(span.ClosedReference);
+        Assert.Null(span.ClosedByDocumentReference);
     }
 
     //======================================================================
@@ -417,6 +380,7 @@ public sealed class TimeSheetAggregateTests
             position: "Operator",
             weapon: "Rifle",
             callsign: "FOX",
+            openedByDocumentReference: "DOC1",
             author: "tester",
             nowUtc: now);
 
@@ -444,6 +408,8 @@ public sealed class TimeSheetAggregateTests
             Assert.Equal("Operator", span.Position);
             Assert.Equal("Rifle", span.Weapon);
             Assert.Equal("FOX", span.Callsign);
+
+            Assert.Equal("DOC1", span.OpenedByDocumentReference);
 
             Assert.Equal("tester", span.CreatedBy);
             Assert.Equal(now, span.CreatedAtUtc);

@@ -20,12 +20,14 @@ namespace eRaven.Tests.Infrastructure.Repositories;
 /// <para>
 /// Фіксуємо контракт "документ (CombatTaskDetails) → факт у табелі (TimesheetTaskSpan)":
 /// <list type="bullet">
-/// <item><description>ApplyCombatTaskFactsAsync створює/оновлює span на людину в межах (documentId + missionId);</description></item>
-/// <item><description>Start → відкриває інтервал (ToDate == null);</description></item>
-/// <item><description>End → закриває інтервал (ToDate = End + 1 день, EXCLUSIVE);</description></item>
-/// <item><description>End без Start допускається лише якщо span вже існує (беремо FromDate з факту);</description></item>
-/// <item><description>CancelCombatTaskFactsAsync робить компенсацію (Status=Canceled) і проставляє reason/reference;</description></item>
-/// <item><description>LoadActive/LoadOnDate повертають епізод з TaskSpans.</description></item>
+/// <item><description><c>ApplyCombatTaskFactsAsync</c> створює/оновлює span на людину в межах (<c>documentId</c> + <c>missionId</c>);</description></item>
+/// <item><description><c>Start</c> → відкриває інтервал (<c>ToDate == null</c>);</description></item>
+/// <item><description><c>End</c> → закриває інтервал (<c>ToDate = End + 1 день</c>, <b>EXCLUSIVE</b>);</description></item>
+/// <item><description>дозволено кейс: документ №1 відкрив задачу, документ №2 закрив;</description></item>
+/// <item><description>зберігаємо <b>референс документа</b> (наприклад, <c>OrderTitle</c>) у span:
+/// <c>OpenedByCombatTaskDocumentReference</c> / <c>ClosedByCombatTaskDocumentReference</c>;</description></item>
+/// <item><description><c>CancelCombatTaskFactsAsync</c> робить компенсацію (<c>Status=Canceled</c>) і проставляє reason/reference;</description></item>
+/// <item><description><c>LoadActive</c>/<c>LoadOnDate</c> повертають епізод з <c>TaskSpans</c>.</description></item>
 /// </list>
 /// </para>
 /// </summary>
@@ -57,9 +59,10 @@ public sealed class TimesheetAggregateRepositoryTests
 
     /// <summary>
     /// Start-only: створює активний span з FromDate=start, ToDate=null та snapshot з Start-рядка.
+    /// Також фіксує OpenedByCombatTaskDocumentReference.
     /// </summary>
     [Fact]
-    public async Task ApplyCombatTaskFactsAsync_StartOnly_CreatesOpenSpan_WithSnapshot()
+    public async Task ApplyCombatTaskFactsAsync_StartOnly_CreatesOpenSpan_WithSnapshot_AndDocReference()
     {
         await using var testDb = new SqliteTestDb();
         var repo = new TimesheetAggregateRepository(testDb.Factory);
@@ -70,6 +73,7 @@ public sealed class TimesheetAggregateRepositoryTests
         var missionId = Guid.NewGuid();
         var personId = Guid.NewGuid();
 
+        await SeedCombatTaskDocumentAsync(testDb, documentId, " A1 ", now);
         await SeedEpisodeAsync(testDb, personId, openedAt: new DateOnly(2026, 02, 01), nowUtc: now);
 
         var details = new[]
@@ -112,6 +116,10 @@ public sealed class TimesheetAggregateRepositoryTests
         Assert.Equal("W", span.Weapon);
         Assert.Equal("C", span.Callsign);
 
+        // Document reference
+        Assert.Equal("A1", span.OpenedByDocumentReference);
+        Assert.Null(span.ClosedByDocumentReference);
+
         Assert.Equal("duty", span.CreatedBy);
         Assert.Equal(now, span.CreatedAtUtc);
         Assert.Equal("duty", span.UpdatedBy);
@@ -121,9 +129,10 @@ public sealed class TimesheetAggregateRepositoryTests
     /// <summary>
     /// Start+End: створює span і закриває його (ToDate = End+1, EXCLUSIVE),
     /// ClosedByCombatTaskDocumentId = documentId.
+    /// Також фіксує Opened/Closed document reference.
     /// </summary>
     [Fact]
-    public async Task ApplyCombatTaskFactsAsync_StartAndEnd_CreatesAndClosesSpan()
+    public async Task ApplyCombatTaskFactsAsync_StartAndEnd_CreatesAndClosesSpan_AndStoresDocReferences()
     {
         await using var testDb = new SqliteTestDb();
         var repo = new TimesheetAggregateRepository(testDb.Factory);
@@ -134,6 +143,7 @@ public sealed class TimesheetAggregateRepositoryTests
         var missionId = Guid.NewGuid();
         var personId = Guid.NewGuid();
 
+        await SeedCombatTaskDocumentAsync(testDb, documentId, "A1", now);
         await SeedEpisodeAsync(testDb, personId, openedAt: new DateOnly(2026, 02, 01), nowUtc: now);
 
         var details = new[]
@@ -151,7 +161,11 @@ public sealed class TimesheetAggregateRepositoryTests
         Assert.Equal(new DateOnly(2026, 02, 13), span.ToDate); // End + 1 day (exclusive)
         Assert.Equal(documentId, span.ClosedByCombatTaskDocumentId);
 
-        // Half-open check (semantic)
+        // Document references
+        Assert.Equal("A1", span.OpenedByDocumentReference);
+        Assert.Equal("A1", span.ClosedByDocumentReference);
+
+        // Half-open semantic check
         Assert.True(span.IsActiveOn(new DateOnly(2026, 02, 12)));
         Assert.False(span.IsActiveOn(new DateOnly(2026, 02, 13)));
     }
@@ -161,7 +175,7 @@ public sealed class TimesheetAggregateRepositoryTests
     /// Apply має взяти FromDate з існуючого факту і оновити snapshot з End-рядка.
     /// </summary>
     [Fact]
-    public async Task ApplyCombatTaskFactsAsync_EndOnly_UsesExistingFromDate_AndUpdatesSnapshot()
+    public async Task ApplyCombatTaskFactsAsync_EndOnly_UsesExistingFromDate_UpdatesSnapshot_AndKeepsOpenRef()
     {
         await using var testDb = new SqliteTestDb();
         var repo = new TimesheetAggregateRepository(testDb.Factory);
@@ -173,6 +187,7 @@ public sealed class TimesheetAggregateRepositoryTests
         var missionId = Guid.NewGuid();
         var personId = Guid.NewGuid();
 
+        await SeedCombatTaskDocumentAsync(testDb, documentId, "A1", t0);
         await SeedEpisodeAsync(testDb, personId, openedAt: new DateOnly(2026, 02, 01), nowUtc: t0);
 
         // 1) First apply Start-only (creates open span)
@@ -213,6 +228,10 @@ public sealed class TimesheetAggregateRepositoryTests
         Assert.Equal("W2", span.Weapon);
         Assert.Equal("C2", span.Callsign);
 
+        // References remain consistent (same document)
+        Assert.Equal("A1", span.OpenedByDocumentReference);
+        Assert.Equal("A1", span.ClosedByDocumentReference);
+
         Assert.Equal("duty2", span.UpdatedBy);
         Assert.Equal(t1, span.UpdatedAtUtc);
     }
@@ -230,6 +249,8 @@ public sealed class TimesheetAggregateRepositoryTests
 
         var documentId = Guid.NewGuid();
         var missionId = Guid.NewGuid();
+
+        await SeedCombatTaskDocumentAsync(testDb, documentId, "A1", now);
 
         var p1 = Guid.NewGuid();
         var p2 = Guid.NewGuid();
@@ -252,9 +273,11 @@ public sealed class TimesheetAggregateRepositoryTests
 
         Assert.Equal(p1, spans[0].PersonId);
         Assert.Equal(new DateOnly(2026, 02, 10), spans[0].FromDate);
+        Assert.Equal("A1", spans[0].OpenedByDocumentReference);
 
         Assert.Equal(p2, spans[1].PersonId);
         Assert.Equal(new DateOnly(2026, 02, 11), spans[1].FromDate);
+        Assert.Equal("A1", spans[1].OpenedByDocumentReference);
     }
 
     /// <summary>
@@ -266,9 +289,12 @@ public sealed class TimesheetAggregateRepositoryTests
         await using var testDb = new SqliteTestDb();
         var repo = new TimesheetAggregateRepository(testDb.Factory);
 
+        var documentId = Guid.NewGuid();
+        await SeedCombatTaskDocumentAsync(testDb, documentId, "A1", new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc));
+
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             repo.ApplyCombatTaskFactsAsync(
-                documentId: Guid.NewGuid(),
+                documentId: documentId,
                 missionId: Guid.NewGuid(),
                 details:
                 [
@@ -301,6 +327,7 @@ public sealed class TimesheetAggregateRepositoryTests
         var missionId = Guid.NewGuid();
         var personId = Guid.NewGuid();
 
+        await SeedCombatTaskDocumentAsync(testDb, documentId, "A1", t0);
         await SeedEpisodeAsync(testDb, personId, openedAt: new DateOnly(2026, 02, 01), nowUtc: t0);
 
         // Create span
@@ -331,6 +358,9 @@ public sealed class TimesheetAggregateRepositoryTests
         Assert.Equal("F200", span.ClosedReference);
         Assert.Equal("auditor", span.UpdatedBy);
         Assert.Equal(t1, span.UpdatedAtUtc);
+
+        // Document reference should remain (cancel is compensation, not "delete history")
+        Assert.Equal("A1", span.OpenedByDocumentReference);
     }
 
     /// <summary>
@@ -353,7 +383,8 @@ public sealed class TimesheetAggregateRepositoryTests
     }
 
     /// <summary>
-    /// CancelCombatTaskFactsAsync не повинен повторно "скасовувати" вже canceled span (вибірка фільтрує Status!=Canceled).
+    /// CancelCombatTaskFactsAsync не повинен повторно "скасовувати" вже canceled span
+    /// (вибірка фільтрує Status!=Canceled).
     /// </summary>
     [Fact]
     public async Task CancelCombatTaskFactsAsync_NoOp_WhenAlreadyCanceled()
@@ -367,6 +398,7 @@ public sealed class TimesheetAggregateRepositoryTests
         var missionId = Guid.NewGuid();
         var personId = Guid.NewGuid();
 
+        await SeedCombatTaskDocumentAsync(testDb, documentId, "A1", t0);
         await SeedEpisodeAsync(testDb, personId, openedAt: new DateOnly(2026, 02, 01), nowUtc: t0);
 
         // Create + cancel once
@@ -411,25 +443,34 @@ public sealed class TimesheetAggregateRepositoryTests
 
         var epId = await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 01), now);
 
-        // Add one span to prove Include works
+        // Add one span to prove Include works (seed directly to avoid coupling to aggregate method signatures)
         await using (var db = await testDb.Factory.CreateDbContextAsync())
         {
-            var ep = await db.TimeSheets.Include(x => x.TaskSpans).SingleAsync(x => x.Id == epId);
+            var span = new TimesheetTaskSpan
+            {
+                Id = Guid.NewGuid(),
+                TimesheetId = epId,
+                PersonId = personId,
+                OpenedByCombatTaskDocumentId = Guid.NewGuid(),
+                ClosedByCombatTaskDocumentId = null,
+                MissionId = Guid.NewGuid(),
+                Status = DocumentStatus.Active,
+                FromDate = new DateOnly(2026, 02, 10),
+                ToDate = null,
 
-            ep.UpsertTask(
-                documentId: Guid.NewGuid(),
-                missionId: Guid.NewGuid(),
-                from: new DateOnly(2026, 02, 10),
-                toExclusive: null,
-                rnokpp: "9999999999",
-                fullName: "P",
-                rank: null,
-                position: null,
-                weapon: null,
-                callsign: null,
-                author: "seed",
-                nowUtc: now);
+                Rnokpp = "9999999999",
+                FullName = "P",
 
+                OpenedByDocumentReference = "A1",
+                ClosedByDocumentReference = null,
+
+                CreatedBy = "seed",
+                CreatedAtUtc = now,
+                UpdatedBy = "seed",
+                UpdatedAtUtc = now
+            };
+
+            db.TimesheetTaskSpans.Add(span);
             await db.SaveChangesAsync();
         }
 
@@ -459,10 +500,11 @@ public sealed class TimesheetAggregateRepositoryTests
     }
 
     /// <summary>
-    /// Тест на поведінку: doc1 start → doc2 end (без concurrency і без дублювання span)
+    /// Документ №1 відкрив задачу, документ №2 закрив (без дублювання span).
+    /// Також перевіряємо ClosedByCombatTaskDocumentId та ClosedByCombatTaskDocumentReference.
     /// </summary>
     [Fact]
-    public async Task ApplyFacts_StartInDoc1_EndInDoc2_ClosesExistingSpan_AndStoresClosingDocId()
+    public async Task ApplyFacts_StartInDoc1_EndInDoc2_ClosesExistingSpan_AndStoresClosingDocIdAndReference()
     {
         // arrange
         var personId = Guid.NewGuid();
@@ -470,15 +512,19 @@ public sealed class TimesheetAggregateRepositoryTests
         var doc1 = Guid.NewGuid();
         var doc2 = Guid.NewGuid();
 
-        var openedAt = new DateOnly(2026, 1, 1);
-        var start = new DateOnly(2026, 1, 5);
-        var end = new DateOnly(2026, 1, 7);
+        var openedAt = new DateOnly(2026, 01, 01);
+        var start = new DateOnly(2026, 01, 05);
+        var end = new DateOnly(2026, 01, 07);
+
+        var now = new DateTime(2026, 01, 01, 10, 00, 00, DateTimeKind.Utc);
 
         await using var testDb = new SqliteTestDb();
+
+        await SeedCombatTaskDocumentAsync(testDb, doc1, "A1", now);
+        await SeedCombatTaskDocumentAsync(testDb, doc2, "A2", now);
+
         await using (var db = await testDb.Factory.CreateDbContextAsync())
         {
-            await db.Database.EnsureCreatedAsync();
-
             db.TimeSheets.Add(new TimeSheetAggregate
             {
                 Id = Guid.NewGuid(),
@@ -486,7 +532,7 @@ public sealed class TimesheetAggregateRepositoryTests
                 OpenedAt = openedAt,
                 ClosedAt = null,
                 CreatedBy = "seed",
-                CreatedAtUtc = DateTime.UtcNow
+                CreatedAtUtc = now
             });
 
             await db.SaveChangesAsync();
@@ -502,6 +548,8 @@ public sealed class TimesheetAggregateRepositoryTests
             [
                 new CombatTaskDetails
                 {
+                    Id = Guid.NewGuid(),
+                    CombatTaskId = Guid.NewGuid(),
                     PersonId = personId,
                     Kind = CombatTaskDetailsKind.Start,
                     EffectiveAt = start,
@@ -514,7 +562,7 @@ public sealed class TimesheetAggregateRepositoryTests
                 }
             ],
             author: "tester",
-            nowUtc: DateTime.UtcNow);
+            nowUtc: now.AddMinutes(1));
 
         // act 2: end by doc2 (no start in details)
         await repo.ApplyCombatTaskFactsAsync(
@@ -524,6 +572,8 @@ public sealed class TimesheetAggregateRepositoryTests
             [
                 new CombatTaskDetails
                 {
+                    Id = Guid.NewGuid(),
+                    CombatTaskId = Guid.NewGuid(),
                     PersonId = personId,
                     Kind = CombatTaskDetailsKind.End,
                     EffectiveAt = end,
@@ -532,7 +582,7 @@ public sealed class TimesheetAggregateRepositoryTests
                 }
             ],
             author: "tester",
-            nowUtc: DateTime.UtcNow);
+            nowUtc: now.AddMinutes(2));
 
         // assert
         await using (var db = await testDb.Factory.CreateDbContextAsync())
@@ -547,8 +597,13 @@ public sealed class TimesheetAggregateRepositoryTests
             var s = spans[0];
             Assert.Equal(doc1, s.OpenedByCombatTaskDocumentId);
             Assert.Equal(doc2, s.ClosedByCombatTaskDocumentId);
+
+            Assert.Equal("A1", s.OpenedByDocumentReference);
+            Assert.Equal("A2", s.ClosedByDocumentReference);
+
             Assert.Equal(start, s.FromDate);
             Assert.Equal(end.AddDays(1), s.ToDate); // exclusive
+
             Assert.NotEqual(DocumentStatus.Canceled, s.Status);
         }
     }
@@ -558,10 +613,38 @@ public sealed class TimesheetAggregateRepositoryTests
     //======================================================================
 
     /// <summary>
+    /// Сідає документ задачі, щоб Apply* міг прочитати <c>OrderTitle</c> як reference.
+    /// </summary>
+    private static async Task SeedCombatTaskDocumentAsync(SqliteTestDb testDb, Guid documentId, string? orderTitle, DateTime nowUtc)
+    {
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+        await db.Database.EnsureCreatedAsync();
+
+        var title = string.IsNullOrWhiteSpace(orderTitle) ? null : orderTitle.Trim();
+
+        if (await db.CombatTaskDocuments.AsNoTracking().AnyAsync(x => x.Id == documentId))
+            return;
+
+        db.CombatTaskDocuments.Add(new CombatTaskDocument
+        {
+            Id = documentId,
+            Status = DocumentStatus.Active,
+            OrderTitle = title ?? string.Empty,
+            CreatedBy = "seed",
+            CreatedAtUtc = nowUtc
+        });
+
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>
     /// Створює мінімально валідний активний епізод табеля для людини.
     /// </summary>
     private static async Task<Guid> SeedEpisodeAsync(SqliteTestDb testDb, Guid personId, DateOnly openedAt, DateTime nowUtc)
     {
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+        await db.Database.EnsureCreatedAsync();
+
         var ep = new TimeSheetAggregate
         {
             Id = Guid.NewGuid(),
@@ -572,7 +655,6 @@ public sealed class TimesheetAggregateRepositoryTests
             CreatedAtUtc = nowUtc
         };
 
-        await using var db = await testDb.Factory.CreateDbContextAsync();
         db.TimeSheets.Add(ep);
         await db.SaveChangesAsync();
 
@@ -581,7 +663,6 @@ public sealed class TimesheetAggregateRepositoryTests
 
     /// <summary>
     /// Утиліта створення snapshot-рядка завдання (CombatTaskDetails).
-    /// CombatTaskId не використовується репозиторієм Apply*, але поле заповнюємо як валідне.
     /// </summary>
     private static CombatTaskDetails NewDetail(
         CombatTaskDetailsKind kind,

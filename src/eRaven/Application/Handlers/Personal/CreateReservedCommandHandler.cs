@@ -5,9 +5,9 @@
 // CreateReservedCommandHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonMove;
-using eRaven.Infrastructure.Repositories.PersonRepository;
 
 namespace eRaven.Application.Handlers.Personal;
 

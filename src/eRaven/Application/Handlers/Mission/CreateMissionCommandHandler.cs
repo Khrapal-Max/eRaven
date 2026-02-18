@@ -5,9 +5,9 @@
 // CreateMissionCommandHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.MissionRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Mission;
-using eRaven.Infrastructure.Repositories.MissionRepository;
 
 namespace eRaven.Application.Handlers.Mission;
 

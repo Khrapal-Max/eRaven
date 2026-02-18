@@ -5,9 +5,9 @@
 // VoidPersonEventCommandHandlerTests
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.Commands.PersonMove;
 using eRaven.Application.Handlers.Personal;
-using eRaven.Infrastructure.Repositories.PersonRepository;
 using Moq;
 
 namespace eRaven.Tests.Application.Handlers.Personal;

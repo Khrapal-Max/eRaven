@@ -12,7 +12,7 @@ using eRaven.Domain.Events.PersonEvents.Info;
 using eRaven.Domain.Events.PersonEvents.Move;
 using Microsoft.EntityFrameworkCore;
 
-namespace eRaven.Infrastructure.Projectors;
+namespace eRaven.Infrastructure.Projections.Person;
 
 public sealed class PersonReadModelProjector : IPersonReadModelProjector
 {

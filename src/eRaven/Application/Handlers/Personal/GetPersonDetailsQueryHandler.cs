@@ -5,10 +5,10 @@
 // GetPersonDetailsQueryHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
-using eRaven.Infrastructure.Repositories.PersonRepository;
 
 namespace eRaven.Application.Handlers.Personal;
 

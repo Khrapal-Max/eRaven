@@ -5,9 +5,9 @@
 // ChangeRankCommandHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonInfo;
-using eRaven.Infrastructure.Repositories.PersonRepository;
 
 namespace eRaven.Application.Handlers.Personal;
 

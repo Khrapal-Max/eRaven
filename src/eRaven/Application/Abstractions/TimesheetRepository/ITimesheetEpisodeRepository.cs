@@ -7,7 +7,7 @@
 
 using eRaven.Domain.Aggregates;
 
-namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
+namespace eRaven.Application.Abstractions.TimesheetRepository;
 
 /// <summary>
 /// Репозиторій епізодів табеля (<see cref="TimeSheetAggregate"/>):

@@ -9,7 +9,7 @@ using eRaven.Application.DTOs.Excel;
 using eRaven.Application.DTOs.Person;
 using eRaven.Domain.Enums;
 
-namespace eRaven.Infrastructure.Repositories.PersonRepository;
+namespace eRaven.Application.Abstractions.PersonRepository;
 
 public interface IPersonRepository
 {

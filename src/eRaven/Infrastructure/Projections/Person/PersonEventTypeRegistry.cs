@@ -13,7 +13,7 @@ using eRaven.Domain.Events.PersonEvents.Move;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace eRaven.Infrastructure.Projectors;
+namespace eRaven.Infrastructure.Projections.Person;
 
 public static class PersonEventTypeRegistry
 {
