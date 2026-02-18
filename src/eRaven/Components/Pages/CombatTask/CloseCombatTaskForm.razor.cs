@@ -133,11 +133,6 @@ public partial class CloseCombatTaskForm : ComponentBase
             .OrderBy(g => (int)g.Key)
             .Select(g => new MissionGroupModel(g.Key, [.. g]))];
 
-    private sealed record MissionGroupModel(MissionMode Mode, IReadOnlyList<MissionDto> Items)
-    {
-        public int Count => Items.Count;
-    }
-
     private static string GetMissionGroupLabel(MissionMode mode, int count)
         => $"{MissionModeLabel(mode)} ({count})";
 

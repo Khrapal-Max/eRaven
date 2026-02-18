@@ -51,11 +51,14 @@ public sealed class TimesheetViewRepositoryTests
             db.TimeSheets.AddRange(ts1, ts2, ts3, ts4);
 
             db.TimesheetEntries.AddRange(
-                NewEntry(ts1, p1.Id, c30.Id, from: new DateOnly(2026, 01, 01), to: null),
-                NewEntry(ts2, p2.Id, c30.Id, from: new DateOnly(2026, 01, 10), to: null),
-                NewEntry(ts3, p3.Id, c30.Id, from: new DateOnly(2026, 01, 01), to: new DateOnly(2026, 01, 15)),
+                NewEntry(ts1, p1.Id, c30.Id, from: new DateOnly(2026, 01, 01), toExclusive: null),
+                NewEntry(ts2, p2.Id, c30.Id, from: new DateOnly(2026, 01, 10), toExclusive: null),
+
+                // half-open: 01..15 (inclusive) => ToExclusive = 16
+                NewEntry(ts3, p3.Id, c30.Id, from: new DateOnly(2026, 01, 01), toExclusive: new DateOnly(2026, 01, 16)),
+
                 // у лютому — не має потрапити в січневий grid
-                NewEntry(ts4, p4.Id, cT.Id, from: new DateOnly(2026, 02, 01), to: null)
+                NewEntry(ts4, p4.Id, cT.Id, from: new DateOnly(2026, 02, 01), toExclusive: null)
             );
 
             db.SaveChanges();
@@ -108,10 +111,16 @@ public sealed class TimesheetViewRepositoryTests
             db.TimeSheets.Add(ts);
 
             db.TimesheetEntries.AddRange(
-                NewEntry(ts, p1.Id, c30.Id, from: new DateOnly(2026, 01, 01), to: new DateOnly(2026, 01, 04), reference: "REF-NON-ALERT"),
-                NewEntry(ts, p1.Id, c100.Id, from: new DateOnly(2026, 01, 05), to: new DateOnly(2026, 01, 05), reference: " REF-ABC "),
-                NewEntry(ts, p1.Id, cF100.Id, from: new DateOnly(2026, 01, 07), to: new DateOnly(2026, 01, 07), reference: " REF-F100 "),
-                NewEntry(ts, p1.Id, c30.Id, from: new DateOnly(2026, 01, 08), to: null)
+                // 01..04 (inclusive) => ToExclusive = 05
+                NewEntry(ts, p1.Id, c30.Id, from: new DateOnly(2026, 01, 01), toExclusive: new DateOnly(2026, 01, 05), reference: "REF-NON-ALERT"),
+
+                // day 05 only => ToExclusive = 06
+                NewEntry(ts, p1.Id, c100.Id, from: new DateOnly(2026, 01, 05), toExclusive: new DateOnly(2026, 01, 06), reference: " REF-ABC "),
+
+                // day 07 only => ToExclusive = 08
+                NewEntry(ts, p1.Id, cF100.Id, from: new DateOnly(2026, 01, 07), toExclusive: new DateOnly(2026, 01, 08), reference: " REF-F100 "),
+
+                NewEntry(ts, p1.Id, c30.Id, from: new DateOnly(2026, 01, 08), toExclusive: null)
             );
 
             db.SaveChanges();
@@ -159,8 +168,8 @@ public sealed class TimesheetViewRepositoryTests
             db.TimeSheets.AddRange(ts1, ts2);
 
             db.TimesheetEntries.AddRange(
-                NewEntry(ts1, p1.Id, c30.Id, from: new DateOnly(2026, 01, 01), to: null),
-                NewEntry(ts2, p2.Id, c30.Id, from: new DateOnly(2026, 01, 01), to: null)
+                NewEntry(ts1, p1.Id, c30.Id, from: new DateOnly(2026, 01, 01), toExclusive: null),
+                NewEntry(ts2, p2.Id, c30.Id, from: new DateOnly(2026, 01, 01), toExclusive: null)
             );
 
             db.SaveChanges();
@@ -202,9 +211,13 @@ public sealed class TimesheetViewRepositoryTests
             db.TimeSheets.Add(ts);
 
             db.TimesheetEntries.AddRange(
-                NewEntry(ts, p.Id, cBlank.Id, from: new DateOnly(2026, 02, 01), to: new DateOnly(2026, 02, 02), reference: "SHOULD-NOT-APPEAR"),
-                NewEntry(ts, p.Id, c100.Id, from: new DateOnly(2026, 02, 03), to: new DateOnly(2026, 02, 03), reference: " REF-ALERT "),
-                NewEntry(ts, p.Id, c30.Id, from: new DateOnly(2026, 02, 04), to: null)
+                // 01..02 (inclusive) => ToExclusive = 03
+                NewEntry(ts, p.Id, cBlank.Id, from: new DateOnly(2026, 02, 01), toExclusive: new DateOnly(2026, 02, 03), reference: "SHOULD-NOT-APPEAR"),
+
+                // day 03 only => ToExclusive = 04
+                NewEntry(ts, p.Id, c100.Id, from: new DateOnly(2026, 02, 03), toExclusive: new DateOnly(2026, 02, 04), reference: " REF-ALERT "),
+
+                NewEntry(ts, p.Id, c30.Id, from: new DateOnly(2026, 02, 04), toExclusive: null)
             );
 
             db.SaveChanges();
@@ -292,9 +305,12 @@ public sealed class TimesheetViewRepositoryTests
             db.TimeSheets.Add(ts);
 
             db.TimesheetEntries.AddRange(
-                NewEntry(ts, p.Id, cT.Id, from: new DateOnly(2026, 02, 02), to: new DateOnly(2026, 02, 07), reference: " R1 ", note: " N1 ",
+                // 02..07 (inclusive) => ToExclusive = 08
+                NewEntry(ts, p.Id, cT.Id, from: new DateOnly(2026, 02, 02), toExclusive: new DateOnly(2026, 02, 08),
+                    reference: " R1 ", note: " N1 ",
                     createdAtUtc: NowUtc, updatedAtUtc: tEntryUpdated),
-                NewEntry(ts, p.Id, cT.Id, from: new DateOnly(2026, 02, 28), to: null,
+
+                NewEntry(ts, p.Id, cT.Id, from: new DateOnly(2026, 02, 28), toExclusive: null,
                     createdAtUtc: NowUtc.AddMinutes(10), updatedAtUtc: null)
             );
 
@@ -313,9 +329,9 @@ public sealed class TimesheetViewRepositoryTests
         // UpdatedAtUtc = max(UpdatedAtUtc ?? CreatedAtUtc)
         Assert.Equal(tEntryUpdated, pm.UpdatedAtUtc);
 
-        // Entries list
+        // Entries list (To is EXCLUSIVE in DB/DTO)
         Assert.Equal(2, pm.Entries.Count);
-        Assert.Contains(pm.Entries, e => e.Code == "Т" && e.From == new DateOnly(2026, 02, 02) && e.To == new DateOnly(2026, 02, 07));
+        Assert.Contains(pm.Entries, e => e.Code == "Т" && e.From == new DateOnly(2026, 02, 02) && e.To == new DateOnly(2026, 02, 08));
         Assert.Contains(pm.Entries, e => e.Code == "Т" && e.From == new DateOnly(2026, 02, 28) && e.To is null);
 
         // Day codes: 01 => NB; 02..07 => Т; 08..27 => NB; 28 => Т
@@ -366,8 +382,8 @@ public sealed class TimesheetViewRepositoryTests
 
             // p1: older open-ended + newer open-ended => newer should win
             db.TimesheetEntries.AddRange(
-                NewEntry(ts1, p1.Id, c30.Id, from: new DateOnly(2026, 01, 01), to: null, reference: "OLD", note: "OLDN"),
-                NewEntry(ts1, p1.Id, c100.Id, from: new DateOnly(2026, 01, 11), to: null, reference: " NEW-REF ", note: " NEW-NOTE ")
+                NewEntry(ts1, p1.Id, c30.Id, from: new DateOnly(2026, 01, 01), toExclusive: null, reference: "OLD", note: "OLDN"),
+                NewEntry(ts1, p1.Id, c100.Id, from: new DateOnly(2026, 01, 11), toExclusive: null, reference: " NEW-REF ", note: " NEW-NOTE ")
             );
 
             // p2: no entries => defaults
@@ -417,8 +433,8 @@ public sealed class TimesheetViewRepositoryTests
             db.TimeSheets.AddRange(ts1, ts2);
 
             db.TimesheetEntries.AddRange(
-                NewEntry(ts1, p1.Id, c30.Id, from: new DateOnly(2026, 01, 01), to: null),
-                NewEntry(ts2, p2.Id, c30.Id, from: new DateOnly(2026, 01, 01), to: null)
+                NewEntry(ts1, p1.Id, c30.Id, from: new DateOnly(2026, 01, 01), toExclusive: null),
+                NewEntry(ts2, p2.Id, c30.Id, from: new DateOnly(2026, 01, 01), toExclusive: null)
             );
 
             db.SaveChanges();
@@ -517,7 +533,7 @@ public sealed class TimesheetViewRepositoryTests
         Guid personId,
         Guid codeId,
         DateOnly from,
-        DateOnly? to,
+        DateOnly? toExclusive,
         string? reference = null,
         string? note = null,
         bool isDeleted = false,
@@ -529,8 +545,11 @@ public sealed class TimesheetViewRepositoryTests
             TimesheetId = episode.Id,
             PersonId = personId,
             TimesheetCodeDefinitionId = codeId,
+
+            // TimesheetEntry is half-open: [From..To) where To is exclusive
             From = from,
-            To = to,
+            To = toExclusive,
+
             Reference = reference,
             Note = note,
             CreatedBy = "tester",

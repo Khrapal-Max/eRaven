@@ -15,7 +15,12 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
 {
     public void Configure(EntityTypeBuilder<TimesheetEntry> e)
     {
-        e.ToTable("timesheet_entries");
+        e.ToTable("timesheet_entries", tb =>
+        {
+            tb.HasCheckConstraint(
+                "ck_timesheet_entries_to_gt_from",
+                "to_date IS NULL OR to_date > from_date");
+        });
 
         e.HasKey(x => x.Id);
 

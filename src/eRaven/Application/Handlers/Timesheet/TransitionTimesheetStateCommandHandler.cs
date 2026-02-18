@@ -123,7 +123,7 @@ public sealed class TransitionTimesheetStateCommandHandler(
             throw new InvalidOperationException("Некоректне правило політики: StartShiftDays < 0.");
 
         var nextFrom = command.InputDate.AddDays(shift);
-        var prevTo = nextFrom.AddDays(-1);
+        var prevToExclusive = nextFrom;
 
         // 4.1) Під активним завданням:
         // - якщо не 100 -> блок
@@ -165,8 +165,9 @@ public sealed class TransitionTimesheetStateCommandHandler(
                     "Використайте режим 'Корекція'.");
         }
 
-        // 5) Replace або стандартний перехід
-        if (prevTo < prevEntry.From)
+        // 5) Replace або стандартний перехід (half-open entries)
+        // prev ends at nextFrom (exclusive). If nextFrom == prev.From => replace in-place.
+        if (prevToExclusive <= prevEntry.From)
         {
             if (nextFrom != prevEntry.From)
                 throw new InvalidOperationException("Дата події некоректна: вона закриває поточний стан раніше його початку.");
@@ -186,7 +187,7 @@ public sealed class TransitionTimesheetStateCommandHandler(
             return prevEntry.Id;
         }
 
-        prevEntry.To = prevTo;
+        prevEntry.To = prevToExclusive;
         prevEntry.UpdatedBy = command.Author;
         prevEntry.UpdatedAtUtc = command.NowUtc;
 

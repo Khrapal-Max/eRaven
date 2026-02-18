@@ -365,6 +365,8 @@ public sealed class TimesheetEpisodeRepositoryTests
         var personId = Guid.NewGuid();
         var closeTo = new DateOnly(2026, 02, 10);
 
+        var closeExclusive = closeTo.AddDays(1);
+
         var codeT = await SeedCodeAsync(testDb, TimesheetSystemCodes.BaseState);
 
         var epId = await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 01), null, "seed", now);
@@ -415,7 +417,7 @@ public sealed class TimesheetEpisodeRepositoryTests
         Assert.Equal(now.AddMinutes(1), ep.ClosedAtUtc);
 
         var entry1 = await db.TimesheetEntries.SingleAsync(x => x.Id == e1.Id);
-        Assert.Equal(closeTo, entry1.To);
+        Assert.Equal(closeExclusive, entry1.To);
         Assert.Equal("admin", entry1.UpdatedBy);
         Assert.Equal(now.AddMinutes(1), entry1.UpdatedAtUtc);
         Assert.False(entry1.IsDeleted);

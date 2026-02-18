@@ -679,7 +679,10 @@ namespace eRaven.Migrations
                     b.HasIndex("PersonId", "From", "To")
                         .HasDatabaseName("ix_ts_entries_person_range");
 
-                    b.ToTable("timesheet_entries", (string)null);
+                    b.ToTable("timesheet_entries", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_timesheet_entries_to_gt_from", "to_date IS NULL OR to_date > from_date");
+                        });
                 });
 
             modelBuilder.Entity("eRaven.Domain.Entities.TimesheetTaskSpan", b =>

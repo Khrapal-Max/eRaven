@@ -166,7 +166,7 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
             .AsNoTracking()
             .Where(x => !x.IsDeleted)
             .Where(x => x.TimesheetId == timeline.Id)
-            .Where(x => x.From <= enrollDate && (!x.To.HasValue || x.To.Value >= enrollDate))
+            .Where(x => x.From <= enrollDate && (!x.To.HasValue || enrollDate < x.To.Value))
             .AnyAsync(ct);
 
         if (!hasEntryOnEnrollDate)
@@ -246,24 +246,26 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
         tl.ClosedBy = by;
         tl.ClosedAtUtc = nowUtc;
 
-        // 4) Clamp entries that extend beyond closeTo (or are open-ended)
+        var closeExclusive = closeTo.AddDays(1);
+
+        // 4) Clamp entries that extend beyond closeTo (inclusive) (or are open-ended)
         var toClamp = await db.TimesheetEntries
             .Where(x => x.TimesheetId == tl.Id && !x.IsDeleted)
             .Where(x => x.From <= closeTo)
-            .Where(x => x.To == null || x.To > closeTo)
+            .Where(x => x.To == null || x.To > closeExclusive)
             .ToListAsync(ct);
 
         foreach (var e in toClamp)
         {
-            e.To = closeTo;
+            e.To = closeExclusive;
             e.UpdatedBy = by;
             e.UpdatedAtUtc = nowUtc;
         }
 
-        // 5) Soft-delete future entries (From > closeTo)
+        // 5) Soft-delete future entries (From >= closeTo+1)
         var future = await db.TimesheetEntries
             .Where(x => x.TimesheetId == tl.Id && !x.IsDeleted)
-            .Where(x => x.From > closeTo)
+            .Where(x => x.From >= closeExclusive)
             .ToListAsync(ct);
 
         if (future.Count > 0)
@@ -315,7 +317,7 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
             .AsNoTracking()
             .Include(x => x.TimesheetCodeDefinition)
             .Where(x => x.TimesheetId == timeline.Id && !x.IsDeleted)
-            .Where(x => x.From <= closeTo && (!x.To.HasValue || x.To.Value >= closeTo))
+            .Where(x => x.From <= closeTo && (!x.To.HasValue || closeTo < x.To.Value))
             .OrderByDescending(x => x.From)
             .ThenByDescending(x => x.Id)
             .FirstOrDefaultAsync(ct)

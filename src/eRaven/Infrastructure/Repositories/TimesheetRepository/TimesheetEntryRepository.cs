@@ -15,8 +15,10 @@ namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 /// Write/CRUD репозиторій табельних фактів (<see cref="TimesheetEntry"/>).
 ///
 /// Примітки:
-/// - Soft-delete: записи не видаляємо фізично; всі read-методи ігнорують IsDeleted.
-/// - Overlap: entry активний на інтервалі [From..To] (To == null => open-ended).
+/// <list type="bullet">
+/// <item><description>Soft-delete: записи не видаляємо фізично; всі read-методи ігнорують <see cref="TimesheetEntry.IsDeleted"/>.</description></item>
+/// <item><description>Інтервали entry — half-open: <c>[From..To)</c> (To exclusive). <c>To == null</c> => open-ended.</description></item>
+/// </list>
 /// </summary>
 public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbFactory)
     : ITimesheetEntryRepository
@@ -64,13 +66,15 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
         //TODO не задіяний
         if (to < from) throw new ArgumentException("To must be >= From.", nameof(to));
 
+        var toExclusive = to.AddDays(1);
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         return await db.TimesheetEntries
             .AsNoTracking()
             .Where(x => !x.IsDeleted)
             .Where(x => x.PersonId == personId)
-            .Where(x => x.From <= to && (!x.To.HasValue || x.To.Value >= from)) // overlap
+            .Where(x => x.From < toExclusive && (!x.To.HasValue || x.To.Value > from)) // overlap with [from..to]
             .OrderBy(x => x.From)
             .ThenBy(x => x.Id)
             .ToListAsync(ct);
@@ -87,13 +91,15 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
         if (personIds.Count == 0) return [];
         if (to < from) throw new ArgumentException("To must be >= From.", nameof(to));
 
+        var toExclusive = to.AddDays(1);
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         return await db.TimesheetEntries
             .AsNoTracking()
             .Where(x => !x.IsDeleted)
             .Where(x => personIds.Contains(x.PersonId))
-            .Where(x => x.From <= to && (!x.To.HasValue || x.To.Value >= from)) // overlap
+            .Where(x => x.From < toExclusive && (!x.To.HasValue || x.To.Value > from)) // overlap with [from..to]
             .OrderBy(x => x.PersonId)
             .ThenBy(x => x.From)
             .ThenBy(x => x.Id)
@@ -109,20 +115,26 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
+        // half-open: From <= date && (To == null || date < To)
         return await db.TimesheetEntries
             .AsNoTracking()
             .Include(x => x.TimesheetCodeDefinition)
             .Where(x => !x.IsDeleted)
             .Where(x => x.TimesheetId == timesheetId)
             .Where(x => x.PersonId == personId)
-            .Where(x => x.From <= date && (!x.To.HasValue || x.To.Value >= date))
+            .Where(x => x.From <= date && (!x.To.HasValue || date < x.To.Value))
             .OrderByDescending(x => x.From)
             .ThenByDescending(x => x.Id)
             .FirstOrDefaultAsync(ct);
     }
 
     /// <inheritdoc />
-    public async Task SoftDeleteAsync(Guid entryId, string reason, string author, DateTime nowUtc, CancellationToken ct = default)
+    public async Task SoftDeleteAsync(
+        Guid entryId,
+        string reason,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct = default)
     {
         //TODO не задіяний
         if (entryId == Guid.Empty) throw new ArgumentException("EntryId is required.", nameof(entryId));
@@ -203,8 +215,8 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
     }
 
     /// <summary>
-    /// Завантажує таймлайн для write-вставки/переходу та застосовує правило p.1:
-    /// якщо таймлайн закритий — вставки/переходи заборонені.
+    /// Завантажує епізод табеля для write-вставки/переходу та застосовує правило:
+    /// якщо епізод закритий — вставки/переходи заборонені.
     /// </summary>
     private static async Task<TimeSheetAggregate> LoadTimelineForInsertAsync(
         AppDbContext db,
@@ -235,20 +247,22 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
             throw new InvalidOperationException(
                 $"Запис не може починатися раніше OpenedAt ({tl.OpenedAt:yyyy-MM-dd}).");
 
-        if (e.To.HasValue && e.To.Value < e.From)
-            throw new InvalidOperationException("Некоректний період: To не може бути раніше From.");
+        // half-open: To (exclusive) must be strictly greater than From.
+        if (e.To.HasValue && e.To.Value <= e.From)
+            throw new InvalidOperationException("Некоректний період: To (exclusive) повинен бути > From.");
 
-        // p.2: якщо таймлайн колись буде закритий — тут залишаємо перевірку меж закриття.
-        // (Зараз вставки в закритий таймлайн заборонені, але update (підрізання) може виконуватись в інших сценаріях.)
+        // p.2: якщо епізод колись буде закритий — тут залишаємо перевірку меж закриття.
+        // (Зараз вставки в закритий епізод заборонені, але update (підрізання) може виконуватись в інших сценаріях.)
         if (tl.ClosedAt.HasValue)
         {
             if (!e.To.HasValue)
                 throw new InvalidOperationException(
-                    $"Open-ended запис заборонений у закритому таймлайні (ClosedAt={tl.ClosedAt:yyyy-MM-dd}).");
+                    $"Open-ended запис заборонений у закритому епізоді (ClosedAt={tl.ClosedAt:yyyy-MM-dd}).");
 
-            if (e.To.Value > tl.ClosedAt.Value)
+            // last day in closed episode is ClosedAt (inclusive), so To(exclusive) may be ClosedAt+1.
+            if (e.To.Value > tl.ClosedAt.Value.AddDays(1))
                 throw new InvalidOperationException(
-                    $"Запис виходить за межі закритого таймлайну (ClosedAt={tl.ClosedAt:yyyy-MM-dd}).");
+                    $"Запис виходить за межі закритого епізоду (ClosedAt={tl.ClosedAt:yyyy-MM-dd}).");
         }
     }
 }

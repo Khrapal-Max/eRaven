@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -259,6 +260,7 @@ namespace eRaven.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_timesheet_entries", x => x.id);
+                    table.CheckConstraint("ck_timesheet_entries_to_gt_from", "to_date IS NULL OR to_date > from_date");
                     table.ForeignKey(
                         name: "FK_timesheet_entries_timesheet_aggregates_timesheet_id",
                         column: x => x.timesheet_id,

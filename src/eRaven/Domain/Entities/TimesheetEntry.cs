@@ -1,7 +1,7 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-//----------------------------------------------------------------------------- 
+//-----------------------------------------------------------------------------
 // TimesheetEntry
 //-----------------------------------------------------------------------------
 
@@ -11,12 +11,23 @@ namespace eRaven.Domain.Entities;
 
 /// <summary>
 /// CRUD timesheet entry.
-/// Represents a status in a timeline for inclusive range [From..To].
-/// To == null means “open-ended”.
-///
+/// Represents a status in a timeline for half-open range <c>[From..To)</c>.
+/// <para>
+/// Where:
+/// <list type="bullet">
+/// <item><description><see cref="From"/> is <b>inclusive</b>.</description></item>
+/// <item><description><see cref="To"/> is <b>exclusive</b> (the first day when the entry is no longer active).</description></item>
+/// <item><description><c>To == null</c> means “open-ended”.</description></item>
+/// </list>
+/// </para>
+/// <para>
+/// Example: a one-day entry for 2026-02-18 is stored as <c>From=2026-02-18</c>, <c>To=2026-02-19</c>.
+/// </para>
+/// <para>
 /// IMPORTANT:
 /// - Every entry belongs to a <see cref="TimeSheetAggregate"/>.
 /// - PersonId is denormalized for faster reads (must match TimesheetId.PersonId).
+/// </para>
 /// </summary>
 public sealed class TimesheetEntry
 {
@@ -46,7 +57,10 @@ public sealed class TimesheetEntry
     /// <summary>Start date (inclusive).</summary>
     public DateOnly From { get; set; }
 
-    /// <summary>End date (inclusive). Null means open-ended.</summary>
+    /// <summary>
+    /// End date (exclusive).
+    /// <para><c>null</c> means open-ended.</para>
+    /// </summary>
     public DateOnly? To { get; set; }
 
     /// <summary>Optional reference (document number, order id, etc.).</summary>

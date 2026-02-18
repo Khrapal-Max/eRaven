@@ -46,6 +46,7 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
         var daysInMonth = DateTime.DaysInMonth(year, month);
         var monthStart = new DateOnly(year, month, 1);
         var monthEnd = new DateOnly(year, month, daysInMonth);
+        var monthEndExclusive = monthEnd.AddDays(1);
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
@@ -102,8 +103,8 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
             join t in episodesInMonthQ on e.TimesheetId equals t.Id
             join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
-                  && e.From <= monthEnd
-                  && (!e.To.HasValue || e.To.Value >= monthStart)
+                  && e.From < monthEndExclusive
+                  && (!e.To.HasValue || e.To.Value > monthStart)
             orderby e.PersonId, e.From, e.Id
             select new
             {
@@ -142,13 +143,13 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
                 foreach (var e in list)
                 {
                     var start = e.From < monthStart ? monthStart : e.From;
-                    var end = e.To is null
-                        ? monthEnd
-                        : (e.To.Value > monthEnd ? monthEnd : e.To.Value);
+                    var endExclusive = e.To is null
+                        ? monthEndExclusive
+                        : (e.To.Value > monthEndExclusive ? monthEndExclusive : e.To.Value);
 
                     var code = TrimCode(e.Code);
 
-                    for (var d = start; d <= end; d = d.AddDays(1))
+                    for (var d = start; d < endExclusive; d = d.AddDays(1))
                     {
                         var idx = d.Day - 1;
                         if ((uint)idx >= (uint)daysInMonth) continue;
@@ -196,6 +197,7 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
         if (toDate < fromDate) throw new ArgumentException("To must be >= From.", nameof(toDate));
 
         var days = toDate.DayNumber - fromDate.DayNumber + 1;
+        var toExclusive = toDate.AddDays(1);
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
@@ -265,8 +267,8 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
             join t in selectedEpisodesQ on e.TimesheetId equals t.Id
             join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
-                  && e.From <= toDate
-                  && (!e.To.HasValue || e.To.Value >= fromDate)
+                  && e.From < toExclusive
+                  && (!e.To.HasValue || e.To.Value > fromDate)
             orderby e.PersonId, e.From, e.Id
             select new
             {
@@ -311,7 +313,7 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
                 foreach (var e in list)
                 {
                     var start = e.From < fromDate ? fromDate : e.From;
-                    var end = e.To is null ? toDate : (e.To.Value > toDate ? toDate : e.To.Value);
+                    var endExclusive = e.To is null ? toExclusive : (e.To.Value > toExclusive ? toExclusive : e.To.Value);
 
                     var code = (e.Code ?? "").Trim();
 
@@ -323,7 +325,7 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
                         ? (string.IsNullOrWhiteSpace(e.Reference) ? null : e.Reference.Trim())
                         : null;
 
-                    for (var d = start; d <= end; d = d.AddDays(1))
+                    for (var d = start; d < endExclusive; d = d.AddDays(1))
                     {
                         var idx = d.DayNumber - fromDate.DayNumber;
                         if ((uint)idx >= (uint)days) continue;
@@ -371,6 +373,7 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
         var daysInMonth = DateTime.DaysInMonth(year, month);
         var monthStart = new DateOnly(year, month, 1);
         var monthEnd = new DateOnly(year, month, daysInMonth);
+        var monthEndExclusive = monthEnd.AddDays(1);
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
@@ -405,8 +408,8 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
             join t in episodesInMonthQ on e.TimesheetId equals t.Id
             join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
-                  && e.From <= monthEnd
-                  && (!e.To.HasValue || e.To.Value >= monthStart)
+                  && e.From < monthEndExclusive
+                  && (!e.To.HasValue || e.To.Value > monthStart)
             orderby e.From, e.Id
             select new
             {
@@ -434,11 +437,11 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
         foreach (var e in entries)
         {
             var start = e.From < monthStart ? monthStart : e.From;
-            var end = e.To is null ? monthEnd : (e.To.Value > monthEnd ? monthEnd : e.To.Value);
+            var endExclusive = e.To is null ? monthEndExclusive : (e.To.Value > monthEndExclusive ? monthEndExclusive : e.To.Value);
 
             var code = TrimCode(e.Code);
 
-            for (var d = start; d <= end; d = d.AddDays(1))
+            for (var d = start; d < endExclusive; d = d.AddDays(1))
             {
                 var idx = d.Day - 1;
                 if ((uint)idx >= (uint)daysInMonth) continue;
@@ -552,7 +555,7 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
             join c in db.TimesheetCodes.AsNoTracking() on e.TimesheetCodeDefinitionId equals c.Id
             where !e.IsDeleted
                   && e.From <= date
-                  && (!e.To.HasValue || e.To.Value >= date)
+                  && (!e.To.HasValue || date < e.To.Value)
             orderby e.PersonId, e.From, e.Id
             select new
             {

@@ -172,7 +172,7 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
                         e.TimesheetId == x.TimesheetId
                         && !e.IsDeleted
                         && e.From <= onDate
-                        && (!e.To.HasValue || e.To.Value >= onDate))
+                        && (!e.To.HasValue || onDate < e.To.Value))
                     .OrderByDescending(e => e.From)
                     .ThenByDescending(e => e.CreatedAtUtc)
                     .Select(e => e.TimesheetCodeDefinitionId)
