@@ -12,7 +12,7 @@ using eRaven.Infrastructure;
 namespace eRaven.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260218230256_UpTimesheetTaskSpan")]
+    [Migration("20260219122835_UpTimesheetTaskSpan")]
     partial class UpTimesheetTaskSpan
     {
         /// <inheritdoc />

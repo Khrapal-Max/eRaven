@@ -10,7 +10,6 @@ using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.CombatTasks;
-using eRaven.Application.DTOs.CombatTasks;
 using eRaven.Application.DTOs.Person;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
@@ -91,104 +90,42 @@ public sealed class CreateCombatTaskCommandHandler(
             });
         }
 
-        // 2) Load document to detect existing mission block and to use as fallback for snapshot.
+        // 2) Load document + find mission entity (if exists)
         var document = await _repo.GetDocumentAsync(command.DocumentId, ct);
-
         var missionEntity = document.CombatTasks.FirstOrDefault(x => x.MissionId == command.MissionId);
 
-        CombatTaskMissionBlockDto? existingBlock = null;
+        // 2.1) Enrich snapshot from existing mission rows (entity) and then PersonRead
+        await EnrichSnapshotAsync(incoming, missionEntity, ct);
 
-        if (missionEntity is not null)
-        {
-            existingBlock = new CombatTaskMissionBlockDto(
-                CombatTaskId: missionEntity.Id,
-                MissionId: missionEntity.MissionId,
-                MissionName: missionEntity.Mission?.ToString() ?? string.Empty,
-                SourceDocument: missionEntity.SourceDocument ?? string.Empty,
-                CombatTaskDetails: [.. missionEntity.CombatTaskDetails
-                    .OrderBy(l => l.EffectiveAt)
-                    .ThenBy(l => l.Kind)
-                    .ThenBy(l => l.FullName)
-                    .ThenBy(l => l.Id)
-                    .Select(l => new CombatTaskDetailsDto(
-                        CombatTaskDetailsId: l.Id,
-                        Kind: l.Kind,
-                        EffectiveAt: l.EffectiveAt,
-                        PersonId: l.PersonId,
-                        Rnokpp: l.Rnokpp,
-                        Rank: l.Rank,
-                        FullName: l.FullName,
-                        Position: l.Position,
-                        Weapon: l.Weapon,
-                        Callsign: l.Callsign
-                    ))]
-            );
-        }
-
-        // 2.1) Enrich missing snapshot fields: existing rows -> PersonRead.
-        await EnrichSnapshotAsync(incoming, existingBlock, ct);
-
-        // 2.2) Final validation after enrichment (guard against persisting empty required snapshot).
         EnsureSnapshotIsComplete(incoming);
 
         Guid combatTaskId;
-        IReadOnlyCollection<CombatTaskDetails> persistedRows;
 
-        // NOTE: de-dup also for Create (protect against double rows with same business key)
-        if (existingBlock is null)
+        if (missionEntity is null)
         {
-            var normalized = MergeByBusinessKey(existing: [], incoming: incoming);
-            persistedRows = normalized;
-
             combatTaskId = await _repo.CreateCombatTaskAsync(
                 documentId: command.DocumentId,
                 missionId: command.MissionId,
                 sourceDocument: command.SourceDocument.Trim(),
-                combatTaskDetails: normalized,
+                combatTaskDetails: incoming,
                 ct: ct);
         }
         else
         {
-            var existing = new List<CombatTaskDetails>(existingBlock.CombatTaskDetails.Count);
-
-            foreach (var x in existingBlock.CombatTaskDetails)
-            {
-                existing.Add(new CombatTaskDetails
-                {
-                    Id = x.CombatTaskDetailsId,
-                    CombatTaskId = Guid.Empty,
-                    CombatTask = null,
-
-                    Kind = x.Kind,
-                    EffectiveAt = x.EffectiveAt,
-                    PersonId = x.PersonId,
-
-                    Rnokpp = (x.Rnokpp ?? string.Empty).Trim(),
-                    FullName = (x.FullName ?? string.Empty).Trim(),
-
-                    Rank = TrimOrNull(x.Rank),
-                    Position = TrimOrNull(x.Position),
-                    Weapon = TrimOrNull(x.Weapon),
-                    Callsign = TrimOrNull(x.Callsign)
-                });
-            }
-
-            var merged = MergeByBusinessKey(existing, incoming);
-            persistedRows = merged;
-
+            // Replace-all: without merge
             combatTaskId = await _repo.UpsertCombatTaskAsync(
                 documentId: command.DocumentId,
                 missionId: command.MissionId,
                 sourceDocument: command.SourceDocument.Trim(),
-                combatTaskDetails: merged,
+                combatTaskDetails: incoming,
                 ct: ct);
         }
 
-        // 3) Timesheet: apply facts with the SAME rows that were persisted (incoming or merged).
+        // 3) Apply facts to timesheet using the same "current truth"
         await _timesheets.ApplyCombatTaskFactsAsync(
             documentId: command.DocumentId,
             missionId: command.MissionId,
-            details: persistedRows,
+            details: incoming,
             author: command.Author.Trim(),
             nowUtc: command.NowUtc,
             ct: ct);
@@ -199,23 +136,22 @@ public sealed class CreateCombatTaskCommandHandler(
     /// <summary>
     /// Підтягує відсутні snapshot-поля для incoming:
     /// <list type="number">
-    /// <item><description>спочатку з існуючих рядків місії в документі (якщо місія вже створена);</description></item>
-    /// <item><description>потім — з PersonRead (через <see cref="IPersonRepository"/>), якщо все ще пусто.</description></item>
+    /// <item><description>спочатку з існуючих рядків місії в документі;</description></item>
+    /// <item><description>потім — з PersonRead (через <see cref="IPersonRepository"/>).</description></item>
     /// </list>
     /// </summary>
     private async Task EnrichSnapshotAsync(
         List<CombatTaskDetails> incoming,
-        CombatTaskMissionBlockDto? existingBlock,
+        CombatTask? missionEntity,
         CancellationToken ct)
     {
-        // 1) Fallback з existing rows (якщо є)
-        var fallback = new Dictionary<Guid, CombatTaskDetailsDto>();
+        // 1) Fallback з existing rows (entity)
+        var fallback = new Dictionary<Guid, CombatTaskDetails>();
 
-        if (existingBlock is not null)
+        if (missionEntity is not null)
         {
-            foreach (var g in existingBlock.CombatTaskDetails.GroupBy(x => x.PersonId))
+            foreach (var g in missionEntity.CombatTaskDetails.GroupBy(x => x.PersonId))
             {
-                // Пріоритет: Start -> End -> перший
                 var best = g.FirstOrDefault(x => x.Kind == CombatTaskDetailsKind.Start)
                            ?? g.FirstOrDefault(x => x.Kind == CombatTaskDetailsKind.End)
                            ?? g.First();
@@ -241,7 +177,7 @@ public sealed class CreateCombatTaskCommandHandler(
                 row.FullName = (fb.FullName ?? string.Empty).Trim();
         }
 
-        // 2) Якщо все ще є “дірки” — добираємо з PersonRead через IPersonRepository
+        // 2) Добір з PersonRead
         var need = incoming
             .Where(IsMissingSnapshot)
             .Select(x => x.PersonId)
@@ -249,14 +185,10 @@ public sealed class CreateCombatTaskCommandHandler(
             .Distinct()
             .ToList();
 
-        if (need.Count == 0)
-            return;
-
         foreach (var personId in need)
         {
             PersonDetailsDto? p = await _persons.GetByIdAsync(personId, ct);
-            if (p is null)
-                continue;
+            if (p is null) continue;
 
             var rank = TrimOrNull(p.Rank);
             var position = TrimOrNull(p.Position);
@@ -277,48 +209,6 @@ public sealed class CreateCombatTaskCommandHandler(
                     row.FullName = (p.FullName ?? string.Empty).Trim();
             }
         }
-    }
-
-    /// <summary>
-    /// Зливає snapshot-рядки по бізнес-ключу (PersonId + Kind + EffectiveAt).
-    /// Якщо incoming має той самий ключ — оновлюємо snapshot, але зберігаємо Id існуючого рядка.
-    /// </summary>
-    private static IReadOnlyCollection<CombatTaskDetails> MergeByBusinessKey(
-        IReadOnlyCollection<CombatTaskDetails> existing,
-        IReadOnlyCollection<CombatTaskDetails> incoming)
-    {
-        static string Key(CombatTaskDetails d)
-            => $"{d.PersonId:N}|{(int)d.Kind}|{d.EffectiveAt:yyyy-MM-dd}";
-
-        var map = new Dictionary<string, CombatTaskDetails>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var e in existing)
-            map[Key(e)] = e;
-
-        foreach (var n in incoming)
-        {
-            var k = Key(n);
-
-            if (!map.TryGetValue(k, out var e))
-            {
-                map[k] = n;
-                continue;
-            }
-
-            // incoming "перемагає" по snapshot, але Id лишаємо існуючий
-            e.Rnokpp = n.Rnokpp;
-            e.FullName = n.FullName;
-            e.Rank = n.Rank;
-            e.Position = n.Position;
-            e.Weapon = n.Weapon;
-            e.Callsign = n.Callsign;
-        }
-
-        return [.. map.Values
-            .OrderBy(x => x.EffectiveAt)
-            .ThenBy(x => x.Kind)
-            .ThenBy(x => x.FullName)
-            .ThenBy(x => x.Id)];
     }
 
     /// <summary>
@@ -347,9 +237,5 @@ public sealed class CreateCombatTaskCommandHandler(
 
     private static bool IsMissingSnapshot(CombatTaskDetails x)
         => string.IsNullOrWhiteSpace(x.Rnokpp)
-           || string.IsNullOrWhiteSpace(x.FullName)
-           || x.Rank is null
-           || x.Position is null
-           || x.Weapon is null
-           || x.Callsign is null;
+           || string.IsNullOrWhiteSpace(x.FullName);
 }

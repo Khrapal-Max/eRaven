@@ -123,43 +123,27 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
         IReadOnlyCollection<CombatTaskDetails> combatTaskDetails,
         CancellationToken ct = default)
     {
-        if (documentId == Guid.Empty)
-            throw new ArgumentException("DocumentId is required.", nameof(documentId));
-        if (missionId == Guid.Empty)
-            throw new ArgumentException("MissionId is required.", nameof(missionId));
-        if (string.IsNullOrWhiteSpace(sourceDocument))
-            throw new ArgumentException("SourceDocument is required.", nameof(sourceDocument));
+        if (documentId == Guid.Empty) throw new ArgumentException("documentId is required.", nameof(documentId));
+        if (missionId == Guid.Empty) throw new ArgumentException("missionId is required.", nameof(missionId));
+        if (string.IsNullOrWhiteSpace(sourceDocument)) throw new ArgumentException("sourceDocument is required.", nameof(sourceDocument));
         ArgumentNullException.ThrowIfNull(combatTaskDetails);
+        if (combatTaskDetails.Count == 0) throw new InvalidOperationException("combatTaskDetails cannot be empty.");
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var doc = await db.CombatTaskDocuments
-            .FirstOrDefaultAsync(x => x.Id == documentId, ct)
-            ?? throw new InvalidOperationException("Документ не знайдено.");
+        // guard: canceled doc cannot be edited (як і було у вас)
+        var status = await db.CombatTaskDocuments
+            .AsNoTracking()
+            .Where(x => x.Id == documentId)
+            .Select(x => x.Status)
+            .SingleAsync(ct);
 
-        if (doc.Status == DocumentStatus.Canceled)
-            throw new InvalidOperationException("Документ відмінений і не може редагуватися.");
+        if (status == DocumentStatus.Canceled)
+            throw new InvalidOperationException("Документ скасовано. Редагування заборонено.");
 
         var task = await db.CombatTasks
             .Include(x => x.CombatTaskDetails)
-            .FirstOrDefaultAsync(x => x.CombatTaskDocumentId == documentId && x.MissionId == missionId, ct);
-
-        // Матеріалізуємо та нормалізуємо рядки (FK + валідація ключа)
-        static List<CombatTaskDetails> NormalizeDetails(Guid combatTaskId, IEnumerable<CombatTaskDetails> rows)
-        {
-            var list = rows.ToList();
-
-            foreach (var d in list)
-            {
-                if (d.Id == Guid.Empty)
-                    throw new InvalidOperationException("CombatTaskDetails.Id must be set (non-empty).");
-
-                d.CombatTaskId = combatTaskId;
-                d.CombatTask = null; // уникнути перенесення навігації з інших контекстів
-            }
-
-            return list;
-        }
+            .SingleOrDefaultAsync(x => x.CombatTaskDocumentId == documentId && x.MissionId == missionId, ct);
 
         if (task is null)
         {
@@ -172,27 +156,21 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
                 CombatTaskDetails = []
             };
 
-            var newDetails = NormalizeDetails(task.Id, combatTaskDetails);
-
-            // Add(task) протягне граф як Added, але ми все одно явно додаємо залежні,
-            // щоб не залежати від евристик EF щодо ключів.
             db.CombatTasks.Add(task);
-            db.CombatTaskDetails.AddRange(newDetails);
-            task.CombatTaskDetails = newDetails;
         }
         else
         {
             task.SourceDocument = sourceDocument.Trim();
 
-            // replace-all: DELETE старих + INSERT нових
-            db.CombatTaskDetails.RemoveRange(task.CombatTaskDetails);
+            task.CombatTaskDetails.Clear();
+        }
 
-            var newDetails = NormalizeDetails(task.Id, combatTaskDetails);
-
-            // ВАЖЛИВО: для Guid-ключів EF може помилково трактувати рядки як "існуючі"
-            // і спробувати UPDATE замість INSERT => concurrency exception.
-            db.CombatTaskDetails.AddRange(newDetails);
-            task.CombatTaskDetails = newDetails;
+        foreach (var row in combatTaskDetails)
+        {
+            // IMPORTANT: ensure FK points to current task
+            row.CombatTaskId = task.Id;
+            row.CombatTask = task;
+            db.CombatTaskDetails.Add(row);
         }
 
         await db.SaveChangesAsync(ct);

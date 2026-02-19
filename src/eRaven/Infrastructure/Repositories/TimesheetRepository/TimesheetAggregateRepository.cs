@@ -53,6 +53,31 @@ public sealed class TimesheetAggregateRepository(IDbContextFactory<AppDbContext>
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
+        // current truth: persons present in document right now
+        var keepPersonIds = details
+            .Select(x => x.PersonId)
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToHashSet();
+
+        // cancel stale spans (persons removed from mission)
+        var staleSpans = await db.TimesheetTaskSpans
+            .Where(s => s.MissionId == missionId)
+            .Where(s => s.Status != DocumentStatus.Canceled)
+            .Where(s => s.OpenedByCombatTaskDocumentId == documentId
+                    || s.ClosedByCombatTaskDocumentId == documentId)
+            .Where(s => !keepPersonIds.Contains(s.PersonId))
+            .ToListAsync(ct);
+
+        foreach (var span in staleSpans)
+        {
+            span.Status = DocumentStatus.Canceled;
+
+            // для "removed from mission" можна не ставити reasonCodeId (якщо в моделі optional)
+            span.UpdatedBy = author;
+            span.UpdatedAtUtc = nowUtc;
+        }
+
         var documentRef = await db.CombatTaskDocuments
             .AsNoTracking()
             .Where(d => d.Id == documentId)

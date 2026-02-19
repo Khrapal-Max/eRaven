@@ -20,288 +20,418 @@ namespace eRaven.Tests.Application.Handlers.CombatTasks;
 /// <summary>
 /// Тести для <see cref="CreateCombatTaskCommandHandler"/>.
 ///
-/// <para>
-/// Фіксуємо поведінку:
+/// <para>Фіксуємо ключову бізнес-поведінку:</para>
 /// <list type="bullet">
-/// <item><description>Create path: trim + de-dup по бізнес-ключу + ApplyFacts отримує persistedRows.</description></item>
-/// <item><description>Upsert path: merge збереження Id існуючого рядка + fallback snapshot з existing + no PersonRepo.</description></item>
+/// <item><description>якщо місії в документі немає — викликаємо <c>CreateCombatTaskAsync</c>;</description></item>
+/// <item><description>якщо місія вже є — викликаємо <c>UpsertCombatTaskAsync</c> (replace-all rows);</description></item>
+/// <item><description>enrich snapshot з існуючих рядків місії (fallback), без зайвих запитів у PersonRepo;</description></item>
+/// <item><description>завжди викликаємо <c>ApplyCombatTaskFactsAsync</c> по “current truth” (incoming rows);</description></item>
+/// <item><description>trim для <c>SourceDocument</c>/<c>Author</c>/<c>Rnokpp</c>/<c>FullName</c>;</description></item>
+/// <item><description>валідації: пустий/NULL список рядків, null-рядок, пусті ключові поля.</description></item>
 /// </list>
-/// </para>
 /// </summary>
 public sealed class CreateCombatTaskCommandHandlerTests
 {
     [Fact]
-    public async Task HandleAsync_CreatePath_TrimsSource_DedupsByBusinessKey_AndAppliesPersistedRows()
+    public async Task HandleAsync_CreatesCombatTask_WhenMissionDoesNotExist_PassesTrimmedArgs_AndAppliesFacts()
     {
-        // arrange
-        var repo = new Mock<ICombatTaskRepository>(MockBehavior.Strict);
-        var timesheets = new Mock<ITimesheetAggregateRepository>(MockBehavior.Strict);
-        var persons = new Mock<IPersonRepository>(MockBehavior.Strict);
-
-        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
-
-        var documentId = Guid.NewGuid();
+        var docId = Guid.NewGuid();
         var missionId = Guid.NewGuid();
-        var combatTaskId = Guid.NewGuid();
+
+        var nowUtc = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+        var author = "  admin  ";
+        var source = "  SRC-1  ";
 
         var personId = Guid.NewGuid();
 
-        // Document without mission block => Create path.
-        var document = NewDocument(documentId, combatTasks: []);
-
-        repo.Setup(x => x.GetDocumentAsync(documentId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(document);
-
-        // Two incoming rows with SAME business key => should dedup into 1 persisted row:
-        // key = PersonId + Kind + EffectiveAt
-        var firstRowId = Guid.NewGuid();
-        var effectiveAt = new DateOnly(2026, 02, 10);
-
-        var cmd = new CreateCombatTaskCommand(
-            DocumentId: documentId,
-            MissionId: missionId,
-            SourceDocument: "  SRC  ",
-            CombatTaskDetails:
-            [
-                NewDtoRow(firstRowId, CombatTaskDetailsKind.Start, effectiveAt, personId,
-                    rnokpp: " 111 ", fullName: "  A  ", rank: null, position: null, weapon: null, callsign: null),
-
-                // duplicate key, should "win" snapshot but keep existing Id (firstRowId)
-                NewDtoRow(Guid.NewGuid(), CombatTaskDetailsKind.Start, effectiveAt, personId,
-                    rnokpp: " 111 ", fullName: "  B  ", rank: null, position: null, weapon: null, callsign: null)
-            ],
-            Author: "  admin  ",
-            NowUtc: now);
+        var document = NewDocument(docId, status: DocumentStatus.Active);
+        // no CombatTasks => missionEntity == null (create path)
 
         IReadOnlyCollection<CombatTaskDetails>? createRows = null;
         IReadOnlyCollection<CombatTaskDetails>? appliedRows = null;
 
+        var createdTaskId = Guid.NewGuid();
+
+        var repo = new Mock<ICombatTaskRepository>(MockBehavior.Strict);
+        repo.Setup(x => x.GetDocumentAsync(docId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(document);
+
         repo.Setup(x => x.CreateCombatTaskAsync(
-                documentId,
+                docId,
                 missionId,
-                "SRC",
+                "SRC-1",
                 It.IsAny<IReadOnlyCollection<CombatTaskDetails>>(),
                 It.IsAny<CancellationToken>()))
             .Callback<Guid, Guid, string, IReadOnlyCollection<CombatTaskDetails>, CancellationToken>((_, _, _, rows, _) =>
-            {
-                createRows = rows;
-            })
-            .ReturnsAsync(combatTaskId);
+                createRows = rows)
+            .ReturnsAsync(createdTaskId);
 
-        // Since snapshot fields (Rank/Position/Weapon/Callsign) are missing, handler will ask PersonRepo.
-        // We don't rely on concrete PersonDetailsDto ctor here => return null, but verify call happened.
-        persons.Setup(x => x.GetByIdAsync(personId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((eRaven.Application.DTOs.Person.PersonDetailsDto?)null);
+        // Ensure upsert is NOT used in this test (Strict)
+        // repo.Setup(...) for Upsert not needed.
 
+        var timesheets = new Mock<ITimesheetAggregateRepository>(MockBehavior.Strict);
         timesheets.Setup(x => x.ApplyCombatTaskFactsAsync(
-                documentId,
+                docId,
                 missionId,
                 It.IsAny<IReadOnlyCollection<CombatTaskDetails>>(),
                 "admin",
-                now,
+                nowUtc,
                 It.IsAny<CancellationToken>()))
             .Callback<Guid, Guid, IReadOnlyCollection<CombatTaskDetails>, string, DateTime, CancellationToken>((_, _, rows, _, _, _) =>
-            {
-                appliedRows = rows;
-            })
+                appliedRows = rows)
             .Returns(Task.CompletedTask);
+
+        // PersonRepo must NOT be called here: we send complete snapshot in DTO
+        var persons = new Mock<IPersonRepository>(MockBehavior.Strict);
 
         var handler = new CreateCombatTaskCommandHandler(repo.Object, timesheets.Object, persons.Object);
 
-        // act
-        var resId = await handler.HandleAsync(cmd);
+        var cmd = new CreateCombatTaskCommand(
+            DocumentId: docId,
+            MissionId: missionId,
+            SourceDocument: source,
+            CombatTaskDetails:
+            [
+                NewDto(
+                    id: Guid.Empty, // force handler to generate
+                    kind: CombatTaskDetailsKind.Start,
+                    at: new DateOnly(2026, 02, 10),
+                    personId: personId,
+                    rnokpp: "  1234567890  ",
+                    fullName: "  Person A  ",
+                    rank: "  R  ",
+                    position: "  P  ",
+                    weapon: "  W  ",
+                    callsign: "  C  ")
+            ],
+            Author: author,
+            NowUtc: nowUtc);
 
-        // assert
-        Assert.Equal(combatTaskId, resId);
+        var resultId = await handler.HandleAsync(cmd);
+
+        Assert.Equal(createdTaskId, resultId);
 
         Assert.NotNull(createRows);
         Assert.Single(createRows!);
 
-        var persisted = createRows!.Single();
+        var row = createRows!.Single();
+        Assert.NotEqual(Guid.Empty, row.Id);
 
-        // Dedup: Id should be from the first row, but snapshot should be from the second ("wins")
-        Assert.Equal(firstRowId, persisted.Id);
-        Assert.Equal(personId, persisted.PersonId);
-        Assert.Equal(CombatTaskDetailsKind.Start, persisted.Kind);
-        Assert.Equal(effectiveAt, persisted.EffectiveAt);
+        Assert.Equal(personId, row.PersonId);
+        Assert.Equal(CombatTaskDetailsKind.Start, row.Kind);
+        Assert.Equal(new DateOnly(2026, 02, 10), row.EffectiveAt);
 
-        Assert.Equal("111", persisted.Rnokpp);
-        Assert.Equal("B", persisted.FullName);
+        // Trim on mapping
+        Assert.Equal("1234567890", row.Rnokpp);
+        Assert.Equal("Person A", row.FullName);
+        Assert.Equal("R", row.Rank);
+        Assert.Equal("P", row.Position);
+        Assert.Equal("W", row.Weapon);
+        Assert.Equal("C", row.Callsign);
 
-        // Apply facts MUST use persistedRows (same content; can be same instance or equivalent)
+        // Apply called with the same "truth" rows (same IDs / values)
         Assert.NotNull(appliedRows);
         Assert.Single(appliedRows!);
-
-        var applied = appliedRows!.Single();
-        Assert.Equal(persisted.Id, applied.Id);
-        Assert.Equal(persisted.PersonId, applied.PersonId);
-        Assert.Equal(persisted.Kind, applied.Kind);
-        Assert.Equal(persisted.EffectiveAt, applied.EffectiveAt);
-        Assert.Equal(persisted.Rnokpp, applied.Rnokpp);
-        Assert.Equal(persisted.FullName, applied.FullName);
+        Assert.Equal(row.Id, appliedRows!.Single().Id);
+        Assert.Equal("1234567890", appliedRows!.Single().Rnokpp);
 
         repo.VerifyAll();
-        persons.VerifyAll();
         timesheets.VerifyAll();
+        persons.VerifyAll();
     }
 
     [Fact]
-    public async Task HandleAsync_UpsertPath_MergesByBusinessKey_PreservesExistingId_UsesExistingSnapshot_AndDoesNotQueryPersons()
+    public async Task HandleAsync_UpsertsCombatTask_WhenMissionExists_EnrichesFromExistingMissionRows_AndDoesNotCallPersonsRepo()
     {
-        // arrange
-        var repo = new Mock<ICombatTaskRepository>(MockBehavior.Strict);
-        var timesheets = new Mock<ITimesheetAggregateRepository>(MockBehavior.Strict);
-        var persons = new Mock<IPersonRepository>(MockBehavior.Strict);
-
-        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
-
-        var documentId = Guid.NewGuid();
+        var docId = Guid.NewGuid();
         var missionId = Guid.NewGuid();
-        var combatTaskId = Guid.NewGuid();
+
+        var nowUtc = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
 
         var personId = Guid.NewGuid();
-        var effectiveAt = new DateOnly(2026, 02, 10);
 
-        var existingDetailId = Guid.NewGuid();
-        var existingTaskId = Guid.NewGuid();
+        // Existing mission entity already in doc
+        var existing = NewDetail(
+            id: Guid.NewGuid(),
+            kind: CombatTaskDetailsKind.Start,
+            at: new DateOnly(2026, 02, 10),
+            personId: personId,
+            rnokpp: "1111111111",
+            fullName: "Existing Person",
+            rank: "SGT",
+            position: "Operator",
+            weapon: "Rifle",
+            callsign: "FOX");
 
-        // Document WITH mission block => Upsert path.
-        var existingTask = new CombatTask
-        {
-            Id = existingTaskId,
-            CombatTaskDocumentId = documentId,
-            MissionId = missionId,
-            SourceDocument = "OLD",
-            Mission = null,
-            CombatTaskDetails =
-            [
-                new CombatTaskDetails
-                {
-                    Id = existingDetailId,
-                    CombatTaskId = existingTaskId,
-                    CombatTask = null,
-                    Kind = CombatTaskDetailsKind.Start,
-                    EffectiveAt = effectiveAt,
-                    PersonId = personId,
-                    Rnokpp = "111",
-                    FullName = "Existing Name",
-                    Rank = "R",
-                    Position = "P",
-                    Weapon = "W",
-                    Callsign = "C"
-                }
-            ]
-        };
+        var missionEntity = NewCombatTask(
+            id: Guid.NewGuid(),
+            documentId: docId,
+            missionId: missionId,
+            sourceDocument: "EXISTING",
+            details: [existing]);
 
-        var document = NewDocument(documentId, combatTasks: [existingTask]);
-
-        repo.Setup(x => x.GetDocumentAsync(documentId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(document);
-
-        // Incoming row with same business key but missing snapshot => should be enriched from existing block,
-        // merged should preserve existingDetailId, but update FullName from incoming.
-        var cmd = new CreateCombatTaskCommand(
-            DocumentId: documentId,
-            MissionId: missionId,
-            SourceDocument: "  SRC-NEW  ",
-            CombatTaskDetails:
-            [
-                NewDtoRow(Guid.Empty, CombatTaskDetailsKind.Start, effectiveAt, personId,
-                    rnokpp: "111", fullName: "  Updated Name  ", rank: null, position: null, weapon: null, callsign: null)
-            ],
-            Author: " duty ",
-            NowUtc: now);
+        var document = NewDocument(docId, status: DocumentStatus.Active, tasks: [missionEntity]);
 
         IReadOnlyCollection<CombatTaskDetails>? upsertRows = null;
         IReadOnlyCollection<CombatTaskDetails>? appliedRows = null;
 
+        var repo = new Mock<ICombatTaskRepository>(MockBehavior.Strict);
+        repo.Setup(x => x.GetDocumentAsync(docId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(document);
+
         repo.Setup(x => x.UpsertCombatTaskAsync(
-                documentId,
+                docId,
                 missionId,
                 "SRC-NEW",
                 It.IsAny<IReadOnlyCollection<CombatTaskDetails>>(),
                 It.IsAny<CancellationToken>()))
             .Callback<Guid, Guid, string, IReadOnlyCollection<CombatTaskDetails>, CancellationToken>((_, _, _, rows, _) =>
-            {
-                upsertRows = rows;
-            })
-            .ReturnsAsync(combatTaskId);
+                upsertRows = rows)
+            .ReturnsAsync(missionEntity.Id);
 
-        // PersonRepo MUST NOT be called: existing block has full snapshot for this person.
-        persons.Setup(x => x.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .Throws(new InvalidOperationException("PersonRepository must not be called in this scenario."));
-
+        var timesheets = new Mock<ITimesheetAggregateRepository>(MockBehavior.Strict);
         timesheets.Setup(x => x.ApplyCombatTaskFactsAsync(
-                documentId,
+                docId,
                 missionId,
                 It.IsAny<IReadOnlyCollection<CombatTaskDetails>>(),
                 "duty",
-                now,
+                nowUtc,
                 It.IsAny<CancellationToken>()))
             .Callback<Guid, Guid, IReadOnlyCollection<CombatTaskDetails>, string, DateTime, CancellationToken>((_, _, rows, _, _, _) =>
-            {
-                appliedRows = rows;
-            })
+                appliedRows = rows)
             .Returns(Task.CompletedTask);
+
+        // PersonRepo MUST NOT be called because fallback from existing closes the gaps
+        var persons = new Mock<IPersonRepository>(MockBehavior.Strict);
 
         var handler = new CreateCombatTaskCommandHandler(repo.Object, timesheets.Object, persons.Object);
 
-        // act
-        var resId = await handler.HandleAsync(cmd);
+        // Incoming is incomplete (missing snapshot + empty rnokpp/fullname) => must be enriched from existing rows
+        var cmd = new CreateCombatTaskCommand(
+            DocumentId: docId,
+            MissionId: missionId,
+            SourceDocument: "  SRC-NEW  ",
+            CombatTaskDetails:
+            [
+                NewDto(
+                    id: Guid.Empty,
+                    kind: CombatTaskDetailsKind.Start,
+                    at: new DateOnly(2026, 02, 10),
+                    personId: personId,
+                    rnokpp: "   ",
+                    fullName: "   ",
+                    rank: null,
+                    position: null,
+                    weapon: null,
+                    callsign: null)
+            ],
+            Author: "  duty  ",
+            NowUtc: nowUtc);
 
-        // assert
-        Assert.Equal(combatTaskId, resId);
+        var resultId = await handler.HandleAsync(cmd);
+        Assert.Equal(missionEntity.Id, resultId);
 
         Assert.NotNull(upsertRows);
         Assert.Single(upsertRows!);
 
-        var persisted = upsertRows!.Single();
+        var row = upsertRows!.Single();
 
-        // Merge must preserve existing Id
-        Assert.Equal(existingDetailId, persisted.Id);
+        // Enriched from existing mission rows
+        Assert.Equal("1111111111", row.Rnokpp);
+        Assert.Equal("Existing Person", row.FullName);
+        Assert.Equal("SGT", row.Rank);
+        Assert.Equal("Operator", row.Position);
+        Assert.Equal("Rifle", row.Weapon);
+        Assert.Equal("FOX", row.Callsign);
 
-        // Incoming updates FullName (trimmed), but missing Rank/Position/Weapon/Callsign should come from existing block
-        Assert.Equal("Updated Name", persisted.FullName);
-        Assert.Equal("111", persisted.Rnokpp);
-
-        Assert.Equal("R", persisted.Rank);
-        Assert.Equal("P", persisted.Position);
-        Assert.Equal("W", persisted.Weapon);
-        Assert.Equal("C", persisted.Callsign);
-
-        // Apply facts MUST use merged persistedRows
+        // Apply called with the same "truth"
         Assert.NotNull(appliedRows);
         Assert.Single(appliedRows!);
-
-        var applied = appliedRows!.Single();
-        Assert.Equal(existingDetailId, applied.Id);
-        Assert.Equal("Updated Name", applied.FullName);
-        Assert.Equal("R", applied.Rank);
+        Assert.Equal("1111111111", appliedRows!.Single().Rnokpp);
+        Assert.Equal("Existing Person", appliedRows!.Single().FullName);
 
         repo.VerifyAll();
         timesheets.VerifyAll();
+        persons.VerifyAll();
+    }
+
+    [Fact]
+    public async Task HandleAsync_Throws_WhenDetailsNullOrEmpty()
+    {
+        var repo = new Mock<ICombatTaskRepository>(MockBehavior.Strict);
+        var timesheets = new Mock<ITimesheetAggregateRepository>(MockBehavior.Strict);
+        var persons = new Mock<IPersonRepository>(MockBehavior.Strict);
+
+        var handler = new CreateCombatTaskCommandHandler(repo.Object, timesheets.Object, persons.Object);
+
+        var cmdNull = new CreateCombatTaskCommand(
+            DocumentId: Guid.NewGuid(),
+            MissionId: Guid.NewGuid(),
+            SourceDocument: "SRC",
+            CombatTaskDetails: null!, // runtime safety
+            Author: "a",
+            NowUtc: new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc));
+
+        var ex1 = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(cmdNull));
+        Assert.Contains("Порожній список", ex1.Message, StringComparison.OrdinalIgnoreCase);
+
+        var cmdEmpty = new CreateCombatTaskCommand(
+            DocumentId: Guid.NewGuid(),
+            MissionId: Guid.NewGuid(),
+            SourceDocument: "SRC",
+            CombatTaskDetails: [],
+            Author: "a",
+            NowUtc: new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc));
+
+        var ex2 = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(cmdEmpty));
+        Assert.Contains("Порожній список", ex2.Message, StringComparison.OrdinalIgnoreCase);
+
+        repo.VerifyAll();
+        timesheets.VerifyAll();
+        persons.VerifyAll();
+    }
+
+    [Fact]
+    public async Task HandleAsync_Throws_WhenDetailsContainNullRow()
+    {
+        var repo = new Mock<ICombatTaskRepository>(MockBehavior.Strict);
+        var timesheets = new Mock<ITimesheetAggregateRepository>(MockBehavior.Strict);
+        var persons = new Mock<IPersonRepository>(MockBehavior.Strict);
+
+        var handler = new CreateCombatTaskCommandHandler(repo.Object, timesheets.Object, persons.Object);
+
+        var cmd = new CreateCombatTaskCommand(
+            DocumentId: Guid.NewGuid(),
+            MissionId: Guid.NewGuid(),
+            SourceDocument: "SRC",
+            CombatTaskDetails: [null!],
+            Author: "a",
+            NowUtc: new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc));
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(cmd));
+        Assert.Contains("null-рядок", ex.Message, StringComparison.OrdinalIgnoreCase);
+
+        repo.VerifyAll();
+        timesheets.VerifyAll();
+        persons.VerifyAll();
+    }
+
+    [Fact]
+    public async Task HandleAsync_Throws_WhenPersonIdOrEffectiveAtMissing()
+    {
+        var repo = new Mock<ICombatTaskRepository>(MockBehavior.Strict);
+        var timesheets = new Mock<ITimesheetAggregateRepository>(MockBehavior.Strict);
+        var persons = new Mock<IPersonRepository>(MockBehavior.Strict);
+
+        var handler = new CreateCombatTaskCommandHandler(repo.Object, timesheets.Object, persons.Object);
+
+        var cmdBadPerson = new CreateCombatTaskCommand(
+            DocumentId: Guid.NewGuid(),
+            MissionId: Guid.NewGuid(),
+            SourceDocument: "SRC",
+            CombatTaskDetails:
+            [
+                NewDto(
+                    id: Guid.Empty,
+                    kind: CombatTaskDetailsKind.Start,
+                    at: new DateOnly(2026, 02, 10),
+                    personId: Guid.Empty,
+                    rnokpp: "1",
+                    fullName: "P",
+                    rank: "R",
+                    position: "P",
+                    weapon: "W",
+                    callsign: "C")
+            ],
+            Author: "a",
+            NowUtc: new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc));
+
+        var ex1 = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(cmdBadPerson));
+        Assert.Contains("PersonId", ex1.Message, StringComparison.OrdinalIgnoreCase);
+
+        var cmdBadDate = new CreateCombatTaskCommand(
+            DocumentId: Guid.NewGuid(),
+            MissionId: Guid.NewGuid(),
+            SourceDocument: "SRC",
+            CombatTaskDetails:
+            [
+                NewDto(
+                    id: Guid.Empty,
+                    kind: CombatTaskDetailsKind.Start,
+                    at: default,
+                    personId: Guid.NewGuid(),
+                    rnokpp: "1",
+                    fullName: "P",
+                    rank: "R",
+                    position: "P",
+                    weapon: "W",
+                    callsign: "C")
+            ],
+            Author: "a",
+            NowUtc: new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc));
+
+        var ex2 = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(cmdBadDate));
+        Assert.Contains("EffectiveAt", ex2.Message, StringComparison.OrdinalIgnoreCase);
+
+        repo.VerifyAll();
+        timesheets.VerifyAll();
+        persons.VerifyAll();
     }
 
     //======================================================================
     // Helpers
     //======================================================================
 
-    private static CombatTaskDocument NewDocument(Guid documentId, IReadOnlyCollection<CombatTask> combatTasks)
+    private static CombatTaskDocument NewDocument(Guid id, DocumentStatus status, IReadOnlyCollection<CombatTask>? tasks = null)
         => new()
         {
-            Id = documentId,
+            Id = id,
             OrderTitle = "Doc",
-            Description = null,
-            Status = DocumentStatus.Active,
+            Description = "D",
+            Status = status,
             RecordedAt = new DateOnly(2026, 02, 10),
-            CanceledReason = null,
-            CombatTasks = [.. combatTasks]
+            CombatTasks = tasks?.ToList() ?? []
         };
 
-    private static CombatTaskDetailsDto NewDtoRow(
-        Guid detailsId,
+    private static CombatTask NewCombatTask(Guid id, Guid documentId, Guid missionId, string sourceDocument, IReadOnlyCollection<CombatTaskDetails> details)
+        => new()
+        {
+            Id = id,
+            CombatTaskDocumentId = documentId,
+            MissionId = missionId,
+            SourceDocument = sourceDocument,
+            CombatTaskDetails = [.. details]
+        };
+
+    private static CombatTaskDetails NewDetail(
+        Guid id,
         CombatTaskDetailsKind kind,
-        DateOnly effectiveAt,
+        DateOnly at,
+        Guid personId,
+        string rnokpp,
+        string fullName,
+        string? rank,
+        string? position,
+        string? weapon,
+        string? callsign)
+        => new()
+        {
+            Id = id,
+            Kind = kind,
+            EffectiveAt = at,
+            PersonId = personId,
+            Rnokpp = rnokpp,
+            FullName = fullName,
+            Rank = rank,
+            Position = position,
+            Weapon = weapon,
+            Callsign = callsign
+        };
+
+    private static CombatTaskDetailsDto NewDto(
+        Guid id,
+        CombatTaskDetailsKind kind,
+        DateOnly at,
         Guid personId,
         string rnokpp,
         string fullName,
@@ -310,9 +440,9 @@ public sealed class CreateCombatTaskCommandHandlerTests
         string? weapon,
         string? callsign)
         => new(
-            CombatTaskDetailsId: detailsId,
+            CombatTaskDetailsId: id,
             Kind: kind,
-            EffectiveAt: effectiveAt,
+            EffectiveAt: at,
             PersonId: personId,
             Rnokpp: rnokpp,
             Rank: rank,
