@@ -24,5 +24,10 @@ public sealed class GetCombatTaskPersonLookupQueryHandler(
     public async Task<IReadOnlyList<ReadyCombatTaskPersonDto>> HandleAsync(
         GetCombatTaskPersonLookupQuery query,
         CancellationToken ct = default)
-        => await _repo.GetFreePersonForMissionsAsync(query.OnDate, ct);
+    {
+        if (query.OnDate == default)
+            throw new InvalidOperationException("OnDate обов'язковий.");
+
+        return await _repo.GetFreePersonForMissionsAsync(query.OnDate, ct);
+    }
 }

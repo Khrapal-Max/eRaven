@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs.CombatTasks;
+using eRaven.Domain.Entities;
 
 namespace eRaven.Application.Abstractions.TimesheetRepository;
 
@@ -17,7 +18,7 @@ public interface ITimesheetMissionPlanningRepository
     /// <summary>
     /// Звіт: повертає перелік людей, які мають АКТИВНИЙ факт задачі по місії на дату <paramref name="onDate"/>.
     /// </summary>
-    Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveMissionPersonsAsync(
+    Task<IReadOnlyList<TimesheetTaskSpan>> GetActiveMissionPersonsAsync(
         Guid missionId,
         DateOnly onDate,
         CancellationToken ct = default);
@@ -26,7 +27,7 @@ public interface ITimesheetMissionPlanningRepository
     /// Документ: кого можна завершити цим документом на дату endInclusive.
     /// Не повертає spans, які вже закриті іншим документом або reason-кодом.
     /// </summary>
-    Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveMissionClosablePersonsAsync(
+    Task<IReadOnlyList<TimesheetTaskSpan>> GetActiveMissionClosablePersonsAsync(
        Guid missionId,
        DateOnly onDate,
        CancellationToken ct = default);
@@ -35,7 +36,7 @@ public interface ITimesheetMissionPlanningRepository
     /// Повертає перелік людей, у яких факт задачі пов'язаний з документом (<c>openedBy</c> або <c>closedBy</c>)
     /// та є активним на дату <paramref name="onDate"/>.
     /// </summary>
-    Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveMissionPersonsByDocumentAsync(
+    Task<IReadOnlyList<TimesheetTaskSpan>> GetActiveMissionPersonsByDocumentAsync(
         Guid documentId,
         DateOnly onDate,
         CancellationToken ct = default);

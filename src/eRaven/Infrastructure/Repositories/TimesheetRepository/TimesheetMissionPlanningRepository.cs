@@ -7,6 +7,7 @@
 
 using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.DTOs.CombatTasks;
+using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,7 +23,7 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveMissionPersonsAsync(
+    public async Task<IReadOnlyList<TimesheetTaskSpan>> GetActiveMissionPersonsAsync(
         Guid missionId,
         DateOnly onDate,
         CancellationToken ct = default)
@@ -35,62 +36,42 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         // Half-open interval: [FromDate..ToDate)
-        var q = db.TimesheetTaskSpans
+        return await db.TimesheetTaskSpans
             .AsNoTracking()
             .Where(s => s.MissionId == missionId)
             .Where(s => s.Status != DocumentStatus.Canceled)
             .Where(s => s.FromDate <= onDate && (!s.ToDate.HasValue || onDate < s.ToDate.Value))
-            // IMPORTANT: order BEFORE projection (SQLite cannot translate OrderBy on DTO property)
             .OrderBy(s => s.FullName)
             .ThenBy(s => s.FromDate)
-            .Select(s => new ActiveMissionPersonDto(
-                PersonId: s.PersonId,
-                Rnokpp: s.Rnokpp,
-                FullName: s.FullName,
-                Callsign: s.Callsign,
-                Rank: s.Rank,
-                Position: s.Position,
-                Weapon: s.Weapon,
-                From: s.FromDate));
-
-        return await q.ToListAsync(ct);
+            .ToListAsync(ct);
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveMissionClosablePersonsAsync(
+    public async Task<IReadOnlyList<TimesheetTaskSpan>> GetActiveMissionClosablePersonsAsync(
        Guid missionId,
        DateOnly onDate,
        CancellationToken ct = default)
     {
+        if (missionId == Guid.Empty)
+            throw new ArgumentException("missionId must be set.", nameof(missionId));
+        if (onDate == default)
+            throw new ArgumentException("onDate must be set.", nameof(onDate));
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // На останній день місії span ще active, навіть якщо ToDate=end+1.
-        // Але \"закривати\" можна тільки якщо span НЕ finalized іншим документом/кодом.
         return await db.TimesheetTaskSpans
-        .AsNoTracking()
-        .Where(s => s.MissionId == missionId)
-        .Where(s => s.Status != DocumentStatus.Canceled)
-        // ✅ active on date (half-open)
-        .Where(s => s.FromDate <= onDate && (!s.ToDate.HasValue || onDate < s.ToDate.Value))
-        // ✅ "closable": не finalized документом/кодом
-        .Where(s => s.ClosedByCombatTaskDocumentId == null && s.ClosedByCodeId == null)
-        // (optional) стабільний порядок
-        .OrderBy(s => s.FullName)
-        .ThenBy(s => s.FromDate)
-        .Select(s => new ActiveMissionPersonDto(
-            PersonId: s.PersonId,
-            Rnokpp: s.Rnokpp,
-            FullName: s.FullName,
-            Callsign: s.Callsign,
-            Rank: s.Rank,
-            Position: s.Position,
-            Weapon: s.Weapon,
-            From: s.FromDate))
-        .ToListAsync(ct);
+            .AsNoTracking()
+            .Where(s => s.MissionId == missionId)
+            .Where(s => s.Status != DocumentStatus.Canceled)
+            .Where(s => s.FromDate <= onDate && (!s.ToDate.HasValue || onDate < s.ToDate.Value))
+            .Where(s => s.ClosedByCombatTaskDocumentId == null && s.ClosedByCodeId == null)
+            .OrderBy(s => s.FullName)
+            .ThenBy(s => s.FromDate)
+            .ToListAsync(ct);
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ActiveMissionPersonDto>> GetActiveMissionPersonsByDocumentAsync(
+    public async Task<IReadOnlyList<TimesheetTaskSpan>> GetActiveMissionPersonsByDocumentAsync(
         Guid documentId,
         DateOnly onDate,
         CancellationToken ct = default)
@@ -102,25 +83,14 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var q = db.TimesheetTaskSpans
+        return await db.TimesheetTaskSpans
             .AsNoTracking()
             .Where(s => s.Status != DocumentStatus.Canceled)
             .Where(s => s.FromDate <= onDate && (!s.ToDate.HasValue || onDate < s.ToDate.Value))
             .Where(s => s.OpenedByCombatTaskDocumentId == documentId || s.ClosedByCombatTaskDocumentId == documentId)
-            // IMPORTANT: order BEFORE projection (SQLite cannot translate OrderBy on DTO property)
             .OrderBy(s => s.FullName)
             .ThenBy(s => s.FromDate)
-            .Select(s => new ActiveMissionPersonDto(
-                PersonId: s.PersonId,
-                Rnokpp: s.Rnokpp,
-                FullName: s.FullName,
-                Callsign: s.Callsign,
-                Rank: s.Rank,
-                Position: s.Position,
-                Weapon: s.Weapon,
-                From: s.FromDate));
-
-        return await q.ToListAsync(ct);
+            .ToListAsync(ct);
     }
 
     /// <inheritdoc />
@@ -128,23 +98,16 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
         DateOnly onDate,
         CancellationToken ct = default)
     {
-        if (onDate == default)
-            throw new ArgumentException("onDate must be set.", nameof(onDate));
+        if (onDate == default) throw new ArgumentException("onDate must be set.", nameof(onDate));
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // System code "30" (ReadyToCombatTask) must exist in catalog.
         var readyCodeId = await db.TimesheetCodes
             .AsNoTracking()
             .Where(x => x.Code == TimesheetSystemCodes.ReadyToCombatTask)
             .Select(x => x.Id)
             .SingleAsync(ct);
 
-        // Pipeline:
-        // PersonRead -> (timesheetId on date) -> (currentCodeId on date) -> (hasActiveTask on date)
-        // Filter: currentCodeId == readyCodeId && !hasActiveTask
-        // Order: by FullName
-        // Project: ReadyCombatTaskPersonDto
         var q = db.PersonRead
             .AsNoTracking()
             .Select(p => new

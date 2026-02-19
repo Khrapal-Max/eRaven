@@ -25,5 +25,18 @@ public sealed class GetCombatTaskMissionPersonsQueryHandler(
     public async Task<IReadOnlyList<ActiveMissionPersonDto>> HandleAsync(
         GetCombatTaskMissionPersonsQuery query,
         CancellationToken ct = default)
-        => await _repo.GetActiveMissionClosablePersonsAsync(query.MissionId, query.OnDate, ct);
+    {
+        var tasks = await _repo.GetActiveMissionClosablePersonsAsync(query.MissionId, query.OnDate, ct);
+
+        return [.. tasks.
+            Select(x => new ActiveMissionPersonDto(
+                PersonId: x.PersonId,
+                Rnokpp: x.Rnokpp,
+                FullName: x.FullName,
+                Callsign: x.Callsign,
+                Rank: x.Rank,
+                Position: x.Position,
+                Weapon: x.Weapon,
+                From: x.FromDate))];
+    }
 }
