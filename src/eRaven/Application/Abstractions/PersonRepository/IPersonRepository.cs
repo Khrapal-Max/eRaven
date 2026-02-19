@@ -31,9 +31,14 @@ public interface IPersonRepository
     /// </summary>
     Task<PersonReadModel?> GetByIdAsync(Guid id, CancellationToken ct = default);
 
-    Task<IReadOnlyList<PersonEventDto>> GetHistoryAsync(Guid id, CancellationToken ct = default);
+    /// <summary>
+    /// Повертає події людини.
+    /// </summary>
+    Task<IReadOnlyList<PersonEventRecord>> GetHistoryAsync(Guid id, CancellationToken ct = default);
 
-    // Commands aggregate (load aggregate -> execute -> append events -> project)
+    /// <summary>
+    /// Commands aggregate (load aggregate -> execute -> append events -> project)
+    /// </summary>
     Task<Guid> CreateReservedAsync(string rnokpp,
         string lastName,
         string firstName,
@@ -122,9 +127,8 @@ public interface IPersonRepository
         CancellationToken ct = default);
 
     // Excel import helpers
-    Task<IReadOnlySet<string>> GetExistingRnokppsAsync(
-     IReadOnlyCollection<string> rnokpps,
-     CancellationToken ct = default);
+    Task<IReadOnlySet<string>> GetExistingRnokppsAsync(IReadOnlyCollection<string> rnokpps,
+        CancellationToken ct = default);
 
     Task<Guid> BootstrapCreateAndEnrollAsync(
         PersonBootstrapRowDto row,

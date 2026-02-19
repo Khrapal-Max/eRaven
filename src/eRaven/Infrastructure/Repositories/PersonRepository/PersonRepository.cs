@@ -131,25 +131,18 @@ public sealed class PersonRepository(
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<PersonEventDto>> GetHistoryAsync(Guid id, CancellationToken ct = default)
+    public async Task<IReadOnlyList<PersonEventRecord>> GetHistoryAsync(Guid id, CancellationToken ct = default)
     {
+        if (id == Guid.Empty)
+            throw new ArgumentException("Person ID is required.", nameof(id));
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var rows = await db.PersonEvents
+        return await db.PersonEvents
             .AsNoTracking()
             .Where(x => x.AggregateId == id)
             .OrderBy(x => x.Version)
-            .Select(x => new PersonEventDto(
-                x.Version,
-                x.EventId,
-                x.EventType,
-                x.PayloadJson,
-                x.Author,
-                x.OccurredAtUtc,
-                x.EffectiveDate))
             .ToListAsync(ct);
-
-        return rows;
     }
 
     // =========================

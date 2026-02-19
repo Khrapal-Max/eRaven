@@ -15,6 +15,9 @@ using eRaven.Domain.Events.PersonEvents.Info;
 
 namespace eRaven.Application.Handlers.Personal;
 
+/// <summary>
+/// Повертає евенти (події) по картоці людини
+/// </summary>
 public sealed class GetPersonHistoryQueryHandler(
     IPersonRepository repo,
     IPersonEventPresenter presenter,
@@ -25,18 +28,30 @@ public sealed class GetPersonHistoryQueryHandler(
     private readonly IPersonEventPresenter _presenter = presenter;
     private readonly IEventJson _eventJson = eventJson;
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<PersonEventListItemDto>> HandleAsync(
         GetPersonHistoryQuery query,
         CancellationToken ct = default)
     {
         var raw = await _repo.GetHistoryAsync(query.PersonId, ct);
+
         if (raw.Count == 0)
             return [];
+
+        var events = raw.Select(x => new PersonEventDto(
+            x.Version,
+            x.EventId,
+            x.EventType,
+            x.PayloadJson,
+            x.Author,
+            x.OccurredAtUtc,
+            x.EffectiveDate))
+        .ToList();
 
         // 1) зібрати всі TargetEventId, які були void
         var voidedTargets = new HashSet<Guid>();
 
-        foreach (var e in raw)
+        foreach (var e in events)
         {
             if (!IsVoidEvent(e))
                 continue;
@@ -52,7 +67,7 @@ public sealed class GetPersonHistoryQueryHandler(
         // 2) сформувати список: void-події НЕ показуємо, але мітимо цільові як IsVoided=true
         var list = new List<PersonEventListItemDto>(raw.Count);
 
-        foreach (var e in raw)
+        foreach (var e in events)
         {
             if (IsVoidEvent(e))
                 continue; // ✅ не показуємо саму подію відміни
@@ -70,6 +85,6 @@ public sealed class GetPersonHistoryQueryHandler(
     }
 
     private static bool IsVoidEvent(PersonEventDto e)
-        => (e.EventType ?? string.Empty)
-            .EndsWith(nameof(PersonEventVoided), StringComparison.Ordinal);
+    => (e.EventType ?? string.Empty)
+        .EndsWith(nameof(PersonEventVoided), StringComparison.OrdinalIgnoreCase);
 }

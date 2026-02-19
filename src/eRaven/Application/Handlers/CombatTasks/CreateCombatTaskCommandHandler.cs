@@ -10,7 +10,6 @@ using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.CombatTasks;
-using eRaven.Application.DTOs.Person;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 

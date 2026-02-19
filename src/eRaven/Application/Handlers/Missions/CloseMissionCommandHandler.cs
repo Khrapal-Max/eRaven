@@ -17,7 +17,5 @@ public sealed class CloseMissionCommandHandler(IMissionRepository repo)
     private readonly IMissionRepository _repo = repo;
 
     public async Task HandleAsync(CloseMissionCommand command, CancellationToken ct = default)
-    {
-        await _repo.CloseMissionAsync(command.MissionId, command.ClosedAt, ct);
-    }
+        => await _repo.CloseMissionAsync(command.MissionId, command.ClosedAt, ct);
 }
