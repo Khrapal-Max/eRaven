@@ -7,6 +7,9 @@
 
 namespace eRaven.Application.DTOs.Dashboard;
 
+/// <summary>
+/// Запис кількості людей по штату, наказу, бойовому розпорядженню
+/// </summary>
 public sealed record PersonnelDashboardDto(
     int TotalInTimesheet,
     int TimesheetUnit,

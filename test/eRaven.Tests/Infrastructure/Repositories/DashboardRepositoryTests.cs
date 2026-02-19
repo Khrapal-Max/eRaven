@@ -12,144 +12,62 @@ using eRaven.Tests.Extensions;
 
 namespace eRaven.Tests.Infrastructure.Repositories;
 
+/// <summary>
+/// Тести для <see cref="DashboardRepository"/>.
+///
+/// <para>Фіксуємо контракт:</para>
+/// <list type="bullet">
+/// <item><description>в дашборд потрапляють лише особи з <see cref="PersonLifecycle.Enrolled"/>.</description></item>
+/// </list>
+/// </summary>
 public sealed class DashboardRepositoryTests
 {
     [Fact]
-    public async Task GetPersonnelDashboardAsync_counts_only_enrolled_and_splits_by_enrollment_kind()
+    public async Task GetPersonnelDashboardAsync_ReturnsOnlyEnrolled()
     {
-        // Arrange
-        await using var db = new SqliteTestDb();
+        await using var tdb = new SqliteTestDb();
 
-        await SeedPersonsAsync(db);
+        var enrolled1 = NewPerson(lifecycle: PersonLifecycle.Enrolled, kind: EnrollmentKind.Unit);
+        var enrolled2 = NewPerson(lifecycle: PersonLifecycle.Enrolled, kind: EnrollmentKind.AttachedByList);
 
-        var repo = new DashboardRepository(db.Factory);
+        var reserved1 = NewPerson(lifecycle: PersonLifecycle.Reserved, kind: null);
+        var reserved2 = NewPerson(lifecycle: PersonLifecycle.Reserved, kind: null);
 
-        // Act
-        var snap = await repo.GetPersonnelDashboardAsync(CancellationToken.None);
-
-        // Assert
-        // Enrolled: 5 total (2 Unit, 1 AttachedByList, 1 AttachedByOrder, 1 with null kind [if allowed])
-        Assert.Equal(5, snap.TotalInTimesheet);
-        Assert.Equal(2, snap.TimesheetUnit);
-        Assert.Equal(1, snap.TimesheetOrder);
-        Assert.Equal(1, snap.TimesheetBr);
-    }
-
-    [Fact]
-    public async Task GetPersonnelDashboardAsync_returns_zeros_when_no_enrolled()
-    {
-        // Arrange
-        await using var db = new SqliteTestDb();
-
-        // Seed only Reserved
-        await using (var ctx = await db.Factory.CreateDbContextAsync())
+        await using (var db = await tdb.Factory.CreateDbContextAsync())
         {
-            ctx.PersonRead.Add(new PersonReadModel
-            {
-                Id = Guid.NewGuid(),
-                FullName = "Reserved One",
-                Rnokpp = "R1",
-                Lifecycle = PersonLifecycle.Reserved,
-                EnrollmentKind = EnrollmentKind.Unit
-            });
-
-            ctx.PersonRead.Add(new PersonReadModel
-            {
-                Id = Guid.NewGuid(),
-                FullName = "Reserved Two",
-                Rnokpp = "R2",
-                Lifecycle = PersonLifecycle.Reserved,
-                EnrollmentKind = EnrollmentKind.AttachedByOrder
-            });
-
-            await ctx.SaveChangesAsync();
+            db.PersonRead.AddRange(enrolled1, enrolled2, reserved1, reserved2);
+            await db.SaveChangesAsync();
         }
 
-        var repo = new DashboardRepository(db.Factory);
+        var repo = new DashboardRepository(tdb.Factory);
 
-        // Act
-        var snap = await repo.GetPersonnelDashboardAsync(CancellationToken.None);
+        var rows = await repo.GetPersonnelDashboardAsync();
 
-        // Assert
-        Assert.Equal(0, snap.TotalInTimesheet);
-        Assert.Equal(0, snap.TimesheetUnit);
-        Assert.Equal(0, snap.TimesheetOrder);
-        Assert.Equal(0, snap.TimesheetBr);
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, x => Assert.Equal(PersonLifecycle.Enrolled, x.Lifecycle));
     }
 
-    private static async Task SeedPersonsAsync(SqliteTestDb db)
-    {
-        await using var ctx = await db.Factory.CreateDbContextAsync();
+    //======================================================================
+    // Helpers
+    //======================================================================
 
-        // NOTE:
-        // Якщо у вашого PersonReadModel є обов'язкові поля (NOT NULL) — додайте їх тут.
-
-        // 2 x Reserved (не мають потрапити в "В табелі")
-        ctx.PersonRead.Add(new PersonReadModel
+    /// <summary>
+    /// Створює мінімально валідний <see cref="PersonReadModel"/> для тестів.
+    /// Заповнюємо лише те, що точно потрібно для EF/логіки.
+    /// </summary>
+    private static PersonReadModel NewPerson(PersonLifecycle lifecycle, EnrollmentKind? kind)
+        => new()
         {
             Id = Guid.NewGuid(),
-            FullName = "Reserved One",
-            Rnokpp = "R1",
-            Lifecycle = PersonLifecycle.Reserved,
-            EnrollmentKind = EnrollmentKind.Unit
-        });
+            Rnokpp = Guid.NewGuid().ToString("N")[..10],
+            FullName = $"P-{Guid.NewGuid():N}"[..10],
+            Lifecycle = lifecycle,
+            EnrollmentKind = kind,
 
-        ctx.PersonRead.Add(new PersonReadModel
-        {
-            Id = Guid.NewGuid(),
-            FullName = "Reserved Two",
-            Rnokpp = "R2",
-            Lifecycle = PersonLifecycle.Reserved,
-            EnrollmentKind = EnrollmentKind.AttachedByOrder
-        });
-
-        // 5 x Enrolled (мають рахуватись)
-        ctx.PersonRead.Add(new PersonReadModel
-        {
-            Id = Guid.NewGuid(),
-            FullName = "Enrolled Unit 1",
-            Rnokpp = "E1",
-            Lifecycle = PersonLifecycle.Enrolled,
-            EnrollmentKind = EnrollmentKind.Unit
-        });
-
-        ctx.PersonRead.Add(new PersonReadModel
-        {
-            Id = Guid.NewGuid(),
-            FullName = "Enrolled Unit 2",
-            Rnokpp = "E2",
-            Lifecycle = PersonLifecycle.Enrolled,
-            EnrollmentKind = EnrollmentKind.Unit
-        });
-
-        ctx.PersonRead.Add(new PersonReadModel
-        {
-            Id = Guid.NewGuid(),
-            FullName = "Enrolled By List",
-            Rnokpp = "E3",
-            Lifecycle = PersonLifecycle.Enrolled,
-            EnrollmentKind = EnrollmentKind.AttachedByList
-        });
-
-        ctx.PersonRead.Add(new PersonReadModel
-        {
-            Id = Guid.NewGuid(),
-            FullName = "Enrolled By Order",
-            Rnokpp = "E4",
-            Lifecycle = PersonLifecycle.Enrolled,
-            EnrollmentKind = EnrollmentKind.AttachedByOrder
-        });
-
-        // Якщо EnrollmentKind nullable у вашій моделі:
-        ctx.PersonRead.Add(new PersonReadModel
-        {
-            Id = Guid.NewGuid(),
-            FullName = "Enrolled Null Kind",
-            Rnokpp = "E5",
-            Lifecycle = PersonLifecycle.Enrolled,
-            EnrollmentKind = null
-        });
-
-        await ctx.SaveChangesAsync();
-    }
+            // якщо у вас є required поля в EF — додай їх тут мінімально валідними значеннями
+            Rank = null,
+            Position = null,
+            Weapon = null,
+            Callsign = null
+        };
 }

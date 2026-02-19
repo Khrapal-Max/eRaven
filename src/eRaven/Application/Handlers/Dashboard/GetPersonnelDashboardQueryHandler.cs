@@ -9,27 +9,35 @@ using eRaven.Application.Abstractions.DashboardRepository;
 using eRaven.Application.DTOs.Dashboard;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Dashboard;
+using eRaven.Domain.Enums;
 
 namespace eRaven.Application.Handlers.Dashboard;
 
+/// <summary>
+/// Повертає дані по кількості людей по штату, наказу та розпорядженню.
+/// </summary>
 public sealed class GetPersonnelDashboardQueryHandler(
     IDashboardRepository repo)
     : IQueryHandler<GetPersonnelDashboardQuery, PersonnelDashboardDto>
 {
     private readonly IDashboardRepository _repo = repo;
 
-    public async Task<PersonnelDashboardDto> HandleAsync(
-        GetPersonnelDashboardQuery query,
+    /// <inheritdoc />
+    public async Task<PersonnelDashboardDto> HandleAsync(GetPersonnelDashboardQuery query,
         CancellationToken ct = default)
     {
-        var snap = await _repo.GetPersonnelDashboardAsync(ct);
+        var persons = await _repo.GetPersonnelDashboardAsync(ct);
+
+        var total = persons.Count;
+        var unit = persons.Count(x => x.EnrollmentKind == EnrollmentKind.Unit);
+        var byList = persons.Count(x => x.EnrollmentKind == EnrollmentKind.AttachedByList);
+        var byOrder = persons.Count(x => x.EnrollmentKind == EnrollmentKind.AttachedByOrder);
 
         return new PersonnelDashboardDto(
-            TotalInTimesheet: snap.TotalInTimesheet,
-            TimesheetUnit: snap.TimesheetUnit,
-            TimesheetOrder: snap.TimesheetOrder,
-            TimesheetBr: snap.TimesheetBr,
-            GeneratedAtUtc: DateTime.UtcNow
-        );
+            TotalInTimesheet: total,
+            TimesheetUnit: unit,
+            TimesheetOrder: byList,
+            TimesheetBr: byOrder,
+            GeneratedAtUtc: DateTime.UtcNow);
     }
 }
