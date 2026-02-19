@@ -6,10 +6,10 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Abstractions.TimesheetRepository;
-using eRaven.Application.Handlers.CombatTasks;   
-using eRaven.Application.Queries.CombatTasks;  
-using eRaven.Domain.Entities;                    
-using eRaven.Domain.Enums;                       
+using eRaven.Application.Handlers.CombatTasks;
+using eRaven.Application.Queries.CombatTasks;
+using eRaven.Domain.Entities;
+using eRaven.Domain.Enums;
 using Moq;
 
 namespace eRaven.Tests.Application.Handlers.CombatTasks;
