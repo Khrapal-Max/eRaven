@@ -59,7 +59,8 @@ public sealed class PersonRepository(
     // =========================
 
     /// <inheritdoc />
-    public async Task<PagedResult<PersonListItemDto>> GetPageAsync(int page,
+    public async Task<PagedResult<PersonReadModel>> GetPageAsync(
+        int page,
         int pageSize,
         string? search = null,
         DateOnly? asOfDate = null,
@@ -67,9 +68,13 @@ public sealed class PersonRepository(
         EnrollmentKind? enrollmentKind = null,
         CancellationToken ct = default)
     {
+        var pageNumber = page < 1 ? 1 : page;
+        var size = pageSize is < 1 or > 200 ? 25 : pageSize;
+        var skip = (pageNumber - 1) * size;
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var q = db.PersonRead.AsNoTracking().AsQueryable();
+        IQueryable<PersonReadModel> q = db.PersonRead.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -79,9 +84,7 @@ public sealed class PersonRepository(
             var pattern = $"%{s}%";
 
             q = q.Where(x =>
-                // FullName: case-insensitive через LOWER(...)
                 EF.Functions.Like(x.FullName.ToLower(), patternLower) ||
-                // rnokpp: цифри, можна без lower
                 EF.Functions.Like(x.Rnokpp, pattern));
         }
 
@@ -94,8 +97,7 @@ public sealed class PersonRepository(
         if (asOfDate is not null)
         {
             var d = asOfDate.Value;
-            // "активний на дату" (як у коментарі індексу):
-            // EnrolledAt <= d AND (ExcludedAt IS NULL OR ExcludedAt >= d)
+
             q = q.Where(x =>
                 x.EnrolledAt != null &&
                 x.EnrolledAt <= d &&
@@ -104,30 +106,17 @@ public sealed class PersonRepository(
 
         var total = await q.CountAsync(ct);
 
-        var pageCount = page < 1 ? 1 : page;
-        var size = pageSize is < 1 or > 200 ? 25 : pageSize;
-        var skip = (pageCount - 1) * size;
-
         var items = await q
             .OrderBy(x => x.PositionSort)
+            .ThenBy(x => x.FullName)
+            .ThenBy(x => x.Id)
             .Skip(skip)
             .Take(size)
-            .Select(x => new PersonListItemDto(
-                x.Id,
-                x.FullName,
-                x.Rnokpp,
-                x.Lifecycle,
-                x.Rank,
-                x.PositionSort,
-                x.Position,
-                x.EnrollmentKind,
-                x.EnrolledAt,
-                x.ExcludedAt,
-                x.UpdatedAtUtc))
             .ToListAsync(ct);
 
-        return new PagedResult<PersonListItemDto>(items, pageCount, size, total);
+        return new PagedResult<PersonReadModel>(items, pageNumber, size, total);
     }
+
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<CombatTaskPersonLookupDto>> GetPersonsSearchAsync(string search, int takePersons, CancellationToken ct = default)

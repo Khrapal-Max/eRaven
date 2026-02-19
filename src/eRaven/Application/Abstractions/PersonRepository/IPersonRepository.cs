@@ -7,6 +7,7 @@
 
 using eRaven.Application.DTOs.Excel;
 using eRaven.Application.DTOs.Person;
+using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 
 namespace eRaven.Application.Abstractions.PersonRepository;
@@ -14,7 +15,7 @@ namespace eRaven.Application.Abstractions.PersonRepository;
 public interface IPersonRepository
 {
     // Read-side
-    Task<PagedResult<PersonListItemDto>> GetPageAsync(int page,
+    Task<PagedResult<PersonReadModel>> GetPageAsync(int page,
         int pageSize,
         string? search = null,
         DateOnly? asOfDate = null,
