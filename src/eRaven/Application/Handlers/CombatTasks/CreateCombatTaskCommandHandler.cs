@@ -187,13 +187,13 @@ public sealed class CreateCombatTaskCommandHandler(
 
         foreach (var personId in need)
         {
-            PersonDetailsDto? p = await _persons.GetByIdAsync(personId, ct);
-            if (p is null) continue;
+            var person = await _persons.GetByIdAsync(personId, ct);
+            if (person is null) continue;
 
-            var rank = TrimOrNull(p.Rank);
-            var position = TrimOrNull(p.Position);
-            var weapon = TrimOrNull(p.Weapon);
-            var callsign = TrimOrNull(p.Callsign);
+            var rank = TrimOrNull(person.Rank);
+            var position = TrimOrNull(person.Position);
+            var weapon = TrimOrNull(person.Weapon);
+            var callsign = TrimOrNull(person.Callsign);
 
             foreach (var row in incoming.Where(x => x.PersonId == personId))
             {
@@ -203,10 +203,10 @@ public sealed class CreateCombatTaskCommandHandler(
                 row.Callsign ??= callsign;
 
                 if (string.IsNullOrWhiteSpace(row.Rnokpp))
-                    row.Rnokpp = (p.Rnokpp ?? string.Empty).Trim();
+                    row.Rnokpp = (person.Rnokpp ?? string.Empty).Trim();
 
                 if (string.IsNullOrWhiteSpace(row.FullName))
-                    row.FullName = (p.FullName ?? string.Empty).Trim();
+                    row.FullName = (person.FullName ?? string.Empty).Trim();
             }
         }
     }

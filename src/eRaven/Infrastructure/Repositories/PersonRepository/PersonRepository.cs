@@ -117,76 +117,17 @@ public sealed class PersonRepository(
         return new PagedResult<PersonReadModel>(items, pageNumber, size, total);
     }
 
-
     /// <inheritdoc />
-    public async Task<IReadOnlyList<CombatTaskPersonLookupDto>> GetPersonsSearchAsync(string search, int takePersons, CancellationToken ct = default)
+    public async Task<PersonReadModel?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
-        // TODO need tests
+        if (id == Guid.Empty)
+            throw new ArgumentException("Person ID is required.", nameof(id));
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var take = takePersons <= 0 ? 50 : Math.Min(takePersons, 200);
-        var s = (search ?? string.Empty).Trim();
-
-        var q = db.PersonRead.AsNoTracking();
-
-        // Мінімум 2 символи — інакше не вантажимо список (щоб не вбивати UI)
-        if (s.Length >= 2)
-        {
-            q = q.Where(p =>
-                (p.FullName != null && EF.Functions.ILike(p.FullName, $"%{s}%")) ||
-                (p.Rnokpp != null && EF.Functions.ILike(p.Rnokpp, $"%{s}%")) ||
-                (p.Callsign != null && EF.Functions.ILike(p.Callsign, $"%{s}%"))
-            );
-        }
-        else
-        {
-            // Порожній пошук: повертаємо пусто — юзер має почати вводити
-            return [];
-        }
-
-        return await q
-            .OrderBy(p => p.FullName)
-            .Select(p => new CombatTaskPersonLookupDto(
-                PersonId: p.Id,
-                RNOKPP: p.Rnokpp ?? string.Empty,
-                FullName: p.FullName ?? string.Empty,
-                Rank: p.Rank ?? string.Empty,
-                Position: p.Position ?? string.Empty,
-                Weapon: p.Weapon ?? string.Empty,
-                Callsign: p.Callsign ?? string.Empty))
-            .Take(take)
-            .ToListAsync(ct);
-    }
-
-    /// <inheritdoc />
-    public async Task<PersonDetailsDto?> GetByIdAsync(Guid id, CancellationToken ct = default)
-    {
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        var rm = await db.PersonRead.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
-        if (rm is null) return null;
-
-        return new PersonDetailsDto(
-            Id: rm.Id,
-            Lifecycle: rm.Lifecycle,
-            EnrollmentKind: rm.EnrollmentKind,
-            EnrollmentReference: rm.EnrollmentReference,
-            Rnokpp: rm.Rnokpp,
-            LastName: rm.LastName,
-            FirstName: rm.FirstName,
-            MiddleName: rm.MiddleName,
-            FullName: rm.FullName,
-            Rank: rm.Rank,
-            PositionSort: rm.PositionSort,
-            Position: rm.Position,
-            Bzvp: rm.Bzvp,
-            Weapon: rm.Weapon,
-            Callsign: rm.Callsign,
-            EnrolledAt: rm.EnrolledAt,
-            ExcludedAt: rm.ExcludedAt,
-            Version: rm.Version,
-            UpdatedAtUtc: rm.UpdatedAtUtc
-        );
+        return await db.PersonRead
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == id, ct);
     }
 
     /// <inheritdoc />

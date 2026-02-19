@@ -15,6 +15,9 @@ namespace eRaven.Application.Abstractions.PersonRepository;
 public interface IPersonRepository
 {
     // Read-side
+    /// <summary>
+    /// Повертає список карток людей, з розбивкою по сторінкам
+    /// </summary>
     Task<PagedResult<PersonReadModel>> GetPageAsync(int page,
         int pageSize,
         string? search = null,
@@ -23,11 +26,10 @@ public interface IPersonRepository
         EnrollmentKind? enrollmentKind = null,
         CancellationToken ct = default);
 
-    Task<IReadOnlyList<CombatTaskPersonLookupDto>> GetPersonsSearchAsync(string search,
-        int takePersons,
-        CancellationToken ct = default);
-
-    Task<PersonDetailsDto?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    /// <summary>
+    /// Повертає картку людини або ноль
+    /// </summary>
+    Task<PersonReadModel?> GetByIdAsync(Guid id, CancellationToken ct = default);
 
     Task<IReadOnlyList<PersonEventDto>> GetHistoryAsync(Guid id, CancellationToken ct = default);
 
