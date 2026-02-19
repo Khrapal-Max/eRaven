@@ -1,0 +1,117 @@
+﻿@page "/missions"
+@using eRaven.Application.DTOs.Missions
+@using eRaven.Domain.Enums
+
+<PageTitle>Міссії</PageTitle>
+
+<div class="page-content">
+    <div class="border bg-secondary-subtle">
+        <div class="py-2 px-4 text-white">
+            Місії
+        </div>
+    </div>
+
+    <div class="container-fluid px-3 py-3">
+
+        <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+
+            <div class="flex-grow-1 d-flex flex-column w-50">
+                <label class="form-label mb-1">Пошук (район / точка / дрон / мета)</label>
+                <input class="form-control form-control-sm rounded-0"
+                       value="@_search"
+                       @oninput="OnSearchInput"
+                       placeholder="Напр: Район-1, DJI, Розвідка..." />
+            </div>
+
+            <div class="d-flex flex-column">
+                <label class="form-label mb-1">Режим місії</label>
+                <select class="form-select form-select-sm rounded-0"
+                        value="@_mode"
+                        @onchange="OnModeChanged">
+                    <option value="">Всі види</option>
+                    <option value="@MissionMode.Day">@GetMissionMode(MissionMode.Day)</option>
+                    <option value="@MissionMode.Night">@GetMissionMode(MissionMode.Night)</option>
+                    <option value="@MissionMode.FullTime">@GetMissionMode(MissionMode.FullTime)</option>
+                </select>
+            </div>
+
+            <Button Class="btn-sm btn-outline-secondary rounded-0"
+                    Label="@(_isActiveMission ? "Активні ✓" : "Активні")"
+                    IsDisabled="@_loading"
+                    OnClickButton="ToggleActiveAsync" />
+
+            <Button Class="btn-sm btn-primary rounded-0"
+                    Label="+ міссія"
+                    IsDisabled="@_loading"
+                    OnClickButton="OpenCreateDrawer" />
+
+            <Button Class="btn-sm btn-success rounded-0"
+                    IsDisabled="@_loading"
+                    OnClickButton="ReloadAsync">
+                <span class="d-inline-flex align-items-center gap-1">
+                    <span aria-hidden="true">⟳</span>
+                    Оновити
+                </span>
+            </Button>
+            
+        </div>
+
+        @if (_loading)
+        {
+            <p class="px-1"><em>Завантаження...</em></p>
+        }
+        else
+        {
+            <div class="timesheet-wrap border">
+                <Table TItem="MissionDto"
+                       Items="_missions"
+                       Class="table-sm table-bordered mb-0"
+                       @bind-SelectedItem="_selected"
+                       KeySelector="@(r => r.MissionId)">
+
+                    <TableHeader>
+                        <th>Поз. район</th>
+                        <th>Точка</th>
+                        <th>Мета</th>
+                        <th class="text-center">Режим</th>
+                        <th>Тип ураження</th>
+                        <th class="text-center">Створена</th>
+                        <th class="text-center">Закрита</th>
+                        <th class="text-center">Дії</th>
+                    </TableHeader>
+
+                    <RowTemplate Context="m">
+                        <td>@m.PositionArea</td>
+                        <td>@m.NamePoint</td>
+                        <td>@m.Target</td>
+                        <td>@GetMissionMode(@m.MissionMode)</td>
+                        <td>@m.DroneName</td>
+                        <td class="text-center font-monospace">@m.CreatedAt.ToString("dd.MM.yyyy")</td>
+                        <td class="text-center font-monospace">@((m.ClosedAt?.ToString("dd.MM.yyyy")) ?? "—")</td>
+
+                        <td class="text-center">
+                            <div class="d-inline-flex gap-1">
+                                <Button Class="btn-sm btn-danger rounded-0"
+                                        Label="- міссія"
+                                        StopPropagation="true"
+                                        IsDisabled="@(!m.IsOpen)"
+                                        OnClickButton="@(() => OpenCloseDrawer(m))" />
+                            </div>
+                        </td>
+                    </RowTemplate>
+
+                </Table>
+            </div>
+        }
+
+        <MissionCreateDrawer IsOpen="@_createOpen"
+                            IsOpenChanged="@(v => _createOpen = v)"
+                            OnCreated="HandleCreatedAsync" />
+
+        <MissionCloseDrawer IsOpen="@_closeOpen"
+                           IsOpenChanged="@(v => _closeOpen = v)"
+                           Mission="@_selectedToClose"
+                           OnClosed="HandleClosedAsync" />
+
+    </div>
+</div>

@@ -5,7 +5,7 @@
 // TimesheetPolicyRepositoryTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs.Timesheet;
+using eRaven.Application.DTOs.Timesheets;
 using eRaven.Domain.Entities;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;

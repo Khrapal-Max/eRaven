@@ -5,7 +5,6 @@
 // ICombatTaskRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs.CombatTask;
 using eRaven.Domain.Entities;
 
 namespace eRaven.Application.Abstractions.CombatTaskRepository;
@@ -15,9 +14,9 @@ public interface ICombatTaskRepository
     // Read operations
 
     /// <summary>
-    /// Повертає DTO редактора документа (header + місії + рядки).
+    /// Повертає документ.
     /// </summary>
-    Task<CombatTaskEditorDto> GetDocumentEditorAsync(Guid documentId, CancellationToken ct = default);
+    Task<CombatTaskDocument> GetDocumentAsync(Guid documentId, CancellationToken ct = default);
 
     /// <summary>
     /// Повертає список MissionId, які присутні у документі.

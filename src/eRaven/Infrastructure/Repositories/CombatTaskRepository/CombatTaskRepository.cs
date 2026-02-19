@@ -6,7 +6,6 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Abstractions.CombatTaskRepository;
-using eRaven.Application.DTOs.CombatTask;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -31,63 +30,19 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
     //======================================================================
 
     /// <inheritdoc />
-    public async Task<CombatTaskEditorDto> GetDocumentEditorAsync(Guid documentId, CancellationToken ct = default)
+    public async Task<CombatTaskDocument> GetDocumentAsync(Guid documentId, CancellationToken ct = default)
     {
         if (documentId == Guid.Empty)
             throw new ArgumentException("DocumentId is required.", nameof(documentId));
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var document = await db.CombatTaskDocuments
+        return await db.CombatTaskDocuments
             .AsNoTracking()
+            .Include(x => x.CombatTasks)
+            .ThenInclude(x => x.CombatTaskDetails)
             .FirstOrDefaultAsync(x => x.Id == documentId, ct)
             ?? throw new InvalidOperationException("Документ не знайдено.");
-
-        var tasks = await db.CombatTasks
-            .AsNoTracking()
-            .Where(x => x.CombatTaskDocumentId == documentId)
-            .Include(x => x.Mission)
-            .Include(x => x.CombatTaskDetails)
-            .OrderBy(x => x.MissionId)
-            .ThenBy(x => x.Id)
-            .ToListAsync(ct);
-
-        var missions = tasks
-            .Select(t => new CombatTaskMissionBlockDto(
-                CombatTaskId: t.Id,
-                MissionId: t.MissionId,
-                MissionName: t.Mission?.ToString() ?? string.Empty,
-                SourceDocument: t.SourceDocument ?? string.Empty,
-                CombatTaskDetails: [.. t.CombatTaskDetails
-                    .OrderBy(l => l.EffectiveAt)
-                    .ThenBy(l => l.Kind)
-                    .ThenBy(l => l.FullName)
-                    .ThenBy(l => l.Id)
-                    .Select(l => new CombatTaskDetailsDto(
-                        CombatTaskDetailsId: l.Id,
-                        Kind: l.Kind,
-                        EffectiveAt: l.EffectiveAt,
-                        PersonId: l.PersonId,
-                        Rnokpp: l.Rnokpp,
-                        Rank: l.Rank,
-                        FullName: l.FullName,
-                        Position: l.Position,
-                        Weapon: l.Weapon,
-                        Callsign: l.Callsign
-                    ))]
-            ))
-            .ToList();
-
-        // NOTE:
-        // - OrderTitle/RecordedAt замінені на Description/ReferenceNumber/OnDate.
-        // - Для сумісності з поточним DTO: DocumentName беремо з ReferenceNumber або Description.
-        return new CombatTaskEditorDto(
-            DocumentId: documentId,
-            DocumentName: document.OrderTitle,
-            Description: document.Description,
-            Status: document.Status,
-            RecordedAt: document.RecordedAt,
-            Missions: missions);
     }
 
     /// <inheritdoc />

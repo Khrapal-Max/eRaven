@@ -5,8 +5,8 @@
 // DefaultCatalofs
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Catalogs.CombatTask.Targets;
-using eRaven.Application.Catalogs.CombatTask.TypeDrones;
+using eRaven.Application.Catalogs.CombatTasks.Targets;
+using eRaven.Application.Catalogs.CombatTasks.TypeDrones;
 using eRaven.Application.Catalogs.Ranks;
 
 namespace eRaven.Extensions;

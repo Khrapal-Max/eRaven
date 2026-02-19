@@ -5,7 +5,7 @@
 // ITimesheetMissionPlanningRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs.CombatTask;
+using eRaven.Application.DTOs.CombatTasks;
 
 namespace eRaven.Application.Abstractions.TimesheetRepository;
 

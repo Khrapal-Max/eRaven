@@ -5,7 +5,7 @@
 // ITimesheetPolicyRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs.Timesheet;
+using eRaven.Application.DTOs.Timesheets;
 using eRaven.Domain.Entities;
 
 namespace eRaven.Application.Abstractions.TimesheetPolicyRepository;

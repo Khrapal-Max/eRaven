@@ -1,0 +1,249 @@
+﻿@page "/task-document/{DocumentId:guid}/start"
+
+@using eRaven.Application.DTOs.CombatTasks
+
+<PageTitle>Призначити на завдання</PageTitle>
+
+<div class="border bg-secondary text-white p-2">
+    <div class="d-flex align-items-center gap-2">
+        <div class="me-auto">
+            <div class="fw-semibold">Призначити на місію</div>
+            <div class="small opacity-75">
+                Документ: <span class="fw-semibold">@DocumentId</span> ·
+                Вибрано: <span class="fw-semibold">@_selected.Count</span>
+                @if (_personsLoading)
+                {
+                    <span class="ms-2"><em>Завантаження…</em></span>
+                }
+                else
+                {
+                    <span class="ms-2">@_personResults.Count / @_personsAll.Count</span>
+                }
+            </div>
+        </div>
+
+        <Button Class="btn-sm btn-outline-light rounded-0"
+                Label="Назад"
+                OnClickButton="GoBack" />
+
+        <Button Class="btn-sm btn-success rounded-0"
+                Label="Зберегти"
+                IsDisabled="@(!CanSave)"
+                OnClickButton="Save" />
+    </div>
+</div>
+
+<div class="container-fluid py-2">
+    <div class="row g-3">
+
+        <!-- LEFT -->
+        <div class="col-12 col-xxl-8">
+
+            <!-- Meta -->
+            <div class="row g-2 mb-2">
+                <div class="col-12 col-lg-4">
+                    <label class="form-label small">Документ (підстава)</label>
+                    <input class="form-control form-control-sm rounded-0"
+                           @bind-value="_model.SourceDocument"
+                           @bind-value:event="oninput" />
+                </div>
+
+                <div class="col-12 col-lg-4">
+                    <label class="form-label small">Дата початку (From)</label>
+                    <input type="date"
+                           class="form-control form-control-sm rounded-0 bg-dark text-white"
+                           @bind-value="_from"
+                           @bind-value:after="OnFromChangedAsync" />
+                </div>
+
+                <div class="col-12 col-lg-4 d-flex align-items-end gap-2">
+
+                    <Button Class="btn-sm btn-warning rounded-0 ms-auto"
+                            Label="Очистити вибір"
+                            IsDisabled="@_busy"
+                            OnClickButton="ClearSelected" />
+                </div>
+            </div>
+
+            <!-- Mission picker -->
+            <div class="mb-2">
+                <label class="form-label small">Місія</label>
+
+                <div class="border">
+                    <select class="form-select form-select-sm rounded-0"
+                            size="6"
+                            value="@_model.MissionId"
+                            @onchange="OnMissionChanged">
+
+                        @if (_missionsLoading)
+                        {
+                            <option disabled>Завантаження...</option>
+                        }
+                        else if (_missionOptions.Count == 0)
+                        {
+                            <option disabled>Немає місій.</option>
+                        }
+                        else
+                        {
+                            @foreach (var g in MissionGroups)
+                            {
+                                <optgroup label="@GetMissionGroupLabel(g.Mode, g.Count)">
+                                    @foreach (var m in g.Items)
+                                    {
+                                        <option value="@m.MissionId">@FormatMissionOption(m)</option>
+                                    }
+                                </optgroup>
+                            }
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <!-- Persons -->
+            <div class="mt-3 border-top pt-2">
+
+                <input class="form-control form-control-sm rounded-0 mb-2"
+                       placeholder="Пошук (мін. 2 символи): ПІБ / РНОКПП / позивний / посада / звання / зброя…"
+                       @bind-value="_personSearch"
+                       @bind-value:event="oninput"
+                       @bind-value:after="OnPersonSearchAfterBindingAsync" />
+
+                <div class="border p-2"
+                     style="max-height: calc(100vh - 440px); overflow:auto;">
+
+                    @if (_personResults.Count == 0)
+                    {
+                        <div class="small"><em>@PersonsEmptyHint</em></div>
+                    }
+                    else
+                    {
+                        @foreach (var p in _personResults)
+                        {
+                            var selected = _selected.ContainsKey(p.PersonId);
+
+                            <div class="border p-2 mb-2 small">
+                                <div class="d-flex align-items-start gap-2">
+                                      
+                                    <div class="min-w-0 flex-grow-1">
+                                        <div class="fw-semibold text-truncate">
+                                            @OrDash(p.Rank) @p.FullName
+                                            @if (selected)
+                                            {
+                                                <span class="badge mx-2 text-bg-success">Вибрано</span>
+                                            }
+                                        </div>
+
+                                        <div class="small opacity-75 text-truncate">
+                                            РНОКПП: <span class="font-monospace">@p.Rnokpp</span>
+                                            @if (!string.IsNullOrWhiteSpace(p.Callsign))
+                                            {
+                                                <span> · Позивний: @p.Callsign</span>
+                                            }
+                                        </div>                                       
+                                    </div>
+
+                                    <Button Class="@GetActionBtnClass(p)"
+                                            IsDisabled="@_busy"
+                                            OnClickButton="@(() => OnPersonActionAsync(p))">
+                                        @GetActionLabel(p)
+                                    </Button>
+
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+
+            </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="col-12 col-xxl-4">
+            <div class="border" style="position: sticky; top: 0;">
+
+                <div class="p-2 border small">
+                    <div class="fw-semibold">Документ: @(_model.SourceDocument?.Trim())</div>
+                    <div class="fw-semibold">Дата: @_from.ToString("dd.MM.yyyy")</div>
+                </div>
+
+                <div class="p-2 small" style="height:50px">
+                    @_missionDisplay
+                </div>
+
+                <hr class="my-2" />
+
+                <div class="d-flex align-items-center px-2">
+                    <div class="small">Вибрано:</div>
+                    <div class="small ms-auto">(@_selected.Count)</div>
+                </div>
+
+                @if (_selected.Count == 0)
+                {
+                    <div class="small p-2"><em>Нічого не вибрано.</em></div>
+                }
+                else
+                {
+                    <div class="p-2"
+                         style="max-height: calc(100vh - 300px); overflow:auto;">
+
+                        @foreach (var p in _selected.Values.OrderBy(x => x.FullName))
+                        {
+                            <div class="border p-2 mb-2 small">
+                                <div class="d-flex align-items-start justify-content-between gap-2">                                   
+
+                                    <div class="min-w-0">
+                                        <div class="fw-semibold text-truncate">
+                                            @OrDash(p.Rank) @p.FullName
+                                        </div>
+                                        <div class="small opacity-75">
+                                            РНОКПП: <span class="font-monospace">@p.Rnokpp</span>
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(p.Callsign))
+                                        {
+                                            <div class="small opacity-75">
+                                                Позивний: @p.Callsign
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <Button Class="btn-sm btn-danger rounded-0 flex-shrink-0"
+                                            IsDisabled="@_busy"
+                                            Label="X"
+                                            OnClickButton="@(() => RemoveSelected(p.PersonId))" />
+
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<ConfirmModal T="ReadyCombatTaskPersonDto"
+              @ref="_personConfirm"
+              Title="Підтвердження додавання"
+              ConfirmText="Додати"
+              CancelText="Скасувати"
+              DialogSize="modal-xl">
+    <BodyTemplate Context="p">
+        <div>РНОКПП: <span class="font-monospace">@p.Rnokpp</span></div>
+        <div class="fw-semibold mt-1">@OrDash(p.Rank) @p.FullName</div>
+
+        @if (!string.IsNullOrWhiteSpace(p.Position))
+        {
+            <div class="mt-2">Посада: <span class="fw-semibold">@p.Position</span></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(p.Weapon))
+        {
+            <div>Зброя: <span class="fw-semibold">@p.Weapon</span></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(p.Callsign))
+        {
+            <div>Позивний: <span class="fw-semibold">@p.Callsign</span></div>
+        }
+    </BodyTemplate>
+</ConfirmModal>

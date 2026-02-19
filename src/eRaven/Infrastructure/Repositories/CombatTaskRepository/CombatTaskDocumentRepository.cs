@@ -6,7 +6,6 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Abstractions.CombatTaskRepository;
-using eRaven.Application.DTOs.CombatTask;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;

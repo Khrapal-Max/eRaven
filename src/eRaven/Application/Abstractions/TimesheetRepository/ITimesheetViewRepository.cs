@@ -5,7 +5,7 @@
 // ITimesheetViewRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs.Timesheet;
+using eRaven.Application.DTOs.Timesheets;
 
 namespace eRaven.Application.Abstractions.TimesheetRepository;
 

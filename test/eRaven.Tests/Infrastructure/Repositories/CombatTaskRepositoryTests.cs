@@ -19,7 +19,7 @@ namespace eRaven.Tests.Infrastructure.Repositories;
 /// <para>
 /// Фіксуємо контракт "документ → контент (CombatTask + CombatTaskDetails)":
 /// <list type="bullet">
-/// <item><description>читання editor DTO з сортуванням рядків;</description></item>
+/// <item><description><c>GetDocumentAsync</c> повертає документ із завантаженими <c>CombatTasks</c> та <c>CombatTaskDetails</c> (Include);</description></item>
 /// <item><description>Create/Upsert з trim і коректним збереженням snapshot-рядків;</description></item>
 /// <item><description>Upsert замінює всі details (replace-all);</description></item>
 /// <item><description>Delete видаляє CombatTask та каскадно details;</description></item>
@@ -27,19 +27,24 @@ namespace eRaven.Tests.Infrastructure.Repositories;
 /// <item><description>GetDocumentMissionIdsAsync повертає MissionId для документа.</description></item>
 /// </list>
 /// </para>
+///
+/// <para>
+/// <b>Примітка:</b> сортування деталей для UI (EffectiveAt/Kind/FullName/Id) —
+/// це відповідальність Application (projector/handler), а не репозиторію,
+/// бо EF не гарантує порядок колекцій у Include.
+/// </para>
 /// </summary>
 public sealed class CombatTaskRepositoryTests
 {
     //======================================================================
-    // Read: Editor
+    // Read: Document (Include graph)
     //======================================================================
 
     /// <summary>
-    /// GetDocumentEditorAsync повертає header документа та місії з деталями,
-    /// а деталі відсортовані: EffectiveAt → Kind → FullName → Id.
+    /// GetDocumentAsync повертає документ разом із CombatTasks та CombatTaskDetails.
     /// </summary>
     [Fact]
-    public async Task GetDocumentEditorAsync_ReturnsHeaderAndSortedMissionBlocks()
+    public async Task GetDocumentAsync_ReturnsDocument_WithTasksAndDetails()
     {
         await using var testDb = new SqliteTestDb();
 
@@ -59,7 +64,7 @@ public sealed class CombatTaskRepositoryTests
         // Seed: mission (required FK)
         var missionId = await SeedMissionAsync(testDb, id: Guid.Parse("00000000-0000-0000-0000-000000000010"));
 
-        // Create combat task with details unsorted
+        // Create combat task with details (unsorted on purpose)
         var d1 = NewDetail(CombatTaskDetailsKind.End, new DateOnly(2026, 02, 12), "B");
         var d2 = NewDetail(CombatTaskDetailsKind.Start, new DateOnly(2026, 02, 10), "A");
         var d3 = NewDetail(CombatTaskDetailsKind.End, new DateOnly(2026, 02, 10), "C");
@@ -70,41 +75,33 @@ public sealed class CombatTaskRepositoryTests
             sourceDocument: " SRC ",
             combatTaskDetails: [d1, d2, d3]);
 
-        var editor = await repo.GetDocumentEditorAsync(docId);
+        // act
+        var doc = await repo.GetDocumentAsync(docId);
 
-        Assert.Equal(docId, editor.DocumentId);
-        Assert.Equal("Наказ №1", editor.DocumentName);
-        Assert.Equal("D", editor.Description);
-        Assert.Equal(DocumentStatus.Active, editor.Status);
-        Assert.Equal(new DateOnly(2026, 02, 10), editor.RecordedAt);
+        // assert: document header
+        Assert.Equal(docId, doc.Id);
+        Assert.Equal("Наказ №1", doc.OrderTitle);
+        Assert.Equal("D", doc.Description);
+        Assert.Equal(DocumentStatus.Active, doc.Status);
+        Assert.Equal(new DateOnly(2026, 02, 10), doc.RecordedAt);
 
-        Assert.Single(editor.Missions);
+        // assert: graph loaded
+        Assert.NotNull(doc.CombatTasks);
+        Assert.Single(doc.CombatTasks);
 
-        var block = editor.Missions[0];
-        Assert.Equal(taskId, block.CombatTaskId);
-        Assert.Equal(missionId, block.MissionId);
-        Assert.Equal("SRC", block.SourceDocument);
+        var task = doc.CombatTasks.Single();
+        Assert.Equal(taskId, task.Id);
+        Assert.Equal(docId, task.CombatTaskDocumentId);
+        Assert.Equal(missionId, task.MissionId);
+        Assert.Equal("SRC", task.SourceDocument); // trimmed by CreateCombatTaskAsync
 
-        // MissionName uses Mission.ToString()
-        await using (var db = await testDb.Factory.CreateDbContextAsync())
-        {
-            var mission = await db.Missions.SingleAsync(x => x.Id == missionId);
-            Assert.Equal(mission.ToString(), block.MissionName);
-        }
+        Assert.NotNull(task.CombatTaskDetails);
+        Assert.Equal(3, task.CombatTaskDetails.Count);
 
-        // Sorted by EffectiveAt, Kind (Start=1 before End=2), FullName
-        Assert.Equal(3, block.CombatTaskDetails.Count);
-        Assert.Equal("A", block.CombatTaskDetails[0].FullName);
-        Assert.Equal(CombatTaskDetailsKind.Start, block.CombatTaskDetails[0].Kind);
-        Assert.Equal(new DateOnly(2026, 02, 10), block.CombatTaskDetails[0].EffectiveAt);
-
-        Assert.Equal("C", block.CombatTaskDetails[1].FullName);
-        Assert.Equal(CombatTaskDetailsKind.End, block.CombatTaskDetails[1].Kind);
-        Assert.Equal(new DateOnly(2026, 02, 10), block.CombatTaskDetails[1].EffectiveAt);
-
-        Assert.Equal("B", block.CombatTaskDetails[2].FullName);
-        Assert.Equal(CombatTaskDetailsKind.End, block.CombatTaskDetails[2].Kind);
-        Assert.Equal(new DateOnly(2026, 02, 12), block.CombatTaskDetails[2].EffectiveAt);
+        // NOTE: Do NOT assert ordering here (Include doesn't guarantee it)
+        Assert.Contains(task.CombatTaskDetails, x => x.FullName == "A" && x.Kind == CombatTaskDetailsKind.Start && x.EffectiveAt == new DateOnly(2026, 02, 10));
+        Assert.Contains(task.CombatTaskDetails, x => x.FullName == "C" && x.Kind == CombatTaskDetailsKind.End && x.EffectiveAt == new DateOnly(2026, 02, 10));
+        Assert.Contains(task.CombatTaskDetails, x => x.FullName == "B" && x.Kind == CombatTaskDetailsKind.End && x.EffectiveAt == new DateOnly(2026, 02, 12));
     }
 
     //======================================================================

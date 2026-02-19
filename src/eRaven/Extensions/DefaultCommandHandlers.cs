@@ -6,16 +6,16 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Commands;
-using eRaven.Application.Commands.CombatTask;
+using eRaven.Application.Commands.CombatTasks;
 using eRaven.Application.Commands.Excel;
-using eRaven.Application.Commands.Mission;
+using eRaven.Application.Commands.Missions;
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
-using eRaven.Application.Commands.Timesheet;
-using eRaven.Application.Handlers.CombatTask;
-using eRaven.Application.Handlers.Mission;
+using eRaven.Application.Commands.Timesheets;
+using eRaven.Application.Handlers.CombatTasks;
+using eRaven.Application.Handlers.Missions;
 using eRaven.Application.Handlers.Personal;
-using eRaven.Application.Handlers.Timesheet;
+using eRaven.Application.Handlers.Timesheets;
 
 namespace eRaven.Extensions;
 

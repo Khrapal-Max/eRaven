@@ -6,7 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Abstractions.TimesheetRepository;
-using eRaven.Application.DTOs.Timesheet;
+using eRaven.Application.DTOs.Timesheets;
 using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 

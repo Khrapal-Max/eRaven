@@ -5,23 +5,23 @@
 // DefaultQueryHandlers
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs.CombatTask;
+using eRaven.Application.DTOs.CombatTasks;
 using eRaven.Application.DTOs.Dashboard;
 using eRaven.Application.DTOs.Excel;
-using eRaven.Application.DTOs.Mission;
+using eRaven.Application.DTOs.Missions;
 using eRaven.Application.DTOs.Person;
-using eRaven.Application.DTOs.Timesheet;
-using eRaven.Application.Handlers.CombatTask;
+using eRaven.Application.DTOs.Timesheets;
+using eRaven.Application.Handlers.CombatTasks;
 using eRaven.Application.Handlers.Dashboard;
-using eRaven.Application.Handlers.Mission;
+using eRaven.Application.Handlers.Missions;
 using eRaven.Application.Handlers.Personal;
-using eRaven.Application.Handlers.Timesheet;
+using eRaven.Application.Handlers.Timesheets;
 using eRaven.Application.Queries;
-using eRaven.Application.Queries.CombatTask;
+using eRaven.Application.Queries.CombatTasks;
 using eRaven.Application.Queries.Dashboard;
-using eRaven.Application.Queries.Mission;
+using eRaven.Application.Queries.Missions;
 using eRaven.Application.Queries.Personal;
-using eRaven.Application.Queries.Timesheet;
+using eRaven.Application.Queries.Timesheets;
 
 namespace eRaven.Extensions;
 

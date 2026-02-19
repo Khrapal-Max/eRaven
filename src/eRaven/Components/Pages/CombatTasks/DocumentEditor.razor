@@ -1,0 +1,127 @@
+﻿@page "/task-document/{DocumentId:guid}"
+
+@using eRaven.Domain.Enums
+@using eRaven.Application.DTOs.CombatTasks
+
+<PageTitle>Документ планування</PageTitle>
+
+<div class="page-content">
+    <div class="container-fluid px-0">
+
+        @if (_loading)
+        {
+            <p class="px-2 py-2"><em>Завантаження...</em></p>
+        }
+        else if (_combatTaskDocument is null)
+        {
+            <div class="border p-3">
+                <div class="fw-semibold mb-2">Документ не знайдено.</div>
+
+                <Button Class="btn-sm btn-light rounded-0"
+                        Label="← Назад"
+                        OnClickButton="@(() => Nav.NavigateTo("/task-documents"))" />
+            </div>
+        }
+        else
+        {
+            <div class="sticky-top border-bottom shadow-sm bg-success-subtle text-white mb-2">
+                <div class="container-fluid px-3 py-2">
+                    <div class="d-flex gap-3 flex-wrap">
+                        <div class="text-nowrap">
+                            <div class="small opacity-75">Дата</div>
+                            <div class="font-monospace fw-semibold">
+                                @_combatTaskDocument.RecordedAt.ToString("dd.MM.yyyy")
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-column">
+                            <div class="small opacity-75">Розпорядження</div>
+                            <div class="fw-semibold text-truncate">@_combatTaskDocument.DocumentName</div>
+                        </div>
+
+                        <div class="flex-grow-1 min-w-0">   
+                            <div class="small opacity-75">Опис змісту</div>
+                            <div class="fw-semibold text-truncate">@_combatTaskDocument.Description</div>
+                        </div>                       
+
+                        <div class="text-nowrap">
+                            <div class="small opacity-75">Статус</div>
+                            <div class="fw-semibold">@_combatTaskDocument.Status</div>
+                        </div>
+
+                        <div class="d-flex align-content-center gap-2 p-2">
+
+                            <Button Class="btn btn-success rounded-0"
+                                    OnClickButton="OpenStartForm">
+                                <i class="bi bi-file-earmark-plus"></i>
+                                </Button>
+
+                            <Button Class="btn btn-warning rounded-0"
+                                    OnClickButton="OpenCloseForm">
+                                <i class="bi bi-file-earmark-minus"></i>
+                                </Button>
+
+                            <Button Class="btn-sm btn-light rounded-0"
+                                    Label="← Назад"
+                                    OnClickButton="@(() => Nav.NavigateTo("/task-documents"))" />                         
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="container-fluid px-0 border"
+                 style="max-height: calc(100vh - 210px); overflow:auto;">
+
+                @if (_missions.Count == 0)
+                {
+                    <div class="border p-2"><em>Груп (місій) поки немає.</em></div>
+                }
+                else
+                {
+                    @foreach (var g in _missions)
+                    {
+                        var starts = g.CombatTaskDetails.Count(x => x.Kind == CombatTaskDetailsKind.Start);
+                        var ends = g.CombatTaskDetails.Count(x => x.Kind == CombatTaskDetailsKind.End);
+
+                        <div class="border mb-2">
+
+                            <!-- Header mission block -->
+                            <div class="d-flex flex-row align-items-center gap-2 border">
+                                <div class="px-2 text-wrap fw-bold">
+                                    @g.MissionName
+                                </div>
+                            </div>
+
+                            <!-- Details table -->
+                            <div class="table-responsive">
+                                <Table TItem="CombatTaskDetailsDto"
+                                       Items="g.CombatTaskDetails"
+                                       IsClickable="false"
+                                       Class="table-sm table-bordered small mb-0">
+                                    <TableHeader>
+                                        <th style="width:120px;">Підстава</th>
+                                        <th style="width:120px;">Дата</th>
+                                        <th style="width:180px;">Подія</th>
+                                        <th style="width:120px;">РНОКПП</th>
+                                        <th>ПІБ</th>
+                                        <th style="width:140px;">Позивний</th>
+                                    </TableHeader>
+
+                                    <RowTemplate Context="d">
+                                        <td class="text-nowrap">@g.SourceDocument</td>
+                                        <td class="font-monospace text-nowrap">@d.EffectiveAt.ToString("dd.MM.yyyy")</td>
+                                        <td class="text-nowrap">@KindLabel(d.Kind)</td>
+                                        <td class="font-monospace text-nowrap">@d.Rnokpp</td>
+                                        <td style="white-space: normal; overflow-wrap:anywhere;">@d.FullName</td>
+                                        <td class="text-nowrap">@d.Callsign</td>
+                                    </RowTemplate>
+                                </Table>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        }   
+    </div>   
+</div>
+

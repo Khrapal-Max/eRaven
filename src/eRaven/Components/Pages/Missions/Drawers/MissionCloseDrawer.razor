@@ -1,0 +1,61 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using eRaven.Application.DTOs.Missions
+@using eRaven.Components.Shared.Validation
+
+<Drawer Title="Закрити місію"
+        IsOpen="@IsOpen"
+        IsOpenChanged="@IsOpenChanged"
+        DisableClose="@_busy"
+        OnClosed="OnDrawerClosed">
+
+    <ChildContent>
+        @if (IsOpen)
+        {
+            <div class="drawer-grow">
+
+                @if (Mission is null)
+                {
+                    <div class="alert alert-warning rounded-0">Місію не вибрано.</div>
+                }
+                else
+                {
+                    <div class="border p-2 bg-white mb-3">
+                        <div class="fw-semibold text-truncate">@Mission.PositionArea</div>
+                        <div class="small text-truncate">
+                            @Mission.NamePoint · @Mission.Target · @Mission.MissionMode · @Mission.DroneName
+                        </div>
+                    </div>
+
+                    <EditForm EditContext="@_editContext" OnValidSubmit="SubmitAsync" id="mission-close-form">
+                        <DataAnnotationsValidator />
+
+                        <div class="row g-2">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label mb-1">Дата закриття</label>
+                                <InputDate class="form-control rounded-0 bg-dark text-white"
+                                           @bind-Value="Model.ClosedAt" />
+                                <ValidationMessage For="@(() => Model.ClosedAt)" />
+                            </div>
+                        </div>
+                    </EditForm>
+                }
+
+            </div>
+        }
+    </ChildContent>
+
+    <FooterContent>
+        <Button Class="btn-outline-secondary rounded-0"
+                Label="Скасувати"
+                IsDisabled="@_busy"
+                OnClickButton="OnCancel" />
+
+        <button type="submit"
+                form="mission-close-form"
+                class="btn btn-danger rounded-0"
+                disabled="@DisabledSave">
+            Закрити
+        </button>
+    </FooterContent>
+
+</Drawer>
