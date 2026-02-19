@@ -5,7 +5,7 @@
 // ICombatTaskDocumentRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs.CombatTask;
+using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 
 namespace eRaven.Application.Abstractions.CombatTaskRepository;
@@ -25,7 +25,7 @@ public interface ICombatTaskDocumentRepository
     /// <summary>
     /// Повертає список документів із фільтрами.
     /// </summary>
-    Task<IReadOnlyList<CombatTaskDocumentDto>> GetDocumentsAsync(
+    Task<IReadOnlyList<CombatTaskDocument>> GetDocumentsAsync(
         int? year,
         int? month,
         DocumentStatus? status,

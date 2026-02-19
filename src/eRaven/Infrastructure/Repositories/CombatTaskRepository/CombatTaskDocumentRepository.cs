@@ -22,7 +22,7 @@ public sealed class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext>
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<CombatTaskDocumentDto>> GetDocumentsAsync(
+    public async Task<IReadOnlyList<CombatTaskDocument>> GetDocumentsAsync(
         int? year,
         int? month,
         DocumentStatus? status,
@@ -54,13 +54,6 @@ public sealed class CombatTaskDocumentRepository(IDbContextFactory<AppDbContext>
         return await q
             .OrderByDescending(x => x.RecordedAt)
             .ThenByDescending(x => x.CreatedAtUtc)
-            .Select(x => new CombatTaskDocumentDto(
-                DocumentId: x.Id,
-                OrderTitle: x.OrderTitle,
-                Description: x.Description,
-                Status: x.Status,
-                RecordedAt: x.RecordedAt,
-                CanceledReason: x.CanceledReason ?? string.Empty))
             .ToListAsync(ct);
     }
 

@@ -251,25 +251,25 @@ public sealed class CombatTaskDocumentRepositoryTests
         var all = await repo.GetDocumentsAsync(year: null, month: null, status: null, search: null);
 
         Assert.Equal(3, all.Count);
-        Assert.Equal(d3, all[0].DocumentId); // RecordedAt=02/10, CreatedAt later
-        Assert.Equal(d2, all[1].DocumentId); // RecordedAt=02/10, CreatedAt earlier
-        Assert.Equal(d1, all[2].DocumentId); // RecordedAt=01/10
+        Assert.Equal(d3, all[0].Id); // RecordedAt=02/10, CreatedAt later
+        Assert.Equal(d2, all[1].Id); // RecordedAt=02/10, CreatedAt earlier
+        Assert.Equal(d1, all[2].Id); // RecordedAt=01/10
 
         // 2) Filter by year/month (2026/02) => d2,d3
         var feb = await repo.GetDocumentsAsync(year: 2026, month: 2, status: null, search: null);
         Assert.Equal(2, feb.Count);
-        Assert.Equal(d3, feb[0].DocumentId);
-        Assert.Equal(d2, feb[1].DocumentId);
+        Assert.Equal(d3, feb[0].Id);
+        Assert.Equal(d2, feb[1].Id);
 
         // 3) Filter by status Active => d1,d3 (d2 canceled)
         var active = await repo.GetDocumentsAsync(year: null, month: null, status: DocumentStatus.Active, search: null);
         Assert.Equal(2, active.Count);
-        Assert.Equal(d3, active[0].DocumentId);
-        Assert.Equal(d1, active[1].DocumentId);
+        Assert.Equal(d3, active[0].Id);
+        Assert.Equal(d1, active[1].Id);
 
         // 4) Filter by status Canceled => only d2
         var canceled = await repo.GetDocumentsAsync(year: null, month: null, status: DocumentStatus.Canceled, search: null);
         Assert.Single(canceled);
-        Assert.Equal(d2, canceled[0].DocumentId);
+        Assert.Equal(d2, canceled[0].Id);
     }
 }

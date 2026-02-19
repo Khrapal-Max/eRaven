@@ -20,6 +20,14 @@ public sealed class GetCombatTaskDocumentsQueryHandler(ICombatTaskDocumentReposi
     public async Task<IReadOnlyList<CombatTaskDocumentDto>> HandleAsync(GetCombatTaskDocumentsQuery query, CancellationToken ct = default)
     {
         var s = string.IsNullOrWhiteSpace(query.Search) ? null : query.Search.Trim();
-        return await _repo.GetDocumentsAsync(query.Year, query.Month, query.Status, s, ct);
+        var task = await _repo.GetDocumentsAsync(query.Year, query.Month, query.Status, s, ct);
+
+        return [.. task.Select(x => new CombatTaskDocumentDto(
+                 DocumentId: x.Id,
+                 OrderTitle: x.OrderTitle,
+                 Description: x.Description,
+                 Status: x.Status,
+                 RecordedAt: x.RecordedAt,
+                 CanceledReason: x.CanceledReason ?? string.Empty))];
     }
 }
