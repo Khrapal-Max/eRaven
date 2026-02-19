@@ -5,7 +5,7 @@
 // TimesheetTransitionOptionDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs.Timesheets;
+namespace eRaven.Application.DTOs.Timesheets.Policy;
 
 /// <summary>
 /// Опція переходу табеля (для UI): вибираємо за Id коду, відображаємо Code + Display.

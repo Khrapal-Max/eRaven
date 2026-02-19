@@ -5,7 +5,7 @@
 // TimesheetPolicyEditorDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs.Timesheets;
+namespace eRaven.Application.DTOs.Timesheets.Policy;
 
 /// <summary>
 /// Запис для показу на формі редагування політики табеля.

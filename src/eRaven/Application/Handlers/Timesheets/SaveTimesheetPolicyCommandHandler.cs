@@ -8,7 +8,7 @@
 using eRaven.Application.Abstractions.TimesheetPolicyRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Timesheets;
-using eRaven.Application.DTOs.Timesheets;
+using eRaven.Application.DTOs.Timesheets.Policy;
 using eRaven.Domain.ValueObjects;
 
 namespace eRaven.Application.Handlers.Timesheets;

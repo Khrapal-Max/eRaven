@@ -11,8 +11,7 @@ namespace eRaven.Application.DTOs.Timesheets;
 /// Запис стану дня в табелі
 /// </summary>
 public sealed record TimesheetDayStateDto(
-  Guid CodeId,
-  string Code,
-  string? Reference,
-  string? Note
-);
+      Guid CodeId,
+      string Code,
+      string? Reference,
+      string? Note);

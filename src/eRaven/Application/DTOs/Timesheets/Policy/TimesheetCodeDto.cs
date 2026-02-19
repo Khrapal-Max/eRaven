@@ -5,7 +5,7 @@
 // TimesheetCodeDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs.Timesheets;
+namespace eRaven.Application.DTOs.Timesheets.Policy;
 
 /// <summary>
 /// Запис кода табеля обліку часу

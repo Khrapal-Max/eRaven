@@ -5,7 +5,7 @@
 // TimesheetTransitionContextDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs.Timesheets;
+namespace eRaven.Application.DTOs.Timesheets.Policy;
 
 /// <summary>
 /// Контекст для UI переходу табеля на конкретну дату:

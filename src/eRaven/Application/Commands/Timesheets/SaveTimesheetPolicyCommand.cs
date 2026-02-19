@@ -5,7 +5,7 @@
 // SaveTimesheetPolicyCommand
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs.Timesheets;
+using eRaven.Application.DTOs.Timesheets.Policy;
 
 namespace eRaven.Application.Commands.Timesheets;
 

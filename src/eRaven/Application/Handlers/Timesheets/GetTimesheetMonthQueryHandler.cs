@@ -21,8 +21,8 @@ public sealed class GetTimesheetMonthQueryHandler(ITimesheetViewRepository repo)
     private readonly ITimesheetViewRepository _repo = repo;
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<TimesheetPersonMonthRowDto>> HandleAsync(
+    public async Task<IReadOnlyList<TimesheetPersonMonthRowDto>> HandleAsync(
         GetTimesheetMonthQuery query,
         CancellationToken ct = default)
-        => _repo.GetTimesheetMonthAsync(query.Year, query.Month, query.Search, ct);
+        => await _repo.GetTimesheetMonthAsync(query.Year, query.Month, query.Search, ct);
 }

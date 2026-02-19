@@ -5,7 +5,7 @@
 // TimesheetTransitionSpecDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs.Timesheets;
+namespace eRaven.Application.DTOs.Timesheets.Policy;
 
 /// <summary>
 /// Опис дозволеного переходу: To + як трактувати дату.
