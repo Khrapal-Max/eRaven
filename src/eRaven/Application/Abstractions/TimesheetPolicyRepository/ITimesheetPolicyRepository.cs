@@ -7,6 +7,7 @@
 
 using eRaven.Application.DTOs.Timesheets;
 using eRaven.Domain.Entities;
+using eRaven.Domain.ValueObjects;
 
 namespace eRaven.Application.Abstractions.TimesheetPolicyRepository;
 
@@ -64,14 +65,14 @@ public interface ITimesheetPolicyRepository
     /// Зберігає зміни коду та його правила переходів (диф-оновлення без втрати даних).
     /// </summary>
     Task SavePolicyAsync(
-        Guid codeId,
-        string title,
-        string? description,
-        int sortOrder,
-        int priority,
-        bool isTerminal,
-        IReadOnlyCollection<TimesheetTransitionSpecDto> allowedTransitions,
-        string author,
-        DateTime nowUtc,
-        CancellationToken ct = default);
+         Guid codeId,
+         string title,
+         string? description,
+         int sortOrder,
+         int priority,
+         bool isTerminal,
+         IReadOnlyCollection<TimesheetTransitionSpec> allowedTransitions,
+         string author,
+         DateTime nowUtc,
+         CancellationToken ct = default);
 }

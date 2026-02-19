@@ -5,8 +5,8 @@
 // TimesheetPolicyRepositoryTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs.Timesheets;
 using eRaven.Domain.Entities;
+using eRaven.Domain.ValueObjects;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
 using eRaven.Tests.Extensions;
@@ -14,33 +14,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Tests.Infrastructure.Repositories;
 
-/// <summary>
-/// Тести для <see cref="TimesheetPolicyRepository"/>.
-///
-/// <para>
-/// Фіксуємо інфраструктурну поведінку довідника кодів і правил переходів:
-/// <list type="bullet">
-/// <item><description><see cref="TimesheetPolicyRepository.GetCodesAsync"/> не повертає системний код "НБ" та (за замовчуванням) не повертає неактивні коди;</description></item>
-/// <item><description><see cref="TimesheetPolicyRepository.GetAllowedTransitionsAsync"/> повертає тільки переходи до активних ToCode і не в "НБ";</description></item>
-/// <item><description><see cref="TimesheetPolicyRepository.SavePolicyAsync"/> робить diff-оновлення переходів без втрати Created* у transition;</description></item>
-/// <item><description><see cref="TimesheetPolicyRepository.AddCodeAsync"/> / <see cref="TimesheetPolicyRepository.CloseCodeAsync"/> — trim, перевірки, ідемпотентність.</description></item>
-/// </list>
-/// </para>
-/// </summary>
 public sealed class TimesheetPolicyRepositoryTests
 {
     //======================================================================
     // GetCodesAsync
     //======================================================================
 
-    /// <summary>
-    /// GetCodesAsync:
-    /// <list type="bullet">
-    /// <item><description>за замовчуванням повертає лише активні;</description></item>
-    /// <item><description>ніколи не повертає системний код "НБ";</description></item>
-    /// <item><description>сортування: SortOrder → Priority → Code.</description></item>
-    /// </list>
-    /// </summary>
     [Fact]
     public async Task GetCodesAsync_ExcludesSystemNb_AndInactive_AndSorts()
     {
@@ -50,15 +29,50 @@ public sealed class TimesheetPolicyRepositoryTests
         var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
 
         // Active codes
-        var idT = await repo.AddCodeAsync("Т", "Base", null, sortOrder: 0, priority: 10, isTerminal: false, author: "seed", nowUtc: now);
-        var id100 = await repo.AddCodeAsync("100", "Task", null, sortOrder: 1, priority: 0, isTerminal: false, author: "seed", nowUtc: now);
-        var id30 = await repo.AddCodeAsync("30", "Ready", null, sortOrder: 1, priority: 5, isTerminal: false, author: "seed", nowUtc: now);
+        var idT = await repo.AddCodeAsync(
+            code: "Т",
+            title: "Base",
+            description: null,
+            sortOrder: 0,
+            priority: 10,
+            isTerminal: false,
+            author: "seed",
+            nowUtc: now);
+
+        _ = await repo.AddCodeAsync(
+            code: "100",
+            title: "Task",
+            description: null,
+            sortOrder: 1,
+            priority: 0,
+            isTerminal: false,
+            author: "seed",
+            nowUtc: now);
+
+        _ = await repo.AddCodeAsync(
+            code: "30",
+            title: "Ready",
+            description: null,
+            sortOrder: 1,
+            priority: 5,
+            isTerminal: false,
+            author: "seed",
+            nowUtc: now);
 
         // Inactive code
-        var idX = await repo.AddCodeAsync("X", "Closed", null, sortOrder: 2, priority: 0, isTerminal: false, author: "seed", nowUtc: now);
+        var idX = await repo.AddCodeAsync(
+            code: "X",
+            title: "Closed",
+            description: null,
+            sortOrder: 2,
+            priority: 0,
+            isTerminal: false,
+            author: "seed",
+            nowUtc: now);
+
         await repo.CloseCodeAsync(idX, author: "seed", nowUtc: now.AddMinutes(1));
 
-        // System "НБ" inserted directly (repo may allow it, but GetCodes must hide it always)
+        // System "НБ" inserted directly (GetCodes must hide it always)
         await using (var db = await testDb.Factory.CreateDbContextAsync())
         {
             db.TimesheetCodes.Add(new TimesheetCodeDefinition
@@ -97,10 +111,6 @@ public sealed class TimesheetPolicyRepositoryTests
     // AddCodeAsync / CloseCodeAsync / GetCodeByIdAsync
     //======================================================================
 
-    /// <summary>
-    /// AddCodeAsync trims поля, робить Description null якщо порожня,
-    /// і відхиляє дублікати Code.
-    /// </summary>
     [Fact]
     public async Task AddCodeAsync_Trims_AndThrowsOnDuplicate()
     {
@@ -148,10 +158,6 @@ public sealed class TimesheetPolicyRepositoryTests
         Assert.Contains("вже існує", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>
-    /// CloseCodeAsync робить код неактивним та заповнює Updated*.
-    /// Повторний Close — ідемпотентний.
-    /// </summary>
     [Fact]
     public async Task CloseCodeAsync_SetsInactive_AndIsIdempotent()
     {
@@ -162,10 +168,18 @@ public sealed class TimesheetPolicyRepositoryTests
         var t1 = t0.AddMinutes(1);
         var t2 = t0.AddMinutes(2);
 
-        var id = await repo.AddCodeAsync("A", "Alpha", null, 0, 0, false, "seed", t0);
+        var id = await repo.AddCodeAsync(
+            code: "A",
+            title: "Alpha",
+            description: null,
+            sortOrder: 0,
+            priority: 0,
+            isTerminal: false,
+            author: "seed",
+            nowUtc: t0);
 
-        await repo.CloseCodeAsync(id, "closer1", t1);
-        await repo.CloseCodeAsync(id, "closer2", t2); // must not overwrite
+        await repo.CloseCodeAsync(id, author: "closer1", nowUtc: t1);
+        await repo.CloseCodeAsync(id, author: "closer2", nowUtc: t2); // must not overwrite
 
         await using var db = await testDb.Factory.CreateDbContextAsync();
         var code = await db.TimesheetCodes.SingleAsync(x => x.Id == id);
@@ -175,9 +189,6 @@ public sealed class TimesheetPolicyRepositoryTests
         Assert.Equal(t1, code.UpdatedAtUtc);
     }
 
-    /// <summary>
-    /// GetCodeByIdAsync повертає тільки активні коди та кидає ArgumentException при порожньому Guid.
-    /// </summary>
     [Fact]
     public async Task GetCodeByIdAsync_ReturnsActiveOnly_AndThrowsOnEmptyId()
     {
@@ -186,10 +197,19 @@ public sealed class TimesheetPolicyRepositoryTests
 
         var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
 
-        var id = await repo.AddCodeAsync("B", "Bravo", null, 0, 0, false, "seed", now);
+        var id = await repo.AddCodeAsync(
+            code: "B",
+            title: "Bravo",
+            description: null,
+            sortOrder: 0,
+            priority: 0,
+            isTerminal: false,
+            author: "seed",
+            nowUtc: now);
+
         Assert.NotNull(await repo.GetCodeByIdAsync(id));
 
-        await repo.CloseCodeAsync(id, "seed", now.AddMinutes(1));
+        await repo.CloseCodeAsync(id, author: "seed", nowUtc: now.AddMinutes(1));
         Assert.Null(await repo.GetCodeByIdAsync(id));
 
         await Assert.ThrowsAsync<ArgumentException>(() => repo.GetCodeByIdAsync(Guid.Empty));
@@ -199,15 +219,6 @@ public sealed class TimesheetPolicyRepositoryTests
     // GetAllowedTransitionsAsync
     //======================================================================
 
-    /// <summary>
-    /// GetAllowedTransitionsAsync:
-    /// <list type="bullet">
-    /// <item><description>повертає переходи тільки в активні ToCode;</description></item>
-    /// <item><description>виключає ToCode == "НБ";</description></item>
-    /// <item><description>сортування за ToCode.SortOrder → ToCode.Priority → ToCode.Code;</description></item>
-    /// <item><description>ToCode має бути завантажений (Include).</description></item>
-    /// </list>
-    /// </summary>
     [Fact]
     public async Task GetAllowedTransitionsAsync_FiltersAndSorts_AndIncludesToCode()
     {
@@ -217,16 +228,59 @@ public sealed class TimesheetPolicyRepositoryTests
         var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
 
         // from
-        var fromId = await repo.AddCodeAsync("FROM", "From", null, 0, 0, false, "seed", now);
+        var fromId = await repo.AddCodeAsync(
+            code: "FROM",
+            title: "From",
+            description: null,
+            sortOrder: 0,
+            priority: 0,
+            isTerminal: false,
+            author: "seed",
+            nowUtc: now);
 
         // to codes (active)
-        var toB = await repo.AddCodeAsync("B", "B", null, sortOrder: 0, priority: 5, isTerminal: false, "seed", now);
-        var toA = await repo.AddCodeAsync("A", "A", null, sortOrder: 0, priority: 1, isTerminal: false, "seed", now);
-        var toC = await repo.AddCodeAsync("C", "C", null, sortOrder: 1, priority: 0, isTerminal: false, "seed", now);
+        var toB = await repo.AddCodeAsync(
+            code: "B",
+            title: "B",
+            description: null,
+            sortOrder: 0,
+            priority: 5,
+            isTerminal: false,
+            author: "seed",
+            nowUtc: now);
+
+        var toA = await repo.AddCodeAsync(
+            code: "A",
+            title: "A",
+            description: null,
+            sortOrder: 0,
+            priority: 1,
+            isTerminal: false,
+            author: "seed",
+            nowUtc: now);
+
+        var toC = await repo.AddCodeAsync(
+            code: "C",
+            title: "C",
+            description: null,
+            sortOrder: 1,
+            priority: 0,
+            isTerminal: false,
+            author: "seed",
+            nowUtc: now);
 
         // inactive ToCode
-        var toX = await repo.AddCodeAsync("X", "X", null, 2, 0, false, "seed", now);
-        await repo.CloseCodeAsync(toX, "seed", now.AddMinutes(1));
+        var toX = await repo.AddCodeAsync(
+            code: "X",
+            title: "X",
+            description: null,
+            sortOrder: 2,
+            priority: 0,
+            isTerminal: false,
+            author: "seed",
+            nowUtc: now);
+
+        await repo.CloseCodeAsync(toX, author: "seed", nowUtc: now.AddMinutes(1));
 
         // system ToCode "НБ" (active)
         Guid nbId;
@@ -273,14 +327,6 @@ public sealed class TimesheetPolicyRepositoryTests
     // SavePolicyAsync
     //======================================================================
 
-    /// <summary>
-    /// SavePolicyAsync має:
-    /// <list type="bullet">
-    /// <item><description>оновити Title/Description/SortOrder/Priority/IsTerminal + Updated*;</description></item>
-    /// <item><description>diff-оновити transitions: update StartShiftDays, add нові, remove відсутні;</description></item>
-    /// <item><description>не змінювати CreatedBy/CreatedAtUtc у вже існуючих переходів.</description></item>
-    /// </list>
-    /// </summary>
     [Fact]
     public async Task SavePolicyAsync_UpdatesCode_AndDiffUpdatesTransitions_PreservingTransitionCreated()
     {
@@ -291,7 +337,15 @@ public sealed class TimesheetPolicyRepositoryTests
         var t1 = t0.AddMinutes(5);
 
         // from code
-        var fromId = await repo.AddCodeAsync("FROM", "OldTitle", "OldDesc", 10, 10, false, "seed", t0);
+        var fromId = await repo.AddCodeAsync(
+            code: "FROM",
+            title: "OldTitle",
+            description: "OldDesc",
+            sortOrder: 10,
+            priority: 10,
+            isTerminal: false,
+            author: "seed",
+            nowUtc: t0);
 
         // to codes
         var to1 = await repo.AddCodeAsync("T1", "T1", null, 0, 0, false, "seed", t0);
@@ -327,16 +381,19 @@ public sealed class TimesheetPolicyRepositoryTests
         }
 
         // desired transitions:
-        // - update T1 to StartShiftDays=1 (duplicate entry later ignored by normalization)
+        // - update T1 to StartShiftDays=1 (duplicate later ignored by normalization)
         // - remove T2 (not present)
         // - add T3 (0)
+        //
+        // Якщо ти ПОВНІСТЮ переніс normalize в handler і прибрав з repo — зроби тут
+        // лише: new TimesheetTransitionSpec(to1, 1), new TimesheetTransitionSpec(to3, 0)
         var desired = new[]
         {
-            new TimesheetTransitionSpecDto(to1, 1),
-            new TimesheetTransitionSpecDto(to1, 0),          // duplicate; should be ignored
-            new TimesheetTransitionSpecDto(to3, 0),
-            new TimesheetTransitionSpecDto(Guid.Empty, 0),   // ignored
-            new TimesheetTransitionSpecDto(fromId, 0)        // self; ignored
+            new TimesheetTransitionSpec(to1, 1),
+            new TimesheetTransitionSpec(to1, 0),        // duplicate; should be ignored (if repo normalizes)
+            new TimesheetTransitionSpec(to3, 0),
+            new TimesheetTransitionSpec(Guid.Empty, 0), // ignored (if repo normalizes)
+            new TimesheetTransitionSpec(fromId, 0)      // self; ignored (if repo normalizes)
         };
 
         await repo.SavePolicyAsync(
@@ -353,7 +410,7 @@ public sealed class TimesheetPolicyRepositoryTests
         await using (var db = await testDb.Factory.CreateDbContextAsync())
         {
             var code = await db.TimesheetCodes.SingleAsync(x => x.Id == fromId);
-            Assert.Equal("FROM", code.Code);                // immutable
+            Assert.Equal("FROM", code.Code); // immutable
             Assert.Equal("NewTitle", code.Title);
             Assert.Equal("NewDesc", code.Description);
             Assert.Equal(1, code.SortOrder);
@@ -384,10 +441,6 @@ public sealed class TimesheetPolicyRepositoryTests
         }
     }
 
-    /// <summary>
-    /// SavePolicyAsync має відхиляти transitions на неіснуючі або неактивні ToCode,
-    /// і не робити часткових змін.
-    /// </summary>
     [Fact]
     public async Task SavePolicyAsync_Throws_WhenToCodeMissingOrInactive_WithoutPartialChanges()
     {
@@ -435,7 +488,7 @@ public sealed class TimesheetPolicyRepositoryTests
                 sortOrder: 0,
                 priority: 0,
                 isTerminal: false,
-                allowedTransitions: new[] { new TimesheetTransitionSpecDto(missingTo, 0) },
+                allowedTransitions: new[] { new TimesheetTransitionSpec(missingTo, 0) },
                 author: "editor",
                 nowUtc: t1));
 
@@ -461,7 +514,7 @@ public sealed class TimesheetPolicyRepositoryTests
                 sortOrder: 0,
                 priority: 0,
                 isTerminal: false,
-                allowedTransitions: new[] { new TimesheetTransitionSpecDto(toInactive, 0) },
+                allowedTransitions: new[] { new TimesheetTransitionSpec(toInactive, 0) },
                 author: "editor",
                 nowUtc: t1));
     }
