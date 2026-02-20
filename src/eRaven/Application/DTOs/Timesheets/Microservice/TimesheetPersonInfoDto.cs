@@ -2,23 +2,24 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// TimesheetPersonRangeRowDto
+// TimesheetPersonInfoDto
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs.Enums;
 using eRaven.Domain.Enums;
 
-namespace eRaven.Application.DTOs.Timesheets;
+namespace eRaven.Application.DTOs.Timesheets.Microservice;
 
 /// <summary>
-/// Запис для відображення періоду по особі
+/// Єдиний Person snapshot для табеля.
 /// </summary>
-public sealed record TimesheetPersonRangeRowDto(
+public sealed record TimesheetPersonInfoDto(
     Guid PersonId,
     string FullName,
     string Rnokpp,
     string? Rank,
+    int? PositionSort,
     string? Position,
-    EnrollmentKind? EnrollmentKind,
+    EnrollmentKindDto EnrollmentKindDto,
     DateOnly? EnrolledAt,
-    DateOnly? ExcludedAt,
-    IReadOnlyList<TimesheetRangeDayDto> Days);
+    DateOnly? ExcludedAt);

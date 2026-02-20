@@ -169,7 +169,7 @@ public partial class TimesheetWeekShell : ComponentBase
         // Тут передаємо лише стартову дату (за замовчуванням — операційний день).
         _drawerInitialDate = _anchorDate;
 
-        _drawerPersonLabel = $"{r.Rank} {r.FullName} ({r.RNOKPP})".Trim();
+        _drawerPersonLabel = $"{r.Rank} {r.FullName} ({r.Rnokpp})".Trim();
         _drawerOpen = true;
     }
 
@@ -181,7 +181,7 @@ public partial class TimesheetWeekShell : ComponentBase
         _personDrawerPerson = new TimesheetPersonMonthRowDto(
             PersonId: r.PersonId,
             FullName: r.FullName,
-            RNOKPP: r.RNOKPP,
+            Rnokpp: r.Rnokpp,
             Rank: r.Rank,
             Position: r.Position,
             EnrollmentKind: r.EnrollmentKind,

@@ -15,7 +15,7 @@ namespace eRaven.Application.DTOs.Timesheets;
 /// </summary>
 /// <param name="PersonId">Ідентифікатор особи.</param>
 /// <param name="FullName">ПІБ (повністю).</param>
-/// <param name="RNOKPP">РНОКПП.</param>
+/// <param name="Rnokpp">РНОКПП.</param>
 /// <param name="Rank">Звання (опційно).</param>
 /// <param name="Position">Посада (опційно).</param>
 /// <param name="EnrollmentKind">Тип зарахування (опційно).</param>
@@ -32,7 +32,7 @@ namespace eRaven.Application.DTOs.Timesheets;
 public sealed record TimesheetPersonMonthRowDto(
     Guid PersonId,
     string FullName,
-    string RNOKPP,
+    string Rnokpp,
     string? Rank,
     string? Position,
     EnrollmentKind? EnrollmentKind,

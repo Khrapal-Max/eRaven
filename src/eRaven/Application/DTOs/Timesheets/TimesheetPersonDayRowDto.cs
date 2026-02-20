@@ -15,7 +15,7 @@ namespace eRaven.Application.DTOs.Timesheets;
 public sealed record TimesheetPersonDayRowDto(
     Guid PersonId,
     string FullName,
-    string RNOKPP,
+    string Rnokpp,
     string? Rank,
     string? Position,
     EnrollmentKind? EnrollmentKind,

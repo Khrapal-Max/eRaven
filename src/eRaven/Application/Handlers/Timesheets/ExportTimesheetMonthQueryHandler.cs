@@ -121,7 +121,7 @@ public sealed class ExportTimesheetMonthQueryHandler(
             ws.Cell(rIdx, c++).Value = r.Position ?? "";
             ws.Cell(rIdx, c++).Value = r.Rank ?? "";
             ws.Cell(rIdx, c++).Value = r.FullName ?? "";
-            ws.Cell(rIdx, c++).Value = r.RNOKPP ?? "";
+            ws.Cell(rIdx, c++).Value = r.Rnokpp ?? "";
 
             for (var day = 1; day <= daysInMonth; day++)
             {

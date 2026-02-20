@@ -67,7 +67,7 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
             result.Add(new TimesheetPersonMonthRowDto(
                 PersonId: p.PersonId,
                 FullName: p.FullName,
-                RNOKPP: p.Rnokpp,
+                Rnokpp: p.Rnokpp,
                 Rank: p.Rank,
                 Position: p.Position,
                 EnrollmentKind: p.EnrollmentKind,
@@ -126,7 +126,7 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
             result.Add(new TimesheetPersonRangeRowDto(
                 PersonId: p.PersonId,
                 FullName: p.FullName,
-                RNOKPP: p.Rnokpp,
+                Rnokpp: p.Rnokpp,
                 Rank: p.Rank,
                 Position: p.Position,
                 EnrollmentKind: p.EnrollmentKind,
@@ -258,7 +258,7 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
         var row = new TimesheetPersonMonthRowDto(
             PersonId: p.PersonId,
             FullName: p.FullName,
-            RNOKPP: p.Rnokpp,
+            Rnokpp: p.Rnokpp,
             Rank: p.Rank,
             Position: p.Position,
             EnrollmentKind: p.EnrollmentKind,
@@ -325,7 +325,7 @@ public sealed class TimesheetViewRepository(IDbContextFactory<AppDbContext> dbFa
             result.Add(new TimesheetPersonDayRowDto(
                 PersonId: p.PersonId,
                 FullName: p.FullName,
-                RNOKPP: p.Rnokpp,
+                Rnokpp: p.Rnokpp,
                 Rank: p.Rank,
                 Position: p.Position,
                 EnrollmentKind: p.EnrollmentKind,
