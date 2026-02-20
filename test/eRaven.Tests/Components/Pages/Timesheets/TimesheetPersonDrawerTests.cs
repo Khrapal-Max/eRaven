@@ -43,7 +43,7 @@ public sealed class TimesheetPersonDrawerTests : BunitContext
         var dto = new TimesheetPersonMonthRowDto(
             PersonId: personId,
             FullName: "Іванов Іван Іванович",
-            RNOKPP: "1234567890",
+            Rnokpp: "1234567890",
             Rank: "Солдат",
             Position: "Стрілець",
             EnrollmentKind: EnrollmentKind.Unit,
@@ -85,7 +85,7 @@ public sealed class TimesheetPersonDrawerTests : BunitContext
         var dto = new TimesheetPersonMonthRowDto(
             PersonId: personId,
             FullName: "Іванов Іван",
-            RNOKPP: "123",
+            Rnokpp: "123",
             Rank: null,
             Position: null,
             EnrollmentKind: EnrollmentKind.Unit,
@@ -120,7 +120,7 @@ public sealed class TimesheetPersonDrawerTests : BunitContext
         var dto = new TimesheetPersonMonthRowDto(
             PersonId: personId,
             FullName: "Іванов Іван",
-            RNOKPP: "123",
+            Rnokpp: "123",
             Rank: null,
             Position: null,
             EnrollmentKind: EnrollmentKind.Unit,

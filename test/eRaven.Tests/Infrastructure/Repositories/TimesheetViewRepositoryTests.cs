@@ -78,17 +78,17 @@ public sealed class TimesheetViewRepositoryTests
         });
 
         // p3: 01..15 => "30", 16..31 => "НБ"
-        var r3 = rows.Single(r => r.RNOKPP == "333");
+        var r3 = rows.Single(r => r.Rnokpp == "333");
         Assert.All(r3.Codes.Take(15), c => Assert.Equal("30", c));
         Assert.All(r3.Codes.Skip(15), c => Assert.Equal(TimesheetSystemCodes.NotInTimesheet, c));
 
         // p2: 01..09 => "НБ", 10..31 => "30"
-        var r2 = rows.Single(r => r.RNOKPP == "222");
+        var r2 = rows.Single(r => r.Rnokpp == "222");
         Assert.All(r2.Codes.Take(9), c => Assert.Equal(TimesheetSystemCodes.NotInTimesheet, c));
         Assert.All(r2.Codes.Skip(9), c => Assert.Equal("30", c));
 
         // p4 не перетинає січень
-        Assert.DoesNotContain(rows, r => r.RNOKPP == "444");
+        Assert.DoesNotContain(rows, r => r.Rnokpp == "444");
     }
 
     [Fact]
@@ -179,11 +179,11 @@ public sealed class TimesheetViewRepositoryTests
 
         var byRnokpp = await repo.GetTimesheetMonthAsync(2026, 1, "111");
         Assert.Single(byRnokpp);
-        Assert.Equal("111", byRnokpp[0].RNOKPP);
+        Assert.Equal("111", byRnokpp[0].Rnokpp);
 
         var byName = await repo.GetTimesheetMonthAsync(2026, 1, "petrenko");
         Assert.Single(byName);
-        Assert.Equal("222", byName[0].RNOKPP);
+        Assert.Equal("222", byName[0].Rnokpp);
     }
 
     //======================================================================
@@ -395,16 +395,16 @@ public sealed class TimesheetViewRepositoryTests
         var rows = await repo.GetTimesheetDayAsync(date, search: null);
 
         Assert.Equal(2, rows.Count);
-        Assert.Contains(rows, r => r.RNOKPP == "111");
-        Assert.Contains(rows, r => r.RNOKPP == "222");
-        Assert.DoesNotContain(rows, r => r.RNOKPP == "333");
+        Assert.Contains(rows, r => r.Rnokpp == "111");
+        Assert.Contains(rows, r => r.Rnokpp == "222");
+        Assert.DoesNotContain(rows, r => r.Rnokpp == "333");
 
-        var r1 = rows.Single(r => r.RNOKPP == "111");
+        var r1 = rows.Single(r => r.Rnokpp == "111");
         Assert.Equal("100", r1.DayState.Code);
         Assert.Equal("NEW-REF", r1.DayState.Reference);
         Assert.Equal("NEW-NOTE", r1.DayState.Note);
 
-        var r2 = rows.Single(r => r.RNOKPP == "222");
+        var r2 = rows.Single(r => r.Rnokpp == "222");
         Assert.Equal(Guid.Empty, r2.DayState.CodeId);
         Assert.Equal(TimesheetSystemCodes.NotInTimesheet, r2.DayState.Code);
         Assert.Null(r2.DayState.Reference);
@@ -444,11 +444,11 @@ public sealed class TimesheetViewRepositoryTests
 
         var byRnokpp = await repo.GetTimesheetDayAsync(date, "111");
         Assert.Single(byRnokpp);
-        Assert.Equal("111", byRnokpp[0].RNOKPP);
+        Assert.Equal("111", byRnokpp[0].Rnokpp);
 
         var byName = await repo.GetTimesheetDayAsync(date, "petrenko");
         Assert.Single(byName);
-        Assert.Equal("222", byName[0].RNOKPP);
+        Assert.Equal("222", byName[0].Rnokpp);
     }
 
     //======================================================================
