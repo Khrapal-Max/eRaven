@@ -17,26 +17,23 @@ namespace eRaven.Application.Handlers.Timesheets;
 /// <summary>
 /// Виконує перехід табельного стану для особи.
 ///
-/// Інваріанти:
+/// <para>Інваріанти:</para>
 /// <list type="bullet">
 /// <item><description><c>30 → 100</c> та <c>100 → 30</c> виконує лише документ (ручні переходи заборонені).</description></item>
 /// <item><description><c>100</c> не можна встановлювати вручну.</description></item>
-/// <item><description>Під активним завданням ручні події блокуються, крім виходів з <c>100</c> на будь-який
-/// інший дозволений політикою код (крім <c>30</c>).</description></item>
-/// <item><description>Вихід з <c>100</c> закриває TaskSpan, щоб завдання не висіло відкритим.</description></item>
+/// <item><description>Під активним завданням (код <c>100</c>) ручні події блокуються, крім виходів з <c>100</c>
+/// на будь-який інший дозволений політикою код (крім <c>30</c>).</description></item>
 /// </list>
 /// </summary>
 public sealed class TransitionTimesheetStateCommandHandler(
     ITimesheetEpisodeRepository episodes,
     ITimesheetEntryRepository entries,
-    ITimesheetPolicyRepository policy,
-    ITimesheetAggregateRepository aggregates)
+    ITimesheetPolicyRepository policy)
     : ICommandHandler<TransitionTimesheetStateCommand, Guid>
 {
     private readonly ITimesheetEpisodeRepository _episodes = episodes;
     private readonly ITimesheetEntryRepository _entries = entries;
     private readonly ITimesheetPolicyRepository _policy = policy;
-    private readonly ITimesheetAggregateRepository _aggregates = aggregates;
 
     /// <inheritdoc />
     public async Task<Guid> HandleAsync(TransitionTimesheetStateCommand command, CancellationToken ct = default)
@@ -112,7 +109,7 @@ public sealed class TransitionTimesheetStateCommandHandler(
         if (prevIsTask && nextIsReady)
             throw new InvalidOperationException("Повернення з “100” до “30” виконується документом завдання.");
 
-        // 4) Policy rule (залишається головним джерелом дозволів)
+        // 4) Policy rule
         var allowed = await _policy.GetAllowedTransitionsAsync(prevDef.Id, ct);
 
         var rule = allowed.FirstOrDefault(x => x.ToCodeId == nextDef.Id)
@@ -126,29 +123,13 @@ public sealed class TransitionTimesheetStateCommandHandler(
         var prevToExclusive = nextFrom;
 
         // 4.1) Під активним завданням:
-        // - якщо не 100 -> блок
-        // - якщо 100 -> дозволяємо вихід на будь-який інший код, який дозволила політика (крім 30)
-        if (episode.HasActiveTaskOn(nextFrom))
-        {
-            if (!prevIsTask)
-                throw new InvalidOperationException("Є активне завдання на цю дату. Ручні події табеля заблоковані.");
+        // - якщо поточний код не 100 -> блок
+        // - якщо поточний код 100 -> дозволяємо вихід на будь-який інший дозволений політикою код (крім 30)
+        var entryOnNextFrom = await _entries.GetActiveEntryOnDateAsync(episode.Id, command.PersonId, nextFrom, ct);
+        var hasTaskOnNextFrom = entryOnNextFrom is not null && entryOnNextFrom.TimesheetCodeDefinitionId == taskCode.Id;
 
-            // prev == 100: вихід дозволено, але 100->30 робить документ (це вже перевірено вище)
-            var agg = await _aggregates.LoadOnDateForUpdateAsync(command.PersonId, nextFrom, ct);
-
-            if (!agg.HasActiveTaskOn(nextFrom))
-                throw new InvalidOperationException("Активне завдання не знайдено для завершення.");
-
-            // Half-open: [From..To). To = nextFrom => з цього дня вже НЕ на завданні.
-            agg.CloseTaskByReason(
-                closeAtExclusive: nextFrom,
-                reasonCodeId: nextDef.Id,
-                reference: command.Reference,
-                author: command.Author,
-                nowUtc: command.NowUtc);
-
-            await _aggregates.SaveChangesAsync(ct);
-        }
+        if (hasTaskOnNextFrom && !prevIsTask)
+            throw new InvalidOperationException("Є активне завдання на цю дату. Ручні події табеля заблоковані.");
 
         // 4.2) non-correction вставка заборонена, якщо вже є подія СТРОГО ПІЗНІШЕ nextFrom
         if (!command.IsCorrection)
@@ -156,7 +137,7 @@ public sealed class TransitionTimesheetStateCommandHandler(
             var nextExisting = await _entries.GetNextEntryAfterDateAsync(
                 episode.Id,
                 command.PersonId,
-                nextFrom, // ✅ було nextFrom.AddDays(-1)
+                nextFrom,
                 ct);
 
             if (nextExisting is not null)
@@ -173,9 +154,6 @@ public sealed class TransitionTimesheetStateCommandHandler(
                 throw new InvalidOperationException("Дата події некоректна: вона закриває поточний стан раніше його початку.");
 
             prevEntry.TimesheetCodeDefinitionId = nextDef.Id;
-
-            // IMPORTANT: prevEntry loaded via AsNoTracking + Include(TimesheetCodeDefinition).
-            // We are changing FK, so we must drop stale navigation to avoid EF graph side-effects.
             prevEntry.TimesheetCodeDefinition = null;
 
             prevEntry.Reference = string.IsNullOrWhiteSpace(command.Reference) ? null : command.Reference.Trim();

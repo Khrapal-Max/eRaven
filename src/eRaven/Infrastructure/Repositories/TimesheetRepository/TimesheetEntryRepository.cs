@@ -27,6 +27,56 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<TimesheetEntry>> GetEntriesForPersonsAsync(
+        IReadOnlyCollection<Guid> personIds,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken ct = default)
+    {
+        //TODO не задіяний
+        if (personIds.Count == 0) return [];
+        if (to < from) throw new ArgumentException("To must be >= From.", nameof(to));
+
+        var toExclusive = to.AddDays(1);
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        return await db.TimesheetEntries
+            .AsNoTracking()
+            .Where(x => !x.IsDeleted)
+            .Where(x => personIds.Contains(x.PersonId))
+            .Where(x => x.From < toExclusive && (!x.To.HasValue || x.To.Value > from)) // overlap with [from..to]
+            .OrderBy(x => x.PersonId)
+            .ThenBy(x => x.From)
+            .ThenBy(x => x.Id)
+            .ToListAsync(ct);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<TimesheetEntry>> GetEntriesForPersonAsync(
+        Guid personId,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken ct = default)
+    {
+        //TODO не задіяний
+        if (to < from) throw new ArgumentException("To must be >= From.", nameof(to));
+
+        var toExclusive = to.AddDays(1);
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        return await db.TimesheetEntries
+            .AsNoTracking()
+            .Where(x => !x.IsDeleted)
+            .Where(x => x.PersonId == personId)
+            .Where(x => x.From < toExclusive && (!x.To.HasValue || x.To.Value > from)) // overlap with [from..to]
+            .OrderBy(x => x.From)
+            .ThenBy(x => x.Id)
+            .ToListAsync(ct);
+    }
+
+    /// <inheritdoc />
     public async Task<TimesheetEntry?> GetByIdAsync(Guid entryId, CancellationToken ct = default)
     {
         //TODO не задіяний
@@ -55,56 +105,6 @@ public sealed class TimesheetEntryRepository(IDbContextFactory<AppDbContext> dbF
             .OrderBy(x => x.From)
             .ThenBy(x => x.Id)
             .FirstOrDefaultAsync(ct);
-    }
-
-    /// <inheritdoc />
-    public async Task<IReadOnlyList<TimesheetEntry>> GetPersonEntriesAsync(
-        Guid personId,
-        DateOnly from,
-        DateOnly to,
-        CancellationToken ct = default)
-    {
-        //TODO не задіяний
-        if (to < from) throw new ArgumentException("To must be >= From.", nameof(to));
-
-        var toExclusive = to.AddDays(1);
-
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        return await db.TimesheetEntries
-            .AsNoTracking()
-            .Where(x => !x.IsDeleted)
-            .Where(x => x.PersonId == personId)
-            .Where(x => x.From < toExclusive && (!x.To.HasValue || x.To.Value > from)) // overlap with [from..to]
-            .OrderBy(x => x.From)
-            .ThenBy(x => x.Id)
-            .ToListAsync(ct);
-    }
-
-    /// <inheritdoc />
-    public async Task<IReadOnlyList<TimesheetEntry>> GetEntriesForPersonsAsync(
-        IReadOnlyCollection<Guid> personIds,
-        DateOnly from,
-        DateOnly to,
-        CancellationToken ct = default)
-    {
-        //TODO не задіяний
-        if (personIds.Count == 0) return [];
-        if (to < from) throw new ArgumentException("To must be >= From.", nameof(to));
-
-        var toExclusive = to.AddDays(1);
-
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        return await db.TimesheetEntries
-            .AsNoTracking()
-            .Where(x => !x.IsDeleted)
-            .Where(x => personIds.Contains(x.PersonId))
-            .Where(x => x.From < toExclusive && (!x.To.HasValue || x.To.Value > from)) // overlap with [from..to]
-            .OrderBy(x => x.PersonId)
-            .ThenBy(x => x.From)
-            .ThenBy(x => x.Id)
-            .ToListAsync(ct);
     }
 
     /// <inheritdoc />

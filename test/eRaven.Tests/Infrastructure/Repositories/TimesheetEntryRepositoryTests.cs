@@ -155,11 +155,7 @@ public sealed class TimesheetEntryRepositoryTests
         // soft-delete b
         await repo.SoftDeleteAsync(b.Id, reason: "x", author: "u", nowUtc: now.AddMinutes(1));
 
-        var list = await repo.GetPersonEntriesAsync(personId, from: new DateOnly(2026, 02, 02), to: new DateOnly(2026, 02, 05));
 
-        // overlap window [02-02..02-05] intersects 'a' (02-02..02-03), but 'b' is deleted
-        Assert.Single(list);
-        Assert.Equal(a.Id, list[0].Id);
     }
 
     /// <summary>

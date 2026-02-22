@@ -46,7 +46,6 @@ public interface ITimesheetEpisodeRepository
     ///
     /// <para>Очікування реалізації:</para>
     /// <list type="bullet">
-    /// <item><description>Include TaskSpans (щоб блокувати ручні події під час активних завдань).</description></item>
     /// </list>
     /// </summary>
     Task<TimeSheetAggregate?> LoadEpisodeOnDateForUpdateAsync(

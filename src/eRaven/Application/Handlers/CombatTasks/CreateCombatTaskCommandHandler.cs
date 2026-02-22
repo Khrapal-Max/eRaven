@@ -124,6 +124,7 @@ public sealed class CreateCombatTaskCommandHandler(
         await _timesheets.ApplyCombatTaskFactsAsync(
             documentId: command.DocumentId,
             missionId: command.MissionId,
+            documentOrderTitle: document.OrderTitle,
             details: incoming,
             author: command.Author.Trim(),
             nowUtc: command.NowUtc,

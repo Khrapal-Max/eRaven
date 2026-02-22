@@ -165,9 +165,9 @@ public partial class TimesheetPersonShell : ComponentBase
                 return;
             }
 
-            _daysInMonth = _dto.DaysInMonth;
+            _daysInMonth = DateTime.DaysInMonth(_year, _month);
 
-            BuildCalendarGrid(_dto.Year, _dto.Month, _dto.DaysInMonth);
+            BuildCalendarGrid(_year, _month, _daysInMonth);
 
             // fact-only: беремо все як є (entries вже тільки фактичні)
             _entries = [.. _dto.Entries];
@@ -211,12 +211,12 @@ public partial class TimesheetPersonShell : ComponentBase
     /// </summary>
     private string GetDayCode(int day)
     {
-        if (_dto?.Person.Codes is null) return "НБ";
+        if (_dto?.Days is null) return "НБ";
 
         var idx = day - 1;
-        if (idx < 0 || idx >= _dto.Person.Codes.Count) return "НБ";
+        if (idx < 0 || idx >= _dto.Days.Count) return "НБ";
 
-        return (_dto.Person.Codes[idx] ?? "").Trim();
+        return (_dto.Days[idx].Code ?? "").Trim();
     }
 
     /// <summary>
@@ -225,12 +225,12 @@ public partial class TimesheetPersonShell : ComponentBase
     /// </summary>
     private string? GetRef(int day)
     {
-        if (_dto?.Person.Referenses is null) return null;
+        if (_dto?.Days is null) return null;
 
         var idx = day - 1;
-        if (idx < 0 || idx >= _dto.Person.Referenses.Count) return null;
+        if (idx < 0 || idx >= _dto.Days.Count) return null;
 
-        var v = _dto.Person.Referenses[idx];
+        var v = _dto.Days[idx].Reference;
         return string.IsNullOrWhiteSpace(v) ? null : v.Trim();
     }
 

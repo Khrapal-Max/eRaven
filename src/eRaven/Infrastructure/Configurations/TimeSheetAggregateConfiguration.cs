@@ -79,10 +79,5 @@ public sealed class TimeSheetAggregateConfiguration : IEntityTypeConfiguration<T
             .HasForeignKey(x => x.TimesheetId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // TaskSpans: no navigation in entity (owned by TimesheetId)
-        e.HasMany(x => x.TaskSpans)
-            .WithOne()
-            .HasForeignKey(x => x.TimesheetId)
-            .OnDelete(DeleteBehavior.Cascade);
     }
 }

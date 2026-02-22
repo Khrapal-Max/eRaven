@@ -5,10 +5,10 @@
 // TimesheetShell
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Timesheets;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheets;
-using eRaven.Domain.Enums;
 using eRaven.Infrastructure;
 using Microsoft.AspNetCore.Components;
 
@@ -28,7 +28,7 @@ public partial class TimesheetShell : ComponentBase, IDisposable
     /// Read-query для побудови місячної матриці табеля.
     /// </summary>
     [Inject]
-    public IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetPersonMonthRowDto>> Query { get; set; } = default!;
+    public IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetPersonRangeRowDto>> Query { get; set; } = default!;
 
     //======================================================================
     // State
@@ -42,11 +42,11 @@ public partial class TimesheetShell : ComponentBase, IDisposable
 
     private string? _search;
 
-    private IReadOnlyList<TimesheetPersonMonthRowDto>? _rows;
-    private TimesheetPersonMonthRowDto? _selected;
+    private IReadOnlyList<TimesheetPersonRangeRowDto>? _rows;
+    private TimesheetPersonRangeRowDto? _selected;
 
     private bool _personDrawerOpen;
-    private TimesheetPersonMonthRowDto? _personDrawerPerson;
+    private TimesheetPersonInfoDto? _personDrawerPerson;
 
     //======================================================================
     // Lifecycle
@@ -146,9 +146,9 @@ public partial class TimesheetShell : ComponentBase, IDisposable
     /// <summary>
     /// Відкриває drawer з деталями по особі (місячний контекст).
     /// </summary>
-    private void OpenPersonDrawer(TimesheetPersonMonthRowDto r)
+    private void OpenPersonDrawer(TimesheetPersonRangeRowDto r)
     {
-        _personDrawerPerson = r;
+        _personDrawerPerson = r.Person;
         _personDrawerOpen = true;
     }
 
@@ -169,12 +169,12 @@ public partial class TimesheetShell : ComponentBase, IDisposable
     /// Повертає код для дня (1-based) з масиву кодів.
     /// Повертає "" якщо масив null або day поза межами.
     /// </summary>
-    private static string GetCode(IReadOnlyList<string>? codes, int day)
+    private static TimesheetDaySnapshotDto? GetDay(IReadOnlyList<TimesheetDaySnapshotDto>? days, int day)
     {
-        if (codes is null) return "";
+        if (days is null) return null;
         var idx = day - 1;
-        if (idx < 0 || idx >= codes.Count) return "";
-        return (codes[idx] ?? "").Trim();
+        if (idx < 0 || idx >= days.Count) return null;
+        return days[idx];
     }
 
     /// <summary>
@@ -214,12 +214,12 @@ public partial class TimesheetShell : ComponentBase, IDisposable
     /// <summary>
     /// Повертає коротку мітку типу зарахування.
     /// </summary>
-    private static string GetSign(EnrollmentKind? kind)
+    private static string GetSign(EnrollmentKindDto kind)
         => kind switch
         {
-            EnrollmentKind.Unit => "ШТ",
-            EnrollmentKind.AttachedByList => "НК",
-            EnrollmentKind.AttachedByOrder => "БР",
+            EnrollmentKindDto.Unit => "ШТ",
+            EnrollmentKindDto.AttachedByList => "НК",
+            EnrollmentKindDto.AttachedByOrder => "БР",
             _ => "ВКЛ"
         };
 

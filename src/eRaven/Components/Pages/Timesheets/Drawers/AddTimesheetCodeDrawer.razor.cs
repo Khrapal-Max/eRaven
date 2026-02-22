@@ -102,7 +102,7 @@ public partial class AddTimesheetCodeDrawer : ComponentBase
                 SortOrder: _model.SortOrder,
                 Priority: _model.Priority,
                 IsTerminal: _model.IsTerminal,
-                Author: "ui",           // TODO: підхопити реального юзера
+                Author: "ui",           // TODO: auth user
                 NowUtc: DateTime.UtcNow // або передати з батька
             ));
 

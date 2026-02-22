@@ -17,7 +17,7 @@ namespace eRaven.Domain.Entities;
 /// <list type="bullet">
 /// <item><description><see cref="From"/> is <b>inclusive</b>.</description></item>
 /// <item><description><see cref="To"/> is <b>exclusive</b> (the first day when the entry is no longer active).</description></item>
-/// <item><description><c>To == null</c> means “open-ended”.</description></item>
+/// <item><description><c>To == null</c> means “open-ended” (until the next entry).</description></item>
 /// </list>
 /// </para>
 /// <para>
@@ -25,8 +25,10 @@ namespace eRaven.Domain.Entities;
 /// </para>
 /// <para>
 /// IMPORTANT:
-/// - Every entry belongs to a <see cref="TimeSheetAggregate"/>.
-/// - PersonId is denormalized for faster reads (must match TimesheetId.PersonId).
+/// <list type="bullet">
+/// <item><description>Every entry belongs to a <see cref="TimeSheetAggregate"/>.</description></item>
+/// <item><description><see cref="PersonId"/> is denormalized for faster reads (must match TimesheetId.PersonId).</description></item>
+/// </list>
 /// </para>
 /// </summary>
 public sealed class TimesheetEntry

@@ -2,16 +2,18 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// TimesheetDayStateDto
+// TimesheetDayRm
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.DTOs.Timesheets;
+namespace eRaven.Application.Abstractions.TimesheetRepository.ReadModels;
 
 /// <summary>
-/// Запис стану дня в табелі
+/// Стан дня у табелі (timesheet-only).
 /// </summary>
-public sealed record TimesheetDayStateDto(
-      Guid CodeId,
-      string Code,
-      string? Reference,
-      string? Note);
+public sealed record TimesheetDayRm(
+    Guid TimesheetId,
+    DateOnly DateOfDay,
+    Guid CodeId,
+    string Code,
+    string? Reference,
+    string? Note);

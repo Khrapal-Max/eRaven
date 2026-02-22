@@ -5,10 +5,10 @@
 // TimesheetWeekShell
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Timesheets;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheets;
-using eRaven.Domain.Enums;
 using eRaven.Infrastructure;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
@@ -55,7 +55,7 @@ public partial class TimesheetWeekShell : ComponentBase
     private string? _drawerPersonLabel;
 
     private bool _personDrawerOpen;
-    private TimesheetPersonMonthRowDto? _personDrawerPerson;
+    private TimesheetPersonInfoDto? _personDrawerPerson;
 
     //======================================================================
     // Lifecycle
@@ -154,7 +154,7 @@ public partial class TimesheetWeekShell : ComponentBase
         if (IsNb(anchor.Code)) return false;
 
         // додатково: якщо виключений — не даємо створювати події
-        if (r.ExcludedAt.HasValue) return false;
+        if (r.Person.ExcludedAt.HasValue) return false;
 
         return true;
     }
@@ -163,34 +163,19 @@ public partial class TimesheetWeekShell : ComponentBase
     {
         if (!CanOpenTransition(r)) return;
 
-        _drawerPersonId = r.PersonId;
+        _drawerPersonId = r.Person.PersonId;
 
         // Drawer сам визначить поточний код і дозволені переходи для обраної дати.
         // Тут передаємо лише стартову дату (за замовчуванням — операційний день).
         _drawerInitialDate = _anchorDate;
 
-        _drawerPersonLabel = $"{r.Rank} {r.FullName} ({r.Rnokpp})".Trim();
+        _drawerPersonLabel = $"{r.Person.Rank} {r.Person.FullName} ({r.Person.Rnokpp})".Trim();
         _drawerOpen = true;
     }
 
     private void OpenPersonDrawer(TimesheetPersonRangeRowDto r)
     {
-        var codes = r.Days.Select(d => (d.Code ?? "").Trim()).ToArray();
-        var refs = r.Days.Select(d => string.IsNullOrWhiteSpace(d.Reference) ? null : d.Reference.Trim()).ToArray();
-
-        _personDrawerPerson = new TimesheetPersonMonthRowDto(
-            PersonId: r.PersonId,
-            FullName: r.FullName,
-            Rnokpp: r.Rnokpp,
-            Rank: r.Rank,
-            Position: r.Position,
-            EnrollmentKind: r.EnrollmentKind,
-            EnrolledAt: r.EnrolledAt,
-            ExcludedAt: r.ExcludedAt,
-            Codes: codes,
-            Referenses: refs
-        );
-
+        _personDrawerPerson = r.Person;
         _personDrawerOpen = true;
     }
 
@@ -200,16 +185,17 @@ public partial class TimesheetWeekShell : ComponentBase
         _personDrawerPerson = null;
     }
 
-    private TimesheetRangeDayDto GetAnchorDay(TimesheetPersonRangeRowDto r)
+    private TimesheetDaySnapshotDto GetAnchorDay(TimesheetPersonRangeRowDto r)
     {
         var hit = r.Days.FirstOrDefault(x => x.Date == _anchorDate);
         if (hit is not null) return hit;
 
-        return new TimesheetRangeDayDto(
+        return new TimesheetDaySnapshotDto(
             Date: _anchorDate,
             CodeId: Guid.Empty,
             Code: TimesheetSystemCodes.NotInTimesheet,
-            Reference: null);
+            Reference: null,
+            Note: null);
     }
 
     //======================================================================
@@ -227,11 +213,11 @@ public partial class TimesheetWeekShell : ComponentBase
         _ => ""
     };
 
-    private static string GetSign(EnrollmentKind? kind) => kind switch
+    private static string GetSign(EnrollmentKindDto kind) => kind switch
     {
-        EnrollmentKind.Unit => "ШТ",
-        EnrollmentKind.AttachedByList => "НК",
-        EnrollmentKind.AttachedByOrder => "БР",
+        EnrollmentKindDto.Unit => "ШТ",
+        EnrollmentKindDto.AttachedByList => "НК",
+        EnrollmentKindDto.AttachedByOrder => "БР",
         _ => "РЕЗЕРВ"
     };
 

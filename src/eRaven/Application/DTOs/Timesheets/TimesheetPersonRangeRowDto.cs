@@ -5,20 +5,11 @@
 // TimesheetPersonRangeRowDto
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
-
 namespace eRaven.Application.DTOs.Timesheets;
 
 /// <summary>
-/// Запис для відображення періоду по особі
+/// Єдиний рядок табеля для довільного періоду (день/тиждень/місяць).
 /// </summary>
 public sealed record TimesheetPersonRangeRowDto(
-    Guid PersonId,
-    string FullName,
-    string Rnokpp,
-    string? Rank,
-    string? Position,
-    EnrollmentKind? EnrollmentKind,
-    DateOnly? EnrolledAt,
-    DateOnly? ExcludedAt,
-    IReadOnlyList<TimesheetRangeDayDto> Days);
+    TimesheetPersonInfoDto Person,
+    IReadOnlyList<TimesheetDaySnapshotDto> Days);

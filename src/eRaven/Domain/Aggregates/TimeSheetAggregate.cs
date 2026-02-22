@@ -6,19 +6,26 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
-using eRaven.Domain.Enums;
 
 namespace eRaven.Domain.Aggregates;
 
 /// <summary>
-/// Епізод табеля (episode) з подіями та фактами задач (TaskSpans).
+/// Епізод табеля (episode) з подіями (<see cref="TimesheetEntry"/>).
 ///
-/// <para><b>Семантика дат для TaskSpans:</b></para>
+/// <para>
+/// <b>Семантика дат:</b>
 /// <list type="bullet">
-///   <item><description><c>FromDate</c> — інклюзивна дата початку.</description></item>
-///   <item><description><c>ToDate</c> — <b>EXCLUSIVE</b> (half-open інтервал <c>[From..To)</c>).</description></item>
-///   <item><description><c>ToDate = null</c> — інтервал відкритий в майбутнє.</description></item>
+/// <item><description><see cref="TimesheetEntry.From"/> — inclusive.</description></item>
+/// <item><description><see cref="TimesheetEntry.To"/> — <b>EXCLUSIVE</b> (half-open інтервал <c>[From..To)</c>).</description></item>
+/// <item><description><c>To = null</c> — інтервал відкритий у майбутнє (до наступної події).</description></item>
 /// </list>
+/// </para>
+///
+/// <para>
+/// Цей агрегат відповідає тільки за зберігання/корекцію подій в межах епізоду та за
+/// структурні інваріанти часової шкали (порядок, межі, узгодженість To).
+/// Правила дозволених переходів кодів визначаються зовнішньою політикою.
+/// </para>
 /// </summary>
 public sealed class TimeSheetAggregate
 {
@@ -34,23 +41,28 @@ public sealed class TimeSheetAggregate
     public string? ClosedBy { get; set; }
     public DateTime? ClosedAtUtc { get; set; }
 
-    public List<TimesheetEntry> Entries { get; set; } = [];
-    public List<TimesheetTaskSpan> TaskSpans { get; set; } = [];
+    /// <summary>
+    /// Події епізоду у вигляді записів часової шкали.
+    /// <para>Після будь-яких змін агрегат нормалізує список (див. <see cref="NormalizeEntries"/>).</para>
+    /// </summary>
+    public ICollection<TimesheetEntry> Entries { get; set; } = [];
 
     public bool IsClosed => ClosedAt.HasValue;
 
-    public bool IsActiveOn(DateOnly d)
-        => OpenedAt <= d && (!ClosedAt.HasValue || ClosedAt.Value >= d);
-
-    public bool HasActiveTaskOn(DateOnly d)
-        => TaskSpans.Any(s => s.IsActiveOn(d));
-
+    /// <summary>
+    /// Викликає помилку, якщо епізод вже закритий.
+    /// </summary>
+    /// <exception cref="InvalidOperationException"></exception>
     public void EnsureNotClosed()
     {
         if (IsClosed)
             throw new InvalidOperationException("Timesheet episode is closed.");
     }
 
+    /// <summary>
+    /// Викликає помилку, якщо подія раніше дати відкриття епізоду або пізніше дати його закриття.
+    /// </summary>
+    /// <exception cref="InvalidOperationException"></exception>
     public void EnsureInBounds(DateOnly d)
     {
         if (d < OpenedAt)
@@ -60,232 +72,181 @@ public sealed class TimeSheetAggregate
             throw new InvalidOperationException($"Date {d} is after ClosedAt {ClosedAt.Value}.");
     }
 
-    private void EnsureTaskToInBounds(DateOnly toExclusive)
-    {
-        // toExclusive може дорівнювати ClosedAt+1, щоб покрити останній день ClosedAt.
-        if (toExclusive < OpenedAt)
-            throw new InvalidOperationException($"Task ToDate {toExclusive} is before OpenedAt {OpenedAt}.");
-
-        if (ClosedAt.HasValue && toExclusive > ClosedAt.Value.AddDays(1))
-            throw new InvalidOperationException($"Task ToDate {toExclusive} is after ClosedAt+1 {ClosedAt.Value.AddDays(1)}.");
-    }
-
-    public void UpsertTask(
-    Guid documentId,
-    Guid missionId,
-    DateOnly from,
-    DateOnly? toExclusive,
-    string? rnokpp,
-    string? fullName,
-    string? rank,
-    string? position,
-    string? weapon,
-    string? callsign,
-    string? openedByDocumentReference,
-    string author,
-    DateTime nowUtc)
-    {
-        EnsureNotClosed();
-        EnsureInBounds(from);
-
-        if (toExclusive.HasValue)
-        {
-            EnsureTaskToInBounds(toExclusive.Value);
-            if (toExclusive.Value < from)
-                throw new InvalidOperationException("TaskSpan.ToDate (exclusive) must be >= FromDate.");
-        }
-
-        foreach (var other in TaskSpans.Where(x => x.Status != DocumentStatus.Canceled))
-        {
-            if (other.OpenedByCombatTaskDocumentId == documentId && other.MissionId == missionId)
-                continue;
-
-            if (Overlaps(from, toExclusive, other.FromDate, other.ToDate))
-                throw new InvalidOperationException("Task spans overlap for the same person.");
-        }
-
-        var span = TaskSpans.SingleOrDefault(x =>
-            x.OpenedByCombatTaskDocumentId == documentId &&
-            x.MissionId == missionId);
-
-        if (span is null)
-        {
-            span = new TimesheetTaskSpan
-            {
-                Id = Guid.NewGuid(),
-                TimesheetId = Id,
-                PersonId = PersonId,
-                OpenedByCombatTaskDocumentId = documentId,
-                MissionId = missionId,
-                Status = DocumentStatus.Active,
-                CreatedBy = author,
-                CreatedAtUtc = nowUtc
-            };
-            TaskSpans.Add(span);
-        }
-
-        span.FromDate = from;
-        span.ToDate = toExclusive;
-
-
-        span.OpenedByDocumentReference = string.IsNullOrWhiteSpace(openedByDocumentReference)
-            ? null : openedByDocumentReference.Trim();
-
-        span.Rnokpp = (rnokpp ?? string.Empty).Trim();
-        span.FullName = (fullName ?? string.Empty).Trim();
-        span.Rank = string.IsNullOrWhiteSpace(rank) ? null : rank.Trim();
-        span.Position = string.IsNullOrWhiteSpace(position) ? null : position.Trim();
-        span.Weapon = string.IsNullOrWhiteSpace(weapon) ? null : weapon.Trim();
-        span.Callsign = string.IsNullOrWhiteSpace(callsign) ? null : callsign.Trim();
-
-        span.UpdatedBy = author;
-        span.UpdatedAtUtc = nowUtc;
-
-        // (re)open markers
-        span.Status = DocumentStatus.Active;
-        span.ClosedByCombatTaskDocumentId = null;
-        span.ClosedByCodeId = null;
-        span.ClosedReference = null;
-        span.ClosedByDocumentReference = null;
-    }
+    //======================================================================
+    // CRUD entries (events)
+    //======================================================================
 
     /// <summary>
-    /// Завершує активний факт задачі документом <paramref name="closingDocumentId"/>.
-    /// Дозволяє кейс: документ №1 відкрив задачу, документ №2 закрив.
-    ///
-    /// <para><b>Важливо:</b> <paramref name="closeAtExclusive"/> — EXCLUSIVE дата закриття.</para>
-    /// <para>Напр.: якщо останній день задачі = 2026-02-12 (inclusive), то closeAtExclusive = 2026-02-13.</para>
-    ///
-    /// <para>Також оновлює snapshot (ПІБ/звання/посада/зброя/позивний) даними документа, що закриває.</para>
+    /// Додати подію в епізод табеля (anchor-event з <paramref name="effectiveAt"/>).
+    /// <para>
+    /// Встановлення <see cref="TimesheetEntry.To"/> виконується нормалізацією:
+    /// для кожної події <c>To = Next.From</c>, для останньої <c>To = null</c>.
+    /// </para>
     /// </summary>
-    public void CloseTaskByDocument(
-    Guid closingDocumentId,
-    Guid missionId,
-    DateOnly closeAtExclusive,
-    string rnokpp,
-    string fullName,
-    string? rank,
-    string? position,
-    string? weapon,
-    string? callsign,
-    string? closedByDocumentReference,
-    string author,
-    DateTime nowUtc)
-    {
-        EnsureNotClosed();
-        EnsureTaskToInBounds(closeAtExclusive);
-
-        var lastDay = closeAtExclusive.AddDays(-1);
-        EnsureInBounds(lastDay);
-
-        var span = TaskSpans
-            .Where(x => x.MissionId == missionId)
-            .Where(x => x.Status != DocumentStatus.Canceled)
-            .SingleOrDefault(x => x.IsActiveOn(lastDay))
-            ?? throw new InvalidOperationException("Active task span not found.");
-
-        if (!span.ToDate.HasValue || span.ToDate.Value > closeAtExclusive)
-            span.ToDate = closeAtExclusive;
-
-        span.ClosedByCombatTaskDocumentId = closingDocumentId;
-
-        // ✅ NEW: snapshot референса документа, що закрив
-        span.ClosedByDocumentReference = string.IsNullOrWhiteSpace(closedByDocumentReference)
-            ? null
-            : closedByDocumentReference.Trim();
-
-        // Документне закриття не є "закриттям по коду"
-        span.ClosedByCodeId = null;
-        span.ClosedReference = null;
-
-        // Snapshot з документа, що закриває
-        span.Rnokpp = (rnokpp ?? string.Empty).Trim();
-        span.FullName = (fullName ?? string.Empty).Trim();
-        span.Rank = string.IsNullOrWhiteSpace(rank) ? null : rank.Trim();
-        span.Position = string.IsNullOrWhiteSpace(position) ? null : position.Trim();
-        span.Weapon = string.IsNullOrWhiteSpace(weapon) ? null : weapon.Trim();
-        span.Callsign = string.IsNullOrWhiteSpace(callsign) ? null : callsign.Trim();
-
-        span.UpdatedBy = author;
-        span.UpdatedAtUtc = nowUtc;
-    }
-
-    /// <summary>
-    /// Закриває всі активні task-span’и <b>на останній активний день</b> перед <paramref name="closeAtExclusive"/>
-    /// та проставляє причину (код/референс).
-    ///
-    /// <para><b>Важливо:</b> <paramref name="closeAtExclusive"/> — EXCLUSIVE дата.</para>
-    /// <para>Для пошуку "активних" span’ів використовується дата <c>closeAtExclusive - 1 день</c>.</para>
-    /// </summary>
-    public void CloseTaskByReason(
-        DateOnly closeAtExclusive,
-        Guid reasonCodeId,
+    public void AddTimesheetEntry(
+        Guid nextCodeId,
+        DateOnly effectiveAt,
         string? reference,
         string author,
         DateTime nowUtc)
     {
         EnsureNotClosed();
-        EnsureTaskToInBounds(closeAtExclusive);
+        EnsureInBounds(effectiveAt);
 
-        var lastDay = closeAtExclusive.AddDays(-1);
-        EnsureInBounds(lastDay);
-
-        var spans = TaskSpans
-            .Where(x => x.Status != DocumentStatus.Canceled)
-            .Where(x => x.IsActiveOn(lastDay))
-            .ToList();
-
-        if (spans.Count == 0)
-            throw new InvalidOperationException("Active task span not found.");
-
-        var trimmedRef = string.IsNullOrWhiteSpace(reference) ? null : reference.Trim();
-
-        foreach (var span in spans)
+        Entries.Add(new TimesheetEntry
         {
-            if (!span.ToDate.HasValue || span.ToDate.Value > closeAtExclusive)
-                span.ToDate = closeAtExclusive;
+            Id = Guid.NewGuid(),
+            TimesheetId = Id,
+            PersonId = PersonId,
+            TimesheetCodeDefinitionId = nextCodeId,
+            From = effectiveAt,
+            To = null,
+            Reference = reference ?? string.Empty,
+            Note = null,
+            CreatedBy = author,
+            CreatedAtUtc = nowUtc
+        });
 
-            span.ClosedByCodeId = reasonCodeId;
-            span.ClosedReference = trimmedRef;
-
-            // Закриття по причині не є "закриттям документом"
-            span.ClosedByCombatTaskDocumentId = null;
-            span.ClosedByDocumentReference = null;
-
-            span.UpdatedBy = author;
-            span.UpdatedAtUtc = nowUtc;
-        }
+        NormalizeEntries();
     }
 
-    public void CancelTask(
-        Guid documentId,
-        Guid missionId,
-        Guid reasonCodeId,
-        string reference,
+    /// <summary>
+    /// Видалити подію з епізоду табеля.
+    /// <para>
+    /// Дозволяємо видалення і в закритому епізоді (як корекцію історичних даних),
+    /// але завжди перевіряємо межі епізоду.
+    /// </para>
+    /// </summary>
+    /// <param name="entyId">Ідентифікатор запису.</param>
+    /// </param>
+    public void RemoveTimesheetEntry(Guid entyId)
+    {
+        var entry = Entries.FirstOrDefault(x => x.Id == entyId)
+            ?? throw new InvalidOperationException($"Entry with Id {entyId} not found.");
+
+        EnsureInBounds(entry.From);
+
+        Entries.Remove(entry);
+
+        NormalizeEntries();
+    }
+
+    /// <summary>
+    /// Корекція події епізоду табеля.
+    /// <para>
+    /// Поки забороняємо міняти події у закритих епізодах (правило можна послабити пізніше).
+    /// </para>
+    /// </summary>
+    public void CorrectionTimesheetEntry(
+        Guid entyId,
+        Guid nextCodeId,
+        DateOnly fromEffectiveAt,
+        string? reference,
         string author,
         DateTime nowUtc)
     {
         EnsureNotClosed();
+        EnsureInBounds(fromEffectiveAt);
 
-        var span = TaskSpans.SingleOrDefault(x =>
-                x.MissionId == missionId
-                && (x.OpenedByCombatTaskDocumentId == documentId
-                    || x.ClosedByCombatTaskDocumentId == documentId))
-            ?? throw new InvalidOperationException("Task span not found.");
+        var entry = Entries.FirstOrDefault(x => x.Id == entyId)
+            ?? throw new InvalidOperationException($"Entry with Id {entyId} not found.");
 
-        span.Status = DocumentStatus.Canceled;
+        entry.TimesheetCodeDefinitionId = nextCodeId;
+        entry.From = fromEffectiveAt;
+        entry.Reference = reference ?? string.Empty;
+        entry.UpdatedBy = author;
+        entry.UpdatedAtUtc = nowUtc;
 
-        span.ClosedByCodeId = reasonCodeId;
-        span.ClosedReference = string.IsNullOrWhiteSpace(reference) ? null : reference.Trim();
-
-        span.UpdatedBy = author;
-        span.UpdatedAtUtc = nowUtc;
+        NormalizeEntries();
     }
 
-    private static bool Overlaps(DateOnly aFrom, DateOnly? aToExclusive, DateOnly bFrom, DateOnly? bToExclusive)
+    //======================================================================
+    // Timeline normalization (invariants)
+    //======================================================================
+
+    /// <summary>
+    /// Нормалізує часову шкалу після будь-яких змін:
+    /// <list type="bullet">
+    /// <item><description>сортує події за <see cref="TimesheetEntry.From"/>;</description></item>
+    /// <item><description>забороняє два різні коди в одну й ту саму дату;</description></item>
+    /// <item><description>обʼєднує дублікати (одна дата + один код) — склеює <see cref="TimesheetEntry.Reference"/>;</description></item>
+    /// <item><description>проставляє <see cref="TimesheetEntry.To"/> як <c>Next.From</c> (last = null);</description></item>
+    /// </list>
+    /// </summary>
+    /// <remarks>
+    /// Це доменна логіка: репозиторій не має “підчищати хвости” за агрегатом.
+    /// </remarks>
+    private void NormalizeEntries()
     {
-        var aEnd = aToExclusive ?? DateOnly.MaxValue;
-        var bEnd = bToExclusive ?? DateOnly.MaxValue;
-        return aFrom < bEnd && bFrom < aEnd;
+        if (Entries.Count == 0)
+            return;
+
+        var ordered = Entries
+            .Where(e => !e.IsDeleted)
+            .OrderBy(e => e.From)
+            .ThenBy(e => e.CreatedAtUtc)
+            .ToList();
+
+        var normalized = new List<TimesheetEntry>(ordered.Count);
+
+        foreach (var cur in ordered)
+        {
+            EnsureInBounds(cur.From);
+
+            if (normalized.Count == 0)
+            {
+                normalized.Add(cur);
+                continue;
+            }
+
+            var last = normalized[^1];
+
+            if (cur.From != last.From)
+            {
+                normalized.Add(cur);
+                continue;
+            }
+
+            if (cur.TimesheetCodeDefinitionId != last.TimesheetCodeDefinitionId)
+                throw new InvalidOperationException($"Two different codes are not allowed at the same date {cur.From}.");
+
+            last.Reference = MergeReferences(last.Reference, cur.Reference);
+
+            Entries.Remove(cur);
+        }
+
+        for (var i = 0; i < normalized.Count; i++)
+        {
+            normalized[i].To = (i < normalized.Count - 1) ? normalized[i + 1].From : null;
+        }
+    }
+
+    private static string MergeReferences(string? a, string? b)
+    {
+        var left = (a ?? string.Empty).Trim();
+        var right = (b ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(left))
+            return right;
+
+        if (string.IsNullOrWhiteSpace(right))
+            return left;
+
+        var parts = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        void addParts(string s)
+        {
+            foreach (var p in s.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (seen.Add(p))
+                    parts.Add(p + ".");
+            }
+        }
+
+        addParts(left);
+        addParts(right);
+
+        return string.Join(" ", parts);
     }
 }

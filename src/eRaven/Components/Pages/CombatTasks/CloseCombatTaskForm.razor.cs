@@ -387,7 +387,7 @@ public partial class CloseCombatTaskForm : ComponentBase
                     Weapon: x.Weapon,
                     Callsign: x.Callsign
                 ))],
-                Author: "ui", // TODO aut user
+                Author: "ui", // TODO auth user
                 NowUtc: DateTime.UtcNow);
 
             await CreateCombatTaskHandler.HandleAsync(command);

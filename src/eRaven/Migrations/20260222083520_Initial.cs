@@ -36,6 +36,27 @@ namespace eRaven.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "mission_assignments",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    person_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    mission_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    from_date = table.Column<DateOnly>(type: "date", nullable: false),
+                    to_date = table.Column<DateOnly>(type: "date", nullable: true),
+                    source_start_document_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    source_start_details_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    source_end_document_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    source_end_details_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    updated_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_by = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_mission_assignments", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "missions",
                 columns: table => new
                 {
@@ -169,44 +190,6 @@ namespace eRaven.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "timesheet_task_spans",
-                columns: table => new
-                {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    timesheet_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    person_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    mission_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    opened_by_combat_task_document_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    closed_by_combat_task_document_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    from_date = table.Column<DateOnly>(type: "date", nullable: false),
-                    to_date = table.Column<DateOnly>(type: "date", nullable: true),
-                    status = table.Column<int>(type: "integer", nullable: false),
-                    rnokpp = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
-                    full_name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
-                    rank = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
-                    position = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    weapon = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
-                    callsign = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
-                    closed_by_code_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    closed_reference = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    created_by = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
-                    created_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    updated_by = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
-                    updated_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_timesheet_task_spans", x => x.id);
-                    table.CheckConstraint("ck_ts_task_spans_to_gte_from", "to_date IS NULL OR to_date >= from_date");
-                    table.ForeignKey(
-                        name: "FK_timesheet_task_spans_timesheet_aggregates_timesheet_id",
-                        column: x => x.timesheet_id,
-                        principalTable: "timesheet_aggregates",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "timesheet_code_transitions",
                 columns: table => new
                 {
@@ -245,7 +228,7 @@ namespace eRaven.Migrations
                     timesheet_codedefinition_id = table.Column<Guid>(type: "uuid", nullable: false),
                     from_date = table.Column<DateOnly>(type: "date", nullable: false),
                     to_date = table.Column<DateOnly>(type: "date", nullable: true),
-                    reference = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    reference = table.Column<string>(type: "character varying(2048)", maxLength: 2048, nullable: true),
                     note = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: true),
                     created_by = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     created_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -335,6 +318,27 @@ namespace eRaven.Migrations
                 name: "ix_combat_tasks_mission",
                 table: "combat_tasks",
                 column: "mission_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_mission_assignments_enddoc_mission",
+                table: "mission_assignments",
+                columns: new[] { "source_end_document_id", "mission_id" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_mission_assignments_mission_person_from",
+                table: "mission_assignments",
+                columns: new[] { "mission_id", "person_id", "from_date" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_mission_assignments_startdoc_mission",
+                table: "mission_assignments",
+                columns: new[] { "source_start_document_id", "mission_id" });
+
+            migrationBuilder.CreateIndex(
+                name: "ux_mission_assignments_startdoc_mission_person_from",
+                table: "mission_assignments",
+                columns: new[] { "source_start_document_id", "mission_id", "person_id", "from_date" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_missions_area_created_closed",
@@ -445,40 +449,11 @@ namespace eRaven.Migrations
                 columns: new[] { "person_id", "from_date", "to_date" });
 
             migrationBuilder.CreateIndex(
-                name: "ix_ts_entries_timesheet_from",
+                name: "ux_ts_entries_timesheet_from_active",
                 table: "timesheet_entries",
-                columns: new[] { "timesheet_id", "from_date" });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_ts_task_spans_closedby",
-                table: "timesheet_task_spans",
-                column: "closed_by_combat_task_document_id");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_ts_task_spans_mission_from_to",
-                table: "timesheet_task_spans",
-                columns: new[] { "mission_id", "from_date", "to_date" });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_ts_task_spans_openedby_mission",
-                table: "timesheet_task_spans",
-                columns: new[] { "opened_by_combat_task_document_id", "mission_id" });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_ts_task_spans_person_from_to",
-                table: "timesheet_task_spans",
-                columns: new[] { "person_id", "from_date", "to_date" });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_ts_task_spans_person_status",
-                table: "timesheet_task_spans",
-                columns: new[] { "person_id", "status" });
-
-            migrationBuilder.CreateIndex(
-                name: "ux_ts_task_spans_timesheet_openedby_mission",
-                table: "timesheet_task_spans",
-                columns: new[] { "timesheet_id", "opened_by_combat_task_document_id", "mission_id" },
-                unique: true);
+                columns: new[] { "timesheet_id", "from_date" },
+                unique: true,
+                filter: "is_deleted = false");
         }
 
         /// <inheritdoc />
@@ -486,6 +461,9 @@ namespace eRaven.Migrations
         {
             migrationBuilder.DropTable(
                 name: "combat_task_details");
+
+            migrationBuilder.DropTable(
+                name: "mission_assignments");
 
             migrationBuilder.DropTable(
                 name: "person_events");
@@ -500,16 +478,13 @@ namespace eRaven.Migrations
                 name: "timesheet_entries");
 
             migrationBuilder.DropTable(
-                name: "timesheet_task_spans");
-
-            migrationBuilder.DropTable(
                 name: "combat_tasks");
 
             migrationBuilder.DropTable(
-                name: "timesheet_codes");
+                name: "timesheet_aggregates");
 
             migrationBuilder.DropTable(
-                name: "timesheet_aggregates");
+                name: "timesheet_codes");
 
             migrationBuilder.DropTable(
                 name: "combat_task_documents");

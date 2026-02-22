@@ -6,54 +6,68 @@
 //-----------------------------------------------------------------------------
 
 using ClosedXML.Excel;
+using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.Abstractions.TimesheetRepository;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Excel;
-using eRaven.Application.DTOs.Timesheets;
+using eRaven.Application.Mapper;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheets;
-using eRaven.Domain.Enums;
+using eRaven.Infrastructure;
 
 namespace eRaven.Application.Handlers.Timesheets;
 
 /// <summary>
 /// Query handler: формує Excel (.xlsx) експорт місячного табеля.
 /// </summary>
-
 public sealed class ExportTimesheetMonthQueryHandler(
-    ITimesheetViewRepository repo)
+    ITimesheetViewRepository repo,
+    IPersonRepository persons)
     : IQueryHandler<ExportTimesheetMonthQuery, DownloadFileDto>
 {
     public const string XlsxContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     private readonly ITimesheetViewRepository _repo = repo;
+    private readonly IPersonRepository _persons = persons;
 
-    /// <inheritdoc />
     public async Task<DownloadFileDto> HandleAsync(
         ExportTimesheetMonthQuery query,
         CancellationToken ct = default)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(query.Year, 2000, nameof(query.Year));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(query.Year, 2100, nameof(query.Year));
-
         ArgumentOutOfRangeException.ThrowIfLessThan(query.Month, 1, nameof(query.Month));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(query.Month, 12, nameof(query.Month));
 
         var daysInMonth = DateTime.DaysInMonth(query.Year, query.Month);
         var search = string.IsNullOrWhiteSpace(query.Search) ? null : query.Search.Trim();
 
-        // NEW: repo повертає rows (без grid wrapper)
-        var rows = await _repo.GetTimesheetMonthAsync(
-            year: query.Year,
-            month: query.Month,
-            search: search,
-            ct: ct);
+        var periods = await _repo.GetTimesheetsMonthAsync(query.Year, query.Month, ct);
+        if (periods.Count == 0)
+        {
+            return new DownloadFileDto(
+                FileName: BuildFileName(query.Year, query.Month),
+                ContentType: XlsxContentType,
+                Base64: Convert.ToBase64String(BuildEmptyXlsx(query.Year, query.Month, daysInMonth)));
+        }
 
-        var bytes = BuildMonthlyTimesheetXlsx(
-            year: query.Year,
-            month: query.Month,
-            daysInMonth: daysInMonth,
-            rows: rows);
+        var personIds = periods.Select(x => x.PersonId).Distinct().ToArray();
+        var cards = await _persons.GetByIdsAsync(personIds, ct);
+
+        var byId = cards
+            .Where(p => search is null || TimesheetDtoMapper.MatchesSearch(p, search))
+            .ToDictionary(p => p.Id, p => p);
+
+        var periodByPersonId = periods.ToDictionary(x => x.PersonId, x => x);
+
+        var rows = byId.Values
+            .OrderBy(x => x.PositionSort ?? int.MaxValue)
+            .ThenBy(x => x.FullName)
+            .Select(p => (Person: p, Period: periodByPersonId[p.Id]))
+            .ToList();
+
+        var bytes = BuildMonthlyTimesheetXlsx(query.Year, query.Month, daysInMonth, rows);
 
         return new DownloadFileDto(
             FileName: BuildFileName(query.Year, query.Month),
@@ -61,18 +75,22 @@ public sealed class ExportTimesheetMonthQueryHandler(
             Base64: Convert.ToBase64String(bytes));
     }
 
+    //======================================================================
+    // Excel builder
+    //======================================================================
+
     private static byte[] BuildMonthlyTimesheetXlsx(
         int year,
         int month,
         int daysInMonth,
-        IReadOnlyList<TimesheetPersonMonthRowDto> rows)
+        IReadOnlyList<(eRaven.Domain.Entities.PersonReadModel Person, eRaven.Application.Abstractions.TimesheetRepository.ReadModels.TimesheetPeriodRm Period)> rows)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add($"Табель {MonthAbbrUa(month)} {year}");
 
         var monthAbbr = MonthAbbrUa(month);
 
-        // Header: Тип Посада Звання ПІБ РНКОПП + дні
+        // Header
         var col = 1;
         ws.Cell(1, col++).Value = "Тип";
         ws.Cell(1, col++).Value = "Посада";
@@ -85,7 +103,6 @@ public sealed class ExportTimesheetMonthQueryHandler(
 
         var lastCol = col - 1;
 
-        // Header style + freeze + filter
         ws.Row(1).Style.Font.Bold = true;
         ws.Row(1).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
         ws.Row(1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
@@ -94,12 +111,11 @@ public sealed class ExportTimesheetMonthQueryHandler(
         ws.SheetView.FreezeRows(1);
         ws.Range(1, 1, 1, lastCol).SetAutoFilter();
 
-        // widths
-        ws.Column(1).Width = 6;   // Тип
-        ws.Column(2).Width = 26;  // Посада
-        ws.Column(3).Width = 14;  // Звання
-        ws.Column(4).Width = 24;  // ПІБ
-        ws.Column(5).Width = 14;  // РНКОПП
+        ws.Column(1).Width = 6;
+        ws.Column(2).Width = 26;
+        ws.Column(3).Width = 14;
+        ws.Column(4).Width = 24;
+        ws.Column(5).Width = 14;
 
         for (var c = 6; c <= lastCol; c++)
         {
@@ -113,33 +129,35 @@ public sealed class ExportTimesheetMonthQueryHandler(
         // Body
         var rIdx = 2;
 
-        foreach (var r in rows)
+        foreach (var (p, period) in rows)
         {
             var c = 1;
 
-            ws.Cell(rIdx, c++).Value = GetSign(r.EnrollmentKind);
-            ws.Cell(rIdx, c++).Value = r.Position ?? "";
-            ws.Cell(rIdx, c++).Value = r.Rank ?? "";
-            ws.Cell(rIdx, c++).Value = r.FullName ?? "";
-            ws.Cell(rIdx, c++).Value = r.Rnokpp ?? "";
+            var ek = TimesheetDtoMapper.MapEnrollmentKind(p.EnrollmentKind);
+
+            ws.Cell(rIdx, c++).Value = GetSign(ek);
+            ws.Cell(rIdx, c++).Value = p.Position ?? "";
+            ws.Cell(rIdx, c++).Value = p.Rank ?? "";
+            ws.Cell(rIdx, c++).Value = p.FullName ?? "";
+            ws.Cell(rIdx, c++).Value = p.Rnokpp ?? "";
 
             for (var day = 1; day <= daysInMonth; day++)
             {
-                var main = GetCode(r.Codes, day);
+                var idx = day - 1;
+                var snap = (idx >= 0 && idx < period.Days.Count) ? period.Days[idx] : null;
+                var main = (snap?.Code ?? string.Empty).Trim();
 
                 var cell = ws.Cell(rIdx, c++);
-                cell.Value = main ?? "";
+                cell.Value = main;
 
-                // style only by main (task ignored)
-                ApplyDayCellStyle(cell, main, task: "");
+                ApplyDayCellStyle(cell, main);
 
-                // comment for 100
                 if (IsAlert(NormalizeCode(main)))
                 {
-                    var ref100 = GetText(r.Referenses, day); // потрібно поле в DTO
+                    var ref100 = string.IsNullOrWhiteSpace(snap?.Reference) ? null : snap!.Reference!.Trim();
                     if (!string.IsNullOrWhiteSpace(ref100))
                     {
-                        var comment = cell.CreateComment();   // replaces existing comment
+                        var comment = cell.CreateComment();
                         comment.AddText(ref100);
                         comment.Visible = false;
                     }
@@ -149,7 +167,6 @@ public sealed class ExportTimesheetMonthQueryHandler(
             rIdx++;
         }
 
-        // borders
         var used = ws.RangeUsed();
         if (used is not null)
         {
@@ -162,143 +179,15 @@ public sealed class ExportTimesheetMonthQueryHandler(
         return ms.ToArray();
     }
 
-    // -------------------------
+    private static byte[] BuildEmptyXlsx(int year, int month, int daysInMonth)
+        => BuildMonthlyTimesheetXlsx(year, month, daysInMonth, []);
+
+    //======================================================================
     // Helpers
-    // -------------------------
-
-    private static string? GetText(IReadOnlyList<string?>? items, int day)
-    {
-        if (items is null) return null;
-        var idx = day - 1;
-        if (idx < 0 || idx >= items.Count) return null;
-        var s = items[idx];
-        return string.IsNullOrWhiteSpace(s) ? null : s.Trim();
-    }
-
-    private static string GetCode(IReadOnlyList<string>? codes, int day)
-    {
-        if (codes is null) return "";
-        var idx = day - 1;
-        if (idx < 0 || idx >= codes.Count) return "";
-        return (codes[idx] ?? "").Trim();
-    }
-
-    // -------------------------
-    // Colors for codes
-    // -------------------------
-
-    private static readonly XLColor BgNb = XLColor.FromHtml("#e7f5ff");// light blue
-    private static readonly XLColor FgNb = XLColor.FromHtml("#1864ab");
-
-    private static readonly XLColor Bg30 = XLColor.White;
-    private static readonly XLColor Fg30 = XLColor.FromHtml("#1f2937");// dark gray
-
-    private static readonly XLColor BgVac = XLColor.FromHtml("#fff9db");// light yellow
-    private static readonly XLColor FgVac = XLColor.FromHtml("#5f3dc4");
-
-    private static readonly XLColor BgAlert = XLColor.FromHtml("#fff5f5"); // light red
-    private static readonly XLColor FgAlert = XLColor.FromHtml("#c92a2a");
-
-    private static readonly XLColor BgOther = XLColor.FromHtml("#e6fcf5");// light green
-    private static readonly XLColor FgOther = XLColor.FromHtml("#0b7285");
-
-    private static readonly XLColor BgTask = XLColor.FromHtml("#f8f0fc");// light purple
-    private static readonly XLColor FgTask = XLColor.FromHtml("#862e9c");
-
-    private static void ApplyDayCellStyle(IXLCell cell, string? main, string? task)
-    {
-        var m = NormalizeCode(main);
-        var t = NormalizeCode(task);
-
-        var hasMain = !string.IsNullOrWhiteSpace(m);
-        var hasTask = !string.IsNullOrWhiteSpace(t);
-
-        cell.Style.Font.Bold = true;
-        cell.Style.Font.FontSize = 10;
-
-        if (!hasMain && !hasTask)
-        {
-            SetCellColors(cell, BgNb, FgNb);
-            return;
-        }
-
-        if (IsAlert(m) || IsAlert(t))
-        {
-            SetCellColors(cell, BgAlert, FgAlert);
-            return;
-        }
-
-        if (string.Equals(m, "НБ", StringComparison.OrdinalIgnoreCase))
-        {
-            SetCellColors(cell, BgNb, FgNb);
-            cell.Style.Font.Bold = false;
-            cell.Style.Font.FontSize = 8;
-            return;
-        }
-
-        if (string.Equals(m, "30", StringComparison.OrdinalIgnoreCase))
-        {
-            SetCellColors(cell, Bg30, Fg30);
-            return;
-        }
-
-        if (m is "ВП" or "ВПХ" or "ВПП")
-        {
-            SetCellColors(cell, BgVac, FgVac);
-            return;
-        }
-
-        if (!hasMain && hasTask)
-        {
-            SetCellColors(cell, BgTask, FgTask);
-            return;
-        }
-
-        SetCellColors(cell, BgOther, FgOther);
-
-        if (hasMain && hasTask)
-        {
-            cell.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
-            cell.Style.Border.BottomBorderColor = XLColor.FromHtml("#adb5bd");
-        }
-    }
-
-    private static void SetCellColors(IXLCell cell, XLColor bg, XLColor fg)
-    {
-        cell.Style.Fill.BackgroundColor = bg;
-        cell.Style.Font.FontColor = fg;
-    }
-
-    private static bool IsAlert(string? code)
-        => string.Equals(code, "100", StringComparison.OrdinalIgnoreCase)
-           || string.Equals(code, "ПБД", StringComparison.OrdinalIgnoreCase)
-           || string.Equals(code, "Ф100", StringComparison.OrdinalIgnoreCase);
-
-    private static string NormalizeCode(string? code)
-    {
-        var s = (code ?? "").Trim();
-        if (s.Length == 0) return "";
-
-        var sp = s.IndexOf(' ');
-        if (sp > 0) s = s[..sp];
-
-        var nl = s.IndexOfAny(['\n', '\r']);
-        if (nl > 0) s = s[..nl];
-
-        return s.Trim().ToUpperInvariant();
-    }
+    //======================================================================
 
     private static string BuildFileName(int year, int month)
-        => $"Timesheet_{year}-{month:00}_{MonthAbbrUa(month)}.xlsx";
-
-    private static string GetSign(EnrollmentKind? kind)
-        => kind switch
-        {
-            EnrollmentKind.Unit => "ШТ",
-            EnrollmentKind.AttachedByList => "НК",
-            EnrollmentKind.AttachedByOrder => "БР",
-            _ => "ВИКЛ"
-        };
+        => $"timesheet_{year:D4}-{month:D2}.xlsx";
 
     private static string MonthAbbrUa(int month) => month switch
     {
@@ -314,6 +203,65 @@ public sealed class ExportTimesheetMonthQueryHandler(
         10 => "Жов",
         11 => "Лис",
         12 => "Гру",
-        _ => "???"
+        _ => month.ToString()
     };
+
+    private static string GetSign(EnrollmentKindDto kind)
+        => kind switch
+        {
+            EnrollmentKindDto.Unit => "ШТ",
+            EnrollmentKindDto.AttachedByList => "НК",
+            EnrollmentKindDto.AttachedByOrder => "БР",
+            _ => "ВКЛ"
+        };
+
+    private static string NormalizeCode(string? code) => (code ?? string.Empty).Trim().ToUpperInvariant();
+
+    private static bool IsAlert(string? code)
+    {
+        var c = NormalizeCode(code);
+        return c == TimesheetSystemCodes.DoesTheCombatTask
+               || c == TimesheetSystemCodes.InjuryFact;
+    }
+
+    // Simple styles
+    private static readonly XLColor BgNb = XLColor.FromHtml("#e7f5ff");
+    private static readonly XLColor FgNb = XLColor.FromHtml("#1864ab");
+
+    private static readonly XLColor BgVac = XLColor.FromHtml("#fff9db");
+    private static readonly XLColor FgVac = XLColor.FromHtml("#5f3dc4");
+
+    private static readonly XLColor BgAlert = XLColor.FromHtml("#fff5f5");
+    private static readonly XLColor FgAlert = XLColor.FromHtml("#c92a2a");
+
+    private static void ApplyDayCellStyle(IXLCell cell, string? main)
+    {
+        var m = NormalizeCode(main);
+
+        if (m.Length == 0)
+            return;
+
+        if (IsAlert(m))
+        {
+            cell.Style.Fill.BackgroundColor = BgAlert;
+            cell.Style.Font.FontColor = FgAlert;
+            cell.Style.Font.Bold = true;
+            return;
+        }
+
+        if (m == TimesheetSystemCodes.NotInTimesheet)
+        {
+            cell.Style.Fill.BackgroundColor = BgNb;
+            cell.Style.Font.FontColor = FgNb;
+            return;
+        }
+
+        if (m is TimesheetSystemCodes.Leave
+              or TimesheetSystemCodes.LeaveSickness
+              or TimesheetSystemCodes.LeaveWound)
+        {
+            cell.Style.Fill.BackgroundColor = BgVac;
+            cell.Style.Font.FontColor = FgVac;
+        }
+    }
 }

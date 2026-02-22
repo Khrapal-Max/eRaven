@@ -2,23 +2,26 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// TimesheetPersonDayRowDto
+// TimesheetPersonInfoDto
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+using eRaven.Application.DTOs.Enums;
 
 namespace eRaven.Application.DTOs.Timesheets;
 
 /// <summary>
-/// Запис для показу в строчці табличного представлення даних по людині за день
+/// Єдиний Person snapshot для табеля (UI).
+/// <para>
+/// <see cref="PositionSort"/> потрібен для сортування по посадам.
+/// </para>
 /// </summary>
-public sealed record TimesheetPersonDayRowDto(
+public sealed record TimesheetPersonInfoDto(
     Guid PersonId,
     string FullName,
     string Rnokpp,
     string? Rank,
+    int? PositionSort,
     string? Position,
-    EnrollmentKind? EnrollmentKind,
+    EnrollmentKindDto EnrollmentKindDto,
     DateOnly? EnrolledAt,
-    DateOnly? ExcludedAt,
-    TimesheetDayStateDto DayState);
+    DateOnly? ExcludedAt);

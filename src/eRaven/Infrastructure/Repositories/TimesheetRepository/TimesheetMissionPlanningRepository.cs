@@ -6,8 +6,6 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Abstractions.TimesheetRepository;
-using eRaven.Application.DTOs.CombatTasks;
-using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,7 +13,11 @@ namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 /// <summary>
 /// Read-репозиторій для планування/звітів по місіях.
-/// Джерело правди — факти табеля: <c>TimesheetTaskSpans</c> + поточний код з <c>TimesheetEntries</c>.
+///
+/// <para>
+/// Джерело правди по завданнях — CombatTask (через матеріалізовані призначення <c>MissionAssignment</c>).
+/// Табель використовується лише як додатковий фільтр поточного стану (30/100) для UX.
+/// </para>
 /// </summary>
 public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbContext> dbFactory)
     : ITimesheetMissionPlanningRepository
@@ -23,7 +25,7 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<TimesheetTaskSpan>> GetActiveMissionPersonsAsync(
+    public async Task<IReadOnlyList<Guid>> GetActiveMissionPersonsAsync(
         Guid missionId,
         DateOnly onDate,
         CancellationToken ct = default)
@@ -35,43 +37,56 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // Half-open interval: [FromDate..ToDate)
-        return await db.TimesheetTaskSpans
-            .AsNoTracking()
-            .Where(s => s.MissionId == missionId)
-            .Where(s => s.Status != DocumentStatus.Canceled)
-            .Where(s => s.FromDate <= onDate && (!s.ToDate.HasValue || onDate < s.ToDate.Value))
-            .OrderBy(s => s.FullName)
-            .ThenBy(s => s.FromDate)
-            .ToListAsync(ct);
+        // Active on date: From <= D && (To is null || D < To)
+        var q =
+            from a in db.MissionAssignments.AsNoTracking()
+            join doc in db.CombatTaskDocuments.AsNoTracking() on a.SourceStartDocumentId equals doc.Id
+            where a.MissionId == missionId
+            where doc.Status != DocumentStatus.Canceled
+            where a.From <= onDate
+            where a.To == null || onDate < a.To.Value
+            select a.PersonId;
+
+        return await q.Distinct().OrderBy(x => x).ToListAsync(ct);
     }
 
+
+
     /// <inheritdoc />
-    public async Task<IReadOnlyList<TimesheetTaskSpan>> GetActiveMissionClosablePersonsAsync(
-       Guid missionId,
-       DateOnly onDate,
-       CancellationToken ct = default)
+    public async Task<IReadOnlyDictionary<Guid, DateOnly>> GetActiveMissionPersonFromDatesAsync(
+        Guid missionId,
+        DateOnly onDate,
+        IReadOnlyCollection<Guid> personIds,
+        CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(personIds);
         if (missionId == Guid.Empty)
             throw new ArgumentException("missionId must be set.", nameof(missionId));
         if (onDate == default)
             throw new ArgumentException("onDate must be set.", nameof(onDate));
+        if (personIds.Count == 0)
+            return new Dictionary<Guid, DateOnly>();
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        return await db.TimesheetTaskSpans
-            .AsNoTracking()
-            .Where(s => s.MissionId == missionId)
-            .Where(s => s.Status != DocumentStatus.Canceled)
-            .Where(s => s.FromDate <= onDate && (!s.ToDate.HasValue || onDate < s.ToDate.Value))
-            .Where(s => s.ClosedByCombatTaskDocumentId == null && s.ClosedByCodeId == null)
-            .OrderBy(s => s.FullName)
-            .ThenBy(s => s.FromDate)
+        // Active on date: From <= D && (To is null || D < To)
+        var rows = await (
+            from a in db.MissionAssignments.AsNoTracking()
+            join doc in db.CombatTaskDocuments.AsNoTracking() on a.SourceStartDocumentId equals doc.Id
+            where a.MissionId == missionId
+            where doc.Status != DocumentStatus.Canceled
+            where personIds.Contains(a.PersonId)
+            where a.From <= onDate
+            where a.To == null || onDate < a.To.Value
+            select new { a.PersonId, a.From })
             .ToListAsync(ct);
-    }
 
+        return rows
+            .GroupBy(x => x.PersonId)
+            .ToDictionary(g => g.Key, g => g.Min(x => x.From));
+    }
     /// <inheritdoc />
-    public async Task<IReadOnlyList<TimesheetTaskSpan>> GetActiveMissionPersonsByDocumentAsync(
+    public async Task<IReadOnlyList<Guid>> GetActiveMissionPersonsByDocumentAsync(
         Guid documentId,
         DateOnly onDate,
         CancellationToken ct = default)
@@ -83,83 +98,70 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        return await db.TimesheetTaskSpans
-            .AsNoTracking()
-            .Where(s => s.Status != DocumentStatus.Canceled)
-            .Where(s => s.FromDate <= onDate && (!s.ToDate.HasValue || onDate < s.ToDate.Value))
-            .Where(s => s.OpenedByCombatTaskDocumentId == documentId || s.ClosedByCombatTaskDocumentId == documentId)
-            .OrderBy(s => s.FullName)
-            .ThenBy(s => s.FromDate)
-            .ToListAsync(ct);
+        var q =
+            from a in db.MissionAssignments.AsNoTracking()
+            join doc in db.CombatTaskDocuments.AsNoTracking() on a.SourceStartDocumentId equals doc.Id
+            where a.SourceStartDocumentId == documentId
+            where doc.Status != DocumentStatus.Canceled
+            where a.From <= onDate
+            where a.To == null || onDate < a.To.Value
+            select a.PersonId;
+
+        return await q.Distinct().OrderBy(x => x).ToListAsync(ct);
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ReadyCombatTaskPersonDto>> GetFreePersonForMissionsAsync(
+    public async Task<IReadOnlyList<Guid>> GetFreePersonForMissionsAsync(
         DateOnly onDate,
         CancellationToken ct = default)
     {
-        if (onDate == default) throw new ArgumentException("onDate must be set.", nameof(onDate));
+        if (onDate == default)
+            throw new ArgumentException("onDate must be set.", nameof(onDate));
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var readyCodeId = await db.TimesheetCodes
+        // Allowed codes for assignment UX.
+        var allowedCodeIds = await db.TimesheetCodes
             .AsNoTracking()
-            .Where(x => x.Code == TimesheetSystemCodes.ReadyToCombatTask)
+            .Where(x => x.Code == TimesheetSystemCodes.ReadyToCombatTask || x.Code == TimesheetSystemCodes.DoesTheCombatTask)
             .Select(x => x.Id)
-            .SingleAsync(ct);
+            .ToListAsync(ct);
 
-        var q = db.PersonRead
+        if (allowedCodeIds.Count == 0)
+            return [];
+
+        // Persons with current code in {30,100}.
+        // Note: current code is taken from the active episode's entry for the given date.
+        var eligibleByCodeQuery = db.TimeSheets
             .AsNoTracking()
-            .Select(p => new
+            .Where(t => t.OpenedAt <= onDate && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= onDate))
+            .Select(t => new
             {
-                Person = p,
-
-                TimesheetId = db.TimeSheets
-                    .AsNoTracking()
-                    .Where(t =>
-                        t.PersonId == p.Id
-                        && t.OpenedAt <= onDate
-                        && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= onDate))
-                    .OrderByDescending(t => t.OpenedAt)
-                    .Select(t => t.Id)
-                    .FirstOrDefault()
-            })
-            .Where(x => x.TimesheetId != Guid.Empty)
-            .Select(x => new
-            {
-                x.Person,
-                x.TimesheetId,
-
-                CurrentCodeId = db.TimesheetEntries
-                    .AsNoTracking()
-                    .Where(e =>
-                        e.TimesheetId == x.TimesheetId
-                        && !e.IsDeleted
-                        && e.From <= onDate
-                        && (!e.To.HasValue || onDate < e.To.Value))
+                t.PersonId,
+                CurrentCodeId = t.Entries
+                    .Where(e => !e.IsDeleted && e.From <= onDate && (!e.To.HasValue || onDate < e.To.Value))
                     .OrderByDescending(e => e.From)
                     .ThenByDescending(e => e.CreatedAtUtc)
                     .Select(e => e.TimesheetCodeDefinitionId)
-                    .FirstOrDefault(),
-
-                HasActiveTask = db.TimesheetTaskSpans
-                    .AsNoTracking()
-                    .Any(s =>
-                        s.TimesheetId == x.TimesheetId
-                        && s.Status != DocumentStatus.Canceled
-                        && s.FromDate <= onDate
-                        && (!s.ToDate.HasValue || onDate < s.ToDate.Value))
+                    .FirstOrDefault()
             })
-            .Where(x => x.CurrentCodeId == readyCodeId && !x.HasActiveTask)
-            .OrderBy(x => x.Person.FullName)
-            .Select(x => new ReadyCombatTaskPersonDto(
-                PersonId: x.Person.Id,
-                Rnokpp: x.Person.Rnokpp,
-                FullName: x.Person.FullName,
-                Rank: x.Person.Rank,
-                Position: x.Person.Position,
-                Weapon: x.Person.Weapon,
-                Callsign: x.Person.Callsign));
+            .Where(x => allowedCodeIds.Contains(x.CurrentCodeId))
+            .Select(x => x.PersonId)
+            .Distinct();
+
+        // "Open tasks" block starting a new assignment for any mission.
+        // Open assignment = To is null and started in the past.
+        var openAssignmentsQuery =
+            from a in db.MissionAssignments.AsNoTracking()
+            join doc in db.CombatTaskDocuments.AsNoTracking() on a.SourceStartDocumentId equals doc.Id
+            where doc.Status != DocumentStatus.Canceled
+            where a.From <= onDate
+            where a.To == null
+            select a.PersonId;
+
+        var q = eligibleByCodeQuery
+            .Where(pid => !openAssignmentsQuery.Contains(pid))
+            .OrderBy(pid => pid);
 
         return await q.ToListAsync(ct);
     }

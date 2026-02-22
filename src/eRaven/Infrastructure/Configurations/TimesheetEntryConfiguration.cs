@@ -1,7 +1,7 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-//----------------------------------------------------------------------------- 
+//-----------------------------------------------------------------------------
 // TimesheetEntryConfiguration
 //-----------------------------------------------------------------------------
 
@@ -26,6 +26,7 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
 
         e.Property(x => x.Id)
             .HasColumnName("id")
+            .ValueGeneratedNever()
             .IsRequired();
 
         e.Property(x => x.TimesheetId)
@@ -40,8 +41,6 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
             .HasColumnName("timesheet_codedefinition_id")
             .IsRequired();
 
-        // NOTE: "from"/"to" можуть бути незручними іменами в SQL.
-        // Якщо ти вже робиш міграцію — краще одразу мати from_date/to_date.
         e.Property(x => x.From)
             .HasColumnName("from_date")
             .IsRequired();
@@ -51,7 +50,8 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
 
         e.Property(x => x.Reference)
             .HasColumnName("reference")
-            .HasMaxLength(256);
+            // NOTE: Reference може містити перелік документів ("Doc1, Doc2, ...")
+            .HasMaxLength(2048);
 
         e.Property(x => x.Note)
             .HasColumnName("note")
@@ -96,7 +96,11 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
         e.HasIndex(x => new { x.PersonId, x.From, x.To })
             .HasDatabaseName("ix_ts_entries_person_range");
 
+        // Invariant enforcement: один "активний" запис на дату (From) всередині епізоду.
+        // Агрегат нормалізує Entries, але індекс додатково захищає від випадкових дублікатів.
         e.HasIndex(x => new { x.TimesheetId, x.From })
-            .HasDatabaseName("ix_ts_entries_timesheet_from");
+            .IsUnique()
+            .HasFilter("is_deleted = false")
+            .HasDatabaseName("ux_ts_entries_timesheet_from_active");
     }
 }

@@ -72,6 +72,7 @@ public sealed class CreateCombatTaskCommandHandlerTests
         var timesheets = new Mock<ITimesheetAggregateRepository>(MockBehavior.Strict);
         timesheets.Setup(x => x.ApplyCombatTaskFactsAsync(
                 docId,
+                "DOC1",
                 missionId,
                 It.IsAny<IReadOnlyCollection<CombatTaskDetails>>(),
                 "admin",
@@ -192,6 +193,7 @@ public sealed class CreateCombatTaskCommandHandlerTests
         var timesheets = new Mock<ITimesheetAggregateRepository>(MockBehavior.Strict);
         timesheets.Setup(x => x.ApplyCombatTaskFactsAsync(
                 docId,
+                "DOC1",
                 missionId,
                 It.IsAny<IReadOnlyCollection<CombatTaskDetails>>(),
                 "duty",

@@ -5,9 +5,9 @@
 // TimesheetPersonDrawer
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Timesheets;
 using eRaven.Components.Shared.Drawer;
-using eRaven.Domain.Enums;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Timesheets.Drawers;
@@ -37,7 +37,7 @@ public partial class TimesheetPersonDrawer : ComponentBase
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
 
     /// <summary>Дані особи (snapshot для відображення).</summary>
-    [Parameter] public TimesheetPersonMonthRowDto? Person { get; set; }
+    [Parameter] public TimesheetPersonInfoDto? Person { get; set; }
 
     /// <summary>Callback, який викликається після закриття drawer.</summary>
     [Parameter] public EventCallback OnClosed { get; set; }
@@ -84,12 +84,12 @@ public partial class TimesheetPersonDrawer : ComponentBase
     /// <summary>
     /// Людський текст для типу обліку (EnrollmentKind).
     /// </summary>
-    private static string GetSign(EnrollmentKind? kind)
+    private static string GetSign(EnrollmentKindDto kind)
         => kind switch
         {
-            EnrollmentKind.Unit => "Штат",
-            EnrollmentKind.AttachedByList => "Приданий по наказу (котел)",
-            EnrollmentKind.AttachedByOrder => "Приданий по БР",
+            EnrollmentKindDto.Unit => "Штат",
+            EnrollmentKindDto.AttachedByList => "Приданий по наказу (котел)",
+            EnrollmentKindDto.AttachedByOrder => "Приданий по БР",
             _ => "ВКЛ"
         };
 }

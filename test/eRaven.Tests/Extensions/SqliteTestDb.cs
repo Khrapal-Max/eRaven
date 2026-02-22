@@ -39,12 +39,10 @@ public sealed class SqliteTestDb : IAsyncDisposable
         return ValueTask.CompletedTask;
     }
 
-    private sealed class SimpleDbContextFactory : IDbContextFactory<AppDbContext>
+    private sealed class SimpleDbContextFactory(DbContextOptions<AppDbContext> options)
+        : IDbContextFactory<AppDbContext>
     {
-        private readonly DbContextOptions<AppDbContext> _options;
-
-        public SimpleDbContextFactory(DbContextOptions<AppDbContext> options)
-            => _options = options;
+        private readonly DbContextOptions<AppDbContext> _options = options;
 
         public AppDbContext CreateDbContext() => new AppDbContext(_options);
     }

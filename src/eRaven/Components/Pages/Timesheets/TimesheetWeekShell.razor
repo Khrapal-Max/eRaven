@@ -63,7 +63,7 @@
                        Items="@(_rows ?? [])"
                        Class="table-sm table-bordered table-hover mb-0 align-middle"
                        @bind-SelectedItem="_selected"
-                       KeySelector="@(r => r.PersonId)">
+                       KeySelector="@(r => r.Person.PersonId)">
 
                     <TableHeader>
                         <th class="text-center">Тип обліку</th>
@@ -83,19 +83,19 @@
                     </TableHeader>
 
                     <RowTemplate Context="r">
-                        <td class="text-center fw-semibold">@GetSign(r.EnrollmentKind)</td>
+                        <td class="text-center fw-semibold">@GetSign(r.Person.EnrollmentKindDto)</td>
 
                         <!-- (опційно, але дуже бажано) компактний блок ПІБ -->
                         <td class="min-w-0">
                             <div class="d-flex flex-column lh-sm min-w-0">
                                 <div class="d-flex align-items-center gap-2 min-w-0">
-                                    @if (!string.IsNullOrWhiteSpace(r.Rank))
+                                    @if (!string.IsNullOrWhiteSpace(r.Person.Rank))
                                     {
-                                        <span class="text-nowrap">@r.Rank</span>
+                                        <span class="text-nowrap">@r.Person.Rank</span>
                                     }
-                                    <span class="fw-semibold text-truncate d-block min-w-0">@r.FullName</span>
+                                    <span class="fw-semibold text-truncate d-block min-w-0">@r.Person.FullName</span>
                                 </div>
-                                <div class="small font-monospace text-nowrap">@r.Rnokpp</div>
+                                <div class="small font-monospace text-nowrap">@r.Person.Rnokpp</div>
                             </div>
                         </td>
 

@@ -374,7 +374,7 @@ public partial class StartCombatTaskForm : ComponentBase
                 Position: x.Position,
                 Weapon: x.Weapon,
                 Callsign: x.Callsign))],
-                Author: "ui", // TODO aut user
+                Author: "ui", // TODO auth user
                 NowUtc: DateTime.UtcNow);
 
             await CreateCombatTaskHandler.HandleAsync(command);

@@ -2,24 +2,17 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// TimesheetPersonInfoDto
+// TimesheetPeriodRm
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs.Enums;
-using eRaven.Domain.Enums;
-
-namespace eRaven.Application.DTOs.Timesheets.Microservice;
+namespace eRaven.Application.Abstractions.TimesheetRepository.ReadModels;
 
 /// <summary>
-/// Єдиний Person snapshot для табеля.
+/// Табельний період для 1 особи: готова "матриця" (список днів).
+/// <para>
+/// Дані про особу (ПІБ/РНОКПП/звання/посада) не входять у цю модель.
+/// </para>
 /// </summary>
-public sealed record TimesheetPersonInfoDto(
+public sealed record TimesheetPeriodRm(
     Guid PersonId,
-    string FullName,
-    string Rnokpp,
-    string? Rank,
-    int? PositionSort,
-    string? Position,
-    EnrollmentKindDto EnrollmentKindDto,
-    DateOnly? EnrolledAt,
-    DateOnly? ExcludedAt);
+    IReadOnlyList<TimesheetDayRm> Days);

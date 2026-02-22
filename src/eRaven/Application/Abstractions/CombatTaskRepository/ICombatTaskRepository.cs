@@ -14,16 +14,16 @@ public interface ICombatTaskRepository
     // Read operations
 
     /// <summary>
-    /// Повертає документ.
-    /// </summary>
-    Task<CombatTaskDocument> GetDocumentAsync(Guid documentId, CancellationToken ct = default);
-
-    /// <summary>
     /// Повертає список MissionId, які присутні у документі.
     /// Використовується для легких документних операцій (наприклад Cancel),
     /// коли не потрібен повний editor DTO.
     /// </summary>
     Task<IReadOnlyList<Guid>> GetDocumentMissionIdsAsync(Guid documentId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Повертає документ.
+    /// </summary>
+    Task<CombatTaskDocument> GetDocumentAsync(Guid documentId, CancellationToken ct = default);
 
     // Write operations
 

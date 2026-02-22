@@ -1,13 +1,11 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// TimesheetAggregateRepositoryTests
-//-----------------------------------------------------------------------------
 
 using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
 using eRaven.Domain.Enums;
+using eRaven.Infrastructure;
 using eRaven.Infrastructure.Repositories.TimesheetRepository;
 using eRaven.Tests.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -15,635 +13,33 @@ using Microsoft.EntityFrameworkCore;
 namespace eRaven.Tests.Infrastructure.Repositories;
 
 /// <summary>
-/// Тести для <see cref="TimesheetAggregateRepository"/>.
-///
-/// <para>
-/// Фіксуємо контракт "документ (CombatTaskDetails) → факт у табелі (TimesheetTaskSpan)":
-/// <list type="bullet">
-/// <item><description><c>ApplyCombatTaskFactsAsync</c> створює/оновлює span на людину в межах (<c>documentId</c> + <c>missionId</c>);</description></item>
-/// <item><description><c>Start</c> → відкриває інтервал (<c>ToDate == null</c>);</description></item>
-/// <item><description><c>End</c> → закриває інтервал (<c>ToDate = End + 1 день</c>, <b>EXCLUSIVE</b>);</description></item>
-/// <item><description>дозволено кейс: документ №1 відкрив задачу, документ №2 закрив;</description></item>
-/// <item><description>зберігаємо <b>референс документа</b> (наприклад, <c>OrderTitle</c>) у span:
-/// <c>OpenedByCombatTaskDocumentReference</c> / <c>ClosedByCombatTaskDocumentReference</c>;</description></item>
-/// <item><description><c>CancelCombatTaskFactsAsync</c> робить компенсацію (<c>Status=Canceled</c>) і проставляє reason/reference;</description></item>
-/// <item><description><c>LoadActive</c>/<c>LoadOnDate</c> повертають епізод з <c>TaskSpans</c>.</description></item>
-/// </list>
-/// </para>
+/// Integration tests for <see cref="TimesheetAggregateRepository"/> task-control sync:
+/// CombatTaskDetails -> MissionAssignment -> Timesheet entries (30/100).
 /// </summary>
-public sealed class TimesheetAggregateRepositoryTests
+public sealed class TimesheetAggregateRepository_TaskControl_Tests
 {
-    //======================================================================
-    // ApplyCombatTaskFactsAsync
-    //======================================================================
+    private const string Author = "test";
+    private static readonly DateTime NowUtc = new(2026, 02, 21, 12, 0, 0, DateTimeKind.Utc);
 
-    /// <summary>
-    /// ApplyCombatTaskFactsAsync — no-op коли details порожній.
-    /// </summary>
-    [Fact]
-    public async Task ApplyCombatTaskFactsAsync_NoOp_WhenDetailsEmpty()
+    private static async Task SeedCodesAsync(SqliteTestDb testDb, CancellationToken ct = default)
     {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetAggregateRepository(testDb.Factory);
-
-        await repo.ApplyCombatTaskFactsAsync(
-            documentId: Guid.NewGuid(),
-            missionId: Guid.NewGuid(),
-            details: [],
-            author: "tester",
-            nowUtc: new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc));
-
-        await using var db = await testDb.Factory.CreateDbContextAsync();
-        Assert.Equal(0, await db.TimesheetTaskSpans.CountAsync());
+        await using var db = testDb.Factory.CreateDbContext();
+        await TimesheetPolicySeed.EnsureSeedAsync(db, ct);
     }
 
-    /// <summary>
-    /// Start-only: створює активний span з FromDate=start, ToDate=null та snapshot з Start-рядка.
-    /// Також фіксує OpenedByCombatTaskDocumentReference.
-    /// </summary>
-    [Fact]
-    public async Task ApplyCombatTaskFactsAsync_StartOnly_CreatesOpenSpan_WithSnapshot_AndDocReference()
+    private static async Task<Guid> GetCodeIdAsync(SqliteTestDb testDb, string code, CancellationToken ct = default)
     {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetAggregateRepository(testDb.Factory);
-
-        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
-
-        var documentId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-        var personId = Guid.NewGuid();
-
-        await SeedCombatTaskDocumentAsync(testDb, documentId, " A1 ", now);
-        await SeedEpisodeAsync(testDb, personId, openedAt: new DateOnly(2026, 02, 01), nowUtc: now);
-
-        var details = new[]
-        {
-            NewDetail(
-                kind: CombatTaskDetailsKind.Start,
-                effectiveAt: new DateOnly(2026, 02, 10),
-                personId: personId,
-                rnokpp: "1111111111",
-                fullName: "Start Person",
-                rank: "R",
-                position: "P",
-                weapon: "W",
-                callsign: "C")
-        };
-
-        await repo.ApplyCombatTaskFactsAsync(documentId, missionId, details, "duty", now);
-
-        await using var db = await testDb.Factory.CreateDbContextAsync();
-        var ep = await db.TimeSheets.Include(x => x.TaskSpans).SingleAsync(x => x.PersonId == personId);
-
-        Assert.Single(ep.TaskSpans);
-
-        var span = ep.TaskSpans[0];
-        Assert.Equal(ep.Id, span.TimesheetId);
-        Assert.Equal(personId, span.PersonId);
-        Assert.Equal(missionId, span.MissionId);
-        Assert.Equal(documentId, span.OpenedByCombatTaskDocumentId);
-        Assert.Null(span.ClosedByCombatTaskDocumentId);
-
-        Assert.Equal(new DateOnly(2026, 02, 10), span.FromDate);
-        Assert.Null(span.ToDate);
-        Assert.Equal(DocumentStatus.Active, span.Status);
-
-        // Snapshot from Start row
-        Assert.Equal("1111111111", span.Rnokpp);
-        Assert.Equal("Start Person", span.FullName);
-        Assert.Equal("R", span.Rank);
-        Assert.Equal("P", span.Position);
-        Assert.Equal("W", span.Weapon);
-        Assert.Equal("C", span.Callsign);
-
-        // Document reference
-        Assert.Equal("A1", span.OpenedByDocumentReference);
-        Assert.Null(span.ClosedByDocumentReference);
-
-        Assert.Equal("duty", span.CreatedBy);
-        Assert.Equal(now, span.CreatedAtUtc);
-        Assert.Equal("duty", span.UpdatedBy);
-        Assert.Equal(now, span.UpdatedAtUtc);
+        await using var db = testDb.Factory.CreateDbContext();
+        return await db.TimesheetCodes
+            .AsNoTracking()
+            .Where(x => x.Code == code)
+            .Select(x => x.Id)
+            .SingleAsync(ct);
     }
 
-    /// <summary>
-    /// Start+End: створює span і закриває його (ToDate = End+1, EXCLUSIVE),
-    /// ClosedByCombatTaskDocumentId = documentId.
-    /// Також фіксує Opened/Closed document reference.
-    /// </summary>
-    [Fact]
-    public async Task ApplyCombatTaskFactsAsync_StartAndEnd_CreatesAndClosesSpan_AndStoresDocReferences()
+    private static async Task SeedEpisodeAsync(SqliteTestDb testDb, Guid personId, DateOnly openedAt, CancellationToken ct = default)
     {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetAggregateRepository(testDb.Factory);
-
-        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
-
-        var documentId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-        var personId = Guid.NewGuid();
-
-        await SeedCombatTaskDocumentAsync(testDb, documentId, "A1", now);
-        await SeedEpisodeAsync(testDb, personId, openedAt: new DateOnly(2026, 02, 01), nowUtc: now);
-
-        var details = new[]
-        {
-            NewDetail(CombatTaskDetailsKind.Start, new DateOnly(2026, 02, 10), personId, "2222222222", "P", null, null, null, null),
-            NewDetail(CombatTaskDetailsKind.End,   new DateOnly(2026, 02, 12), personId, "2222222222", "P", null, null, null, null),
-        };
-
-        await repo.ApplyCombatTaskFactsAsync(documentId, missionId, details, "duty", now);
-
-        await using var db = await testDb.Factory.CreateDbContextAsync();
-        var span = await db.TimesheetTaskSpans.SingleAsync(x => x.PersonId == personId);
-
-        Assert.Equal(new DateOnly(2026, 02, 10), span.FromDate);
-        Assert.Equal(new DateOnly(2026, 02, 13), span.ToDate); // End + 1 day (exclusive)
-        Assert.Equal(documentId, span.ClosedByCombatTaskDocumentId);
-
-        // Document references
-        Assert.Equal("A1", span.OpenedByDocumentReference);
-        Assert.Equal("A1", span.ClosedByDocumentReference);
-
-        // Half-open semantic check
-        Assert.True(span.IsActiveOn(new DateOnly(2026, 02, 12)));
-        Assert.False(span.IsActiveOn(new DateOnly(2026, 02, 13)));
-    }
-
-    /// <summary>
-    /// End-only допускається якщо span вже існує:
-    /// Apply має взяти FromDate з існуючого факту і оновити snapshot з End-рядка.
-    /// </summary>
-    [Fact]
-    public async Task ApplyCombatTaskFactsAsync_EndOnly_UsesExistingFromDate_UpdatesSnapshot_AndKeepsOpenRef()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetAggregateRepository(testDb.Factory);
-
-        var t0 = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
-        var t1 = t0.AddMinutes(5);
-
-        var documentId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-        var personId = Guid.NewGuid();
-
-        await SeedCombatTaskDocumentAsync(testDb, documentId, "A1", t0);
-        await SeedEpisodeAsync(testDb, personId, openedAt: new DateOnly(2026, 02, 01), nowUtc: t0);
-
-        // 1) First apply Start-only (creates open span)
-        await repo.ApplyCombatTaskFactsAsync(
-            documentId,
-            missionId,
-            [
-                NewDetail(CombatTaskDetailsKind.Start, new DateOnly(2026, 02, 10), personId, "3333333333", "StartName", null, null, null, null)
-            ],
-            author: "duty",
-            nowUtc: t0);
-
-        // 2) Then apply End-only (must close existing; snapshot should come from End row)
-        await repo.ApplyCombatTaskFactsAsync(
-            documentId,
-            missionId,
-            [
-                NewDetail(CombatTaskDetailsKind.End, new DateOnly(2026, 02, 11), personId, "3333333333", "EndName", "R2", "P2", "W2", "C2")
-            ],
-            author: "duty2",
-            nowUtc: t1);
-
-        await using var db = await testDb.Factory.CreateDbContextAsync();
-        var span = await db.TimesheetTaskSpans.SingleAsync(x => x.PersonId == personId);
-
-        // FromDate preserved from existing span
-        Assert.Equal(new DateOnly(2026, 02, 10), span.FromDate);
-
-        // Closed at End+1 (exclusive)
-        Assert.Equal(new DateOnly(2026, 02, 12), span.ToDate);
-        Assert.Equal(documentId, span.ClosedByCombatTaskDocumentId);
-
-        // Snapshot updated from End row
-        Assert.Equal("3333333333", span.Rnokpp);
-        Assert.Equal("EndName", span.FullName);
-        Assert.Equal("R2", span.Rank);
-        Assert.Equal("P2", span.Position);
-        Assert.Equal("W2", span.Weapon);
-        Assert.Equal("C2", span.Callsign);
-
-        // References remain consistent (same document)
-        Assert.Equal("A1", span.OpenedByDocumentReference);
-        Assert.Equal("A1", span.ClosedByDocumentReference);
-
-        Assert.Equal("duty2", span.UpdatedBy);
-        Assert.Equal(t1, span.UpdatedAtUtc);
-    }
-
-    /// <summary>
-    /// Apply має обробляти кількох людей в одному виклику (group by PersonId).
-    /// </summary>
-    [Fact]
-    public async Task ApplyCombatTaskFactsAsync_MultiplePersons_CreatesSpanPerPerson()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetAggregateRepository(testDb.Factory);
-
-        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
-
-        var documentId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-
-        await SeedCombatTaskDocumentAsync(testDb, documentId, "A1", now);
-
-        var p1 = Guid.NewGuid();
-        var p2 = Guid.NewGuid();
-
-        await SeedEpisodeAsync(testDb, p1, openedAt: new DateOnly(2026, 02, 01), nowUtc: now);
-        await SeedEpisodeAsync(testDb, p2, openedAt: new DateOnly(2026, 02, 01), nowUtc: now);
-
-        var details = new[]
-        {
-            NewDetail(CombatTaskDetailsKind.Start, new DateOnly(2026, 02, 10), p1, "4444444444", "P1", null, null, null, null),
-            NewDetail(CombatTaskDetailsKind.Start, new DateOnly(2026, 02, 11), p2, "5555555555", "P2", null, null, null, null),
-        };
-
-        await repo.ApplyCombatTaskFactsAsync(documentId, missionId, details, "duty", now);
-
-        await using var db = await testDb.Factory.CreateDbContextAsync();
-        var spans = await db.TimesheetTaskSpans.AsNoTracking().OrderBy(x => x.Rnokpp).ToListAsync();
-
-        Assert.Equal(2, spans.Count);
-
-        Assert.Equal(p1, spans[0].PersonId);
-        Assert.Equal(new DateOnly(2026, 02, 10), spans[0].FromDate);
-        Assert.Equal("A1", spans[0].OpenedByDocumentReference);
-
-        Assert.Equal(p2, spans[1].PersonId);
-        Assert.Equal(new DateOnly(2026, 02, 11), spans[1].FromDate);
-        Assert.Equal("A1", spans[1].OpenedByDocumentReference);
-    }
-
-    /// <summary>
-    /// Apply кидає помилку, якщо активний епізод для людини на refDate відсутній.
-    /// </summary>
-    [Fact]
-    public async Task ApplyCombatTaskFactsAsync_Throws_WhenNoEpisodeOnRefDate()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetAggregateRepository(testDb.Factory);
-
-        var documentId = Guid.NewGuid();
-        await SeedCombatTaskDocumentAsync(testDb, documentId, "A1", new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc));
-
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.ApplyCombatTaskFactsAsync(
-                documentId: documentId,
-                missionId: Guid.NewGuid(),
-                details:
-                [
-                    NewDetail(CombatTaskDetailsKind.Start, new DateOnly(2026, 02, 10), Guid.NewGuid(), "6666666666", "X", null, null, null, null)
-                ],
-                author: "duty",
-                nowUtc: new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc)));
-
-        Assert.Contains("episode not found", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    //======================================================================
-    // CancelCombatTaskFactsAsync
-    //======================================================================
-
-    /// <summary>
-    /// CancelCombatTaskFactsAsync робить компенсацію:
-    /// Status=Canceled + ClosedByCodeId + trimmed reference.
-    /// </summary>
-    [Fact]
-    public async Task CancelCombatTaskFactsAsync_CancelsSpan_AndSetsReasonAndReference()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetAggregateRepository(testDb.Factory);
-
-        var t0 = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
-        var t1 = t0.AddMinutes(3);
-
-        var documentId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-        var personId = Guid.NewGuid();
-
-        await SeedCombatTaskDocumentAsync(testDb, documentId, "A1", t0);
-        await SeedEpisodeAsync(testDb, personId, openedAt: new DateOnly(2026, 02, 01), nowUtc: t0);
-
-        // Create span
-        await repo.ApplyCombatTaskFactsAsync(
-            documentId,
-            missionId,
-            [
-                NewDetail(CombatTaskDetailsKind.Start, new DateOnly(2026, 02, 10), personId, "7777777777", "P", null, null, null, null)
-            ],
-            author: "duty",
-            nowUtc: t0);
-
-        var reasonCodeId = Guid.NewGuid();
-
-        await repo.CancelCombatTaskFactsAsync(
-            documentId: documentId,
-            missionId: missionId,
-            reasonCodeId: reasonCodeId,
-            reference: "  F200  ",
-            author: "auditor",
-            nowUtc: t1);
-
-        await using var db = await testDb.Factory.CreateDbContextAsync();
-        var span = await db.TimesheetTaskSpans.SingleAsync(x => x.PersonId == personId);
-
-        Assert.Equal(DocumentStatus.Canceled, span.Status);
-        Assert.Equal(reasonCodeId, span.ClosedByCodeId);
-        Assert.Equal("F200", span.ClosedReference);
-        Assert.Equal("auditor", span.UpdatedBy);
-        Assert.Equal(t1, span.UpdatedAtUtc);
-
-        // Document reference should remain (cancel is compensation, not "delete history")
-        Assert.Equal("A1", span.OpenedByDocumentReference);
-    }
-
-    /// <summary>
-    /// CancelCombatTaskFactsAsync — no-op, якщо відповідних фактів не знайдено.
-    /// </summary>
-    [Fact]
-    public async Task CancelCombatTaskFactsAsync_NoOp_WhenNoMatchingSpans()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetAggregateRepository(testDb.Factory);
-
-        // Should not throw
-        await repo.CancelCombatTaskFactsAsync(
-            documentId: Guid.NewGuid(),
-            missionId: Guid.NewGuid(),
-            reasonCodeId: Guid.NewGuid(),
-            reference: "X",
-            author: "auditor",
-            nowUtc: new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc));
-    }
-
-    /// <summary>
-    /// CancelCombatTaskFactsAsync не повинен повторно "скасовувати" вже canceled span
-    /// (вибірка фільтрує Status!=Canceled).
-    /// </summary>
-    [Fact]
-    public async Task CancelCombatTaskFactsAsync_NoOp_WhenAlreadyCanceled()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetAggregateRepository(testDb.Factory);
-
-        var t0 = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
-
-        var documentId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-        var personId = Guid.NewGuid();
-
-        await SeedCombatTaskDocumentAsync(testDb, documentId, "A1", t0);
-        await SeedEpisodeAsync(testDb, personId, openedAt: new DateOnly(2026, 02, 01), nowUtc: t0);
-
-        // Create + cancel once
-        await repo.ApplyCombatTaskFactsAsync(
-            documentId,
-            missionId,
-            [NewDetail(CombatTaskDetailsKind.Start, new DateOnly(2026, 02, 10), personId, "8888888888", "P", null, null, null, null)],
-            "duty",
-            t0);
-
-        var reason1 = Guid.NewGuid();
-        await repo.CancelCombatTaskFactsAsync(documentId, missionId, reason1, "A", "aud1", t0.AddMinutes(1));
-
-        // Second cancel should be a no-op (no matching spans due to Status!=Canceled in query)
-        var reason2 = Guid.NewGuid();
-        await repo.CancelCombatTaskFactsAsync(documentId, missionId, reason2, "B", "aud2", t0.AddMinutes(2));
-
-        await using var db = await testDb.Factory.CreateDbContextAsync();
-        var span = await db.TimesheetTaskSpans.SingleAsync(x => x.PersonId == personId);
-
-        Assert.Equal(DocumentStatus.Canceled, span.Status);
-        Assert.Equal(reason1, span.ClosedByCodeId);
-        Assert.Equal("A", span.ClosedReference);
-        Assert.Equal("aud1", span.UpdatedBy);
-    }
-
-    //======================================================================
-    // LoadActiveAsync / LoadOnDateForUpdateAsync
-    //======================================================================
-
-    /// <summary>
-    /// LoadActiveAsync повертає активний епізод з TaskSpans.
-    /// </summary>
-    [Fact]
-    public async Task LoadActiveAsync_ReturnsEpisode_WithTaskSpans()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetAggregateRepository(testDb.Factory);
-
-        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
-        var personId = Guid.NewGuid();
-
-        var epId = await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 01), now);
-
-        // Add one span to prove Include works (seed directly to avoid coupling to aggregate method signatures)
-        await using (var db = await testDb.Factory.CreateDbContextAsync())
-        {
-            var span = new TimesheetTaskSpan
-            {
-                Id = Guid.NewGuid(),
-                TimesheetId = epId,
-                PersonId = personId,
-                OpenedByCombatTaskDocumentId = Guid.NewGuid(),
-                ClosedByCombatTaskDocumentId = null,
-                MissionId = Guid.NewGuid(),
-                Status = DocumentStatus.Active,
-                FromDate = new DateOnly(2026, 02, 10),
-                ToDate = null,
-
-                Rnokpp = "9999999999",
-                FullName = "P",
-
-                OpenedByDocumentReference = "A1",
-                ClosedByDocumentReference = null,
-
-                CreatedBy = "seed",
-                CreatedAtUtc = now,
-                UpdatedBy = "seed",
-                UpdatedAtUtc = now
-            };
-
-            db.TimesheetTaskSpans.Add(span);
-            await db.SaveChangesAsync();
-        }
-
-        var loaded = await repo.LoadActiveAsync(personId);
-
-        Assert.Equal(personId, loaded.PersonId);
-        Assert.Single(loaded.TaskSpans);
-    }
-
-    /// <summary>
-    /// LoadOnDateForUpdateAsync повертає епізод, який покриває дату onDate.
-    /// </summary>
-    [Fact]
-    public async Task LoadOnDateForUpdateAsync_ReturnsEpisodeCoveringDate()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetAggregateRepository(testDb.Factory);
-
-        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
-        var personId = Guid.NewGuid();
-
-        await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 01), now);
-
-        var loaded = await repo.LoadOnDateForUpdateAsync(personId, new DateOnly(2026, 02, 10));
-        Assert.Equal(personId, loaded.PersonId);
-        Assert.True(loaded.IsActiveOn(new DateOnly(2026, 02, 10)));
-    }
-
-    /// <summary>
-    /// Документ №1 відкрив задачу, документ №2 закрив (без дублювання span).
-    /// Також перевіряємо ClosedByCombatTaskDocumentId та ClosedByCombatTaskDocumentReference.
-    /// </summary>
-    [Fact]
-    public async Task ApplyFacts_StartInDoc1_EndInDoc2_ClosesExistingSpan_AndStoresClosingDocIdAndReference()
-    {
-        // arrange
-        var personId = Guid.NewGuid();
-        var missionId = Guid.NewGuid();
-        var doc1 = Guid.NewGuid();
-        var doc2 = Guid.NewGuid();
-
-        var openedAt = new DateOnly(2026, 01, 01);
-        var start = new DateOnly(2026, 01, 05);
-        var end = new DateOnly(2026, 01, 07);
-
-        var now = new DateTime(2026, 01, 01, 10, 00, 00, DateTimeKind.Utc);
-
-        await using var testDb = new SqliteTestDb();
-
-        await SeedCombatTaskDocumentAsync(testDb, doc1, "A1", now);
-        await SeedCombatTaskDocumentAsync(testDb, doc2, "A2", now);
-
-        await using (var db = await testDb.Factory.CreateDbContextAsync())
-        {
-            db.TimeSheets.Add(new TimeSheetAggregate
-            {
-                Id = Guid.NewGuid(),
-                PersonId = personId,
-                OpenedAt = openedAt,
-                ClosedAt = null,
-                CreatedBy = "seed",
-                CreatedAtUtc = now
-            });
-
-            await db.SaveChangesAsync();
-        }
-
-        var repo = new TimesheetAggregateRepository(testDb.Factory);
-
-        // act 1: start by doc1
-        await repo.ApplyCombatTaskFactsAsync(
-            documentId: doc1,
-            missionId: missionId,
-            details:
-            [
-                new CombatTaskDetails
-                {
-                    Id = Guid.NewGuid(),
-                    CombatTaskId = Guid.NewGuid(),
-                    PersonId = personId,
-                    Kind = CombatTaskDetailsKind.Start,
-                    EffectiveAt = start,
-                    Rnokpp = "123",
-                    FullName = "Test Person",
-                    Rank = "R",
-                    Position = "P",
-                    Weapon = "W",
-                    Callsign = "C"
-                }
-            ],
-            author: "tester",
-            nowUtc: now.AddMinutes(1));
-
-        // act 2: end by doc2 (no start in details)
-        await repo.ApplyCombatTaskFactsAsync(
-            documentId: doc2,
-            missionId: missionId,
-            details:
-            [
-                new CombatTaskDetails
-                {
-                    Id = Guid.NewGuid(),
-                    CombatTaskId = Guid.NewGuid(),
-                    PersonId = personId,
-                    Kind = CombatTaskDetailsKind.End,
-                    EffectiveAt = end,
-                    Rnokpp = "123",
-                    FullName = "Test Person"
-                }
-            ],
-            author: "tester",
-            nowUtc: now.AddMinutes(2));
-
-        // assert
-        await using (var db = await testDb.Factory.CreateDbContextAsync())
-        {
-            var spans = await db.TimesheetTaskSpans
-                .AsNoTracking()
-                .Where(s => s.PersonId == personId && s.MissionId == missionId)
-                .ToListAsync();
-
-            Assert.Single(spans);
-
-            var s = spans[0];
-            Assert.Equal(doc1, s.OpenedByCombatTaskDocumentId);
-            Assert.Equal(doc2, s.ClosedByCombatTaskDocumentId);
-
-            Assert.Equal("A1", s.OpenedByDocumentReference);
-            Assert.Equal("A2", s.ClosedByDocumentReference);
-
-            Assert.Equal(start, s.FromDate);
-            Assert.Equal(end.AddDays(1), s.ToDate); // exclusive
-
-            Assert.NotEqual(DocumentStatus.Canceled, s.Status);
-        }
-    }
-
-    //======================================================================
-    // Helpers
-    //======================================================================
-
-    /// <summary>
-    /// Сідає документ задачі, щоб Apply* міг прочитати <c>OrderTitle</c> як reference.
-    /// </summary>
-    private static async Task SeedCombatTaskDocumentAsync(SqliteTestDb testDb, Guid documentId, string? orderTitle, DateTime nowUtc)
-    {
-        await using var db = await testDb.Factory.CreateDbContextAsync();
-        await db.Database.EnsureCreatedAsync();
-
-        var title = string.IsNullOrWhiteSpace(orderTitle) ? null : orderTitle.Trim();
-
-        if (await db.CombatTaskDocuments.AsNoTracking().AnyAsync(x => x.Id == documentId))
-            return;
-
-        db.CombatTaskDocuments.Add(new CombatTaskDocument
-        {
-            Id = documentId,
-            Status = DocumentStatus.Active,
-            OrderTitle = title ?? string.Empty,
-            CreatedBy = "seed",
-            CreatedAtUtc = nowUtc
-        });
-
-        await db.SaveChangesAsync();
-    }
-
-    /// <summary>
-    /// Створює мінімально валідний активний епізод табеля для людини.
-    /// </summary>
-    private static async Task<Guid> SeedEpisodeAsync(SqliteTestDb testDb, Guid personId, DateOnly openedAt, DateTime nowUtc)
-    {
-        await using var db = await testDb.Factory.CreateDbContextAsync();
-        await db.Database.EnsureCreatedAsync();
+        var readyId = await GetCodeIdAsync(testDb, TimesheetSystemCodes.ReadyToCombatTask, ct);
 
         var ep = new TimeSheetAggregate
         {
@@ -651,41 +47,485 @@ public sealed class TimesheetAggregateRepositoryTests
             PersonId = personId,
             OpenedAt = openedAt,
             ClosedAt = null,
-            CreatedBy = "seed",
-            CreatedAtUtc = nowUtc
+            CreatedBy = Author,
+            CreatedAtUtc = NowUtc
         };
 
-        db.TimeSheets.Add(ep);
-        await db.SaveChangesAsync();
+        // Baseline 30 from OpenedAt.
+        ep.AddTimesheetEntry(readyId, openedAt, reference: string.Empty, author: Author, nowUtc: NowUtc);
 
-        return ep.Id;
+        await using var db = testDb.Factory.CreateDbContext();
+        db.TimeSheets.Add(ep);
+        await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>
-    /// Утиліта створення snapshot-рядка завдання (CombatTaskDetails).
-    /// </summary>
-    private static CombatTaskDetails NewDetail(
-        CombatTaskDetailsKind kind,
-        DateOnly effectiveAt,
-        Guid personId,
-        string rnokpp,
-        string fullName,
-        string? rank,
-        string? position,
-        string? weapon,
-        string? callsign)
-        => new()
+    private static async Task SeedDocumentAsync(
+        SqliteTestDb testDb,
+        Guid documentId,
+        string orderTitle,
+        DocumentStatus status = DocumentStatus.Active,
+        DateOnly? recordedAt = null,
+        CancellationToken ct = default)
+    {
+        await using var db = testDb.Factory.CreateDbContext();
+
+        db.CombatTaskDocuments.Add(new CombatTaskDocument
         {
-            Id = Guid.NewGuid(),
-            CombatTaskId = Guid.NewGuid(),
-            Kind = kind,
-            EffectiveAt = effectiveAt,
-            PersonId = personId,
-            Rnokpp = rnokpp,
-            FullName = fullName,
-            Rank = rank,
-            Position = position,
-            Weapon = weapon,
-            Callsign = callsign
+            Id = documentId,
+            Status = status,
+            OrderTitle = orderTitle,
+            RecordedAt = recordedAt ?? new DateOnly(2026, 02, 01),
+            CreatedBy = Author,
+            CreatedAtUtc = NowUtc
+        });
+
+        await db.SaveChangesAsync(ct);
+    }
+
+    private sealed record EntrySnapshot(DateOnly From, DateOnly? To, string Code, string? Reference);
+
+    private static async Task<List<EntrySnapshot>> LoadEntriesAsync(SqliteTestDb testDb, Guid personId, CancellationToken ct = default)
+    {
+        await using var db = testDb.Factory.CreateDbContext();
+
+        var ep = await db.TimeSheets
+            .AsNoTracking()
+            .Include(x => x.Entries)
+            .SingleAsync(x => x.PersonId == personId && x.ClosedAt == null, ct);
+
+        var codeMap = await db.TimesheetCodes
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.Id, x => x.Code, ct);
+
+        return [.. ep.Entries
+            .Where(e => !e.IsDeleted)
+            .OrderBy(e => e.From)
+            .Select(e => new EntrySnapshot(
+                From: e.From,
+                To: e.To,
+                Code: codeMap[e.TimesheetCodeDefinitionId],
+                Reference: e.Reference))];
+    }
+
+    private static void AssertNormalized(List<EntrySnapshot> entries)
+    {
+        for (var i = 0; i < entries.Count; i++)
+        {
+            if (i < entries.Count - 1)
+                Assert.Equal(entries[i + 1].From, entries[i].To);
+            else
+                Assert.Null(entries[i].To);
+        }
+    }
+
+    private static void AssertNoTaskEntries(List<EntrySnapshot> entries)
+    {
+        Assert.DoesNotContain(entries, x => x.Code == TimesheetSystemCodes.DoesTheCombatTask);
+    }
+
+    private static async Task<List<MissionAssignment>> LoadAssignmentsStartedByAsync(
+        SqliteTestDb testDb,
+        Guid sourceStartDocumentId,
+        Guid missionId,
+        CancellationToken ct = default)
+    {
+        await using var db = testDb.Factory.CreateDbContext();
+        return await db.MissionAssignments
+            .AsNoTracking()
+            .Where(x => x.SourceStartDocumentId == sourceStartDocumentId && x.MissionId == missionId)
+            .OrderBy(x => x.From)
+            .ToListAsync(ct);
+    }
+
+    private static async Task<List<MissionAssignment>> LoadAssignmentsEndedByAsync(
+        SqliteTestDb testDb,
+        Guid sourceEndDocumentId,
+        Guid missionId,
+        CancellationToken ct = default)
+    {
+        await using var db = testDb.Factory.CreateDbContext();
+        return await db.MissionAssignments
+            .AsNoTracking()
+            .Where(x => x.SourceEndDocumentId == sourceEndDocumentId && x.MissionId == missionId)
+            .OrderBy(x => x.From)
+            .ToListAsync(ct);
+    }
+
+    [Fact]
+    public async Task AssignedTask_Writes100WithReference_AndSplitsFrom30()
+    {
+        await using var testDb = new SqliteTestDb();
+        await SeedCodesAsync(testDb);
+
+        var personId = Guid.NewGuid();
+        var openedAt = new DateOnly(2026, 02, 01);
+        await SeedEpisodeAsync(testDb, personId, openedAt);
+
+        var docId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+        await SeedDocumentAsync(testDb, docId, orderTitle: "Order-1");
+
+        var repo = new TimesheetAggregateRepository(testDb.Factory);
+
+        var start = new DateOnly(2026, 02, 10);
+        var details = new List<CombatTaskDetails>
+        {
+            new() { Id = Guid.NewGuid(), Kind = CombatTaskDetailsKind.Start, EffectiveAt = start, PersonId = personId }
         };
+
+        await repo.ApplyCombatTaskFactsAsync(docId, "Order-1", missionId, details, Author, NowUtc);
+
+        var assigns = await LoadAssignmentsStartedByAsync(testDb, docId, missionId);
+        Assert.Single(assigns);
+        Assert.Equal(personId, assigns[0].PersonId);
+        Assert.Equal(start, assigns[0].From);
+        Assert.Null(assigns[0].To);
+        Assert.Equal(docId, assigns[0].SourceStartDocumentId);
+        Assert.Null(assigns[0].SourceEndDocumentId);
+
+        var entries = await LoadEntriesAsync(testDb, personId);
+        Assert.Equal(2, entries.Count);
+
+        Assert.Equal(openedAt, entries[0].From);
+        Assert.Equal(TimesheetSystemCodes.ReadyToCombatTask, entries[0].Code);
+
+        Assert.Equal(start, entries[1].From);
+        Assert.Equal(TimesheetSystemCodes.DoesTheCombatTask, entries[1].Code);
+        Assert.Equal("Order-1", entries[1].Reference);
+
+        AssertNormalized(entries);
+    }
+
+    [Fact]
+    public async Task EndTask_AfterStart_Writes30AtEndPlus1()
+    {
+        await using var testDb = new SqliteTestDb();
+        await SeedCodesAsync(testDb);
+
+        var personId = Guid.NewGuid();
+        var openedAt = new DateOnly(2026, 02, 01);
+        await SeedEpisodeAsync(testDb, personId, openedAt);
+
+        var docId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+        await SeedDocumentAsync(testDb, docId, orderTitle: "Order-1");
+
+        var repo = new TimesheetAggregateRepository(testDb.Factory);
+
+        var start = new DateOnly(2026, 02, 10);
+        var end = new DateOnly(2026, 02, 15);
+
+        // 1) Document initially contains only Start
+        var startDetailsId = Guid.NewGuid();
+        await repo.ApplyCombatTaskFactsAsync(docId, "Order-1", missionId,
+            [new() { Id = startDetailsId, Kind = CombatTaskDetailsKind.Start, EffectiveAt = start, PersonId = personId }],
+            Author, NowUtc);
+
+        // 2) Document updated later: contains Start + End (document content is authoritative snapshot)
+        var endDetailsId = Guid.NewGuid();
+        await repo.ApplyCombatTaskFactsAsync(docId, "Order-1", missionId,
+            [
+                new() { Id = startDetailsId, Kind = CombatTaskDetailsKind.Start, EffectiveAt = start, PersonId = personId },
+                new() { Id = endDetailsId, Kind = CombatTaskDetailsKind.End, EffectiveAt = end, PersonId = personId }
+            ],
+            Author, NowUtc);
+
+        var assigns = await LoadAssignmentsStartedByAsync(testDb, docId, missionId);
+        Assert.Single(assigns);
+        Assert.Equal(start, assigns[0].From);
+        Assert.Equal(end.AddDays(1), assigns[0].To);
+        Assert.Equal(docId, assigns[0].SourceStartDocumentId);
+        Assert.Equal(docId, assigns[0].SourceEndDocumentId);
+        Assert.Equal(endDetailsId, assigns[0].SourceEndDetailsId);
+
+        var expectedBackTo30 = end.AddDays(1);
+
+        var entries = await LoadEntriesAsync(testDb, personId);
+
+        Assert.Equal(3, entries.Count);
+        Assert.Equal(openedAt, entries[0].From);
+        Assert.Equal(TimesheetSystemCodes.ReadyToCombatTask, entries[0].Code);
+
+        Assert.Equal(start, entries[1].From);
+        Assert.Equal(TimesheetSystemCodes.DoesTheCombatTask, entries[1].Code);
+        Assert.Equal("Order-1", entries[1].Reference);
+
+        Assert.Equal(expectedBackTo30, entries[2].From);
+        Assert.Equal(TimesheetSystemCodes.ReadyToCombatTask, entries[2].Code);
+
+        AssertNormalized(entries);
+    }
+
+    [Fact]
+    public async Task EndAndAssignSameDay_UpdatesReferenceSet_OnSameCode()
+    {
+        await using var testDb = new SqliteTestDb();
+        await SeedCodesAsync(testDb);
+
+        var personId = Guid.NewGuid();
+        var openedAt = new DateOnly(2026, 02, 01);
+        await SeedEpisodeAsync(testDb, personId, openedAt);
+
+        var missionId = Guid.NewGuid();
+
+        var doc1 = Guid.NewGuid();
+        var doc2 = Guid.NewGuid();
+        await SeedDocumentAsync(testDb, doc1, orderTitle: "Order-1");
+        await SeedDocumentAsync(testDb, doc2, orderTitle: "Order-2");
+
+        var repo = new TimesheetAggregateRepository(testDb.Factory);
+
+        var start1 = new DateOnly(2026, 02, 10);
+        var end1 = new DateOnly(2026, 02, 15);
+        var start2 = end1; // same day
+
+        // Doc1 contains Start+End (single authoritative snapshot)
+        var start1Id = Guid.NewGuid();
+        var end1Id = Guid.NewGuid();
+        await repo.ApplyCombatTaskFactsAsync(doc1, "Order-1", missionId,
+            [
+                new() { Id = start1Id, Kind = CombatTaskDetailsKind.Start, EffectiveAt = start1, PersonId = personId },
+                new() { Id = end1Id, Kind = CombatTaskDetailsKind.End, EffectiveAt = end1, PersonId = personId }
+            ],
+            Author, NowUtc);
+
+        // Doc2 Start on the same day as doc1 End
+        await repo.ApplyCombatTaskFactsAsync(doc2, "Order-2", missionId,
+            [new() { Id = Guid.NewGuid(), Kind = CombatTaskDetailsKind.Start, EffectiveAt = start2, PersonId = personId }],
+            Author, NowUtc);
+
+        var assigns1 = await LoadAssignmentsStartedByAsync(testDb, doc1, missionId);
+        Assert.Single(assigns1);
+        Assert.Equal(start1, assigns1[0].From);
+        Assert.Equal(end1.AddDays(1), assigns1[0].To);
+        Assert.Equal(doc1, assigns1[0].SourceStartDocumentId);
+        Assert.Equal(doc1, assigns1[0].SourceEndDocumentId);
+
+        var assigns2 = await LoadAssignmentsStartedByAsync(testDb, doc2, missionId);
+        Assert.Single(assigns2);
+        Assert.Equal(start2, assigns2[0].From);
+        Assert.Null(assigns2[0].To);
+        Assert.Equal(doc2, assigns2[0].SourceStartDocumentId);
+        Assert.Null(assigns2[0].SourceEndDocumentId);
+
+        var dOverlap = start2;
+        var dAfter = end1.AddDays(1);
+
+        var entries = await LoadEntriesAsync(testDb, personId);
+
+        // Expected change points:
+        // openedAt: 30
+        // start1: 100 "Order-1"
+        // start2: 100 "Order-1, Order-2" (set changed)
+        // dAfter: 100 "Order-2" (Order-1 removed)
+        Assert.Equal(4, entries.Count);
+
+        Assert.Equal(openedAt, entries[0].From);
+        Assert.Equal(TimesheetSystemCodes.ReadyToCombatTask, entries[0].Code);
+
+        Assert.Equal(start1, entries[1].From);
+        Assert.Equal(TimesheetSystemCodes.DoesTheCombatTask, entries[1].Code);
+        Assert.Equal("Order-1", entries[1].Reference);
+
+        Assert.Equal(dOverlap, entries[2].From);
+        Assert.Equal(TimesheetSystemCodes.DoesTheCombatTask, entries[2].Code);
+        Assert.Equal("Order-1, Order-2", entries[2].Reference);
+
+        Assert.Equal(dAfter, entries[3].From);
+        Assert.Equal(TimesheetSystemCodes.DoesTheCombatTask, entries[3].Code);
+        Assert.Equal("Order-2", entries[3].Reference);
+
+        AssertNormalized(entries);
+    }
+
+    [Fact]
+    public async Task AssignedThenCanceled_RevertsToSingle30_AndRemovesAssignments()
+    {
+        await using var testDb = new SqliteTestDb();
+        await SeedCodesAsync(testDb);
+
+        var personId = Guid.NewGuid();
+        var openedAt = new DateOnly(2026, 02, 01);
+        await SeedEpisodeAsync(testDb, personId, openedAt);
+
+        var docId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+        await SeedDocumentAsync(testDb, docId, orderTitle: "Order-1");
+
+        var repo = new TimesheetAggregateRepository(testDb.Factory);
+
+        var start = new DateOnly(2026, 02, 10);
+
+        await repo.ApplyCombatTaskFactsAsync(docId, "Order-1", missionId,
+            [new() { Id = Guid.NewGuid(), Kind = CombatTaskDetailsKind.Start, EffectiveAt = start, PersonId = personId }],
+            Author, NowUtc);
+
+        await repo.CancelCombatTaskFactsAsync(docId, missionId, Author, NowUtc);
+
+        var assigns = await LoadAssignmentsStartedByAsync(testDb, docId, missionId);
+        Assert.Empty(assigns);
+
+        var entries = await LoadEntriesAsync(testDb, personId);
+
+        // Desired invariant for cancellation: no redundant change-points.
+        // Only baseline 30 from OpenedAt should remain.
+        Assert.Single(entries);
+        Assert.Equal(openedAt, entries[0].From);
+        Assert.Equal(TimesheetSystemCodes.ReadyToCombatTask, entries[0].Code);
+        AssertNormalized(entries);
+        AssertNoTaskEntries(entries);
+    }
+
+    [Fact]
+    public async Task EndedThenCanceled_RevertsToSingle30_AndRemovesAssignments()
+    {
+        await using var testDb = new SqliteTestDb();
+        await SeedCodesAsync(testDb);
+
+        var personId = Guid.NewGuid();
+        var openedAt = new DateOnly(2026, 02, 01);
+        await SeedEpisodeAsync(testDb, personId, openedAt);
+
+        var docId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+        await SeedDocumentAsync(testDb, docId, orderTitle: "Order-1");
+
+        var repo = new TimesheetAggregateRepository(testDb.Factory);
+
+        var start = new DateOnly(2026, 02, 10);
+        var end = new DateOnly(2026, 02, 15);
+
+        // 1) Document initially contains only Start
+        var startId = Guid.NewGuid();
+        await repo.ApplyCombatTaskFactsAsync(docId, "Order-1", missionId,
+            [new() { Id = startId, Kind = CombatTaskDetailsKind.Start, EffectiveAt = start, PersonId = personId }],
+            Author, NowUtc);
+
+        // 2) Document updated later: contains Start + End
+        await repo.ApplyCombatTaskFactsAsync(docId, "Order-1", missionId,
+            [
+                new() { Id = startId, Kind = CombatTaskDetailsKind.Start, EffectiveAt = start, PersonId = personId },
+                new() { Id = Guid.NewGuid(), Kind = CombatTaskDetailsKind.End, EffectiveAt = end, PersonId = personId }
+            ],
+            Author, NowUtc);
+
+        await repo.CancelCombatTaskFactsAsync(docId, missionId, Author, NowUtc);
+
+        var assigns = await LoadAssignmentsStartedByAsync(testDb, docId, missionId);
+        Assert.Empty(assigns);
+
+        var entries = await LoadEntriesAsync(testDb, personId);
+
+        Assert.Single(entries);
+        Assert.Equal(openedAt, entries[0].From);
+        Assert.Equal(TimesheetSystemCodes.ReadyToCombatTask, entries[0].Code);
+        AssertNormalized(entries);
+        AssertNoTaskEntries(entries);
+    }
+
+    [Fact]
+    public async Task EndOnlyWithoutStart_CreatesOneDayTask_ThenBackTo30()
+    {
+        await using var testDb = new SqliteTestDb();
+        await SeedCodesAsync(testDb);
+
+        var personId = Guid.NewGuid();
+        var openedAt = new DateOnly(2026, 02, 01);
+        await SeedEpisodeAsync(testDb, personId, openedAt);
+
+        var docId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+        await SeedDocumentAsync(testDb, docId, orderTitle: "Order-1");
+
+        var repo = new TimesheetAggregateRepository(testDb.Factory);
+
+        var end = new DateOnly(2026, 02, 20);
+
+        var endDetailsId2 = Guid.NewGuid();
+        await repo.ApplyCombatTaskFactsAsync(docId, "Order-1", missionId,
+            [new() { Id = endDetailsId2, Kind = CombatTaskDetailsKind.End, EffectiveAt = end, PersonId = personId }],
+            Author, NowUtc);
+
+        var assigns = await LoadAssignmentsStartedByAsync(testDb, docId, missionId);
+        Assert.Single(assigns);
+        Assert.Equal(end, assigns[0].From);
+        Assert.Equal(end.AddDays(1), assigns[0].To);
+        Assert.Equal(docId, assigns[0].SourceStartDocumentId);
+        Assert.Equal(docId, assigns[0].SourceEndDocumentId);
+        Assert.Equal(endDetailsId2, assigns[0].SourceEndDetailsId);
+
+        var entries = await LoadEntriesAsync(testDb, personId);
+        Assert.Equal(3, entries.Count);
+
+        Assert.Equal(openedAt, entries[0].From);
+        Assert.Equal(TimesheetSystemCodes.ReadyToCombatTask, entries[0].Code);
+
+        Assert.Equal(end, entries[1].From);
+        Assert.Equal(TimesheetSystemCodes.DoesTheCombatTask, entries[1].Code);
+        Assert.Equal("Order-1", entries[1].Reference);
+
+        Assert.Equal(end.AddDays(1), entries[2].From);
+        Assert.Equal(TimesheetSystemCodes.ReadyToCombatTask, entries[2].Code);
+
+        AssertNormalized(entries);
+    }
+
+    [Fact]
+    public async Task EndOnlyInClosingDocument_ClosesOpenIntervalStartedByOtherDocument()
+    {
+        await using var testDb = new SqliteTestDb();
+        await SeedCodesAsync(testDb);
+
+        var personId = Guid.NewGuid();
+        var openedAt = new DateOnly(2026, 02, 01);
+        await SeedEpisodeAsync(testDb, personId, openedAt);
+
+        var missionId = Guid.NewGuid();
+        var docStart = Guid.NewGuid();
+        var docClose = Guid.NewGuid();
+
+        await SeedDocumentAsync(testDb, docStart, orderTitle: "Order-Start");
+        await SeedDocumentAsync(testDb, docClose, orderTitle: "Order-Close");
+
+        var repo = new TimesheetAggregateRepository(testDb.Factory);
+
+        var start = new DateOnly(2026, 02, 10);
+        var end = new DateOnly(2026, 02, 15);
+
+        // Start is in docStart
+        await repo.ApplyCombatTaskFactsAsync(docStart, "Order-Start", missionId,
+            [new() { Id = Guid.NewGuid(), Kind = CombatTaskDetailsKind.Start, EffectiveAt = start, PersonId = personId }],
+            Author, NowUtc);
+
+        // End is in docClose (closing document)
+        var endDetailsId = Guid.NewGuid();
+        await repo.ApplyCombatTaskFactsAsync(docClose, "Order-Close", missionId,
+            [new() { Id = endDetailsId, Kind = CombatTaskDetailsKind.End, EffectiveAt = end, PersonId = personId }],
+            Author, NowUtc);
+
+        // Interval remains the one started by docStart, but is closed by docClose.
+        var assigns = await LoadAssignmentsStartedByAsync(testDb, docStart, missionId);
+        Assert.Single(assigns);
+        Assert.Equal(start, assigns[0].From);
+        Assert.Equal(end.AddDays(1), assigns[0].To);
+        Assert.Equal(docStart, assigns[0].SourceStartDocumentId);
+        Assert.Equal(docClose, assigns[0].SourceEndDocumentId);
+        Assert.Equal(endDetailsId, assigns[0].SourceEndDetailsId);
+
+        var endedBy = await LoadAssignmentsEndedByAsync(testDb, docClose, missionId);
+        Assert.Single(endedBy);
+        Assert.Equal(assigns[0].Id, endedBy[0].Id);
+
+        // Timesheet shows task code from start until end+1.
+        var entries = await LoadEntriesAsync(testDb, personId);
+        Assert.Equal(3, entries.Count);
+        Assert.Equal(openedAt, entries[0].From);
+        Assert.Equal(TimesheetSystemCodes.ReadyToCombatTask, entries[0].Code);
+        Assert.Equal(start, entries[1].From);
+        Assert.Equal(TimesheetSystemCodes.DoesTheCombatTask, entries[1].Code);
+        Assert.Equal("Order-Start", entries[1].Reference);
+        Assert.Equal(end.AddDays(1), entries[2].From);
+        Assert.Equal(TimesheetSystemCodes.ReadyToCombatTask, entries[2].Code);
+        AssertNormalized(entries);
+    }
 }

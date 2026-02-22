@@ -86,33 +86,6 @@ public sealed class TimesheetEpisodeRepositoryTests
         Assert.Null(active.ClosedAt);
     }
 
-    /// <summary>
-    /// LoadEpisodeOnDateForUpdateAsync повертає tracked епізод із підвантаженими TaskSpans (Include).
-    /// </summary>
-    [Fact]
-    public async Task LoadEpisodeOnDateForUpdateAsync_IncludesTaskSpans()
-    {
-        await using var testDb = new SqliteTestDb();
-        var repo = new TimesheetEpisodeRepository(testDb.Factory);
-
-        var now = Utc(2026, 02, 17, 10, 00);
-        var personId = Guid.NewGuid();
-
-        // Seed episode with one span via aggregate method (to keep invariants)
-        await SeedEpisodeWithSpanAsync(
-            testDb,
-            personId,
-            openedAt: new DateOnly(2026, 02, 01),
-            spanFrom: new DateOnly(2026, 02, 10),
-            nowUtc: now);
-
-        var loaded = await repo.LoadEpisodeOnDateForUpdateAsync(personId, new DateOnly(2026, 02, 10));
-
-        Assert.NotNull(loaded);
-        Assert.NotNull(loaded!.TaskSpans);
-        Assert.Single(loaded.TaskSpans);
-    }
-
     //======================================================================
     // OpenOnEnrollAsync
     //======================================================================
@@ -554,48 +527,6 @@ public sealed class TimesheetEpisodeRepositoryTests
             CreatedBy = createdBy,
             CreatedAtUtc = nowUtc
         };
-
-        await using var db = await testDb.Factory.CreateDbContextAsync();
-        db.TimeSheets.Add(ep);
-        await db.SaveChangesAsync();
-
-        return ep.Id;
-    }
-
-    /// <summary>
-    /// Сідить епізод з одним TaskSpan (для перевірки Include в LoadEpisodeOnDateForUpdateAsync).
-    /// </summary>
-    private static async Task<Guid> SeedEpisodeWithSpanAsync(
-        SqliteTestDb testDb,
-        Guid personId,
-        DateOnly openedAt,
-        DateOnly spanFrom,
-        DateTime nowUtc)
-    {
-        var ep = new TimeSheetAggregate
-        {
-            Id = Guid.NewGuid(),
-            PersonId = personId,
-            OpenedAt = openedAt,
-            ClosedAt = null,
-            CreatedBy = "seed",
-            CreatedAtUtc = nowUtc
-        };
-
-        ep.UpsertTask(
-            documentId: Guid.NewGuid(),
-            missionId: Guid.NewGuid(),
-            from: spanFrom,
-            toExclusive: null,
-            rnokpp: "0000000000",
-            fullName: "P",
-            rank: null,
-            position: null,
-            weapon: null,
-            callsign: null,
-            openedByDocumentReference: "DOC1",
-            author: "seed",
-            nowUtc: nowUtc);
 
         await using var db = await testDb.Factory.CreateDbContextAsync();
         db.TimeSheets.Add(ep);

@@ -5,47 +5,64 @@
 // ITimesheetMissionPlanningRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs.CombatTasks;
-using eRaven.Domain.Entities;
-
 namespace eRaven.Application.Abstractions.TimesheetRepository;
 
 /// <summary>
-/// Read-репозиторій для задач планування/звітів по місіях, що базуються на фактах табеля.
+/// Read-репозиторій для планування/звітів по місіях.
+///
+/// <para>
+/// Табель <b>не</b> є джерелом правди по завданнях. Джерело правди — CombatTask.
+/// Для звітів використовується матеріалізована read-модель призначень (<c>MissionAssignment</c>).
+/// </para>
+///
+/// <para>
+/// Репозиторій повертає лише <see cref="Guid"/> ідентифікатори людей. Збір DTO виконується в хендлері
+/// (через читання PersonRead/Document за потреби).
+/// </para>
 /// </summary>
 public interface ITimesheetMissionPlanningRepository
 {
     /// <summary>
-    /// Звіт: повертає перелік людей, які мають АКТИВНИЙ факт задачі по місії на дату <paramref name="onDate"/>.
+    /// Звіт: повертає перелік людей, які мають АКТИВНЕ призначення по місії на дату <paramref name="onDate"/>.
+    /// Дозволено кілька документів в один день.
     /// </summary>
-    Task<IReadOnlyList<TimesheetTaskSpan>> GetActiveMissionPersonsAsync(
+    Task<IReadOnlyList<Guid>> GetActiveMissionPersonsAsync(
         Guid missionId,
         DateOnly onDate,
         CancellationToken ct = default);
 
     /// <summary>
-    /// Документ: кого можна завершити цим документом на дату endInclusive.
-    /// Не повертає spans, які вже закриті іншим документом або reason-кодом.
+    /// Повертає мінімальну дату початку активного призначення по місії для кожної особи
+    /// на дату <paramref name="onDate"/>.
     /// </summary>
-    Task<IReadOnlyList<TimesheetTaskSpan>> GetActiveMissionClosablePersonsAsync(
-       Guid missionId,
-       DateOnly onDate,
-       CancellationToken ct = default);
+    Task<IReadOnlyDictionary<Guid, DateOnly>> GetActiveMissionPersonFromDatesAsync(
+        Guid missionId,
+        DateOnly onDate,
+        IReadOnlyCollection<Guid> personIds,
+        CancellationToken ct = default);
+
 
     /// <summary>
-    /// Повертає перелік людей, у яких факт задачі пов'язаний з документом (<c>openedBy</c> або <c>closedBy</c>)
-    /// та є активним на дату <paramref name="onDate"/>.
+    /// Документ: повертає перелік людей, які мають АКТИВНЕ призначення, пов'язане з документом
+    /// <paramref name="documentId"/>, та є активними на дату <paramref name="onDate"/>.
     /// </summary>
-    Task<IReadOnlyList<TimesheetTaskSpan>> GetActiveMissionPersonsByDocumentAsync(
+    Task<IReadOnlyList<Guid>> GetActiveMissionPersonsByDocumentAsync(
         Guid documentId,
         DateOnly onDate,
         CancellationToken ct = default);
 
     /// <summary>
-    /// Повертає перелік людей, які доступні для призначення задачі на дату <paramref name="onDate"/>.
-    /// (Базова політика: останній код = ReadyToCombatTask та немає активної задачі на цю дату.)
+    /// Повертає перелік людей, які можуть бути призначені на завдання на дату <paramref name="onDate"/>.
+    ///
+    /// <para>
+    /// Базова політика:
+    /// <list type="bullet">
+    /// <item><description>Поточний табельний код на дату <paramref name="onDate"/> ∈ {30, 100}.</description></item>
+    /// <item><description>Відсутні <b>відкриті</b> призначення (MissionAssignment.To == null) на будь-яку місію.</description></item>
+    /// </list>
+    /// </para>
     /// </summary>
-    Task<IReadOnlyList<ReadyCombatTaskPersonDto>> GetFreePersonForMissionsAsync(
+    Task<IReadOnlyList<Guid>> GetFreePersonForMissionsAsync(
         DateOnly onDate,
         CancellationToken ct = default);
 }

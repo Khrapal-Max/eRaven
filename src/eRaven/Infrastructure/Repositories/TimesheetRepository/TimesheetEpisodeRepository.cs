@@ -71,9 +71,8 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // tracked entity + TaskSpans для інваріантів (блокування ручних подій під час завдань)
+        // tracked entity (for commands/invariants)
         return await db.TimeSheets
-            .Include(x => x.TaskSpans)
             .Where(x => x.PersonId == personId)
             .Where(x => x.OpenedAt <= date && (!x.ClosedAt.HasValue || x.ClosedAt.Value >= date))
             .OrderByDescending(x => x.OpenedAt)

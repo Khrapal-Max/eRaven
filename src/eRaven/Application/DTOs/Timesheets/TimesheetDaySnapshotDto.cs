@@ -2,17 +2,17 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// TimesheetRangeDayDto
+// TimesheetDaySnapshotDto
 //-----------------------------------------------------------------------------
 
 namespace eRaven.Application.DTOs.Timesheets;
 
 /// <summary>
-/// Запис для показу дня в діапазоні місяця в табличці. 
-/// Включає дату, код, посилання на код та інші дані для відображення.
+/// Єдиний “стан дня” для табеля (UI).
 /// </summary>
-public sealed record TimesheetRangeDayDto(
+public sealed record TimesheetDaySnapshotDto(
     DateOnly Date,
     Guid CodeId,
     string Code,
-    string? Reference);
+    string? Reference,
+    string? Note);

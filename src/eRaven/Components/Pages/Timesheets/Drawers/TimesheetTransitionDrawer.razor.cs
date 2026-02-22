@@ -217,7 +217,7 @@ public partial class TimesheetTransitionDrawer : ComponentBase
                 Reference: string.IsNullOrWhiteSpace(_model.Reference) ? null : _model.Reference.Trim(),
                 Note: string.IsNullOrWhiteSpace(_model.Note) ? null : _model.Note.Trim(),
                 IsCorrection: false,
-                Author: "ui", // TODO auth
+                Author: "ui", // TODO: auth user
                 NowUtc: DateTime.UtcNow
             );
 

@@ -17,8 +17,12 @@ namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 /// EF Core repository for <see cref="TimeSheetAggregate"/>.
 ///
 /// <para>
-/// <b>Примітка:</b> ApplyCombatTaskFactsAsync працює через доменні методи агрегату,
-/// щоб не дублювати правила (overlap/half-open/оновлення snapshot).
+/// Табель не "контролює" завдання: джерело правди — CombatTask.
+/// Репозиторій виконує роль синхронізатора:
+/// <list type="bullet">
+/// <item><description>оновлює матеріалізовані призначення <see cref="MissionAssignment"/>;</description></item>
+/// <item><description>пише/оновлює події табеля (30/100) як точки перемикання множини reference документів.</description></item>
+/// </list>
 /// </para>
 /// </summary>
 public sealed class TimesheetAggregateRepository(IDbContextFactory<AppDbContext> dbFactory)
@@ -30,12 +34,13 @@ public sealed class TimesheetAggregateRepository(IDbContextFactory<AppDbContext>
     private AppDbContext? _db;
 
     //======================================================================
-    // Apply facts from CombatTaskDetails
+    // Sync from CombatTaskDetails -> MissionAssignment -> Timesheet entries (30/100)
     //======================================================================
 
     /// <inheritdoc />
     public async Task ApplyCombatTaskFactsAsync(
         Guid documentId,
+        string documentOrderTitle,
         Guid missionId,
         IReadOnlyCollection<CombatTaskDetails> details,
         string author,
@@ -44,126 +49,240 @@ public sealed class TimesheetAggregateRepository(IDbContextFactory<AppDbContext>
     {
         ArgumentNullException.ThrowIfNull(details);
         if (documentId == Guid.Empty) throw new ArgumentException("documentId must be set.", nameof(documentId));
+        if (string.IsNullOrWhiteSpace(documentOrderTitle)) throw new ArgumentException("documentOrderTitle is required.", nameof(documentOrderTitle));
         if (missionId == Guid.Empty) throw new ArgumentException("missionId must be set.", nameof(missionId));
         if (string.IsNullOrWhiteSpace(author)) throw new ArgumentException("author is required.", nameof(author));
+        if (nowUtc == default) throw new ArgumentException("nowUtc must be set.", nameof(nowUtc));
 
         if (details.Count == 0)
             return;
 
+        var documentRef = documentOrderTitle.Trim();
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        // current truth: persons present in document right now
-        var keepPersonIds = details
+        // -----------------------------------------------------------------
+        // 1) Snapshot previous rows that were affected by this document
+        //    - starts produced by this document
+        //    - ends produced by this document
+        // -----------------------------------------------------------------
+        var previousStartedByDoc = await db.MissionAssignments
+            .Where(x => x.MissionId == missionId && x.SourceStartDocumentId == documentId)
+            .ToListAsync(ct);
+
+        var previousEndedByDoc = await db.MissionAssignments
+            .Where(x => x.MissionId == missionId && x.SourceEndDocumentId == documentId)
+            .ToListAsync(ct);
+
+        var extraDates = new HashSet<DateOnly>();
+        AddBoundaryDates(extraDates, previousStartedByDoc);
+        AddBoundaryDates(extraDates, previousEndedByDoc);
+
+        var affectedPersons = new HashSet<Guid>(previousStartedByDoc.Select(x => x.PersonId));
+        foreach (var p in previousEndedByDoc.Select(x => x.PersonId))
+            affectedPersons.Add(p);
+
+        // Who is present in this document right now
+        var currentPersonIds = details
             .Select(x => x.PersonId)
             .Where(id => id != Guid.Empty)
             .Distinct()
             .ToHashSet();
 
-        // cancel stale spans (persons removed from mission)
-        var staleSpans = await db.TimesheetTaskSpans
-            .Where(s => s.MissionId == missionId)
-            .Where(s => s.Status != DocumentStatus.Canceled)
-            .Where(s => s.OpenedByCombatTaskDocumentId == documentId
-                    || s.ClosedByCombatTaskDocumentId == documentId)
-            .Where(s => !keepPersonIds.Contains(s.PersonId))
-            .ToListAsync(ct);
-
-        foreach (var span in staleSpans)
-        {
-            span.Status = DocumentStatus.Canceled;
-
-            // для "removed from mission" можна не ставити reasonCodeId (якщо в моделі optional)
-            span.UpdatedBy = author;
-            span.UpdatedAtUtc = nowUtc;
-        }
-
-        var documentRef = await db.CombatTaskDocuments
-            .AsNoTracking()
-            .Where(d => d.Id == documentId)
-            .Select(d => d.OrderTitle)
-            .SingleOrDefaultAsync(ct);
-
-        documentRef = string.IsNullOrWhiteSpace(documentRef) ? null : documentRef.Trim();
-
-        var perPerson = details
-            .GroupBy(x => x.PersonId)
+        // -----------------------------------------------------------------
+        // 2) Remove stale starts (document content is authoritative)
+        // -----------------------------------------------------------------
+        var staleStarts = previousStartedByDoc
+            .Where(x => !currentPersonIds.Contains(x.PersonId))
             .ToList();
 
-        foreach (var g in perPerson)
+        if (staleStarts.Count > 0)
+            db.MissionAssignments.RemoveRange(staleStarts);
+
+        // -----------------------------------------------------------------
+        // 3) Re-open stale ends (if document no longer contains End for that person)
+        // -----------------------------------------------------------------
+        foreach (var row in previousEndedByDoc.Where(x => !currentPersonIds.Contains(x.PersonId)))
+        {
+            // Clearing an end is not a no-op: guard it to avoid SQLite rows=0 => concurrency exception.
+            if (row.To.HasValue || row.SourceEndDocumentId.HasValue || row.SourceEndDetailsId.HasValue)
+            {
+                extraDates.Add(row.To ?? default);
+                row.To = null;
+                row.SourceEndDocumentId = null;
+                row.SourceEndDetailsId = null;
+                row.UpdatedAtUtc = nowUtc;
+                row.UpdatedBy = author;
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // 4) Apply current details
+        //    Notes:
+        //    - Start+End can be in the same document.
+        //    - End-only may close an interval started by other document.
+        // -----------------------------------------------------------------
+        foreach (var g in details.Where(x => x.PersonId != Guid.Empty).GroupBy(x => x.PersonId))
         {
             var personId = g.Key;
+            affectedPersons.Add(personId);
 
-            var startAt = g.Where(x => x.Kind == CombatTaskDetailsKind.Start)
-                .Select(x => x.EffectiveAt)
-                .DefaultIfEmpty(default)
-                .Min();
+            var startFact = g
+                .Where(x => x.Kind == CombatTaskDetailsKind.Start)
+                .OrderBy(x => x.EffectiveAt)
+                .ThenBy(x => x.Id)
+                .FirstOrDefault();
 
-            DateOnly? start = startAt == default ? null : startAt;
+            var endFact = g
+                .Where(x => x.Kind == CombatTaskDetailsKind.End)
+                .OrderByDescending(x => x.EffectiveAt)
+                .ThenByDescending(x => x.Id)
+                .FirstOrDefault();
 
-            var endAt = g.Where(x => x.Kind == CombatTaskDetailsKind.End)
-                .Select(x => x.EffectiveAt)
-                .DefaultIfEmpty(default)
-                .Max();
+            var hasStart = startFact is not null && startFact.EffectiveAt != default;
+            var hasEnd = endFact is not null && endFact.EffectiveAt != default;
 
-            DateOnly? end = endAt == default ? null : endAt;
+            // If the document previously ended something for this person, but now there is no End in details — reopen.
+            if (!hasEnd)
+            {
+                foreach (var row in previousEndedByDoc.Where(x => x.PersonId == personId).ToList())
+                {
+                    if (row.To.HasValue || row.SourceEndDocumentId.HasValue || row.SourceEndDetailsId.HasValue)
+                    {
+                        if (row.To.HasValue)
+                            extraDates.Add(row.To.Value);
 
-            if (start is null && end is null)
+                        row.To = null;
+                        row.SourceEndDocumentId = null;
+                        row.SourceEndDetailsId = null;
+                        row.UpdatedAtUtc = nowUtc;
+                        row.UpdatedBy = author;
+                    }
+                }
+            }
+
+            if (hasStart)
+            {
+                extraDates.Add(startFact!.EffectiveAt);
+
+                // Replace-all for "starts produced by this document" for this person (document content is authoritative).
+                var oldStarts = previousStartedByDoc.Where(x => x.PersonId == personId).ToList();
+                if (oldStarts.Count > 0)
+                    db.MissionAssignments.RemoveRange(oldStarts);
+
+                var toExclusive = hasEnd ? endFact!.EffectiveAt.AddDays(1) : (DateOnly?)null;
+                if (toExclusive.HasValue)
+                    extraDates.Add(toExclusive.Value);
+
+                db.MissionAssignments.Add(new MissionAssignment
+                {
+                    Id = Guid.NewGuid(),
+                    PersonId = personId,
+                    MissionId = missionId,
+
+                    From = startFact.EffectiveAt,
+                    To = toExclusive,
+
+                    SourceStartDocumentId = documentId,
+                    SourceStartDetailsId = startFact.Id,
+
+                    SourceEndDocumentId = hasEnd ? documentId : null,
+                    SourceEndDetailsId = hasEnd ? endFact!.Id : null,
+
+                    UpdatedAtUtc = nowUtc,
+                    UpdatedBy = author
+                });
+
                 continue;
-
-            var refDate = start ?? end!.Value;
-
-            // Епізод + TaskSpans (щоб виконати доменні правила на колекції)
-            var episode = await db.TimeSheets
-                .AsTracking()
-                .Include(t => t.TaskSpans)
-                .SingleOrDefaultAsync(t =>
-                    t.PersonId == personId
-                    && t.OpenedAt <= refDate
-                    && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= refDate), ct)
-                ?? throw new InvalidOperationException($"Active timesheet episode not found for person {personId} on {refDate}.");
-
-            // Snapshot рядок (пріоритет: Start → End → будь-який)
-            var snap = PickSnapshotRow(g);
-
-            // 1) Start → upsert open span
-            if (start.HasValue)
-            {
-                episode.UpsertTask(
-                    documentId: documentId,
-                    missionId: missionId,
-                    from: start.Value,
-                    toExclusive: null,
-                    rnokpp: snap.Rnokpp ?? string.Empty,
-                    fullName: snap.FullName ?? string.Empty,
-                    rank: snap.Rank,
-                    position: snap.Position,
-                    weapon: snap.Weapon,
-                    callsign: snap.Callsign,
-                    openedByDocumentReference: documentRef,
-                    author: author,
-                    nowUtc: nowUtc);
             }
 
-            // 2) End → close активний span на дату end (inclusive) => closeAtExclusive = end + 1
-            if (end.HasValue)
-            {
-                var closeAtExclusive = end.Value.AddDays(1);
+            // No start in this document => remove stale starts produced by this doc.
+            var staleForThisPerson = previousStartedByDoc.Where(x => x.PersonId == personId).ToList();
+            if (staleForThisPerson.Count > 0)
+                db.MissionAssignments.RemoveRange(staleForThisPerson);
 
-                episode.CloseTaskByDocument(
-                    closingDocumentId: documentId,
-                    missionId: missionId,
-                    closeAtExclusive: closeAtExclusive,
-                    rnokpp: snap.Rnokpp ?? string.Empty,
-                    fullName: snap.FullName ?? string.Empty,
-                    rank: snap.Rank,
-                    position: snap.Position,
-                    weapon: snap.Weapon,
-                    callsign: snap.Callsign,
-                    closedByDocumentReference: documentRef,
-                    author: author,
-                    nowUtc: nowUtc);
+            if (hasEnd)
+            {
+                // End-only: try close an active interval (prefer open-ended) for this mission+person.
+                var endDate = endFact!.EffectiveAt;
+                var toExclusive = endDate.AddDays(1);
+                extraDates.Add(endDate);
+                extraDates.Add(toExclusive);
+
+                // Candidate: any interval active on endDate (not canceled start document)
+                var candidate = await (
+                        from a in db.MissionAssignments
+                        join d in db.CombatTaskDocuments.AsNoTracking() on a.SourceStartDocumentId equals d.Id
+                        where a.MissionId == missionId
+                           && a.PersonId == personId
+                           && d.Status != DocumentStatus.Canceled
+                           && a.From <= endDate
+                           && (!a.To.HasValue || endDate < a.To.Value)
+                        orderby a.From descending
+                        select a)
+                    .FirstOrDefaultAsync(ct);
+
+                if (candidate is not null)
+                {
+                    // SQLite: avoid no-op UPDATE
+                    if (candidate.To != toExclusive
+                        || candidate.SourceEndDocumentId != documentId
+                        || candidate.SourceEndDetailsId != endFact.Id)
+                    {
+                        if (candidate.To.HasValue)
+                            extraDates.Add(candidate.To.Value);
+
+                        candidate.To = toExclusive;
+                        candidate.SourceEndDocumentId = documentId;
+                        candidate.SourceEndDetailsId = endFact.Id;
+                        candidate.UpdatedAtUtc = nowUtc;
+                        candidate.UpdatedBy = author;
+                    }
+                }
+                else
+                {
+                    // Fallback: one-day interval owned by this document
+                    db.MissionAssignments.Add(new MissionAssignment
+                    {
+                        Id = Guid.NewGuid(),
+                        PersonId = personId,
+                        MissionId = missionId,
+
+                        From = endDate,
+                        To = toExclusive,
+
+                        SourceStartDocumentId = documentId,
+                        SourceStartDetailsId = endFact.Id,
+                        SourceEndDocumentId = documentId,
+                        SourceEndDetailsId = endFact.Id,
+
+                        UpdatedAtUtc = nowUtc,
+                        UpdatedBy = author
+                    });
+                }
             }
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        // -----------------------------------------------------------------
+        // 5) Sync timesheet entries (30/100) for affected persons
+        // -----------------------------------------------------------------
+        var codeIds = await LoadSystemCodeIdsAsync(db, ct);
+
+        foreach (var personId in affectedPersons)
+        {
+            await RebuildTimesheetForPersonAsync(
+                db: db,
+                personId: personId,
+                missionId: missionId,
+                taskCodeId: codeIds.TaskCodeId,
+                readyCodeId: codeIds.ReadyCodeId,
+                extraDates: extraDates,
+                author: author,
+                nowUtc: nowUtc,
+                ct: ct);
         }
 
         await db.SaveChangesAsync(ct);
@@ -174,42 +293,313 @@ public sealed class TimesheetAggregateRepository(IDbContextFactory<AppDbContext>
     public async Task CancelCombatTaskFactsAsync(
         Guid documentId,
         Guid missionId,
-        Guid reasonCodeId,
-        string? reference,
         string author,
         DateTime nowUtc,
         CancellationToken ct = default)
     {
         if (documentId == Guid.Empty) throw new ArgumentException("documentId must be set.", nameof(documentId));
-        if (missionId == Guid.Empty) throw new ArgumentException("missionId must be set.", nameof(documentId));
-        if (reasonCodeId == Guid.Empty) throw new ArgumentException("reasonCodeId must be set.", nameof(reasonCodeId));
+        if (missionId == Guid.Empty) throw new ArgumentException("missionId must be set.", nameof(missionId));
         if (string.IsNullOrWhiteSpace(author)) throw new ArgumentException("author is required.", nameof(author));
+        if (nowUtc == default) throw new ArgumentException("nowUtc must be set.", nameof(nowUtc));
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        var spans = await db.TimesheetTaskSpans
-            .Where(s => s.MissionId == missionId)
-            .Where(s => s.Status != DocumentStatus.Canceled)
-            .Where(s => s.OpenedByCombatTaskDocumentId == documentId || s.ClosedByCombatTaskDocumentId == documentId)
+        // "Cancel" means: this document must have no effect on timesheet.
+        // 1) Remove intervals started by this document
+        // 2) Re-open intervals ended by this document
+        var started = await db.MissionAssignments
+            .Where(x => x.MissionId == missionId && x.SourceStartDocumentId == documentId)
             .ToListAsync(ct);
 
-        if (spans.Count == 0)
+        var ended = await db.MissionAssignments
+            .Where(x => x.MissionId == missionId && x.SourceEndDocumentId == documentId)
+            .ToListAsync(ct);
+
+        if (started.Count == 0 && ended.Count == 0)
             return;
 
-        var trimmedRef = string.IsNullOrWhiteSpace(reference) ? null : reference.Trim();
+        var affectedPersons = new HashSet<Guid>(started.Select(x => x.PersonId));
+        foreach (var p in ended.Select(x => x.PersonId))
+            affectedPersons.Add(p);
 
-        foreach (var span in spans)
+        var extraDates = new HashSet<DateOnly>();
+        AddBoundaryDates(extraDates, started);
+        AddBoundaryDates(extraDates, ended);
+
+        if (started.Count > 0)
+            db.MissionAssignments.RemoveRange(started);
+
+        foreach (var row in ended)
         {
-            span.Status = DocumentStatus.Canceled;
-            span.ClosedByCodeId = reasonCodeId;
-            span.ClosedReference = trimmedRef;
-            span.UpdatedBy = author;
-            span.UpdatedAtUtc = nowUtc;
+            // SQLite: avoid no-op update
+            if (row.To.HasValue || row.SourceEndDocumentId.HasValue || row.SourceEndDetailsId.HasValue)
+            {
+                if (row.To.HasValue)
+                    extraDates.Add(row.To.Value);
+
+                row.To = null;
+                row.SourceEndDocumentId = null;
+                row.SourceEndDetailsId = null;
+                row.UpdatedAtUtc = nowUtc;
+                row.UpdatedBy = author;
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        var codeIds = await LoadSystemCodeIdsAsync(db, ct);
+
+        foreach (var personId in affectedPersons)
+        {
+            await RebuildTimesheetForPersonAsync(
+                db: db,
+                personId: personId,
+                missionId: missionId,
+                taskCodeId: codeIds.TaskCodeId,
+                readyCodeId: codeIds.ReadyCodeId,
+                extraDates: extraDates,
+                author: author,
+                nowUtc: nowUtc,
+                ct: ct);
         }
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+    }
+
+    private sealed record SystemCodeIds(Guid ReadyCodeId, Guid TaskCodeId);
+
+    private static async Task<SystemCodeIds> LoadSystemCodeIdsAsync(AppDbContext db, CancellationToken ct)
+    {
+        var readyCodeId = await db.TimesheetCodes
+            .AsNoTracking()
+            .Where(x => x.Code == TimesheetSystemCodes.ReadyToCombatTask)
+            .Select(x => x.Id)
+            .SingleAsync(ct);
+
+        var taskCodeId = await db.TimesheetCodes
+            .AsNoTracking()
+            .Where(x => x.Code == TimesheetSystemCodes.DoesTheCombatTask)
+            .Select(x => x.Id)
+            .SingleAsync(ct);
+
+        return new SystemCodeIds(readyCodeId, taskCodeId);
+    }
+
+    private static void AddBoundaryDates(HashSet<DateOnly> set, IEnumerable<MissionAssignment> rows)
+    {
+        foreach (var r in rows)
+        {
+            if (r.From != default)
+                set.Add(r.From);
+
+            if (r.To.HasValue)
+                set.Add(r.To.Value);
+        }
+    }
+
+    private static async Task RebuildTimesheetForPersonAsync(
+        AppDbContext db,
+        Guid personId,
+        Guid missionId,
+        Guid taskCodeId,
+        Guid readyCodeId,
+        HashSet<DateOnly> extraDates,
+        string author,
+        DateTime nowUtc,
+        CancellationToken ct)
+    {
+        // Get all active assignments for mission+person (across all docs)
+        var assignments = await (
+                from a in db.MissionAssignments.AsNoTracking()
+                join d in db.CombatTaskDocuments.AsNoTracking() on a.SourceStartDocumentId equals d.Id
+                where a.MissionId == missionId
+                   && a.PersonId == personId
+                   && d.Status != DocumentStatus.Canceled
+                select a)
+            .ToListAsync(ct);
+
+        var dates = new SortedSet<DateOnly>(extraDates);
+        foreach (var a in assignments)
+        {
+            dates.Add(a.From);
+            if (a.To.HasValue)
+                dates.Add(a.To.Value);
+        }
+
+        if (dates.Count == 0)
+            return;
+
+        var firstDate = dates.Min;
+
+        var episode = await db.TimeSheets
+            .AsTracking()
+            .Include(t => t.Entries)
+            .SingleOrDefaultAsync(t =>
+                t.PersonId == personId
+                && t.OpenedAt <= firstDate
+                && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= firstDate), ct)
+            ?? throw new InvalidOperationException($"Timesheet episode not found for person {personId} on {firstDate}.");
+
+        // ---------------------------------------------------------------
+        // Controlled cleanup
+        // ---------------------------------------------------------------
+
+        // If there are no assignments now => ensure only baseline controlled entry remains.
+        if (assignments.Count == 0)
+        {
+            var redundant = episode.Entries
+                .Where(e => !e.IsDeleted
+                    && (e.TimesheetCodeDefinitionId == taskCodeId || e.TimesheetCodeDefinitionId == readyCodeId)
+                    && e.From != episode.OpenedAt)
+                .OrderByDescending(e => e.From)
+                .ToList();
+
+            foreach (var e in redundant)
+                episode.RemoveTimesheetEntry(e.Id);
+
+            return;
+        }
+
+        // Remove all controlled entries from first affected date forward (except baseline at OpenedAt)
+        var controlled = episode.Entries
+            .Where(e => !e.IsDeleted
+                && (e.TimesheetCodeDefinitionId == taskCodeId || e.TimesheetCodeDefinitionId == readyCodeId)
+                && e.From >= firstDate
+                && e.From != episode.OpenedAt)
+            .OrderByDescending(e => e.From)
+            .ToList();
+
+        foreach (var e in controlled)
+            episode.RemoveTimesheetEntry(e.Id);
+
+        // ---------------------------------------------------------------
+        // Build change map based on active set of DocumentReference
+        // ---------------------------------------------------------------
+        var changes = new SortedDictionary<DateOnly, (List<string> Add, List<string> Remove)>();
+        foreach (var d in dates)
+            changes[d] = (new List<string>(), new List<string>());
+
+        var active = new SortedSet<string>(StringComparer.Ordinal);
+        active.RemoveWhere(s => string.IsNullOrWhiteSpace(s));
+
+        // Start with the currently effective state at firstDate (after controlled cleanup).
+        var initial = episode.Entries
+            .Where(e => !e.IsDeleted && e.From <= firstDate)
+            .OrderByDescending(e => e.From)
+            .FirstOrDefault();
+
+        string lastRef = (initial?.Reference ?? string.Empty).Trim();
+        var lastCode = initial?.TimesheetCodeDefinitionId ?? Guid.Empty;
+
+        foreach (var kv in changes)
+        {
+            var date = kv.Key;
+            var (add, remove) = kv.Value;
+
+            // removals first (end at 'date' means not active on 'date')
+            foreach (var r in remove)
+            {
+                var s = (r ?? string.Empty).Trim();
+                if (!string.IsNullOrWhiteSpace(s))
+                    active.Remove(s);
+            }
+
+            // adds (start at 'date' means active on 'date')
+            foreach (var a in add)
+            {
+                var s = (a ?? string.Empty).Trim();
+                if (!string.IsNullOrWhiteSpace(s))
+                    active.Add(s);
+            }
+
+            var hasTask = active.Count > 0;
+            var codeId = hasTask ? taskCodeId : readyCodeId;
+            var refs = hasTask ? string.Join(", ", active) : string.Empty;
+
+            if (codeId == lastCode && string.Equals(refs, lastRef, StringComparison.Ordinal))
+                continue;
+
+            UpsertTimesheetEntryAtDate(episode, codeId, date, refs, author, nowUtc);
+
+            lastCode = codeId;
+            lastRef = refs;
+        }
+    }
+
+    private static void AddChange(
+        SortedDictionary<DateOnly, (List<string> Add, List<string> Remove)> map,
+        DateOnly date,
+        string? add,
+        string? remove)
+    {
+        if (!map.TryGetValue(date, out var entry))
+        {
+            entry = (new List<string>(), new List<string>());
+            map[date] = entry;
+        }
+
+        if (!string.IsNullOrWhiteSpace(add))
+            entry.Add.Add(add);
+
+        if (!string.IsNullOrWhiteSpace(remove))
+            entry.Remove.Add(remove);
+    }
+
+    private static void UpsertTimesheetEntryAtDate(
+        TimeSheetAggregate episode,
+        Guid nextCodeId,
+        DateOnly effectiveAt,
+        string? references,
+        string author,
+        DateTime nowUtc)
+    {
+        // find existing by date (avoid LINQ on indexable collections warning is not critical here)
+        TimesheetEntry? existing = null;
+        var entries = episode.Entries
+            .Where(x => !x.IsDeleted)
+            .OrderBy(x => x.From)
+            .ToList();
+
+        for (var i = 0; i < entries.Count; i++)
+        {
+            var e = entries[i];
+            if (!e.IsDeleted && e.From == effectiveAt)
+            {
+                existing = e;
+                break;
+            }
+        }
+
+        if (existing is null)
+        {
+            episode.AddTimesheetEntry(
+                nextCodeId: nextCodeId,
+                effectiveAt: effectiveAt,
+                reference: references,
+                author: author,
+                nowUtc: nowUtc);
+            return;
+        }
+
+        var nextRef = (references ?? string.Empty).Trim();
+
+        // SQLite: avoid no-op UPDATE (rows=0 -> concurrency exception).
+        if (existing.TimesheetCodeDefinitionId == nextCodeId
+            && string.Equals((existing.Reference ?? string.Empty).Trim(), nextRef, StringComparison.Ordinal)
+            && string.IsNullOrWhiteSpace(existing.Note))
+        {
+            return;
+        }
+
+        episode.CorrectionTimesheetEntry(
+            entyId: existing.Id,
+            nextCodeId: nextCodeId,
+            fromEffectiveAt: effectiveAt,
+            reference: nextRef,
+            author: author,
+            nowUtc: nowUtc);
     }
 
     //======================================================================
@@ -226,7 +616,6 @@ public sealed class TimesheetAggregateRepository(IDbContextFactory<AppDbContext>
 
         var ep = await _db.TimeSheets
             .Include(t => t.Entries)
-            .Include(t => t.TaskSpans)
             .SingleOrDefaultAsync(t => t.PersonId == personId && t.ClosedAt == null, ct);
 
         return ep ?? throw new InvalidOperationException("Active timesheet episode not found.");
@@ -244,7 +633,6 @@ public sealed class TimesheetAggregateRepository(IDbContextFactory<AppDbContext>
 
         var ep = await _db.TimeSheets
             .Include(t => t.Entries)
-            .Include(t => t.TaskSpans)
             .SingleOrDefaultAsync(t =>
                 t.PersonId == personId
                 && t.OpenedAt <= onDate
@@ -261,17 +649,4 @@ public sealed class TimesheetAggregateRepository(IDbContextFactory<AppDbContext>
 
         await _db.SaveChangesAsync(ct);
     }
-
-    //======================================================================
-    // Helpers
-    //======================================================================
-
-    /// <summary>
-    /// Вибирає рядок для snapshot-даних.
-    /// Пріоритет: Start → End → будь-який.
-    /// </summary>
-    private static CombatTaskDetails PickSnapshotRow(IEnumerable<CombatTaskDetails> rows)
-        => rows.FirstOrDefault(x => x.Kind == CombatTaskDetailsKind.Start)
-           ?? rows.FirstOrDefault(x => x.Kind == CombatTaskDetailsKind.End)
-           ?? rows.First();
 }

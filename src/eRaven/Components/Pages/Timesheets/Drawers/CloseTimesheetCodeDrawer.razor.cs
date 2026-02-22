@@ -58,7 +58,7 @@ public partial class CloseTimesheetCodeDrawer : ComponentBase
         {
             await CloseCode.HandleAsync(new CloseTimesheetCodeCommand(
                 CodeId: Code.Id,
-                Author: "ui",           // TODO: реальний юзер
+                Author: "ui",           // TODO: auth user
                 NowUtc: DateTime.UtcNow
             ));
 

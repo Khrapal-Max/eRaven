@@ -72,11 +72,11 @@
             </div>
 
             <div class="timesheet-wrap border">
-                <Table TItem="TimesheetPersonMonthRowDto"
+                <Table TItem="TimesheetPersonRangeRowDto"
                        Items="@(_rows ?? [])"
                        Class="table-sm table-bordered mb-0 timesheet-table"
                        @bind-SelectedItem="_selected"
-                       KeySelector="@(r => r.PersonId)">
+                       KeySelector="@(r => r.Person.PersonId)">
 
                     <TableHeader>
                         <th class="px-2 text-center" style="width:100px">Тип обліку</th>
@@ -92,10 +92,10 @@
 
                     <RowTemplate Context="r">
                         <td class="text-center fw-semibold">
-                            <span>@GetSign(r.EnrollmentKind)</span>
+                            <span>@GetSign(r.Person.EnrollmentKindDto)</span>
                         </td>
                         <td>
-                            <span class="mx-2">@ToInitials(r.FullName)</span>
+                            <span class="mx-2">@ToInitials(r.Person.FullName)</span>
                         </td>
                         <td class="text-center">
                             <Button Class="btn-sm btn-secondary rounded-2"
@@ -106,15 +106,16 @@
 
                         @for (var day = 1; day <= _daysInMonth; day++)
                         {
-                            var main = GetCode(r.Codes, day);
+                            var snap = GetDay(r.Days, day);
+                            var main = snap?.Code;
                             var tdClass = GetCellClass(main);
 
                             <td class="text-center ts-cell @tdClass">
                                 @if (!string.IsNullOrWhiteSpace(main))
                                 {
                                     <div class="ts-main"
-                                         title="@(IsAlert(main) ? r.Referenses[day - 1] : null)">
-                                        @ShortCode(main)
+                                         title="@(IsAlert(main) ? snap?.Reference : null)">
+                                        @ShortCode(main!)
                                     </div>
                                 }
                             </td>

@@ -82,15 +82,14 @@ public sealed class MissionRepository(
         if (closeAt < mission.CreatedAt)
             throw new InvalidOperationException("Дата закриття не може бути раніше дати створення.");
 
-        // Strategy: close mission only if there is NO active task fact for this mission at closeAt.
-        // Active = Status != Canceled AND FromDate <= closeAt AND (ToDate is null OR closeAt < ToDate)
-        var hasActiveAssignments = await db.TimesheetTaskSpans
+        // Strategy: close mission only if there is NO active assignment for this mission at closeAt.
+        // Active = From <= closeAt AND (To is null OR closeAt < To).
+        var hasActiveAssignments = await db.MissionAssignments
             .AsNoTracking()
             .AnyAsync(x =>
                 x.MissionId == id
-                && x.Status != DocumentStatus.Canceled
-                && x.FromDate <= closeAt
-                && (!x.ToDate.HasValue || closeAt < x.ToDate.Value),
+                && x.From <= closeAt
+                && (!x.To.HasValue || closeAt < x.To.Value),
                 ct);
 
         if (hasActiveAssignments)

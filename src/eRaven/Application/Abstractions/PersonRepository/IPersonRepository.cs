@@ -32,6 +32,13 @@ public interface IPersonRepository
     Task<PersonReadModel?> GetByIdAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>
+    /// Повертає список карток людей
+    /// </summary>
+    Task<IReadOnlyList<PersonReadModel>> GetByIdsAsync(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Повертає події людини.
     /// </summary>
     Task<IReadOnlyList<PersonEventRecord>> GetHistoryAsync(Guid id, CancellationToken ct = default);

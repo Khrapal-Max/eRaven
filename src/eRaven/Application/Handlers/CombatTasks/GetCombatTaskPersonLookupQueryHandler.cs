@@ -5,6 +5,7 @@
 // GetCombatTaskPersonLookupQueryHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.DTOs.CombatTasks;
 using eRaven.Application.Queries;
@@ -16,10 +17,12 @@ namespace eRaven.Application.Handlers.CombatTasks;
 /// Query handler: повертає людей, доступних для призначення на завдання.
 /// </summary>
 public sealed class GetCombatTaskPersonLookupQueryHandler(
-    ITimesheetMissionPlanningRepository repo)
+    ITimesheetMissionPlanningRepository repo,
+    IPersonRepository persons)
     : IQueryHandler<GetCombatTaskPersonLookupQuery, IReadOnlyList<ReadyCombatTaskPersonDto>>
 {
     private readonly ITimesheetMissionPlanningRepository _repo = repo;
+    private readonly IPersonRepository _persons = persons;
 
     public async Task<IReadOnlyList<ReadyCombatTaskPersonDto>> HandleAsync(
         GetCombatTaskPersonLookupQuery query,
@@ -28,6 +31,22 @@ public sealed class GetCombatTaskPersonLookupQueryHandler(
         if (query.OnDate == default)
             throw new InvalidOperationException("OnDate обов'язковий.");
 
-        return await _repo.GetFreePersonForMissionsAsync(query.OnDate, ct);
+        var ids = await _repo.GetFreePersonForMissionsAsync(query.OnDate, ct);
+        if (ids.Count == 0)
+            return [];
+
+        var people = await _persons.GetByIdsAsync(ids, ct);
+
+        return [.. people
+            .OrderBy(x => x.FullName)
+            .ThenBy(x => x.Id)
+            .Select(p => new ReadyCombatTaskPersonDto(
+                PersonId: p.Id,
+                Rnokpp: p.Rnokpp,
+                FullName: p.FullName,
+                Rank: p.Rank,
+                Position: p.Position,
+                Weapon: p.Weapon,
+                Callsign: p.Callsign))];
     }
 }

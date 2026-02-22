@@ -131,6 +131,26 @@ public sealed class PersonRepository(
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<PersonReadModel>> GetByIdsAsync(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        if (ids.Count == 0)
+            return [];
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        return await db.PersonRead
+            .AsNoTracking()
+            .Where(x => ids.Contains(x.Id))
+            .OrderBy(x => x.PositionSort)
+            .ThenBy(x => x.FullName)
+            .ThenBy(x => x.Id)
+            .ToListAsync(ct);
+    }
+    /// <inheritdoc />
     public async Task<IReadOnlyList<PersonEventRecord>> GetHistoryAsync(Guid id, CancellationToken ct = default)
     {
         if (id == Guid.Empty)

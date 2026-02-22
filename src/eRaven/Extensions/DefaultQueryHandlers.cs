@@ -39,10 +39,10 @@ public static class DefaultQueryHandlers
         services.AddScoped<IQueryHandler<GetPersonnelDashboardQuery, PersonnelDashboardDto>, GetPersonnelDashboardQueryHandler>();
 
         // Timesheet
-        services.AddScoped<IQueryHandler<GetTimesheetPersonMonthQuery, TimesheetPersonMonthDto>, GetTimesheetPersonMonthQueryHandler>();
-        services.AddScoped<IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetPersonMonthRowDto>>, GetTimesheetMonthQueryHandler>();
+        services.AddScoped<IQueryHandler<GetTimesheetPersonMonthQuery, TimesheetPersonMonthDto?>, GetTimesheetPersonMonthQueryHandler>();
+        services.AddScoped<IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetPersonRangeRowDto>>, GetTimesheetMonthQueryHandler>();
         services.AddScoped<IQueryHandler<ExportTimesheetMonthQuery, DownloadFileDto>, ExportTimesheetMonthQueryHandler>();
-        services.AddScoped<IQueryHandler<GetTimesheetDayQuery, IReadOnlyList<TimesheetPersonDayRowDto>>, GetTimesheetDayQueryHandler>();
+        services.AddScoped<IQueryHandler<GetTimesheetDayQuery, IReadOnlyList<TimesheetPersonRangeRowDto>>, GetTimesheetDayQueryHandler>();
         services.AddScoped<IQueryHandler<GetTimesheetRangeQuery, IReadOnlyList<TimesheetPersonRangeRowDto>>, GetTimesheetRangeQueryHandler>();
 
         services.AddScoped<IQueryHandler<GetTimesheetPolicyForCodeQuery, TimesheetPolicyEditorDto?>, GetTimesheetPolicyForCodeQueryHandler>();

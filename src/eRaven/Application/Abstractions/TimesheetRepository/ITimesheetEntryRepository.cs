@@ -29,6 +29,27 @@ public interface ITimesheetEntryRepository
     //======================================================================
 
     /// <summary>
+    /// Повертає записи табеля для багатьох осіб, що перетинаються з діапазоном [from..to] (інклюзивно).
+    /// Soft-deleted записи (IsDeleted=true) ігноруються.
+    /// </summary>
+    Task<IReadOnlyList<TimesheetEntry>> GetEntriesForPersonsAsync(
+        IReadOnlyCollection<Guid> personIds,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Повертає всі записи табеля вказаної особи, що перетинаються з діапазоном [from..to] (інклюзивно).
+    /// Soft-deleted записи (IsDeleted=true) ігноруються.
+    /// </summary>
+    Task<IReadOnlyList<TimesheetEntry>> GetEntriesForPersonAsync(
+        Guid personId,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken ct = default);
+
+
+    /// <summary>
     /// Повертає запис табеля за його унікальним ідентифікатором.
     /// Soft-deleted записи (IsDeleted=true) ігноруються і повертають null.
     /// </summary>
@@ -42,26 +63,6 @@ public interface ITimesheetEntryRepository
         Guid timesheetId,
         Guid personId,
         DateOnly date,
-        CancellationToken ct = default);
-
-    /// <summary>
-    /// Повертає всі записи табеля вказаної особи, що перетинаються з діапазоном [from..to] (інклюзивно).
-    /// Soft-deleted записи (IsDeleted=true) ігноруються.
-    /// </summary>
-    Task<IReadOnlyList<TimesheetEntry>> GetPersonEntriesAsync(
-        Guid personId,
-        DateOnly from,
-        DateOnly to,
-        CancellationToken ct = default);
-
-    /// <summary>
-    /// Повертає записи табеля для багатьох осіб, що перетинаються з діапазоном [from..to] (інклюзивно).
-    /// Soft-deleted записи (IsDeleted=true) ігноруються.
-    /// </summary>
-    Task<IReadOnlyList<TimesheetEntry>> GetEntriesForPersonsAsync(
-        IReadOnlyCollection<Guid> personIds,
-        DateOnly from,
-        DateOnly to,
         CancellationToken ct = default);
 
     /// <summary>
