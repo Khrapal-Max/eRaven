@@ -32,17 +32,18 @@ public static class DefaultRepository
 
         // Timesheet (episode write + view read)
         services.AddScoped<ITimesheetPolicyRepository, TimesheetPolicyRepository>();
-        services.AddScoped<ITimesheetAggregateRepository, TimesheetAggregateRepository>();
-        services.AddScoped<ITimesheetEpisodeRepository, TimesheetEpisodeRepository>();
-        services.AddScoped<ITimesheetEntryRepository, TimesheetEntryRepository>();
+
         services.AddScoped<ITimesheetViewRepository, TimesheetViewRepository>();
-        services.AddScoped<ITimesheetMissionPlanningRepository, TimesheetMissionPlanningRepository>();
+        services.AddScoped<ITimesheetEpisodeRepository, TimesheetEpisodeRepository>();
+        services.AddScoped<ITimesheetEntryQueryRepository, TimesheetEntryQueryRepository>();
+        services.AddScoped<ITimesheetEntryWriterRepository, TimesheetEntryWriterRepository>();
 
         // Mission/Combat tasks
 
         services.AddScoped<IMissionRepository, MissionRepository>();
         services.AddScoped<ICombatTaskRepository, CombatTaskRepository>();
         services.AddScoped<ICombatTaskDocumentRepository, CombatTaskDocumentRepository>();
+        services.AddScoped<ITimesheetMissionPlanningRepository, TimesheetMissionPlanningRepository>();
 
         return services;
     }

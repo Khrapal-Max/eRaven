@@ -10,19 +10,17 @@ using eRaven.Domain.Aggregates;
 namespace eRaven.Application.Abstractions.TimesheetRepository;
 
 /// <summary>
-/// Репозиторій епізодів табеля (<see cref="TimeSheetAggregate"/>):
+/// Репозиторій епізодів табеля (<see cref="TimeSheetAggregate"/>): lifecycle (Open/Close) + read-доступ.
 ///
-/// <para>Об'єднує:</para>
-/// <list type="bullet">
-/// <item><description>lifecycle-операції (Open/Close епізоду)</description></item>
-/// <item><description>доступ до активного/актуального епізоду (read, інколи tracked)</description></item>
-/// </list>
+/// <para>
+/// Епізод — це часовий відрізок життя табеля особи: <c>[OpenedAt..ClosedAt]</c> (ClosedAt — inclusive).
+/// </para>
 ///
-/// <para>Нотатки:</para>
-/// <list type="bullet">
-/// <item><description>Епізод — це період "в табелі" (OpenedAt..ClosedAt).</description></item>
-/// <item><description>Системний стан <c>НБ</c> — derived (відсутній активний entry), не подія.</description></item>
-/// </list>
+/// <para>
+/// ВАЖЛИВО: цей контракт не віддає tracked-агрегат назовні.
+/// Команди, які модифікують події, виконуються через репозиторій подій (writer),
+/// який завантажує агрегат всередині транзакції.
+/// </para>
 /// </summary>
 public interface ITimesheetEpisodeRepository
 {
@@ -42,19 +40,10 @@ public interface ITimesheetEpisodeRepository
         CancellationToken ct = default);
 
     /// <summary>
-    /// Завантажує епізод, активний на дату, у tracked-режимі для команд/інваріантів.
-    ///
-    /// <para>Очікування реалізації:</para>
-    /// <list type="bullet">
-    /// </list>
-    /// </summary>
-    Task<TimeSheetAggregate?> LoadEpisodeOnDateForUpdateAsync(
-        Guid personId,
-        DateOnly date,
-        CancellationToken ct = default);
-
-    /// <summary>
     /// Відкриває епізод табеля при зарахуванні (ідемпотентно).
+    /// <para>
+    /// Реалізація повинна створити дефолтну подію на дату <paramref name="enrollDate"/>.
+    /// </para>
     /// </summary>
     Task OpenOnEnrollAsync(
         Guid personId,
@@ -72,7 +61,7 @@ public interface ITimesheetEpisodeRepository
         CancellationToken ct = default);
 
     /// <summary>
-    /// Закриває активний епізод табеля при виключенні.
+    /// Закриває активний епізод табеля при виключенні (inclusive дата <paramref name="closeTo"/>).
     /// </summary>
     Task CloseOnExcludeAsync(
         Guid personId,

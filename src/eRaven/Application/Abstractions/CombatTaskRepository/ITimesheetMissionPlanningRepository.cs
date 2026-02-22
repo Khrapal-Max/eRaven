@@ -5,7 +5,7 @@
 // ITimesheetMissionPlanningRepository
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Abstractions.TimesheetRepository;
+namespace eRaven.Application.Abstractions.CombatTaskRepository;
 
 /// <summary>
 /// Read-репозиторій для планування/звітів по місіях.

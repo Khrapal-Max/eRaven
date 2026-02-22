@@ -30,6 +30,7 @@ public sealed class TimeSheetAggregateConfiguration : IEntityTypeConfiguration<T
 
         e.Property(x => x.Id)
             .HasColumnName("id")
+            .ValueGeneratedNever()
             .IsRequired();
 
         e.Property(x => x.PersonId)
@@ -78,6 +79,5 @@ public sealed class TimeSheetAggregateConfiguration : IEntityTypeConfiguration<T
             .WithOne(x => x.TimeSheet)
             .HasForeignKey(x => x.TimesheetId)
             .OnDelete(DeleteBehavior.Cascade);
-
     }
 }

@@ -5,11 +5,11 @@
 // TimesheetMissionPlanningRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Abstractions.TimesheetRepository;
+using eRaven.Application.Abstractions.CombatTaskRepository;
 using eRaven.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
-namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
+namespace eRaven.Infrastructure.Repositories.CombatTaskRepository;
 
 /// <summary>
 /// Read-репозиторій для планування/звітів по місіях.

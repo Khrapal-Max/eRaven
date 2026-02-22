@@ -11,6 +11,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
+/// <summary>
+/// EF Core configuration for <see cref="TimesheetEntry"/>.
+/// </summary>
 public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<TimesheetEntry>
 {
     public void Configure(EntityTypeBuilder<TimesheetEntry> e)
@@ -75,6 +78,7 @@ public sealed class TimesheetEntryConfiguration : IEntityTypeConfiguration<Times
 
         e.Property(x => x.IsDeleted)
             .HasColumnName("is_deleted")
+            .HasDefaultValue(false)
             .IsRequired();
 
         e.Property(x => x.DeletedBy)

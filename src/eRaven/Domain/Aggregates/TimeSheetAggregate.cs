@@ -13,18 +13,26 @@ namespace eRaven.Domain.Aggregates;
 /// Епізод табеля (episode) з подіями (<see cref="TimesheetEntry"/>).
 ///
 /// <para>
-/// <b>Семантика дат:</b>
+/// <b>Семантика дат (half-open):</b>
 /// <list type="bullet">
 /// <item><description><see cref="TimesheetEntry.From"/> — inclusive.</description></item>
-/// <item><description><see cref="TimesheetEntry.To"/> — <b>EXCLUSIVE</b> (half-open інтервал <c>[From..To)</c>).</description></item>
-/// <item><description><c>To = null</c> — інтервал відкритий у майбутнє (до наступної події).</description></item>
+/// <item><description><see cref="TimesheetEntry.To"/> — <b>exclusive</b> (інтервал <c>[From..To)</c>).</description></item>
+/// <item><description><c>To = null</c> — інтервал відкритий у майбутнє (до наступної події або до закриття епізоду).</description></item>
 /// </list>
 /// </para>
 ///
 /// <para>
-/// Цей агрегат відповідає тільки за зберігання/корекцію подій в межах епізоду та за
-/// структурні інваріанти часової шкали (порядок, межі, узгодженість To).
-/// Правила дозволених переходів кодів визначаються зовнішньою політикою.
+/// Агрегат відповідає за:
+/// <list type="bullet">
+/// <item><description>додавання/корекцію/видалення подій в межах епізоду;</description></item>
+/// <item><description>soft-delete подій (audit) без фізичного видалення;</description></item>
+/// <item><description>структурні інваріанти часової шкали: порядок, межі, узгодженість <see cref="TimesheetEntry.To"/>.</description></item>
+/// </list>
+/// </para>
+///
+/// <para>
+/// ВАЖЛИВО: керування потоком подій (які події створювати) — зовнішня відповідальність.
+/// Агрегат лише гарантує інваріанти та коректно модифікує власні події.
 /// </para>
 /// </summary>
 public sealed class TimeSheetAggregate
@@ -49,10 +57,13 @@ public sealed class TimeSheetAggregate
 
     public bool IsClosed => ClosedAt.HasValue;
 
+    //======================================================================
+    // Guards
+    //======================================================================
+
     /// <summary>
-    /// Викликає помилку, якщо епізод вже закритий.
+    /// Кидає виняток, якщо епізод вже закритий.
     /// </summary>
-    /// <exception cref="InvalidOperationException"></exception>
     public void EnsureNotClosed()
     {
         if (IsClosed)
@@ -60,9 +71,12 @@ public sealed class TimeSheetAggregate
     }
 
     /// <summary>
-    /// Викликає помилку, якщо подія раніше дати відкриття епізоду або пізніше дати його закриття.
+    /// Кидає виняток, якщо дата виходить за межі епізоду:
+    /// <list type="bullet">
+    /// <item><description><c>d &lt; OpenedAt</c></description></item>
+    /// <item><description><c>ClosedAt != null</c> та <c>d &gt; ClosedAt</c></description></item>
+    /// </list>
     /// </summary>
-    /// <exception cref="InvalidOperationException"></exception>
     public void EnsureInBounds(DateOnly d)
     {
         if (d < OpenedAt)
@@ -73,14 +87,68 @@ public sealed class TimeSheetAggregate
     }
 
     //======================================================================
+    // Read helpers (over own entries)
+    //======================================================================
+
+    /// <summary>
+    /// Повертає активну подію на дату <paramref name="d"/>.
+    /// <para>Half-open: <c>From &lt;= d</c> та <c>(To == null || d &lt; To)</c>.</para>
+    /// </summary>
+    public TimesheetEntry? GetActiveEntryOnDate(DateOnly d)
+    {
+        EnsureInBounds(d);
+
+        TimesheetEntry? best = null;
+
+        foreach (var e in Entries)
+        {
+            if (e.IsDeleted) continue;
+            if (e.From > d) continue;
+            if (e.To.HasValue && d >= e.To.Value) continue;
+
+            if (best is null || e.From > best.From)
+                best = e;
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// Повертає наступну подію після дати <paramref name="d"/> (за <see cref="TimesheetEntry.From"/>).
+    /// </summary>
+    public TimesheetEntry? GetNextEntryAfterDate(DateOnly d)
+    {
+        EnsureInBounds(d);
+
+        TimesheetEntry? best = null;
+
+        foreach (var e in Entries)
+        {
+            if (e.IsDeleted) continue;
+            if (e.From <= d) continue;
+
+            if (best is null || e.From < best.From)
+                best = e;
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// Повертає подію, яка починається у точці <paramref name="from"/> (change-point), або <c>null</c>.
+    /// </summary>
+    public TimesheetEntry? GetEntryByFrom(DateOnly from)
+        => Entries.FirstOrDefault(e => !e.IsDeleted && e.From == from);
+
+    //======================================================================
     // CRUD entries (events)
     //======================================================================
 
     /// <summary>
-    /// Додати подію в епізод табеля (anchor-event з <paramref name="effectiveAt"/>).
+    /// Додає подію (anchor-event) у точці <paramref name="effectiveAt"/>.
     /// <para>
-    /// Встановлення <see cref="TimesheetEntry.To"/> виконується нормалізацією:
-    /// для кожної події <c>To = Next.From</c>, для останньої <c>To = null</c>.
+    /// <see cref="TimesheetEntry.To"/> агрегат встановлює в <see cref="NormalizeEntries"/>:
+    /// <c>To = Next.From</c>, а для останньої події — <c>null</c> або <c>ClosedAt+1</c> (для закритого епізоду).
     /// </para>
     /// </summary>
     public void AddTimesheetEntry(
@@ -88,21 +156,38 @@ public sealed class TimeSheetAggregate
         DateOnly effectiveAt,
         string? reference,
         string author,
+        DateTime nowUtc,
+        string? note = null)
+        => AddTimesheetEntry(Guid.NewGuid(), nextCodeId, effectiveAt, reference, note, author, nowUtc);
+
+    /// <summary>
+    /// Додає подію з фіксованим <paramref name="entryId"/> (legacy-сценарій transition).
+    /// </summary>
+    public void AddTimesheetEntry(
+        Guid entryId,
+        Guid nextCodeId,
+        DateOnly effectiveAt,
+        string? reference,
+        string? note,
+        string author,
         DateTime nowUtc)
     {
         EnsureNotClosed();
         EnsureInBounds(effectiveAt);
 
+        if (entryId == Guid.Empty)
+            entryId = Guid.NewGuid();
+
         Entries.Add(new TimesheetEntry
         {
-            Id = Guid.NewGuid(),
+            Id = entryId,
             TimesheetId = Id,
             PersonId = PersonId,
             TimesheetCodeDefinitionId = nextCodeId,
             From = effectiveAt,
             To = null,
             Reference = reference ?? string.Empty,
-            Note = null,
+            Note = note,
             CreatedBy = author,
             CreatedAtUtc = nowUtc
         });
@@ -111,30 +196,55 @@ public sealed class TimeSheetAggregate
     }
 
     /// <summary>
-    /// Видалити подію з епізоду табеля.
+    /// Soft-delete події (з audit).
     /// <para>
-    /// Дозволяємо видалення і в закритому епізоді (як корекцію історичних даних),
-    /// але завжди перевіряємо межі епізоду.
+    /// Видалена подія не бере участі в нормалізації та не повертається read-методами.
     /// </para>
     /// </summary>
-    /// <param name="entyId">Ідентифікатор запису.</param>
-    /// </param>
-    public void RemoveTimesheetEntry(Guid entyId)
+    public void SoftDeleteTimesheetEntry(Guid entryId, string reason, string author, DateTime nowUtc)
     {
-        var entry = Entries.FirstOrDefault(x => x.Id == entyId)
-            ?? throw new InvalidOperationException($"Entry with Id {entyId} not found.");
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ArgumentException("Delete reason is required.", nameof(reason));
+
+        var entry = Entries.FirstOrDefault(x => x.Id == entryId);
+        if (entry is null)
+            return;
 
         EnsureInBounds(entry.From);
 
-        Entries.Remove(entry);
+        if (entry.IsDeleted)
+            return;
+
+        entry.IsDeleted = true;
+        entry.DeletedBy = author;
+        entry.DeletedAtUtc = nowUtc;
+        entry.DeleteReason = reason.Trim();
 
         NormalizeEntries();
     }
 
     /// <summary>
-    /// Корекція події епізоду табеля.
+    /// Фізично видаляє подію з епізоду.
     /// <para>
-    /// Поки забороняємо міняти події у закритих епізодах (правило можна послабити пізніше).
+    /// Дозволяємо видалення і в закритому епізоді (як корекцію історичних даних),
+    /// але завжди перевіряємо межі епізоду.
+    /// </para>
+    /// </summary>
+    public void RemoveTimesheetEntry(Guid entryId)
+    {
+        var entry = Entries.FirstOrDefault(x => x.Id == entryId)
+            ?? throw new InvalidOperationException($"Entry with Id {entryId} not found.");
+
+        EnsureInBounds(entry.From);
+
+        Entries.Remove(entry);
+        NormalizeEntries();
+    }
+
+    /// <summary>
+    /// Корекція події епізоду.
+    /// <para>
+    /// За замовчуванням забороняємо корекцію у закритих епізодах.
     /// </para>
     /// </summary>
     public void CorrectionTimesheetEntry(
@@ -143,7 +253,8 @@ public sealed class TimeSheetAggregate
         DateOnly fromEffectiveAt,
         string? reference,
         string author,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        string? note = null)
     {
         EnsureNotClosed();
         EnsureInBounds(fromEffectiveAt);
@@ -154,8 +265,60 @@ public sealed class TimeSheetAggregate
         entry.TimesheetCodeDefinitionId = nextCodeId;
         entry.From = fromEffectiveAt;
         entry.Reference = reference ?? string.Empty;
+        entry.Note = note;
         entry.UpdatedBy = author;
         entry.UpdatedAtUtc = nowUtc;
+
+        NormalizeEntries();
+    }
+
+    /// <summary>
+    /// Оновлює audit-поля події (без зміни коду/дат).
+    /// <para>
+    /// Потрібно для legacy-переходів, де prevUpdated передається як "вже оновлений".
+    /// </para>
+    /// </summary>
+    public void TouchEntryAudit(Guid entryId, string author, DateTime nowUtc)
+    {
+        var entry = Entries.FirstOrDefault(x => x.Id == entryId)
+            ?? throw new InvalidOperationException($"Entry with Id {entryId} not found.");
+
+        entry.UpdatedBy = author;
+        entry.UpdatedAtUtc = nowUtc;
+    }
+
+    //======================================================================
+    // Episode lifecycle
+    //======================================================================
+
+    /// <summary>
+    /// Закриває епізод на дату <paramref name="closedAtInclusive"/> (inclusive).
+    /// <para>
+    /// Також soft-delete всі майбутні події (ті, що починаються з <c>ClosedAt+1</c>).
+    /// </para>
+    /// </summary>
+    public void CloseEpisode(DateOnly closedAtInclusive, string? reason, string author, DateTime nowUtc)
+    {
+        EnsureNotClosed();
+        EnsureInBounds(closedAtInclusive);
+
+        var closeExclusive = closedAtInclusive.AddDays(1);
+
+        // 1) Soft-delete future entries (From >= closeExclusive)
+        var deleteReason = string.IsNullOrWhiteSpace(reason) ? "Auto: episode closed" : reason.Trim();
+
+        foreach (var e in Entries.Where(e => !e.IsDeleted && e.From >= closeExclusive).ToList())
+        {
+            e.IsDeleted = true;
+            e.DeletedBy = author;
+            e.DeletedAtUtc = nowUtc;
+            e.DeleteReason = deleteReason;
+        }
+
+        // 2) Close episode
+        ClosedAt = closedAtInclusive;
+        ClosedBy = author;
+        ClosedAtUtc = nowUtc;
 
         NormalizeEntries();
     }
@@ -168,24 +331,21 @@ public sealed class TimeSheetAggregate
     /// Нормалізує часову шкалу після будь-яких змін:
     /// <list type="bullet">
     /// <item><description>сортує події за <see cref="TimesheetEntry.From"/>;</description></item>
-    /// <item><description>забороняє два різні коди в одну й ту саму дату;</description></item>
+    /// <item><description>забороняє два різні коди на одну й ту саму дату;</description></item>
     /// <item><description>обʼєднує дублікати (одна дата + один код) — склеює <see cref="TimesheetEntry.Reference"/>;</description></item>
-    /// <item><description>проставляє <see cref="TimesheetEntry.To"/> як <c>Next.From</c> (last = null);</description></item>
+    /// <item><description>проставляє <see cref="TimesheetEntry.To"/> як <c>Next.From</c>, а останній — <c>null</c> або <c>ClosedAt+1</c>.</description></item>
     /// </list>
     /// </summary>
-    /// <remarks>
-    /// Це доменна логіка: репозиторій не має “підчищати хвости” за агрегатом.
-    /// </remarks>
     private void NormalizeEntries()
     {
-        if (Entries.Count == 0)
-            return;
-
         var ordered = Entries
             .Where(e => !e.IsDeleted)
             .OrderBy(e => e.From)
             .ThenBy(e => e.CreatedAtUtc)
             .ToList();
+
+        if (ordered.Count == 0)
+            return;
 
         var normalized = new List<TimesheetEntry>(ordered.Count);
 
@@ -212,12 +372,20 @@ public sealed class TimeSheetAggregate
 
             last.Reference = MergeReferences(last.Reference, cur.Reference);
 
+            // remove duplicate anchor
             Entries.Remove(cur);
         }
 
         for (var i = 0; i < normalized.Count; i++)
         {
-            normalized[i].To = (i < normalized.Count - 1) ? normalized[i + 1].From : null;
+            if (i < normalized.Count - 1)
+            {
+                normalized[i].To = normalized[i + 1].From;
+                continue;
+            }
+
+            // last entry: open-ended, or clamped to ClosedAt+1 for closed episode
+            normalized[i].To = ClosedAt.HasValue ? ClosedAt.Value.AddDays(1) : null;
         }
     }
 

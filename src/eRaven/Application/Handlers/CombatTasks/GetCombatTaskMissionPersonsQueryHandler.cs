@@ -5,8 +5,8 @@
 // GetCombatTaskMissionPersonsQueryHandler
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.CombatTaskRepository;
 using eRaven.Application.Abstractions.PersonRepository;
-using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.DTOs.CombatTasks;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.CombatTasks;

@@ -7,20 +7,18 @@
 
 using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Domain.Aggregates;
-using eRaven.Domain.Entities;
-
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 /// <summary>
-/// Репозиторій епізодів табеля (<see cref="TimeSheetAggregate"/>): lifecycle + доступ до активного епізоду.
+/// Репозиторій епізодів табеля (<see cref="TimeSheetAggregate"/>): lifecycle + read-доступ.
 ///
 /// <para>Ключова ідея:</para>
 /// <list type="bullet">
-/// <item><description>Один епізод "в табелі" = один <see cref="TimeSheetAggregate"/> (OpenedAt..ClosedAt).</description></item>
+/// <item><description>Один епізод "в табелі" = один <see cref="TimeSheetAggregate"/> (<c>OpenedAt..ClosedAt</c>).</description></item>
 /// <item><description>На кожне нове зарахування (після виключення) створюється НОВИЙ епізод.</description></item>
-/// <item><description>Старі епізоди не "перевідкриваються".</description></item>
+/// <item><description>Епізоди не "перевідкриваються".</description></item>
 /// </list>
 /// </summary>
 public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> dbFactory)
@@ -39,46 +37,43 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
         TimesheetSystemCodes.ReadyToCombatTask
     };
 
+    //======================================================================
+    // Read
+    //======================================================================
+
     /// <inheritdoc />
     public async Task<TimeSheetAggregate?> GetEpisodeOnDateAsync(Guid personId, DateOnly date, CancellationToken ct = default)
     {
+        if (personId == Guid.Empty) throw new ArgumentException("personId is required.", nameof(personId));
+        if (date == default) throw new ArgumentException("date is required.", nameof(date));
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
+        // Expect at most one episode that covers the date.
         return await db.TimeSheets
             .AsNoTracking()
-            .Where(x => x.PersonId == personId)
-            .Where(x => x.OpenedAt <= date && (!x.ClosedAt.HasValue || x.ClosedAt.Value >= date))
-            .OrderByDescending(x => x.OpenedAt)
-            .ThenByDescending(x => x.Id)
-            .FirstOrDefaultAsync(ct);
+            .SingleOrDefaultAsync(x =>
+                x.PersonId == personId
+                && x.OpenedAt <= date
+                && (!x.ClosedAt.HasValue || x.ClosedAt.Value >= date), ct);
     }
 
     /// <inheritdoc />
     public async Task<TimeSheetAggregate?> GetActiveEpisodeAsync(Guid personId, CancellationToken ct = default)
     {
+        if (personId == Guid.Empty) throw new ArgumentException("personId is required.", nameof(personId));
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
+        // Active episode is unique by index (ClosedAt == null).
         return await db.TimeSheets
             .AsNoTracking()
-            .Where(x => x.PersonId == personId && x.ClosedAt == null)
-            .OrderByDescending(x => x.OpenedAt)
-            .ThenByDescending(x => x.Id)
-            .FirstOrDefaultAsync(ct);
+            .SingleOrDefaultAsync(x => x.PersonId == personId && x.ClosedAt == null, ct);
     }
 
-    /// <inheritdoc />
-    public async Task<TimeSheetAggregate?> LoadEpisodeOnDateForUpdateAsync(Guid personId, DateOnly date, CancellationToken ct = default)
-    {
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        // tracked entity (for commands/invariants)
-        return await db.TimeSheets
-            .Where(x => x.PersonId == personId)
-            .Where(x => x.OpenedAt <= date && (!x.ClosedAt.HasValue || x.ClosedAt.Value >= date))
-            .OrderByDescending(x => x.OpenedAt)
-            .ThenByDescending(x => x.Id)
-            .FirstOrDefaultAsync(ct);
-    }
+    //======================================================================
+    // Lifecycle
+    //======================================================================
 
     /// <inheritdoc />
     public async Task OpenOnEnrollAsync(
@@ -90,18 +85,18 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
     {
         EnsureAuthor(author);
         if (personId == Guid.Empty)
-            throw new ArgumentException("PersonId is required.", nameof(personId));
+            throw new ArgumentException("personId is required.", nameof(personId));
+        if (enrollDate == default)
+            throw new ArgumentException("enrollDate is required.", nameof(enrollDate));
 
         var by = author.Trim();
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        // 1) Active episode (ClosedAt == null) — очікуємо максимум 1
+        // 1) Active episode (ClosedAt == null) — очікуємо максимум 1.
         var active = await db.TimeSheets
             .Where(x => x.PersonId == personId && x.ClosedAt == null)
-            .OrderByDescending(x => x.OpenedAt)
-            .ThenByDescending(x => x.Id)
             .ToListAsync(ct);
 
         TimeSheetAggregate timeline;
@@ -110,7 +105,7 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
         {
             timeline = active[0];
 
-            // Ідемпотентний повтор: нічого не "перезаписуємо"
+            // Ідемпотентний повтор: нічого не "перезаписуємо".
             if (timeline.OpenedAt > enrollDate)
                 throw new InvalidOperationException(
                     $"Неможливо відкрити табель на {enrollDate:yyyy-MM-dd}: активний епізод відкритий пізніше ({timeline.OpenedAt:yyyy-MM-dd}).");
@@ -148,7 +143,7 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
         else
         {
             throw new InvalidOperationException(
-                "Неможливо відкрити табель: знайдено декілька активних епізодів (дані пошкоджені). ");
+                "Неможливо відкрити табель: знайдено декілька активних епізодів (дані пошкоджені).");
         }
 
         var defaultCodeId = await db.TimesheetCodes
@@ -156,7 +151,7 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
             .Where(x => x.IsActive)
             .Where(x => x.Code == DefaultEnrollCode)
             .Select(x => x.Id)
-            .FirstOrDefaultAsync(ct);
+            .SingleOrDefaultAsync(ct);
 
         if (defaultCodeId == Guid.Empty)
             throw new InvalidOperationException($"Код '{DefaultEnrollCode}' не знайдено у довіднику TimesheetCodes.");
@@ -171,20 +166,13 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
 
         if (!hasEntryOnEnrollDate)
         {
-            db.TimesheetEntries.Add(new TimesheetEntry
-            {
-                Id = Guid.NewGuid(),
-                TimesheetId = timeline.Id,
-                PersonId = personId,
-                TimesheetCodeDefinitionId = defaultCodeId,
-                From = enrollDate,
-                To = null,
-                Reference = "Auto: enroll",
-                Note = null,
-                CreatedBy = by,
-                CreatedAtUtc = nowUtc,
-                IsDeleted = false
-            });
+            // Усі події — тільки через агрегат.
+            timeline.AddTimesheetEntry(
+                nextCodeId: defaultCodeId,
+                effectiveAt: enrollDate,
+                reference: "Auto: enroll",
+                author: by,
+                nowUtc: nowUtc);
         }
 
         await db.SaveChangesAsync(ct);
@@ -195,7 +183,9 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
     public async Task ValidateCanCloseOnExcludeAsync(Guid personId, DateOnly closeTo, CancellationToken ct = default)
     {
         if (personId == Guid.Empty)
-            throw new ArgumentException("PersonId is required.", nameof(personId));
+            throw new ArgumentException("personId is required.", nameof(personId));
+        if (closeTo == default)
+            throw new ArgumentException("closeTo is required.", nameof(closeTo));
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await ValidateCanCloseOnExcludeCoreAsync(db, personId, closeTo, ct);
@@ -212,7 +202,9 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
     {
         EnsureAuthor(author);
         if (personId == Guid.Empty)
-            throw new ArgumentException("PersonId is required.", nameof(personId));
+            throw new ArgumentException("personId is required.", nameof(personId));
+        if (closeTo == default)
+            throw new ArgumentException("closeTo is required.", nameof(closeTo));
 
         var by = author.Trim();
 
@@ -222,11 +214,10 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
         // 1) Validate predecessor state (allowed code on closeTo)
         await ValidateCanCloseOnExcludeCoreAsync(db, personId, closeTo, ct);
 
-        // 2) Load EXACTLY one active episode (не "закриваємо все підряд")
+        // 2) Load exactly one active episode (tracked + entries)
         var active = await db.TimeSheets
+            .Include(t => t.Entries)
             .Where(x => x.PersonId == personId && x.ClosedAt == null)
-            .OrderByDescending(x => x.OpenedAt)
-            .ThenByDescending(x => x.Id)
             .ToListAsync(ct);
 
         if (active.Count == 0)
@@ -237,64 +228,30 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
 
         var tl = active[0];
 
-        if (closeTo < tl.OpenedAt)
-            throw new InvalidOperationException(
-                $"Неможливо закрити табель на {closeTo:yyyy-MM-dd}: він відкритий з {tl.OpenedAt:yyyy-MM-dd}.");
-
-        // 3) Close timeline (inclusive)
-        tl.ClosedAt = closeTo;
-        tl.ClosedBy = by;
-        tl.ClosedAtUtc = nowUtc;
-
-        var closeExclusive = closeTo.AddDays(1);
-
-        // 4) Clamp entries that extend beyond closeTo (inclusive) (or are open-ended)
-        var toClamp = await db.TimesheetEntries
-            .Where(x => x.TimesheetId == tl.Id && !x.IsDeleted)
-            .Where(x => x.From <= closeTo)
-            .Where(x => x.To == null || x.To > closeExclusive)
-            .ToListAsync(ct);
-
-        foreach (var e in toClamp)
-        {
-            e.To = closeExclusive;
-            e.UpdatedBy = by;
-            e.UpdatedAtUtc = nowUtc;
-        }
-
-        // 5) Soft-delete future entries (From >= closeTo+1)
-        var future = await db.TimesheetEntries
-            .Where(x => x.TimesheetId == tl.Id && !x.IsDeleted)
-            .Where(x => x.From >= closeExclusive)
-            .ToListAsync(ct);
-
-        if (future.Count > 0)
-        {
-            var msg = BuildExcludeDeleteReason(reason);
-            foreach (var e in future)
-            {
-                e.IsDeleted = true;
-                e.DeletedBy = by;
-                e.DeletedAtUtc = nowUtc;
-                e.DeleteReason = msg;
-            }
-        }
+        // 3) Close episode (inclusive) through aggregate.
+        tl.CloseEpisode(
+            closedAtInclusive: closeTo,
+            reason: reason,
+            author: by,
+            nowUtc: nowUtc);
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
     }
 
+    //======================================================================
+    // Internals
+    //======================================================================
+
     private static async Task ValidateCanCloseOnExcludeCoreAsync(
-     AppDbContext db,
-     Guid personId,
-     DateOnly closeTo,
-     CancellationToken ct)
+        AppDbContext db,
+        Guid personId,
+        DateOnly closeTo,
+        CancellationToken ct)
     {
         var active = await db.TimeSheets
             .AsNoTracking()
             .Where(x => x.PersonId == personId && x.ClosedAt == null)
-            .OrderByDescending(x => x.OpenedAt)
-            .ThenByDescending(x => x.Id)
             .ToListAsync(ct);
 
         if (active.Count == 0)
@@ -305,24 +262,23 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
 
         var timeline = active[0];
 
-        // ✅ 0) ЛЮДСЬКА перевірка: неможливо закривати раніше відкриття епізоду
+        // 0) Неможливо закривати раніше відкриття епізоду
         if (closeTo < timeline.OpenedAt)
         {
             throw new InvalidOperationException(
                 $"Неможливо закрити табель на {closeTo:yyyy-MM-dd}: він відкритий з {timeline.OpenedAt:yyyy-MM-dd}.");
         }
 
-        // 1) На дату closeTo має існувати активний запис (дані не пошкоджені)
+        // 1) На дату closeTo має існувати активний запис
         var onDate = await db.TimesheetEntries
             .AsNoTracking()
             .Include(x => x.TimesheetCodeDefinition)
             .Where(x => x.TimesheetId == timeline.Id && !x.IsDeleted)
             .Where(x => x.From <= closeTo && (!x.To.HasValue || closeTo < x.To.Value))
             .OrderByDescending(x => x.From)
-            .ThenByDescending(x => x.Id)
             .FirstOrDefaultAsync(ct)
             ?? throw new InvalidOperationException(
-                $"Неможливо виключити з табелю: на дату {closeTo:yyyy-MM-dd} немає активного запису (дані пошкоджені). ");
+                $"Неможливо виключити з табелю: на дату {closeTo:yyyy-MM-dd} немає активного запису (дані пошкоджені).");
 
         if (onDate.TimesheetCodeDefinition is null)
             throw new InvalidOperationException("Неможливо перевірити код: TimesheetCodeDefinition не підвантажено/відсутнє.");
@@ -332,7 +288,8 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
         if (!AllowedCloseCodes.Contains(code))
         {
             throw new InvalidOperationException(
-                $"Неможливо виключити з табелю зі стану '{code}'. Дозволено тільки з 'Т' або 'РОЗПОР'. " +
+                $"Неможливо виключити з табелю зі стану '{code}'. " +
+                $"Дозволено тільки з '{TimesheetSystemCodes.BaseState}', '{TimesheetSystemCodes.Rozpor}' або '{TimesheetSystemCodes.ReadyToCombatTask}'. " +
                 $"Спочатку приведіть табель до дозволеного стану на {closeTo:yyyy-MM-dd}.");
         }
     }
@@ -340,14 +297,6 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
     private static void EnsureAuthor(string author)
     {
         if (string.IsNullOrWhiteSpace(author))
-            throw new ArgumentException("Author is required.", nameof(author));
-    }
-
-    private static string BuildExcludeDeleteReason(string? reason)
-    {
-        var r = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
-        return r is null
-            ? "Auto-deleted: person excluded"
-            : $"Auto-deleted: person excluded ({r})";
+            throw new ArgumentException("author is required.", nameof(author));
     }
 }

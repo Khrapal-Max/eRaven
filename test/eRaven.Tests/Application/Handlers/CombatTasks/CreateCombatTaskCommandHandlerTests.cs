@@ -7,7 +7,6 @@
 
 using eRaven.Application.Abstractions.CombatTaskRepository;
 using eRaven.Application.Abstractions.PersonRepository;
-using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.Commands.CombatTasks;
 using eRaven.Application.DTOs.CombatTasks;
 using eRaven.Application.Handlers.CombatTasks;
