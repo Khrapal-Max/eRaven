@@ -301,7 +301,11 @@ public sealed class PersonTaskEngagementAggregate
                 ? (a.From < newTo.Value && from < aTo.Value)
                 : (from < aTo.Value);
 
-            if (overlaps)
+            // ✅ Allow "handover day" overlap: start on previous EndInclusive day.
+            // Existing interval is [..aTo), so its last active day is (aTo - 1 day).
+            var isHandoverDay = from == aTo.Value.AddDays(-1);
+
+            if (overlaps && !isHandoverDay)
                 throw new InvalidOperationException("Task interval overlaps with an existing interval.");
         }
     }
