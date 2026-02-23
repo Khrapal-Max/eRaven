@@ -118,14 +118,14 @@ public sealed class CreateCombatTaskCommandHandler(
         }
 
         // 3) Apply facts to timesheet using the same "current truth"
-      /*  await _timesheets.ApplyCombatTaskFactsAsync(
-            documentId: command.DocumentId,
-            missionId: command.MissionId,
-            documentOrderTitle: document.OrderTitle,
-            details: incoming,
-            author: command.Author.Trim(),
-            nowUtc: command.NowUtc,
-            ct: ct);*/
+        /*  await _timesheets.ApplyCombatTaskFactsAsync(
+              documentId: command.DocumentId,
+              missionId: command.MissionId,
+              documentOrderTitle: document.OrderTitle,
+              details: incoming,
+              author: command.Author.Trim(),
+              nowUtc: command.NowUtc,
+              ct: ct);*/
 
         return combatTaskId;
     }

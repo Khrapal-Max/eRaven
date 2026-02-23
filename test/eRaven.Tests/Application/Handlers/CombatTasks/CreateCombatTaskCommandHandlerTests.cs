@@ -5,14 +5,7 @@
 // CreateCombatTaskCommandHandlerTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Abstractions.CombatTaskRepository;
-using eRaven.Application.Abstractions.PersonRepository;
-using eRaven.Application.Commands.CombatTasks;
-using eRaven.Application.DTOs.CombatTasks;
 using eRaven.Application.Handlers.CombatTasks;
-using eRaven.Domain.Entities;
-using eRaven.Domain.Enums;
-using Moq;
 
 namespace eRaven.Tests.Application.Handlers.CombatTasks;
 
@@ -31,5 +24,5 @@ namespace eRaven.Tests.Application.Handlers.CombatTasks;
 /// </summary>
 public sealed class CreateCombatTaskCommandHandlerTests
 {
-   
+
 }

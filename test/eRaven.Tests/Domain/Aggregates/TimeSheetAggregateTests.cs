@@ -6,29 +6,21 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Aggregates;
-using eRaven.Domain.Entities;
 
 namespace eRaven.Tests.Domain.Aggregates;
 
 /// <summary>
 /// Unit tests for <see cref="TimeSheetAggregate"/>.
-///
-/// <para>
-/// These tests validate the "combat task as derived entry" approach:
-/// combat tasks are persisted as <see cref="TimesheetEntry"/> with
-/// <see cref="TimesheetEntry.SourceKind"/> = <see cref="TimesheetEntrySourceKind.CombatTask"/>
-/// and code id = "100" (by convention).
-/// </para>
 /// </summary>
 public sealed class TimeSheetAggregateTests
 {
-    private static TimeSheetAggregate CreateEpisode(DateOnly openedAt)
+    private static TimeSheetAggregate CreateEpisode(DateOnly openedAt, DateOnly? closedAt = null)
         => new()
         {
             Id = Guid.NewGuid(),
             PersonId = Guid.NewGuid(),
             OpenedAt = openedAt,
-            ClosedAt = null,
+            ClosedAt = closedAt,
             CreatedBy = "test",
             CreatedAtUtc = new DateTime(2026, 02, 21, 12, 0, 0, DateTimeKind.Utc)
         };
@@ -36,8 +28,7 @@ public sealed class TimeSheetAggregateTests
     [Fact]
     public void EnsureNotClosed_WhenClosed_Throws()
     {
-        var a = CreateEpisode(new DateOnly(2026, 02, 01));
-        a.ClosedAt = new DateOnly(2026, 02, 28);
+        var a = CreateEpisode(new DateOnly(2026, 02, 01), new DateOnly(2026, 02, 28));
 
         var ex = Assert.Throws<InvalidOperationException>(() => a.EnsureNotClosed());
         Assert.Contains("closed", ex.Message, StringComparison.OrdinalIgnoreCase);
@@ -47,21 +38,18 @@ public sealed class TimeSheetAggregateTests
     public void EnsureInBounds_BeforeOpenedAt_Throws()
     {
         var a = CreateEpisode(new DateOnly(2026, 02, 10));
-
         Assert.Throws<InvalidOperationException>(() => a.EnsureInBounds(new DateOnly(2026, 02, 09)));
     }
 
     [Fact]
     public void EnsureInBounds_AfterClosedAt_Throws()
     {
-        var a = CreateEpisode(new DateOnly(2026, 02, 01));
-        a.ClosedAt = new DateOnly(2026, 02, 10);
-
+        var a = CreateEpisode(new DateOnly(2026, 02, 01), new DateOnly(2026, 02, 10));
         Assert.Throws<InvalidOperationException>(() => a.EnsureInBounds(new DateOnly(2026, 02, 11)));
     }
 
     [Fact]
-    public void AddTimesheetEntry_SortsAndSetsTo()
+    public void AddTimesheetEntry_SortsAndSetsTo_ByNextFrom()
     {
         var a = CreateEpisode(new DateOnly(2026, 02, 01));
 
@@ -83,6 +71,15 @@ public sealed class TimeSheetAggregateTests
 
         Assert.Equal(codeB, e1.TimesheetCodeDefinitionId);
         Assert.Equal(codeA, e2.TimesheetCodeDefinitionId);
+    }
+
+    [Fact]
+    public void AddTimesheetEntry_WhenClosed_ThrowsEvenIfInBounds()
+    {
+        var a = CreateEpisode(new DateOnly(2026, 02, 01), new DateOnly(2026, 02, 28));
+
+        Assert.Throws<InvalidOperationException>(() =>
+            a.AddTimesheetEntry(Guid.NewGuid(), new DateOnly(2026, 02, 10), "X", "u", DateTime.UtcNow));
     }
 
     [Fact]
@@ -145,16 +142,6 @@ public sealed class TimeSheetAggregateTests
 
         Assert.Throws<InvalidOperationException>(() =>
             a.AddTimesheetEntry(code2, new DateOnly(2026, 02, 03), "B", "u", now));
-    }
-
-    [Fact]
-    public void AddTimesheetEntry_AfterClosedAt_Throws()
-    {
-        var a = CreateEpisode(new DateOnly(2026, 02, 01));
-        a.ClosedAt = new DateOnly(2026, 02, 10);
-
-        Assert.Throws<InvalidOperationException>(() =>
-            a.AddTimesheetEntry(Guid.NewGuid(), new DateOnly(2026, 02, 11), "X", "u", DateTime.UtcNow));
     }
 
     [Fact]
@@ -248,6 +235,66 @@ public sealed class TimeSheetAggregateTests
         a.RemoveTimesheetEntry(id);
 
         Assert.Single(a.Entries);
-        Assert.Null(a.Entries.Single().To);
+        Assert.Equal(DateOnly.FromDateTime(new DateTime(2026, 3, 1)), a.Entries.Single().To);
+    }
+
+    [Fact]
+    public void GetActiveEntryOnDate_UsesExclusiveTo()
+    {
+        var a = CreateEpisode(new DateOnly(2026, 02, 01));
+        var now = new DateTime(2026, 02, 21, 12, 0, 0, DateTimeKind.Utc);
+
+        var c1 = Guid.NewGuid();
+        var c2 = Guid.NewGuid();
+
+        a.AddTimesheetEntry(c1, new DateOnly(2026, 02, 01), "A", "u", now);
+        a.AddTimesheetEntry(c2, new DateOnly(2026, 02, 10), "B", "u", now);
+
+        // On 2026-02-09 -> first is active
+        var e9 = a.GetActiveEntryOnDate(new DateOnly(2026, 02, 09));
+        Assert.NotNull(e9);
+        Assert.Equal(new DateOnly(2026, 02, 01), e9!.From);
+
+        // On 2026-02-10 -> second is active (exclusive To for first)
+        var e10 = a.GetActiveEntryOnDate(new DateOnly(2026, 02, 10));
+        Assert.NotNull(e10);
+        Assert.Equal(new DateOnly(2026, 02, 10), e10!.From);
+    }
+
+    [Fact]
+    public void GetNextEntryAfterDate_ReturnsNextByFrom_IgnoresDeleted()
+    {
+        var a = CreateEpisode(new DateOnly(2026, 02, 01));
+        var now = new DateTime(2026, 02, 21, 12, 0, 0, DateTimeKind.Utc);
+
+        var c1 = Guid.NewGuid();
+        var c2 = Guid.NewGuid();
+        var c3 = Guid.NewGuid();
+
+        a.AddTimesheetEntry(c1, new DateOnly(2026, 02, 01), "A", "u", now);
+        a.AddTimesheetEntry(c2, new DateOnly(2026, 02, 10), "B", "u", now);
+        a.AddTimesheetEntry(c3, new DateOnly(2026, 02, 20), "C", "u", now);
+
+        // delete 2026-02-10 entry manually (aggregate does not have soft-delete op yet)
+        var e10 = a.Entries.Single(e => e.From == new DateOnly(2026, 02, 10));
+        e10.IsDeleted = true;
+
+        var next = a.GetNextEntryAfterDate(new DateOnly(2026, 02, 05));
+        Assert.NotNull(next);
+        Assert.Equal(new DateOnly(2026, 02, 20), next!.From);
+    }
+
+    [Fact]
+    public void GetEntryByFrom_ReturnsNullWhenDeleted()
+    {
+        var a = CreateEpisode(new DateOnly(2026, 02, 01));
+        var now = new DateTime(2026, 02, 21, 12, 0, 0, DateTimeKind.Utc);
+        var code = Guid.NewGuid();
+
+        a.AddTimesheetEntry(code, new DateOnly(2026, 02, 03), "A", "u", now);
+        var e = a.Entries.Single();
+        e.IsDeleted = true;
+
+        Assert.Null(a.GetEntryByFrom(new DateOnly(2026, 02, 03)));
     }
 }

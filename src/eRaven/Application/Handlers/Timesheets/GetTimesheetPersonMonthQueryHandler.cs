@@ -9,7 +9,6 @@ using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.Abstractions.TimesheetPolicyRepository;
 using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.DTOs.Timesheets;
-using eRaven.Application.Mapper;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheets;
 
@@ -78,6 +77,6 @@ public sealed class GetTimesheetPersonMonthQueryHandler(
             Days: dayDtos,
             Entries: entryDtos);*/
 
-        throw new NotImplementedException();    
+        throw new NotImplementedException();
     }
 }

@@ -5,10 +5,7 @@
 // TimesheetEntryRepositoryTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Aggregates;
 using eRaven.Domain.Entities;
-using eRaven.Tests.Extensions;
-using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Tests.Infrastructure.Repositories;
 

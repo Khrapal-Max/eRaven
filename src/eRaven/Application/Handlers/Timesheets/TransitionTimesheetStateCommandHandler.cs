@@ -9,8 +9,6 @@ using eRaven.Application.Abstractions.TimesheetPolicyRepository;
 using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Timesheets;
-using eRaven.Domain.Entities;
-using eRaven.Infrastructure;
 
 namespace eRaven.Application.Handlers.Timesheets;
 
