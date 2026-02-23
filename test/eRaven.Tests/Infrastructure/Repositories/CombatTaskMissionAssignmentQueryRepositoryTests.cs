@@ -10,7 +10,6 @@ using eRaven.Domain.Enums;
 using eRaven.Infrastructure;
 using eRaven.Infrastructure.Repositories.CombatTaskRepository;
 using eRaven.Tests.Extensions;
-using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Tests.Infrastructure.Repositories;
 
