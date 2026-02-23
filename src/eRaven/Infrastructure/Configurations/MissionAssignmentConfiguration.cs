@@ -23,6 +23,7 @@ public sealed class MissionAssignmentConfiguration : IEntityTypeConfiguration<Mi
 
         e.Property(x => x.Id)
             .HasColumnName("id")
+            .ValueGeneratedNever()
             .IsRequired();
 
         e.Property(x => x.PersonId)
@@ -79,5 +80,12 @@ public sealed class MissionAssignmentConfiguration : IEntityTypeConfiguration<Mi
         e.HasIndex(x => new { x.SourceStartDocumentId, x.MissionId, x.PersonId, x.From })
             .HasDatabaseName("ux_mission_assignments_startdoc_mission_person_from")
             .IsUnique();
+
+        // Business invariant: one active (open-ended) task per person across all missions.
+        // NOTE: PostgreSQL/SQLite support partial unique indexes. If your provider doesn't, keep this as a best-effort guard.
+        e.HasIndex(x => x.PersonId)
+            .HasDatabaseName("ux_mission_assignments_person_open")
+            .IsUnique()
+            .HasFilter("to_date IS NULL");
     }
 }

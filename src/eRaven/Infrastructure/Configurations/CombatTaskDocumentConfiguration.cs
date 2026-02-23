@@ -23,6 +23,7 @@ public sealed class CombatTaskDocumentConfiguration : IEntityTypeConfiguration<C
 
         e.Property(x => x.Id)
             .HasColumnName("id")
+            .ValueGeneratedNever()
             .IsRequired();
 
         e.Property(x => x.Status)

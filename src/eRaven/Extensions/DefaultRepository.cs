@@ -43,7 +43,8 @@ public static class DefaultRepository
         services.AddScoped<IMissionRepository, MissionRepository>();
         services.AddScoped<ICombatTaskRepository, CombatTaskRepository>();
         services.AddScoped<ICombatTaskDocumentRepository, CombatTaskDocumentRepository>();
-        services.AddScoped<ITimesheetMissionPlanningRepository, TimesheetMissionPlanningRepository>();
+        services.AddScoped<ICombatTaskEngagementRepository, CombatTaskEngagementRepository>();
+        services.AddScoped<ICombatTaskMissionAssignmentQueryRepository, CombatTaskMissionAssignmentQueryRepository>();
 
         return services;
     }

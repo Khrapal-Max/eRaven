@@ -29,6 +29,7 @@ public sealed class MissionConfiguration : IEntityTypeConfiguration<Mission>
 
         e.Property(x => x.Id)
             .HasColumnName("id")
+            .ValueGeneratedNever()
             .IsRequired();
 
         e.Property(x => x.PositionArea)

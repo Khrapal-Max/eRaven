@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Domain.Entities;
+using eRaven.Domain.Enums;
 
 namespace eRaven.Domain.Aggregates;
 
@@ -155,7 +156,7 @@ public sealed class PersonTaskEngagementAggregate
 
         // Idempotency: same End detail already applied.
         if (_assignments.Any(a => a.SourceEndDocumentId == endDocumentId && a.SourceEndDetailsId == endDetailsId))
-            return Array.Empty<EngagementChange>();
+            return [];
 
         var toExclusive = endInclusive.AddDays(1);
 
@@ -177,10 +178,10 @@ public sealed class PersonTaskEngagementAggregate
             open.UpdatedAtUtc = nowUtc;
 
             EnsureNoMultipleOpenIntervals();
-            return new[]
-            {
+            return
+            [
                 EngagementChange.Ended(PersonId, missionId, toExclusive, endDocumentId, endDetailsId)
-            };
+            ];
         }
 
         // Fallback: one-day engagement for the given end day.
@@ -205,11 +206,11 @@ public sealed class PersonTaskEngagementAggregate
         _assignments.Sort((x, y) => x.From.CompareTo(y.From));
 
         EnsureNoMultipleOpenIntervals();
-        return new[]
-        {
+        return
+        [
             EngagementChange.Started(PersonId, missionId, endInclusive, endDocumentId, endDetailsId),
             EngagementChange.Ended(PersonId, missionId, toExclusive, endDocumentId, endDetailsId)
-        };
+        ];
     }
 
     /// <summary>
@@ -331,15 +332,4 @@ public sealed record EngagementChange(
 
     public static EngagementChange Removed(Guid personId, Guid missionId, DateOnly effectiveAt, Guid docId, Guid detailsId)
         => new(EngagementChangeKind.Removed, personId, missionId, effectiveAt, docId, detailsId);
-}
-
-/// <summary>
-/// Тип зміни зайнятості.
-/// </summary>
-public enum EngagementChangeKind
-{
-    Started = 1,
-    Ended = 2,
-    Reopened = 3,
-    Removed = 4
 }

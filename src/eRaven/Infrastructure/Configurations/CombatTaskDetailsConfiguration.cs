@@ -23,6 +23,7 @@ public sealed class CombatTaskDetailsConfiguration : IEntityTypeConfiguration<Co
 
         e.Property(x => x.Id)
             .HasColumnName("id")
+            .ValueGeneratedNever()
             .IsRequired();
 
         e.Property(x => x.CombatTaskId)

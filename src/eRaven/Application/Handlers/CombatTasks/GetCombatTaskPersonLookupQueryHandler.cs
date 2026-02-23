@@ -17,11 +17,11 @@ namespace eRaven.Application.Handlers.CombatTasks;
 /// Query handler: повертає людей, доступних для призначення на завдання.
 /// </summary>
 public sealed class GetCombatTaskPersonLookupQueryHandler(
-    ITimesheetMissionPlanningRepository repo,
+    ICombatTaskMissionAssignmentQueryRepository repo,
     IPersonRepository persons)
     : IQueryHandler<GetCombatTaskPersonLookupQuery, IReadOnlyList<ReadyCombatTaskPersonDto>>
 {
-    private readonly ITimesheetMissionPlanningRepository _repo = repo;
+    private readonly ICombatTaskMissionAssignmentQueryRepository _repo = repo;
     private readonly IPersonRepository _persons = persons;
 
     public async Task<IReadOnlyList<ReadyCombatTaskPersonDto>> HandleAsync(
@@ -31,7 +31,7 @@ public sealed class GetCombatTaskPersonLookupQueryHandler(
         if (query.OnDate == default)
             throw new InvalidOperationException("OnDate обов'язковий.");
 
-        var ids = await _repo.GetFreePersonForMissionsAsync(query.OnDate, ct);
+        var ids = await _repo.GetPersonsWithOpenAssignmentsAsync(query.OnDate, ct);
         if (ids.Count == 0)
             return [];
 

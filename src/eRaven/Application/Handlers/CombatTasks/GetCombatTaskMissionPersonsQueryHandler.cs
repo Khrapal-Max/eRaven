@@ -18,11 +18,11 @@ namespace eRaven.Application.Handlers.CombatTasks;
 /// Джерело правди — CombatTask (MissionAssignments).
 /// </summary>
 public sealed class GetCombatTaskMissionPersonsQueryHandler(
-    ITimesheetMissionPlanningRepository repo,
+    ICombatTaskMissionAssignmentQueryRepository repo,
     IPersonRepository persons)
     : IQueryHandler<GetCombatTaskMissionPersonsQuery, IReadOnlyList<ActiveMissionPersonDto>>
 {
-    private readonly ITimesheetMissionPlanningRepository _repo = repo;
+    private readonly ICombatTaskMissionAssignmentQueryRepository _repo = repo;
     private readonly IPersonRepository _persons = persons;
 
     /// <inheritdoc />

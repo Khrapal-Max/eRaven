@@ -2,7 +2,7 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// TimesheetMissionPlanningRepository
+// CombatTaskMissionAssignmentQueryRepository
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Abstractions.CombatTaskRepository;
@@ -12,15 +12,15 @@ using Microsoft.EntityFrameworkCore;
 namespace eRaven.Infrastructure.Repositories.CombatTaskRepository;
 
 /// <summary>
-/// Read-репозиторій для планування/звітів по місіях.
+/// Query-репозиторій для планування/звітів по місіях (CombatTask).
 ///
 /// <para>
-/// Джерело правди по завданнях — CombatTask (через матеріалізовані призначення <c>MissionAssignment</c>).
-/// Табель використовується лише як додатковий фільтр поточного стану (30/100) для UX.
+/// Джерело правди по зайнятості на завданнях — CombatTask. Репозиторій читає матеріалізовані інтервали
+/// призначень (<c>MissionAssignment</c>) і не залежить від табеля.
 /// </para>
 /// </summary>
-public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbContext> dbFactory)
-    : ITimesheetMissionPlanningRepository
+public sealed class CombatTaskMissionAssignmentQueryRepository(IDbContextFactory<AppDbContext> dbFactory)
+    : ICombatTaskMissionAssignmentQueryRepository
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
@@ -37,7 +37,7 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // Active on date: From <= D && (To is null || D < To)
+        // Active on date (half-open): From <= D && (To is null || D < To)
         var q =
             from a in db.MissionAssignments.AsNoTracking()
             join doc in db.CombatTaskDocuments.AsNoTracking() on a.SourceStartDocumentId equals doc.Id
@@ -49,8 +49,6 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
 
         return await q.Distinct().OrderBy(x => x).ToListAsync(ct);
     }
-
-
 
     /// <inheritdoc />
     public async Task<IReadOnlyDictionary<Guid, DateOnly>> GetActiveMissionPersonFromDatesAsync(
@@ -69,7 +67,6 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // Active on date: From <= D && (To is null || D < To)
         var rows = await (
             from a in db.MissionAssignments.AsNoTracking()
             join doc in db.CombatTaskDocuments.AsNoTracking() on a.SourceStartDocumentId equals doc.Id
@@ -85,6 +82,7 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
             .GroupBy(x => x.PersonId)
             .ToDictionary(g => g.Key, g => g.Min(x => x.From));
     }
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<Guid>> GetActiveMissionPersonsByDocumentAsync(
         Guid documentId,
@@ -111,7 +109,7 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Guid>> GetFreePersonForMissionsAsync(
+    public async Task<IReadOnlyList<Guid>> GetPersonsWithOpenAssignmentsAsync(
         DateOnly onDate,
         CancellationToken ct = default)
     {
@@ -120,38 +118,8 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // Allowed codes for assignment UX.
-        var allowedCodeIds = await db.TimesheetCodes
-            .AsNoTracking()
-            .Where(x => x.Code == TimesheetSystemCodes.ReadyToCombatTask || x.Code == TimesheetSystemCodes.DoesTheCombatTask)
-            .Select(x => x.Id)
-            .ToListAsync(ct);
-
-        if (allowedCodeIds.Count == 0)
-            return [];
-
-        // Persons with current code in {30,100}.
-        // Note: current code is taken from the active episode's entry for the given date.
-        var eligibleByCodeQuery = db.TimeSheets
-            .AsNoTracking()
-            .Where(t => t.OpenedAt <= onDate && (!t.ClosedAt.HasValue || t.ClosedAt.Value >= onDate))
-            .Select(t => new
-            {
-                t.PersonId,
-                CurrentCodeId = t.Entries
-                    .Where(e => !e.IsDeleted && e.From <= onDate && (!e.To.HasValue || onDate < e.To.Value))
-                    .OrderByDescending(e => e.From)
-                    .ThenByDescending(e => e.CreatedAtUtc)
-                    .Select(e => e.TimesheetCodeDefinitionId)
-                    .FirstOrDefault()
-            })
-            .Where(x => allowedCodeIds.Contains(x.CurrentCodeId))
-            .Select(x => x.PersonId)
-            .Distinct();
-
-        // "Open tasks" block starting a new assignment for any mission.
-        // Open assignment = To is null and started in the past.
-        var openAssignmentsQuery =
+        // Open assignment on date: From <= D && To is null
+        var q =
             from a in db.MissionAssignments.AsNoTracking()
             join doc in db.CombatTaskDocuments.AsNoTracking() on a.SourceStartDocumentId equals doc.Id
             where doc.Status != DocumentStatus.Canceled
@@ -159,10 +127,33 @@ public sealed class TimesheetMissionPlanningRepository(IDbContextFactory<AppDbCo
             where a.To == null
             select a.PersonId;
 
-        var q = eligibleByCodeQuery
-            .Where(pid => !openAssignmentsQuery.Contains(pid))
-            .OrderBy(pid => pid);
+        return await q.Distinct().OrderBy(x => x).ToListAsync(ct);
+    }
 
-        return await q.ToListAsync(ct);
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> GetOccupiedPersonsInRangeAsync(
+        DateOnly fromDate,
+        DateOnly toExclusive,
+        CancellationToken ct = default)
+    {
+        if (fromDate == default)
+            throw new ArgumentException("from must be set.", nameof(fromDate));
+        if (toExclusive == default)
+            throw new ArgumentException("toExclusive must be set.", nameof(toExclusive));
+        if (toExclusive <= fromDate)
+            return [];
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        // Intersects range [from..toExclusive): a.From < toExclusive && (a.To is null || a.To > from)
+        var q =
+            from a in db.MissionAssignments.AsNoTracking()
+            join doc in db.CombatTaskDocuments.AsNoTracking() on a.SourceStartDocumentId equals doc.Id
+            where doc.Status != DocumentStatus.Canceled
+            where a.From < toExclusive
+            where a.To == null || a.To.Value > fromDate
+            select a.PersonId;
+
+        return await q.Distinct().OrderBy(x => x).ToListAsync(ct);
     }
 }
