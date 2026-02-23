@@ -20,12 +20,10 @@ namespace eRaven.Application.Handlers.CombatTasks;
 /// </summary>
 public sealed class CreateCombatTaskCommandHandler(
     ICombatTaskRepository repo,
-    ITimesheetAggregateRepository timesheets,
     IPersonRepository persons)
     : ICommandHandler<CreateCombatTaskCommand, Guid>
 {
     private readonly ICombatTaskRepository _repo = repo;
-    private readonly ITimesheetAggregateRepository _timesheets = timesheets;
     private readonly IPersonRepository _persons = persons;
 
     /// <inheritdoc />
@@ -120,14 +118,14 @@ public sealed class CreateCombatTaskCommandHandler(
         }
 
         // 3) Apply facts to timesheet using the same "current truth"
-        await _timesheets.ApplyCombatTaskFactsAsync(
+      /*  await _timesheets.ApplyCombatTaskFactsAsync(
             documentId: command.DocumentId,
             missionId: command.MissionId,
             documentOrderTitle: document.OrderTitle,
             details: incoming,
             author: command.Author.Trim(),
             nowUtc: command.NowUtc,
-            ct: ct);
+            ct: ct);*/
 
         return combatTaskId;
     }

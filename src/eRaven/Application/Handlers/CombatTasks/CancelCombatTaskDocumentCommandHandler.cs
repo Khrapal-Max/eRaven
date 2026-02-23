@@ -20,13 +20,11 @@ namespace eRaven.Application.Handlers.CombatTasks;
 /// </summary>
 public sealed class CancelCombatTaskDocumentCommandHandler(
     ICombatTaskDocumentRepository documents,
-    ICombatTaskRepository combatTasks,
-    ITimesheetAggregateRepository timesheets)
+    ICombatTaskRepository combatTasks)
     : ICommandHandler<CancelCombatTaskDocumentCommand, Guid>
 {
     private readonly ICombatTaskDocumentRepository _documents = documents;
     private readonly ICombatTaskRepository _combatTasks = combatTasks;
-    private readonly ITimesheetAggregateRepository _timesheets = timesheets;
 
     /// <inheritdoc />
     public async Task<Guid> HandleAsync(CancelCombatTaskDocumentCommand command, CancellationToken ct = default)
@@ -65,7 +63,7 @@ public sealed class CancelCombatTaskDocumentCommandHandler(
         if (missionIds.Count == 0)
             return command.DocumentId;
 
-        // 3) Компенсація derived entries у табелі по кожній місії
+        /*// 3) Компенсація derived entries у табелі по кожній місії
         foreach (var missionId in missionIds)
         {
             await _timesheets.CancelCombatTaskFactsAsync(
@@ -74,7 +72,7 @@ public sealed class CancelCombatTaskDocumentCommandHandler(
                 author: author,
                 nowUtc: command.NowUtc,
                 ct: ct);
-        }
+        }*/
 
         return command.DocumentId;
     }

@@ -19,12 +19,10 @@ namespace eRaven.Application.Handlers.Timesheets;
 /// </summary>
 public sealed class GetTimesheetTransitionContextQueryHandler(
     ITimesheetEpisodeRepository episodes,
-    ITimesheetEntryRepository entries,
     ITimesheetPolicyRepository policy)
     : IQueryHandler<GetTimesheetTransitionContextQuery, TimesheetTransitionContextDto>
 {
     private readonly ITimesheetEpisodeRepository _episodes = episodes;
-    private readonly ITimesheetEntryRepository _entries = entries;
     private readonly ITimesheetPolicyRepository _policy = policy;
 
     /// <inheritdoc />
@@ -32,7 +30,7 @@ public sealed class GetTimesheetTransitionContextQueryHandler(
         GetTimesheetTransitionContextQuery query,
         CancellationToken ct = default)
     {
-        if (query.PersonId == Guid.Empty)
+        /*if (query.PersonId == Guid.Empty)
             throw new InvalidOperationException("PersonId обов'язковий.");
         if (query.OnDate == default)
             throw new InvalidOperationException("OnDate обов'язковий.");
@@ -103,6 +101,8 @@ public sealed class GetTimesheetTransitionContextQueryHandler(
             OnDate: query.OnDate,
             CurrentCodeId: entry.TimesheetCodeDefinitionId,
             CurrentCode: currentCode,
-            Options: options);
+            Options: options);*/
+
+        throw new NotImplementedException();
     }
 }

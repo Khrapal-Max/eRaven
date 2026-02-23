@@ -20,13 +20,11 @@ namespace eRaven.Application.Handlers.Timesheets;
 /// </summary>
 public sealed class GetTimesheetPersonMonthQueryHandler(
     ITimesheetViewRepository viewRepo,
-    ITimesheetEntryRepository entryRepo,
     ITimesheetPolicyRepository policyRepo,
     IPersonRepository persons)
     : IQueryHandler<GetTimesheetPersonMonthQuery, TimesheetPersonMonthDto?>
 {
     private readonly ITimesheetViewRepository _viewRepo = viewRepo;
-    private readonly ITimesheetEntryRepository _entryRepo = entryRepo;
     private readonly ITimesheetPolicyRepository _policyRepo = policyRepo;
     private readonly IPersonRepository _persons = persons;
 
@@ -34,7 +32,7 @@ public sealed class GetTimesheetPersonMonthQueryHandler(
         GetTimesheetPersonMonthQuery query,
         CancellationToken ct = default)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(query.Year, 2000, nameof(query.Year));
+        /*ArgumentOutOfRangeException.ThrowIfLessThan(query.Year, 2000, nameof(query.Year));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(query.Year, 2100, nameof(query.Year));
         ArgumentOutOfRangeException.ThrowIfLessThan(query.Month, 1, nameof(query.Month));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(query.Month, 12, nameof(query.Month));
@@ -78,6 +76,8 @@ public sealed class GetTimesheetPersonMonthQueryHandler(
             Person: personDto,
             UpdatedAtUtc: updatedAtUtc,
             Days: dayDtos,
-            Entries: entryDtos);
+            Entries: entryDtos);*/
+
+        throw new NotImplementedException();    
     }
 }
