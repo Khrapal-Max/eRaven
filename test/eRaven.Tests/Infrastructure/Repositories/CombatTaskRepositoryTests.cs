@@ -157,6 +157,67 @@ public sealed class CombatTaskRepositoryTests
         Assert.All(task.CombatTaskDetails, d => Assert.False(string.IsNullOrWhiteSpace(d.FullName)));
     }
 
+
+
+    /// <summary>
+    /// CreateCombatTaskAsync кидає помилку, якщо SourceDocument порожній/whitespace.
+    /// </summary>
+    [Fact]
+    public async Task CreateCombatTaskAsync_Throws_WhenSourceDocumentEmpty()
+    {
+        await using var testDb = new SqliteTestDb();
+
+        var docRepo = new CombatTaskDocumentRepository(testDb.Factory);
+        var repo = new CombatTaskRepository(testDb.Factory);
+
+        var docId = await docRepo.CreateAsync(
+            orderTitle: "Наказ №2.1",
+            recordedAt: new DateOnly(2026, 02, 10),
+            description: null,
+            author: "seed",
+            nowUtc: new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc));
+
+        var missionId = await SeedMissionAsync(testDb, id: Guid.Parse("00000000-0000-0000-0000-000000000021"));
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.CreateCombatTaskAsync(
+                documentId: docId,
+                missionId: missionId,
+                sourceDocument: "   ",
+                combatTaskDetails: [NewDetail(CombatTaskDetailsKind.Start, new DateOnly(2026, 02, 10), "P")]));
+
+        Assert.Contains("SourceDocument", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// CreateCombatTaskAsync кидає помилку, якщо details порожні.
+    /// </summary>
+    [Fact]
+    public async Task CreateCombatTaskAsync_Throws_WhenDetailsEmpty()
+    {
+        await using var testDb = new SqliteTestDb();
+
+        var docRepo = new CombatTaskDocumentRepository(testDb.Factory);
+        var repo = new CombatTaskRepository(testDb.Factory);
+
+        var docId = await docRepo.CreateAsync(
+            orderTitle: "Наказ №2.2",
+            recordedAt: new DateOnly(2026, 02, 10),
+            description: null,
+            author: "seed",
+            nowUtc: new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc));
+
+        var missionId = await SeedMissionAsync(testDb, id: Guid.Parse("00000000-0000-0000-0000-000000000022"));
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repo.CreateCombatTaskAsync(
+                documentId: docId,
+                missionId: missionId,
+                sourceDocument: "SRC",
+                combatTaskDetails: []));
+
+        Assert.Contains("cannot be empty", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
     /// <summary>
     /// CreateCombatTaskAsync кидає помилку, якщо для MissionId у документі вже існує завдання.
     /// </summary>
@@ -312,6 +373,69 @@ public sealed class CombatTaskRepositoryTests
         Assert.Contains(task.CombatTaskDetails, d => d.Id == newDetail2);
     }
 
+
+
+    /// <summary>
+    /// UpsertCombatTaskAsync кидає помилку, якщо документ не існує.
+    /// </summary>
+    [Fact]
+    public async Task UpsertCombatTaskAsync_Throws_WhenDocumentNotFound()
+    {
+        await using var testDb = new SqliteTestDb();
+
+        var repo = new CombatTaskRepository(testDb.Factory);
+
+        var missionId = await SeedMissionAsync(testDb, id: Guid.Parse("00000000-0000-0000-0000-000000000051"));
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repo.UpsertCombatTaskAsync(
+                documentId: Guid.Parse("00000000-0000-0000-0000-00000000DEAD"),
+                missionId: missionId,
+                sourceDocument: "SRC",
+                combatTaskDetails: [NewDetail(CombatTaskDetailsKind.Start, new DateOnly(2026, 02, 10), "P")]));
+
+        Assert.Contains("не знайдено", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// UpsertCombatTaskAsync генерує Id для snapshot-рядків, якщо вони прийшли з порожнім Guid.
+    /// </summary>
+    [Fact]
+    public async Task UpsertCombatTaskAsync_GeneratesIds_WhenDetailIdIsEmpty()
+    {
+        await using var testDb = new SqliteTestDb();
+
+        var docRepo = new CombatTaskDocumentRepository(testDb.Factory);
+        var repo = new CombatTaskRepository(testDb.Factory);
+
+        var docId = await docRepo.CreateAsync(
+            orderTitle: "Наказ №5.1",
+            recordedAt: new DateOnly(2026, 02, 10),
+            description: null,
+            author: "seed",
+            nowUtc: new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc));
+
+        var missionId = await SeedMissionAsync(testDb, id: Guid.Parse("00000000-0000-0000-0000-000000000052"));
+
+        var taskId = await repo.UpsertCombatTaskAsync(
+            documentId: docId,
+            missionId: missionId,
+            sourceDocument: "SRC",
+            combatTaskDetails:
+            [
+                NewDetail(CombatTaskDetailsKind.Start, new DateOnly(2026, 02, 10), "P", detailId: Guid.Empty)
+            ]);
+
+        await using var db = await testDb.Factory.CreateDbContextAsync();
+
+        var ids = await db.CombatTaskDetails
+            .Where(x => x.CombatTaskId == taskId)
+            .Select(x => x.Id)
+            .ToListAsync();
+
+        Assert.Single(ids);
+        Assert.NotEqual(Guid.Empty, ids[0]);
+    }
     //======================================================================
     // Write: Delete
     //======================================================================

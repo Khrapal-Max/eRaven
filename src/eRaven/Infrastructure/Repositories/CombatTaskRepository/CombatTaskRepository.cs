@@ -17,12 +17,19 @@ namespace eRaven.Infrastructure.Repositories.CombatTaskRepository;
 /// <see cref="CombatTask"/> та <see cref="CombatTaskDetails"/>.
 ///
 /// <para>
-/// Спрощена модель: документ одразу чинний (Active) і формує факт у табелі;
+/// Спрощена модель: документ одразу чинний (<see cref="DocumentStatus.Active"/>) і формує факт у табелі;
 /// чернеток/Posted немає; факт не видаляємо — тільки компенсація через Cancel.
+/// </para>
+///
+/// <para>
+/// <b>Примітка:</b> репозиторій зберігає "контент документа" як immutable-snapshot.
+/// Тому оновлення робимо у стилі replace-all для details.
 /// </para>
 /// </summary>
 public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFactory) : ICombatTaskRepository
 {
+    private const int SourceDocumentMaxLength = 128;
+
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
     //======================================================================
@@ -39,6 +46,7 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
 
         return await db.CombatTaskDocuments
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(x => x.CombatTasks)
             .ThenInclude(x => x.CombatTaskDetails)
             .FirstOrDefaultAsync(x => x.Id == documentId, ct)
@@ -81,14 +89,15 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
         if (missionId == Guid.Empty)
             throw new ArgumentException("MissionId is required.", nameof(missionId));
 
+        var source = EnsureSourceDocument(sourceDocument);
+        EnsureDetailsNotEmpty(combatTaskDetails);
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var doc = await db.CombatTaskDocuments
-            .FirstOrDefaultAsync(x => x.Id == documentId, ct)
-            ?? throw new InvalidOperationException("Документ не знайдено.");
+        var status = await GetDocumentStatusAsync(db, documentId, ct);
 
-        if (doc.Status == DocumentStatus.Canceled)
-            throw new InvalidOperationException("Документ відмінений і не може редагуватися.");
+        if (status == DocumentStatus.Canceled)
+            throw new InvalidOperationException("Документ скасовано. Редагування заборонено.");
 
         var exists = await db.CombatTasks
             .AsNoTracking()
@@ -97,18 +106,23 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
         if (exists)
             throw new InvalidOperationException("Завдання для цієї місії вже існує у документі.");
 
+        var taskId = Guid.NewGuid();
+
         var task = new CombatTask
         {
-            Id = Guid.NewGuid(),
+            Id = taskId,
             CombatTaskDocumentId = documentId,
             MissionId = missionId,
-            SourceDocument = sourceDocument.Trim(),
-            CombatTaskDetails = [.. combatTaskDetails]
+            SourceDocument = source,
+            CombatTaskDetails = []
         };
+
+        foreach (var row in combatTaskDetails)
+            task.CombatTaskDetails.Add(CloneDetail(row, taskId));
 
         db.CombatTasks.Add(task);
         await db.SaveChangesAsync(ct);
-        return task.Id;
+        return taskId;
     }
 
     //======================================================================
@@ -123,20 +137,17 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
         IReadOnlyCollection<CombatTaskDetails> combatTaskDetails,
         CancellationToken ct = default)
     {
-        if (documentId == Guid.Empty) throw new ArgumentException("documentId is required.", nameof(documentId));
-        if (missionId == Guid.Empty) throw new ArgumentException("missionId is required.", nameof(missionId));
-        if (string.IsNullOrWhiteSpace(sourceDocument)) throw new ArgumentException("sourceDocument is required.", nameof(sourceDocument));
-        ArgumentNullException.ThrowIfNull(combatTaskDetails);
-        if (combatTaskDetails.Count == 0) throw new InvalidOperationException("combatTaskDetails cannot be empty.");
+        if (documentId == Guid.Empty)
+            throw new ArgumentException("DocumentId is required.", nameof(documentId));
+        if (missionId == Guid.Empty)
+            throw new ArgumentException("MissionId is required.", nameof(missionId));
+
+        var source = EnsureSourceDocument(sourceDocument);
+        EnsureDetailsNotEmpty(combatTaskDetails);
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        // guard: canceled doc cannot be edited (як і було у вас)
-        var status = await db.CombatTaskDocuments
-            .AsNoTracking()
-            .Where(x => x.Id == documentId)
-            .Select(x => x.Status)
-            .SingleAsync(ct);
+        var status = await GetDocumentStatusAsync(db, documentId, ct);
 
         if (status == DocumentStatus.Canceled)
             throw new InvalidOperationException("Документ скасовано. Редагування заборонено.");
@@ -152,7 +163,7 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
                 Id = Guid.NewGuid(),
                 CombatTaskDocumentId = documentId,
                 MissionId = missionId,
-                SourceDocument = sourceDocument.Trim(),
+                SourceDocument = source,
                 CombatTaskDetails = []
             };
 
@@ -160,18 +171,15 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
         }
         else
         {
-            task.SourceDocument = sourceDocument.Trim();
+            task.SourceDocument = source;
 
+            // Replace-all: remove old snapshot rows.
+            db.CombatTaskDetails.RemoveRange(task.CombatTaskDetails);
             task.CombatTaskDetails.Clear();
         }
 
         foreach (var row in combatTaskDetails)
-        {
-            // IMPORTANT: ensure FK points to current task
-            row.CombatTaskId = task.Id;
-            row.CombatTask = task;
-            db.CombatTaskDetails.Add(row);
-        }
+            task.CombatTaskDetails.Add(CloneDetail(row, task.Id));
 
         await db.SaveChangesAsync(ct);
         return task.Id;
@@ -191,12 +199,10 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var doc = await db.CombatTaskDocuments
-            .FirstOrDefaultAsync(x => x.Id == documentId, ct)
-            ?? throw new InvalidOperationException("Документ не знайдено.");
+        var status = await GetDocumentStatusAsync(db, documentId, ct);
 
-        if (doc.Status == DocumentStatus.Canceled)
-            throw new InvalidOperationException("Документ відмінений і не може редагуватися.");
+        if (status == DocumentStatus.Canceled)
+            throw new InvalidOperationException("Документ скасовано. Редагування заборонено.");
 
         var task = await db.CombatTasks
             .FirstOrDefaultAsync(x => x.Id == combatTaskId && x.CombatTaskDocumentId == documentId, ct);
@@ -206,5 +212,73 @@ public sealed class CombatTaskRepository(IDbContextFactory<AppDbContext> dbFacto
 
         db.CombatTasks.Remove(task);
         await db.SaveChangesAsync(ct);
+    }
+
+    //======================================================================
+    // Internals
+    //======================================================================
+
+    /// <summary>
+    /// Повертає статус документа або кидає помилку, якщо документ не знайдено.
+    /// </summary>
+    private static async Task<DocumentStatus> GetDocumentStatusAsync(AppDbContext db, Guid documentId, CancellationToken ct)
+    {
+        var status = await db.CombatTaskDocuments
+            .AsNoTracking()
+            .Where(x => x.Id == documentId)
+            .Select(x => (DocumentStatus?)x.Status)
+            .SingleOrDefaultAsync(ct);
+
+        return status ?? throw new InvalidOperationException("Документ не знайдено.");
+    }
+
+    /// <summary>
+    /// Нормалізує <paramref name="sourceDocument"/>: trim + валідація.
+    /// </summary>
+    private static string EnsureSourceDocument(string sourceDocument)
+    {
+        if (string.IsNullOrWhiteSpace(sourceDocument))
+            throw new ArgumentException("SourceDocument is required.", nameof(sourceDocument));
+
+        var value = sourceDocument.Trim();
+
+        if (value.Length > SourceDocumentMaxLength)
+            throw new InvalidOperationException($"SourceDocument must be <= {SourceDocumentMaxLength} chars.");
+
+        return value;
+    }
+
+    /// <summary>
+    /// Гарантує, що details не null та не порожні.
+    /// </summary>
+    private static void EnsureDetailsNotEmpty(IReadOnlyCollection<CombatTaskDetails> combatTaskDetails)
+    {
+        ArgumentNullException.ThrowIfNull(combatTaskDetails);
+
+        if (combatTaskDetails.Count == 0)
+            throw new InvalidOperationException("combatTaskDetails cannot be empty.");
+    }
+
+    /// <summary>
+    /// Створює новий snapshot-рядок для поточного CombatTask, не мутуючи вхідний об'єкт.
+    /// </summary>
+    private static CombatTaskDetails CloneDetail(CombatTaskDetails row, Guid combatTaskId)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return new CombatTaskDetails
+        {
+            Id = row.Id == Guid.Empty ? Guid.NewGuid() : row.Id,
+            CombatTaskId = combatTaskId,
+            Kind = row.Kind,
+            EffectiveAt = row.EffectiveAt,
+            PersonId = row.PersonId == Guid.Empty ? Guid.NewGuid() : row.PersonId,
+            Rnokpp = row.Rnokpp,
+            FullName = row.FullName,
+            Rank = row.Rank,
+            Position = row.Position,
+            Weapon = row.Weapon,
+            Callsign = row.Callsign
+        };
     }
 }
