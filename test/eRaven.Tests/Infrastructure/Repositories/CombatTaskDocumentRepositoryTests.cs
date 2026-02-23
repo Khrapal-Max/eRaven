@@ -93,6 +93,26 @@ public sealed class CombatTaskDocumentRepositoryTests
             repo.CreateAsync(orderTitle: "X", recordedAt: new DateOnly(2026, 02, 10), description: null, author: "tester", nowUtc: default));
     }
 
+    /// <summary>
+    /// CreateAsync має вимагати UTC для nowUtc.
+    /// </summary>
+    [Fact]
+    public async Task CreateAsync_Throws_WhenNowUtcIsNotUtc()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new CombatTaskDocumentRepository(testDb.Factory);
+
+        var notUtc = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Local);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.CreateAsync(
+                orderTitle: "X",
+                recordedAt: new DateOnly(2026, 02, 10),
+                description: null,
+                author: "tester",
+                nowUtc: notUtc));
+    }
+
     //======================================================================
     // CancelAsync
     //======================================================================
@@ -203,6 +223,33 @@ public sealed class CombatTaskDocumentRepositoryTests
         Assert.Contains("not found", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// CancelAsync має вимагати UTC для nowUtc.
+    /// </summary>
+    [Fact]
+    public async Task CancelAsync_Throws_WhenNowUtcIsNotUtc()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new CombatTaskDocumentRepository(testDb.Factory);
+
+        var createdAt = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+        var id = await repo.CreateAsync(
+            orderTitle: "Наказ №UTC",
+            recordedAt: new DateOnly(2026, 02, 11),
+            description: null,
+            author: "creator",
+            nowUtc: createdAt);
+
+        var notUtc = new DateTime(2026, 02, 17, 10, 10, 00, DateTimeKind.Unspecified);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.CancelAsync(
+                documentId: id,
+                reason: "X",
+                author: "auditor",
+                nowUtc: notUtc));
+    }
+
     //======================================================================
     // GetDocumentsAsync
     //======================================================================
@@ -271,5 +318,70 @@ public sealed class CombatTaskDocumentRepositoryTests
         var canceled = await repo.GetDocumentsAsync(year: null, month: null, status: DocumentStatus.Canceled, search: null);
         Assert.Single(canceled);
         Assert.Equal(d2, canceled[0].Id);
+    }
+
+    /// <summary>
+    /// GetDocumentsAsync має фільтрувати за пошуком по заголовку та опису (trim),
+    /// при цьому реалізація повинна коректно працювати і з SQLite (через LIKE fallback).
+    /// </summary>
+    [Fact]
+    public async Task GetDocumentsAsync_Filters_BySearchTitleOrDescription()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new CombatTaskDocumentRepository(testDb.Factory);
+
+        var d1 = await repo.CreateAsync(
+            orderTitle: "Alpha",
+            recordedAt: new DateOnly(2026, 02, 10),
+            description: null,
+            author: "u",
+            nowUtc: new DateTime(2026, 02, 10, 10, 00, 00, DateTimeKind.Utc));
+
+        var d2 = await repo.CreateAsync(
+            orderTitle: "Bravo",
+            recordedAt: new DateOnly(2026, 02, 11),
+            description: "Needs review",
+            author: "u",
+            nowUtc: new DateTime(2026, 02, 11, 10, 00, 00, DateTimeKind.Utc));
+
+        var d3 = await repo.CreateAsync(
+            orderTitle: "Charlie",
+            recordedAt: new DateOnly(2026, 02, 12),
+            description: "Other",
+            author: "u",
+            nowUtc: new DateTime(2026, 02, 12, 10, 00, 00, DateTimeKind.Utc));
+
+        // 1) Search by title
+        var byTitle = await repo.GetDocumentsAsync(year: null, month: null, status: null, search: "  brav  ");
+        Assert.Single(byTitle);
+        Assert.Equal(d2, byTitle[0].Id);
+
+        // 2) Search by description
+        var byDesc = await repo.GetDocumentsAsync(year: null, month: null, status: null, search: "review");
+        Assert.Single(byDesc);
+        Assert.Equal(d2, byDesc[0].Id);
+
+        // 3) Search with no matches
+        var none = await repo.GetDocumentsAsync(year: null, month: null, status: null, search: "zzz");
+        Assert.Empty(none);
+
+        _ = d1;
+        _ = d3;
+    }
+
+    /// <summary>
+    /// GetDocumentsAsync має валідовувати діапазон місяця.
+    /// </summary>
+    [Fact]
+    public async Task GetDocumentsAsync_Throws_WhenMonthOutOfRange()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new CombatTaskDocumentRepository(testDb.Factory);
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            repo.GetDocumentsAsync(year: 2026, month: 0, status: null, search: null));
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            repo.GetDocumentsAsync(year: 2026, month: 13, status: null, search: null));
     }
 }

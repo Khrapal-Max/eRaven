@@ -7,7 +7,7 @@
 
 namespace eRaven.Tests.Infrastructure.Repositories;
 
-public sealed class TimesheetMissionPlanningRepositoryTests
+public sealed class CombatTaskMissionAssignmentQueryRepositoryTests
 {
 
 }
