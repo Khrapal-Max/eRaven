@@ -159,6 +159,27 @@ public sealed class TimesheetEpisodeRepositoryTests
     }
 
     /// <summary>
+    /// OpenOnEnrollAsync кидає, якщо <paramref name="nowUtc"/> не має <see cref="DateTimeKind.Utc"/>.
+    /// </summary>
+    [Fact]
+    public async Task OpenOnEnrollAsync_Throws_WhenNowIsNotUtc()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
+
+        await SeedCodeAsync(testDb, TimesheetSystemCodes.BaseState);
+
+        var personId = Guid.NewGuid();
+        var enrollDate = new DateOnly(2026, 02, 10);
+        var notUtc = new DateTime(2026, 02, 17, 10, 00, 0, DateTimeKind.Local);
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.OpenOnEnrollAsync(personId, enrollDate, "duty", notUtc));
+
+        Assert.Equal("nowUtc", ex.ParamName);
+    }
+
+    /// <summary>
     /// OpenOnEnrollAsync кидає, якщо активний епізод відкритий пізніше, ніж enrollDate
     /// (не можна "перевідкривати" в минулому).
     /// </summary>
@@ -435,6 +456,42 @@ public sealed class TimesheetEpisodeRepositoryTests
             repo.CloseOnExcludeAsync(personId, new DateOnly(2026, 02, 09), null, "admin", now));
 
         Assert.Contains("він відкритий", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// CloseOnExcludeAsync кидає, якщо <paramref name="nowUtc"/> не має <see cref="DateTimeKind.Utc"/>.
+    /// </summary>
+    [Fact]
+    public async Task CloseOnExcludeAsync_Throws_WhenNowIsNotUtc()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetEpisodeRepository(testDb.Factory);
+
+        var now = Utc(2026, 02, 17, 10, 00);
+        var personId = Guid.NewGuid();
+
+        var codeT = await SeedCodeAsync(testDb, TimesheetSystemCodes.BaseState);
+        var epId = await SeedEpisodeAsync(testDb, personId, new DateOnly(2026, 02, 01), null, "seed", now);
+
+        await SeedEntryAsync(testDb, new TimesheetEntry
+        {
+            Id = Guid.NewGuid(),
+            TimesheetId = epId,
+            PersonId = personId,
+            TimesheetCodeDefinitionId = codeT,
+            From = new DateOnly(2026, 02, 01),
+            To = null,
+            CreatedBy = "seed",
+            CreatedAtUtc = now,
+            IsDeleted = false
+        });
+
+        var notUtc = new DateTime(2026, 02, 17, 10, 00, 0, DateTimeKind.Local);
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.CloseOnExcludeAsync(personId, new DateOnly(2026, 02, 10), "reason", "admin", notUtc));
+
+        Assert.Equal("nowUtc", ex.ParamName);
     }
 
     /// <summary>

@@ -84,6 +84,7 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
         CancellationToken ct = default)
     {
         EnsureAuthor(author);
+        EnsureUtcNow(nowUtc);
         if (personId == Guid.Empty)
             throw new ArgumentException("personId is required.", nameof(personId));
         if (enrollDate == default)
@@ -201,6 +202,7 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
         CancellationToken ct = default)
     {
         EnsureAuthor(author);
+        EnsureUtcNow(nowUtc);
         if (personId == Guid.Empty)
             throw new ArgumentException("personId is required.", nameof(personId));
         if (closeTo == default)
@@ -229,11 +231,29 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
         var tl = active[0];
 
         // 3) Close episode (inclusive) through aggregate.
+        // IMPORTANT: CloseEpisode uses provided reason as DeleteReason for future entries.
+        // On Exclude we store a stable system message for audit/debug.
+        var closeExclusive = closeTo.AddDays(1);
+        var deleteReason = BuildExcludeDeleteReason(reason);
+
         tl.CloseEpisode(
             closedAtInclusive: closeTo,
-            reason: reason,
+            reason: deleteReason,
             author: by,
             nowUtc: nowUtc);
+
+        // 4) Clamp audit: closing modifies the last active entry To -> ClosedAt+1.
+        // We touch audit explicitly to avoid "silent" timeline changes.
+        var lastActive = tl.Entries
+            .Where(x => !x.IsDeleted)
+            .OrderByDescending(x => x.From)
+            .FirstOrDefault();
+
+        if (lastActive is not null && lastActive.To == closeExclusive)
+        {
+            lastActive.UpdatedBy = by;
+            lastActive.UpdatedAtUtc = nowUtc;
+        }
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -298,5 +318,20 @@ public sealed class TimesheetEpisodeRepository(IDbContextFactory<AppDbContext> d
     {
         if (string.IsNullOrWhiteSpace(author))
             throw new ArgumentException("author is required.", nameof(author));
+    }
+
+    private static void EnsureUtcNow(DateTime nowUtc)
+    {
+        if (nowUtc.Kind != DateTimeKind.Utc)
+            throw new ArgumentException("nowUtc must be UTC.", nameof(nowUtc));
+    }
+
+    private static string BuildExcludeDeleteReason(string? reason)
+    {
+        var r = (reason ?? string.Empty).Trim();
+
+        return string.IsNullOrWhiteSpace(r)
+            ? "Auto-deleted: person excluded"
+            : $"Auto-deleted: person excluded ({r})";
     }
 }
