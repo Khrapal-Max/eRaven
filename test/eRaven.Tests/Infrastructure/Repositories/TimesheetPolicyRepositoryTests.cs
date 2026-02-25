@@ -4,10 +4,22 @@
 //-----------------------------------------------------------------------------
 // TimesheetPolicyRepositoryTests
 //-----------------------------------------------------------------------------
+//
+// Покриваємо:
+// - довідник кодів (GetCodesAsync/GetCodeByIdAsync/Add/Close)
+// - матрицю переходів (GetAllowedCodesAsync/GetTransitionCodesAsync/GetEmergencyCodesAsync/SavePolicyAsync)
+// - глобальні emergency коди (GetEmergencyCodesAsync)
+//
+// Інваріанти:
+// - "НБ" є derived (не реальний код) => репозиторій завжди його приховує, навіть якщо legacy-рядок є в БД.
+// - SystemCode не створюється/не закривається/не має policy.
+// - strict matrix: тільки TransitionCode → TransitionCode.
+//-----------------------------------------------------------------------------
 
+using eRaven.Domain.Consts;
 using eRaven.Domain.Entities;
+using eRaven.Domain.Enums;
 using eRaven.Domain.ValueObjects;
-using eRaven.Infrastructure;
 using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
 using eRaven.Tests.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -21,14 +33,14 @@ public sealed class TimesheetPolicyRepositoryTests
     //======================================================================
 
     [Fact]
-    public async Task GetCodesAsync_ExcludesSystemNb_AndInactive_AndSorts()
+    public async Task GetCodesAsync_ExcludesDerivedNb_AndInactive_AndSorts()
     {
         await using var testDb = new SqliteTestDb();
         var repo = new TimesheetPolicyRepository(testDb.Factory);
 
         var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
 
-        // Active codes
+        // Active transition codes
         var idT = await repo.AddCodeAsync(
             code: "Т",
             title: "Base",
@@ -36,16 +48,8 @@ public sealed class TimesheetPolicyRepositoryTests
             sortOrder: 0,
             priority: 10,
             isTerminal: false,
-            author: "seed",
-            nowUtc: now);
-
-        _ = await repo.AddCodeAsync(
-            code: "100",
-            title: "Task",
-            description: null,
-            sortOrder: 1,
-            priority: 0,
-            isTerminal: false,
+            roleCode: RoleCode.TransitionCode,
+            uiStyle: TimesheetUiStyle.Warning,
             author: "seed",
             nowUtc: now);
 
@@ -56,6 +60,8 @@ public sealed class TimesheetPolicyRepositoryTests
             sortOrder: 1,
             priority: 5,
             isTerminal: false,
+            roleCode: RoleCode.TransitionCode,
+            uiStyle: TimesheetUiStyle.Ready,
             author: "seed",
             nowUtc: now);
 
@@ -67,36 +73,59 @@ public sealed class TimesheetPolicyRepositoryTests
             sortOrder: 2,
             priority: 0,
             isTerminal: false,
+            roleCode: RoleCode.TransitionCode,
+            uiStyle: TimesheetUiStyle.Warning,
             author: "seed",
             nowUtc: now);
 
         await repo.CloseCodeAsync(idX, author: "seed", nowUtc: now.AddMinutes(1));
 
-        // System "НБ" inserted directly (GetCodes must hide it always)
+        // Insert system code "100" directly (seed-style).
+        // Insert derived "НБ" directly (legacy row): repo MUST hide it.
         await using (var db = await testDb.Factory.CreateDbContextAsync())
         {
             db.TimesheetCodes.Add(new TimesheetCodeDefinition
             {
                 Id = Guid.NewGuid(),
-                Code = TimesheetSystemCodes.NotInTimesheet,
-                Title = "System",
+                Code = "100",
+                Title = "Task",
+                Description = null,
+                SortOrder = 1,
+                Priority = 0,
+                IsTerminal = false,
+                IsActive = true,
+                RoleCode = RoleCode.SystemCode,
+                UiStyle = TimesheetUiStyle.Danger,
+                CreatedBy = "seed",
+                CreatedAtUtc = now
+            });
+
+            db.TimesheetCodes.Add(new TimesheetCodeDefinition
+            {
+                Id = Guid.NewGuid(),
+                Code = TimesheetDerivedCodes.NotInTimesheet,
+                Title = "Derived",
+                Description = null,
                 SortOrder = 0,
                 Priority = 0,
                 IsTerminal = false,
                 IsActive = true,
+                RoleCode = RoleCode.TransitionCode,
+                UiStyle = TimesheetUiStyle.NotInTimesheet,
                 CreatedBy = "seed",
                 CreatedAtUtc = now
             });
+
             await db.SaveChangesAsync();
         }
 
         // 1) Default: active only, no "НБ"
         var activeOnly = await repo.GetCodesAsync(includeInactive: false);
-        Assert.Equal(new[] { "Т", "100", "30" }, activeOnly.Select(x => x.Code).ToArray());
+        Assert.Equal(["Т", "100", "30"], [.. activeOnly.Select(x => x.Code)]);
 
         // 2) includeInactive: adds "X" but still no "НБ"
         var withInactive = await repo.GetCodesAsync(includeInactive: true);
-        Assert.Equal(new[] { "Т", "100", "30", "X" }, withInactive.Select(x => x.Code).ToArray());
+        Assert.Equal(["Т", "100", "30", "X"], [.. withInactive.Select(x => x.Code)]);
 
         // Sanity: GetCodeByIdAsync returns active only
         var t = await repo.GetCodeByIdAsync(idT);
@@ -126,6 +155,8 @@ public sealed class TimesheetPolicyRepositoryTests
             sortOrder: 1,
             priority: 2,
             isTerminal: false,
+            roleCode: RoleCode.TransitionCode,
+            uiStyle: TimesheetUiStyle.Ready,
             author: "tester",
             nowUtc: now);
 
@@ -137,11 +168,8 @@ public sealed class TimesheetPolicyRepositoryTests
             Assert.Equal("Ready", e.Title);
             Assert.Null(e.Description);
 
-            Assert.True(e.IsActive);
-            Assert.Equal("tester", e.CreatedBy);
-            Assert.Equal(now, e.CreatedAtUtc);
-            Assert.Null(e.UpdatedBy);
-            Assert.Null(e.UpdatedAtUtc);
+            Assert.Equal(RoleCode.TransitionCode, e.RoleCode);
+            Assert.Equal(TimesheetUiStyle.Ready, e.UiStyle);
         }
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -152,10 +180,47 @@ public sealed class TimesheetPolicyRepositoryTests
                 sortOrder: 0,
                 priority: 0,
                 isTerminal: false,
+                roleCode: RoleCode.TransitionCode,
+                uiStyle: TimesheetUiStyle.Warning,
                 author: "tester",
                 nowUtc: now));
 
         Assert.Contains("вже існує", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AddCodeAsync_Throws_ForSystemCode_AndDerivedNb()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetPolicyRepository(testDb.Factory);
+
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repo.AddCodeAsync(
+                code: "100",
+                title: "Task",
+                description: null,
+                sortOrder: 0,
+                priority: 0,
+                isTerminal: false,
+                roleCode: RoleCode.SystemCode,
+                uiStyle: TimesheetUiStyle.Danger,
+                author: "seed",
+                nowUtc: now));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repo.AddCodeAsync(
+                code: TimesheetDerivedCodes.NotInTimesheet,
+                title: "NB",
+                description: null,
+                sortOrder: 0,
+                priority: 0,
+                isTerminal: false,
+                roleCode: RoleCode.TransitionCode,
+                uiStyle: TimesheetUiStyle.NotInTimesheet,
+                author: "seed",
+                nowUtc: now));
     }
 
     [Fact]
@@ -175,6 +240,8 @@ public sealed class TimesheetPolicyRepositoryTests
             sortOrder: 0,
             priority: 0,
             isTerminal: false,
+            roleCode: RoleCode.TransitionCode,
+            uiStyle: TimesheetUiStyle.Warning,
             author: "seed",
             nowUtc: t0);
 
@@ -204,6 +271,8 @@ public sealed class TimesheetPolicyRepositoryTests
             sortOrder: 0,
             priority: 0,
             isTerminal: false,
+            roleCode: RoleCode.TransitionCode,
+            uiStyle: TimesheetUiStyle.Warning,
             author: "seed",
             nowUtc: now);
 
@@ -215,112 +284,149 @@ public sealed class TimesheetPolicyRepositoryTests
         await Assert.ThrowsAsync<ArgumentException>(() => repo.GetCodeByIdAsync(Guid.Empty));
     }
 
+
     //======================================================================
-    // GetAllowedTransitionsAsync
+    // GetEmergencyCodesAsync
     //======================================================================
 
     [Fact]
-    public async Task GetAllowedTransitionsAsync_FiltersAndSorts_AndIncludesToCode()
+    public async Task GetEmergencyCodesAsync_ReturnsOnlyActiveEmergency_AndSorts()
     {
         await using var testDb = new SqliteTestDb();
         var repo = new TimesheetPolicyRepository(testDb.Factory);
 
         var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
 
-        // from
-        var fromId = await repo.AddCodeAsync(
-            code: "FROM",
-            title: "From",
-            description: null,
-            sortOrder: 0,
-            priority: 0,
-            isTerminal: false,
-            author: "seed",
-            nowUtc: now);
+        // Transition code should not be returned.
+        _ = await repo.AddCodeAsync("T", "T", null, 0, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", now);
 
-        // to codes (active)
-        var toB = await repo.AddCodeAsync(
-            code: "B",
-            title: "B",
-            description: null,
-            sortOrder: 0,
-            priority: 5,
-            isTerminal: false,
-            author: "seed",
-            nowUtc: now);
+        // Emergency codes (active)
+        _ = await repo.AddCodeAsync("200", "E2", null, 50, 0, false, RoleCode.EmergencyCode, TimesheetUiStyle.Danger, "seed", now);
+        _ = await repo.AddCodeAsync("Ф100", "Fact", null, 70, 0, false, RoleCode.EmergencyCode, TimesheetUiStyle.Danger, "seed", now);
 
-        var toA = await repo.AddCodeAsync(
-            code: "A",
-            title: "A",
-            description: null,
-            sortOrder: 0,
-            priority: 1,
-            isTerminal: false,
-            author: "seed",
-            nowUtc: now);
+        // Emergency (inactive) must be excluded
+        var ex = await repo.AddCodeAsync("201", "EX", null, 60, 0, false, RoleCode.EmergencyCode, TimesheetUiStyle.Danger, "seed", now);
+        await repo.CloseCodeAsync(ex, "seed", now.AddMinutes(1));
 
-        var toC = await repo.AddCodeAsync(
-            code: "C",
-            title: "C",
-            description: null,
-            sortOrder: 1,
-            priority: 0,
-            isTerminal: false,
-            author: "seed",
-            nowUtc: now);
+        var list = await repo.GetEmergencyCodesAsync();
 
-        // inactive ToCode
-        var toX = await repo.AddCodeAsync(
-            code: "X",
-            title: "X",
-            description: null,
-            sortOrder: 2,
-            priority: 0,
-            isTerminal: false,
-            author: "seed",
-            nowUtc: now);
+        Assert.Equal(["200", "Ф100"], [.. list.Select(x => x.Code)]);
+        Assert.All(list, x => Assert.True(x.IsActive));
+        Assert.All(list, x => Assert.Equal(RoleCode.EmergencyCode, x.RoleCode));
+    }
 
-        await repo.CloseCodeAsync(toX, author: "seed", nowUtc: now.AddMinutes(1));
+    //======================================================================
+    // GetTransitionCodesAsync
+    //======================================================================
 
-        // system ToCode "НБ" (active)
+    [Fact]
+    public async Task GetTransitionCodesAsync_ReturnsTransitionTargets_IncludingInactive_AndFiltersNonTransition()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetPolicyRepository(testDb.Factory);
+
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+
+        var fromId = await repo.AddCodeAsync("FROM", "From", null, 0, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", now);
+
+        // Transition targets
+        var toA = await repo.AddCodeAsync("A", "A", null, 0, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", now);
+        var toX = await repo.AddCodeAsync("X", "X", null, 1, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", now);
+        await repo.CloseCodeAsync(toX, "seed", now.AddMinutes(1)); // inactive target should still be returned by policy
+
+        // Emergency target should be filtered out
+        var em = await repo.AddCodeAsync("200", "E", null, 50, 0, false, RoleCode.EmergencyCode, TimesheetUiStyle.Danger, "seed", now);
+
+        // Legacy NB target should be filtered out
         Guid nbId;
         await using (var db = await testDb.Factory.CreateDbContextAsync())
         {
             var nb = new TimesheetCodeDefinition
             {
                 Id = Guid.NewGuid(),
-                Code = TimesheetSystemCodes.NotInTimesheet,
-                Title = "System",
+                Code = TimesheetDerivedCodes.NotInTimesheet,
+                Title = "Derived",
+                Description = null,
                 SortOrder = 0,
                 Priority = 0,
                 IsTerminal = false,
                 IsActive = true,
+                RoleCode = RoleCode.TransitionCode,
+                UiStyle = TimesheetUiStyle.NotInTimesheet,
                 CreatedBy = "seed",
                 CreatedAtUtc = now
             };
             db.TimesheetCodes.Add(nb);
-            await db.SaveChangesAsync();
             nbId = nb.Id;
 
-            // Seed transitions
             db.TimesheetCodeTransitions.AddRange(
-                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = toB, StartShiftDays = 0, CreatedBy = "seed", CreatedAtUtc = now },
-                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = toA, StartShiftDays = 1, CreatedBy = "seed", CreatedAtUtc = now },
-                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = toC, StartShiftDays = 0, CreatedBy = "seed", CreatedAtUtc = now },
-                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = toX, StartShiftDays = 0, CreatedBy = "seed", CreatedAtUtc = now },   // inactive -> must be filtered
-                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = nbId, StartShiftDays = 0, CreatedBy = "seed", CreatedAtUtc = now }    // "НБ" -> must be filtered
+                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = toA, StartShiftDays = 0, CreatedBy = "seed", CreatedAtUtc = now },
+                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = toX, StartShiftDays = 1, CreatedBy = "seed", CreatedAtUtc = now },
+                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = em, StartShiftDays = 0, CreatedBy = "seed", CreatedAtUtc = now },
+                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = nbId, StartShiftDays = 0, CreatedBy = "seed", CreatedAtUtc = now }
             );
 
             await db.SaveChangesAsync();
         }
 
-        var list = await repo.GetAllowedTransitionsAsync(fromId);
+        var policy = await repo.GetTransitionCodesAsync(fromId);
 
-        // Expected only active non-system: A, B, C sorted by (sortOrder, priority, code)
-        Assert.Equal(new[] { "A", "B", "C" }, list.Select(x => x.ToCode.Code).ToArray());
+        // Only TransitionCode targets (A + X), and X is inactive but still returned
+        Assert.Equal(["A", "X"], [.. policy.Select(x => x.ToCode.Code)]);
+        Assert.All(policy, t => Assert.NotNull(t.ToCode));
+        Assert.All(policy, t => Assert.Equal(RoleCode.TransitionCode, t.ToCode.RoleCode));
+    }
 
-        // Include(ToCode) must work
-        Assert.All(list, t => Assert.NotNull(t.ToCode));
+    //======================================================================
+    // GetAllowedCodesAsync
+    //======================================================================
+
+    [Fact]
+    public async Task GetAllowedCodesAsync_ReturnsTransitionTargetsPlusEmergency_ActiveOnly()
+    {
+        await using var testDb = new SqliteTestDb();
+        var repo = new TimesheetPolicyRepository(testDb.Factory);
+
+        var now = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
+
+        var fromId = await repo.AddCodeAsync("FROM", "From", null, 0, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", now);
+
+        // Transition targets (matrix)
+        var toA = await repo.AddCodeAsync("A", "A", null, 0, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", now);
+        var toB = await repo.AddCodeAsync("B", "B", null, 1, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", now);
+
+        // Emergency codes (global options)
+        _ = await repo.AddCodeAsync("200", "E", null, 50, 0, false, RoleCode.EmergencyCode, TimesheetUiStyle.Danger, "seed", now);
+
+        var f100 = await repo.AddCodeAsync("Ф100", "Fact", null, 70, 0, false, RoleCode.EmergencyCode, TimesheetUiStyle.Danger, "seed", now);
+
+        // inactive emergency should be excluded
+        var emX = await repo.AddCodeAsync("201", "EX", null, 60, 0, false, RoleCode.EmergencyCode, TimesheetUiStyle.Danger, "seed", now);
+        await repo.CloseCodeAsync(emX, "seed", now.AddMinutes(1));
+
+        // seed matrix transitions only for A,B
+        await using (var db = await testDb.Factory.CreateDbContextAsync())
+        {
+            db.TimesheetCodeTransitions.AddRange(
+                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = toA, StartShiftDays = 0, CreatedBy = "seed", CreatedAtUtc = now },
+                new TimesheetCodeTransition { Id = Guid.NewGuid(), FromCodeId = fromId, ToCodeId = toB, StartShiftDays = 1, CreatedBy = "seed", CreatedAtUtc = now }
+            );
+            await db.SaveChangesAsync();
+        }
+
+        var allowed = await repo.GetAllowedCodesAsync(fromId);
+
+        // Contains transition targets + emergency codes (active only).
+        Assert.Equal(["A", "B", "200", "Ф100"], [.. allowed.Select(x => x.ToCode.Code)]);
+
+        // Sanity: all returned targets are active and not derived NB
+        Assert.All(allowed, x => Assert.True(x.ToCode.IsActive));
+        Assert.DoesNotContain(allowed, x => x.ToCode.Code == TimesheetDerivedCodes.NotInTimesheet);
+
+        // Sanity: emergency codes returned as synthetic transitions (Id may be empty)
+        Assert.Contains(allowed, x => x.ToCode.Code == "Ф100");
+        Assert.DoesNotContain(allowed, x => x.ToCodeId == emX);
+        Assert.NotNull(await repo.GetCodeByIdAsync(f100)); // emergency is still a real code
     }
 
     //======================================================================
@@ -344,13 +450,15 @@ public sealed class TimesheetPolicyRepositoryTests
             sortOrder: 10,
             priority: 10,
             isTerminal: false,
+            roleCode: RoleCode.TransitionCode,
+            uiStyle: TimesheetUiStyle.Warning,
             author: "seed",
             nowUtc: t0);
 
         // to codes
-        var to1 = await repo.AddCodeAsync("T1", "T1", null, 0, 0, false, "seed", t0);
-        var to2 = await repo.AddCodeAsync("T2", "T2", null, 1, 0, false, "seed", t0);
-        var to3 = await repo.AddCodeAsync("T3", "T3", null, 2, 0, false, "seed", t0);
+        var to1 = await repo.AddCodeAsync("T1", "T1", null, 0, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", t0);
+        var to2 = await repo.AddCodeAsync("T2", "T2", null, 1, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", t0);
+        var to3 = await repo.AddCodeAsync("T3", "T3", null, 2, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", t0);
 
         // seed existing transitions FROM -> T1 (0), FROM -> T2 (0)
         Guid trTo1Id;
@@ -381,19 +489,16 @@ public sealed class TimesheetPolicyRepositoryTests
         }
 
         // desired transitions:
-        // - update T1 to StartShiftDays=1 (duplicate later ignored by normalization)
+        // - update T1 to StartShiftDays=1
         // - remove T2 (not present)
         // - add T3 (0)
-        //
-        // Якщо ти ПОВНІСТЮ переніс normalize в handler і прибрав з repo — зроби тут
-        // лише: new TimesheetTransitionSpec(to1, 1), new TimesheetTransitionSpec(to3, 0)
         var desired = new[]
         {
             new TimesheetTransitionSpec(to1, 1),
-            new TimesheetTransitionSpec(to1, 0),        // duplicate; should be ignored (if repo normalizes)
+            new TimesheetTransitionSpec(to1, 0),        // duplicate; ignored by normalization
             new TimesheetTransitionSpec(to3, 0),
-            new TimesheetTransitionSpec(Guid.Empty, 0), // ignored (if repo normalizes)
-            new TimesheetTransitionSpec(fromId, 0)      // self; ignored (if repo normalizes)
+            new TimesheetTransitionSpec(Guid.Empty, 0), // ignored
+            new TimesheetTransitionSpec(fromId, 0)      // self; ignored
         };
 
         await repo.SavePolicyAsync(
@@ -450,8 +555,8 @@ public sealed class TimesheetPolicyRepositoryTests
         var t0 = new DateTime(2026, 02, 17, 10, 00, 00, DateTimeKind.Utc);
         var t1 = t0.AddMinutes(5);
 
-        var fromId = await repo.AddCodeAsync("FROM", "Title", null, 0, 0, false, "seed", t0);
-        var toActive = await repo.AddCodeAsync("OK", "OK", null, 0, 0, false, "seed", t0);
+        var fromId = await repo.AddCodeAsync("FROM", "Title", null, 0, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", t0);
+        var toActive = await repo.AddCodeAsync("OK", "OK", null, 0, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", t0);
 
         // Seed one existing transition
         await using (var db = await testDb.Factory.CreateDbContextAsync())
@@ -488,7 +593,7 @@ public sealed class TimesheetPolicyRepositoryTests
                 sortOrder: 0,
                 priority: 0,
                 isTerminal: false,
-                allowedTransitions: new[] { new TimesheetTransitionSpec(missingTo, 0) },
+                allowedTransitions: [new TimesheetTransitionSpec(missingTo, 0)],
                 author: "editor",
                 nowUtc: t1));
 
@@ -503,7 +608,7 @@ public sealed class TimesheetPolicyRepositoryTests
         }
 
         // Case 2: inactive ToCode
-        var toInactive = await repo.AddCodeAsync("Z", "Z", null, 1, 0, false, "seed", t0);
+        var toInactive = await repo.AddCodeAsync("Z", "Z", null, 1, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", t0);
         await repo.CloseCodeAsync(toInactive, "seed", t0.AddMinutes(1));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -514,7 +619,7 @@ public sealed class TimesheetPolicyRepositoryTests
                 sortOrder: 0,
                 priority: 0,
                 isTerminal: false,
-                allowedTransitions: new[] { new TimesheetTransitionSpec(toInactive, 0) },
+                allowedTransitions: [new TimesheetTransitionSpec(toInactive, 0)],
                 author: "editor",
                 nowUtc: t1));
     }

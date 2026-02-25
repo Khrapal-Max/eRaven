@@ -13,11 +13,15 @@ using eRaven.Domain.ValueObjects;
 
 namespace eRaven.Application.Handlers.Timesheets;
 
+/// <summary>
+/// Хендлер збереження політики коду.
+/// </summary>
 public sealed class SaveTimesheetPolicyCommandHandler(ITimesheetPolicyRepository repo)
     : ICommandHandler<SaveTimesheetPolicyCommand>
 {
     private readonly ITimesheetPolicyRepository _repo = repo;
 
+    ///  <inheritdoc/>
     public async Task HandleAsync(SaveTimesheetPolicyCommand command, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -64,8 +68,8 @@ public sealed class SaveTimesheetPolicyCommandHandler(ITimesheetPolicyRepository
 
         foreach (var t in normalized)
         {
-            if (t.StartShiftDays is < 0 or > 7)
-                throw new InvalidOperationException("StartShiftDays має бути в межах 0..7 (для карти зазвичай 0 або 1).");
+            if (t.StartShiftDays is < 0 or > 1)
+                throw new InvalidOperationException("StartShiftDays має бути в межах 0..1.");
         }
 
         return normalized;

@@ -2,12 +2,11 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// GetTimesheetPolicyCodesQuery
+// TimesheetTransitionDto
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Queries.Timesheets;
+namespace eRaven.Application.DTOs.Timesheets.Policy;
 
-/// <summary>
-/// Запит для отримання списку дозвільних кодів.
-/// </summary>
-public sealed record GetTimesheetPolicyCodesQuery(bool IncludeInactive = false);
+public sealed record TimesheetTransitionDto(
+    Guid ToCodeId,
+    int StartShiftDays);

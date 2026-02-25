@@ -1,6 +1,7 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // TimesheetCodeDefinitionConfiguration
 //-----------------------------------------------------------------------------
 
@@ -10,9 +11,6 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
-/// <summary>
-/// EF Core configuration for <see cref="TimesheetCodeDefinition"/>.
-/// </summary>
 public sealed class TimesheetCodeDefinitionConfiguration : IEntityTypeConfiguration<TimesheetCodeDefinition>
 {
     public void Configure(EntityTypeBuilder<TimesheetCodeDefinition> e)
@@ -53,6 +51,16 @@ public sealed class TimesheetCodeDefinitionConfiguration : IEntityTypeConfigurat
 
         e.Property(x => x.IsActive)
             .HasColumnName("is_active")
+            .IsRequired();
+
+        e.Property(x => x.RoleCode)
+            .HasColumnName("role_code")
+            .HasConversion<byte>()
+            .IsRequired();
+
+        e.Property(x => x.UiStyle)
+            .HasColumnName("ui_style")
+            .HasConversion<byte>()
             .IsRequired();
 
         e.Property(x => x.CreatedBy)

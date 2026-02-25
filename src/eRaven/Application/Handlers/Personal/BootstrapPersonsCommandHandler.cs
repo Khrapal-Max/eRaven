@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+﻿/*//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -122,3 +122,4 @@ public sealed class BootstrapPersonsCommandHandler(
 
     private static string NormalizeRnokpp(string? s) => (s ?? string.Empty).Trim();
 }
+*/

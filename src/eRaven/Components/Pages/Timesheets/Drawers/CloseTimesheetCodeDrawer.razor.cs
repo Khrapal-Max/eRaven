@@ -20,7 +20,7 @@ public partial class CloseTimesheetCodeDrawer : ComponentBase
     // DI
     //======================================================================
 
-    [Inject] public ICommandHandler<CloseTimesheetCodeCommand> CloseCode { get; set; } = default!;
+    [Inject] public ICommandHandler<CloseTimesheetCodeCommand> CloseTimesheetCodeCommandHandler { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
 
     //======================================================================
@@ -56,7 +56,7 @@ public partial class CloseTimesheetCodeDrawer : ComponentBase
 
         try
         {
-            await CloseCode.HandleAsync(new CloseTimesheetCodeCommand(
+            await CloseTimesheetCodeCommandHandler.HandleAsync(new CloseTimesheetCodeCommand(
                 CodeId: Code.Id,
                 Author: "ui",           // TODO: auth user
                 NowUtc: DateTime.UtcNow

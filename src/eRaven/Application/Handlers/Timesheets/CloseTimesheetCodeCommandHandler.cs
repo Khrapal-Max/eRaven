@@ -11,16 +11,29 @@ using eRaven.Application.Commands.Timesheets;
 
 namespace eRaven.Application.Handlers.Timesheets;
 
+/// <summary>
+/// Хендлер закриття коду епізода табеля.
+/// </summary>
 public sealed class CloseTimesheetCodeCommandHandler(
     ITimesheetPolicyRepository repo)
     : ICommandHandler<CloseTimesheetCodeCommand>
 {
     private readonly ITimesheetPolicyRepository _repo = repo;
 
+    ///  <inheritdoc/>
     public async Task HandleAsync(CloseTimesheetCodeCommand command, CancellationToken ct = default)
-        => await _repo.CloseCodeAsync(
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        if (command.CodeId == Guid.Empty)
+            throw new InvalidOperationException("CodeId обов'язковий.");
+
+        var author = (command.Author ?? string.Empty).Trim();
+
+        await _repo.CloseCodeAsync(
             codeId: command.CodeId,
-            author: command.Author,
+            author: author,
             nowUtc: command.NowUtc,
             ct: ct);
+    }
 }

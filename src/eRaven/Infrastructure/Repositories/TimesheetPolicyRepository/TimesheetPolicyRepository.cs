@@ -4,37 +4,156 @@
 //-----------------------------------------------------------------------------
 // TimesheetPolicyRepository
 //-----------------------------------------------------------------------------
+//
+// Політика табеля (Feb 2026):
+// - "НБ" (TimesheetDerivedCodes.NotInTimesheet) — derived gap, НЕ є реальним кодом у довіднику.
+// - SystemCode (наприклад "100") належить системі/документам: не створюється і не редагується вручну.
+// //
+// NOTE: Репозиторій живе в Infrastructure (EF Core) і є "persistence boundary" для налаштувань політики.
+//-----------------------------------------------------------------------------
 
 using eRaven.Application.Abstractions.TimesheetPolicyRepository;
+using eRaven.Domain.Consts;
 using eRaven.Domain.Entities;
+using eRaven.Domain.Enums;
 using eRaven.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
 namespace eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
 
+/// <summary>
+/// Репозиторій керування довідником табельних кодів та матрицею переходів між ними.
+/// </summary>
 public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> dbFactory)
     : ITimesheetPolicyRepository
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
 
     //======================================================================
-    // Codes
+    // Reads
     //======================================================================
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<TimesheetCodeDefinition>> GetCodesAsync(
-    bool includeInactive = false,
-    CancellationToken ct = default)
+        bool includeInactive,
+        CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var q = db.TimesheetCodes.AsNoTracking();
 
+        // Hide derived NB always (even if legacy row exists in DB).
+        q = q.Where(x => x.Code != TimesheetDerivedCodes.NotInTimesheet);
+
         if (!includeInactive)
             q = q.Where(x => x.IsActive);
 
         return await q
-            .Where(x => !x.Code.Equals(TimesheetSystemCodes.NotInTimesheet))
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.Priority)
+            .ThenBy(x => x.Code)
+            .ToListAsync(ct);
+    }
+
+    /// <inheritdoc />
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<TimesheetCodeTransition>> GetAllowedCodesAsync(
+        Guid fromCodeId,
+        CancellationToken ct = default)
+    {
+        if (fromCodeId == Guid.Empty)
+            throw new ArgumentException("ИД коду обов'язковий.", nameof(fromCodeId));
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        // 1) Transition targets (strict matrix) for current code: active only.
+        var transitions = await db.TimesheetCodeTransitions
+            .AsNoTracking()
+            .Where(x => x.FromCodeId == fromCodeId)
+            .Include(x => x.ToCode)
+                .Where(x => x.ToCode.Code != TimesheetDerivedCodes.NotInTimesheet)
+                .Where(x => x.ToCode.IsActive)
+                .Where(x => x.ToCode.RoleCode == RoleCode.TransitionCode)
+            .ToListAsync(ct);
+
+        // 2) Emergency codes are global options (active only) and should be visible as "allowed",
+        // even if they are not present in the strict matrix table.
+        var emergency = await db.TimesheetCodes
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .Where(x => x.Code != TimesheetDerivedCodes.NotInTimesheet)
+            .Where(x => x.RoleCode == RoleCode.EmergencyCode)
+            .ToListAsync(ct);
+
+        // Merge into a single list of "allowed codes".
+        // Emergency codes are returned as synthetic transitions with StartShiftDays=0.
+        var existingTo = transitions.Select(x => x.ToCodeId).ToHashSet();
+        foreach (var e in emergency)
+        {
+            if (existingTo.Contains(e.Id))
+                continue;
+
+            transitions.Add(new TimesheetCodeTransition
+            {
+                Id = Guid.Empty,
+                FromCodeId = fromCodeId,
+                ToCodeId = e.Id,
+                ToCode = e,
+                StartShiftDays = 0,
+                CreatedBy = string.Empty,
+                CreatedAtUtc = default
+            });
+        }
+
+        return [.. transitions
+            .OrderBy(x => x.ToCode.SortOrder)
+            .ThenBy(x => x.ToCode.Priority)
+            .ThenBy(x => x.ToCode.Code)];
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<TimesheetCodeTransition>> GetTransitionCodesAsync(Guid fromCodeId, CancellationToken ct = default)
+    {
+        if (fromCodeId == Guid.Empty)
+            throw new ArgumentException("fromCodeId is required.", nameof(fromCodeId));
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var from = await db.TimesheetCodes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == fromCodeId, ct);
+
+        if (from is null)
+            return [];
+
+        // Strict policy is supported only for TransitionCode (not System/Emergency/derived).
+        if (from.Code == TimesheetDerivedCodes.NotInTimesheet || from.RoleCode != RoleCode.TransitionCode)
+            return [];
+
+        // For policy UI we return matrix rows even if ToCode is inactive (so it can be cleaned),
+        // but still only to TransitionCode targets (strictness).
+        return await db.TimesheetCodeTransitions
+            .AsNoTracking()
+            .Where(x => x.FromCodeId == fromCodeId)
+            .Include(x => x.ToCode)
+                .Where(x => x.ToCode.Code != TimesheetDerivedCodes.NotInTimesheet)
+                .Where(x => x.ToCode.RoleCode == RoleCode.TransitionCode)
+                .OrderBy(x => x.ToCode.SortOrder)
+                .ThenBy(x => x.ToCode.Priority)
+                .ThenBy(x => x.ToCode.Code)
+            .ToListAsync(ct);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<TimesheetCodeDefinition>> GetEmergencyCodesAsync(CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        return await db.TimesheetCodes
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .Where(x => x.Code != TimesheetDerivedCodes.NotInTimesheet)
+            .Where(x => x.RoleCode == RoleCode.EmergencyCode)
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.Priority)
             .ThenBy(x => x.Code)
@@ -45,15 +164,20 @@ public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> db
     public async Task<TimesheetCodeDefinition?> GetCodeByIdAsync(Guid codeId, CancellationToken ct = default)
     {
         if (codeId == Guid.Empty)
-            throw new ArgumentException("codeId is required.", nameof(codeId));
+            throw new ArgumentException("ИД коду обов'язковий.", nameof(codeId));
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         return await db.TimesheetCodes
             .AsNoTracking()
             .Where(x => x.IsActive)
+            .Where(x => x.Code != TimesheetDerivedCodes.NotInTimesheet)
             .FirstOrDefaultAsync(x => x.Id == codeId, ct);
     }
+
+    //====================================
+    // Writes
+    //====================================
 
     /// <inheritdoc />
     public async Task<Guid> AddCodeAsync(
@@ -63,24 +187,34 @@ public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> db
         int sortOrder,
         int priority,
         bool isTerminal,
+        RoleCode roleCode,
+        TimesheetUiStyle uiStyle,
         string author,
         DateTime nowUtc,
         CancellationToken ct = default)
     {
-        code = (code ?? string.Empty).Trim();
-        title = (title ?? string.Empty).Trim();
-        description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        code = NormalizeCode(code);
+        title = NormalizeRequired(title, "Назва коду не може бути порожньою.");
+        description = NormalizeOptional(description);
+        author = NormalizeRequired(author, "Автор обов'язковий.");
 
         if (string.IsNullOrWhiteSpace(code))
             throw new InvalidOperationException("Код не може бути порожнім.");
-        if (string.IsNullOrWhiteSpace(title))
-            throw new InvalidOperationException("Назва коду не може бути порожньою.");
+
+        if (string.Equals(code, TimesheetDerivedCodes.NotInTimesheet, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Код “НБ” є derived станом і не може бути створений як подія.");
+
+        if (roleCode == RoleCode.SystemCode)
+            throw new InvalidOperationException("Системні коди не можна створювати вручну.");
+
+        if (uiStyle == TimesheetUiStyle.NotInTimesheet)
+            throw new InvalidOperationException("UiStyle.NotInTimesheet зарезервований для derived gap (“НБ”).");
+
         if (sortOrder < 0)
-            throw new InvalidOperationException("SortOrder не може бути < 0.");
+            throw new InvalidOperationException("Порядковий номер не може бути < 0.");
+
         if (priority < 0)
-            throw new InvalidOperationException("Priority не може бути < 0.");
-        if (string.IsNullOrWhiteSpace(author))
-            throw new InvalidOperationException("Author is required.");
+            throw new InvalidOperationException("Пріоритет не може бути < 0.");
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
@@ -101,6 +235,8 @@ public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> db
             Priority = priority,
             IsTerminal = isTerminal,
             IsActive = true,
+            RoleCode = roleCode,
+            UiStyle = uiStyle,
             CreatedBy = author,
             CreatedAtUtc = nowUtc
         };
@@ -118,15 +254,21 @@ public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> db
         CancellationToken ct = default)
     {
         if (codeId == Guid.Empty)
-            throw new ArgumentException("codeId is required.", nameof(codeId));
-        if (string.IsNullOrWhiteSpace(author))
-            throw new InvalidOperationException("Author is required.");
+            throw new ArgumentException("ИД коду обов'язковий.", nameof(codeId));
+
+        author = NormalizeRequired(author, "Автор обоав'язковий.");
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var code = await db.TimesheetCodes
             .FirstOrDefaultAsync(x => x.Id == codeId, ct)
             ?? throw new InvalidOperationException("Код не знайдено.");
+
+        if (code.Code == TimesheetDerivedCodes.NotInTimesheet)
+            throw new InvalidOperationException("Код “НБ” є derived станом і не може бути закритий (він не має існувати в БД).");
+
+        if (code.RoleCode == RoleCode.SystemCode)
+            throw new InvalidOperationException("Системні коди не можна закривати вручну.");
 
         if (!code.IsActive)
             return;
@@ -136,36 +278,6 @@ public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> db
         code.UpdatedAtUtc = nowUtc;
 
         await db.SaveChangesAsync(ct);
-    }
-
-    //======================================================================
-    // Transitions (Rules)
-    //======================================================================
-
-    /// <inheritdoc />
-    public async Task<IReadOnlyList<TimesheetCodeTransition>> GetAllowedTransitionsAsync(
-        Guid fromCodeId,
-        CancellationToken ct = default)
-    {
-        if (fromCodeId == Guid.Empty)
-            throw new ArgumentException("fromCodeId is required.", nameof(fromCodeId));
-
-        await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        return await db.TimesheetCodeTransitions
-            .AsNoTracking()
-            .Where(x => x.FromCodeId == fromCodeId)
-            .Include(x => x.ToCode)
-
-            // UI/handler не повинні бачити переходи у неактивні або системні коди
-            .Where(x => x.ToCode.IsActive)
-            .Where(x => x.ToCode.Code != TimesheetSystemCodes.NotInTimesheet)
-            .Where(x => x.ToCode.Code != TimesheetSystemCodes.DoesTheCombatTask) // ✅ 100 — системний
-
-            .OrderBy(x => x.ToCode.SortOrder)
-            .ThenBy(x => x.ToCode.Priority)
-            .ThenBy(x => x.ToCode.Code)
-            .ToListAsync(ct);
     }
 
     /// <inheritdoc />
@@ -181,10 +293,21 @@ public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> db
         DateTime nowUtc,
         CancellationToken ct = default)
     {
-        // валідації полів (title, sortOrder, priority, author) можеш лишити тут як safety-net
+        if (codeId == Guid.Empty)
+            throw new ArgumentException("codeId is required.", nameof(codeId));
+
+        title = NormalizeRequired(title, "Назва коду не може бути порожньою.");
+        description = NormalizeOptional(description);
+        author = NormalizeRequired(author, "Author is required.");
+
+        if (sortOrder < 0)
+            throw new InvalidOperationException("SortOrder не може бути < 0.");
+        if (priority < 0)
+            throw new InvalidOperationException("Priority не може бути < 0.");
+
         allowedTransitions ??= [];
 
-        // якщо хочеш подвійний захист — можна ще раз прибрати self/empty + dedupe:
+        // Normalize: remove empty/self + dedupe by ToCodeId.
         var normalized = allowedTransitions
             .Where(x => x.ToCodeId != Guid.Empty)
             .Where(x => x.ToCodeId != codeId)
@@ -199,16 +322,19 @@ public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> db
             .FirstOrDefaultAsync(x => x.Id == codeId, ct)
             ?? throw new InvalidOperationException("Код не знайдено.");
 
-        // update code fields...
-        code.Title = title.Trim();
-        code.Description = description?.Trim() ?? string.Empty;
+        if (code.Code == TimesheetDerivedCodes.NotInTimesheet)
+            throw new InvalidOperationException("Неможливо зберегти політику для derived стану “НБ”.");
+
+        // Update code fields
+        code.Title = title;
+        code.Description = description;
         code.SortOrder = sortOrder;
         code.Priority = priority;
         code.IsTerminal = isTerminal;
-        code.UpdatedBy = author.Trim();
+        code.UpdatedBy = author;
         code.UpdatedAtUtc = nowUtc;
 
-        // verify ToCode exists + active
+        // Verify ToCode exists + ACTIVE (policy cannot reference inactive targets).
         var toIds = normalized.Select(x => x.ToCodeId).ToList();
         if (toIds.Count > 0)
         {
@@ -216,15 +342,16 @@ public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> db
                 .AsNoTracking()
                 .Where(x => toIds.Contains(x.Id))
                 .Where(x => x.IsActive)
+                .Where(x => x.Code != TimesheetDerivedCodes.NotInTimesheet)
                 .Select(x => x.Id)
                 .ToListAsync(ct);
 
             var missing = toIds.Except(activeTo).ToList();
             if (missing.Count > 0)
-                throw new InvalidOperationException("Серед переходів є коди, які не існують або вже закриті (неактивні).");
+                throw new InvalidOperationException("Серед переходів є коди, які не існують, вже закриті або не є TransitionCode.");
         }
 
-        // diff-update transitions (твій код майже 1:1)
+        // Diff-update transitions (preserve Created* for existing rows).
         var existing = await db.TimesheetCodeTransitions
             .Where(x => x.FromCodeId == codeId)
             .ToListAsync(ct);
@@ -259,5 +386,26 @@ public sealed class TimesheetPolicyRepository(IDbContextFactory<AppDbContext> db
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+    }
+
+    //======================================================================
+    // Helpers
+    //======================================================================
+
+    private static string NormalizeCode(string? code)
+        => (code ?? string.Empty).Trim().ToUpperInvariant();
+
+    private static string NormalizeRequired(string? value, string messageIfEmpty)
+    {
+        var s = (value ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(s))
+            throw new InvalidOperationException(messageIfEmpty);
+        return s;
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        var s = (value ?? string.Empty).Trim();
+        return string.IsNullOrWhiteSpace(s) ? null : s;
     }
 }

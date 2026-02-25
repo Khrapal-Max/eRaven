@@ -84,18 +84,18 @@ public sealed class MissionRepository(
 
         // Strategy: close mission only if there is NO active assignment for this mission at closeAt.
         // Active = From <= closeAt AND (To is null OR closeAt < To).
-        var hasActiveAssignments = await db.MissionAssignments
-            .AsNoTracking()
-            .AnyAsync(x =>
-                x.MissionId == id
-                && x.From <= closeAt
-                && (!x.To.HasValue || closeAt < x.To.Value),
-                ct);
+        /* var hasActiveAssignments = await db.MissionAssignments
+             .AsNoTracking()
+             .AnyAsync(x =>
+                 x.MissionId == id
+                 && x.From <= closeAt
+                 && (!x.To.HasValue || closeAt < x.To.Value),
+                 ct);
 
-        if (hasActiveAssignments)
-            throw new InvalidOperationException("Неможливо закрити міссію, оскільки вона має активні призначення.");
+         if (hasActiveAssignments)
+             throw new InvalidOperationException("Неможливо закрити міссію, оскільки вона має активні призначення.");
 
-        mission.ClosedAt = closeAt;
+         mission.ClosedAt = closeAt;*/
 
         await db.SaveChangesAsync(ct);
     }

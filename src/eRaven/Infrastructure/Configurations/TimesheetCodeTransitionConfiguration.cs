@@ -1,6 +1,7 @@
 ﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // TimesheetCodeTransitionConfiguration
 //-----------------------------------------------------------------------------
 
@@ -10,17 +11,12 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace eRaven.Infrastructure.Configurations;
 
-/// <summary>
-/// EF Core configuration for <see cref="TimesheetCodeTransition"/>.
-/// </summary>
 public sealed class TimesheetCodeTransitionConfiguration : IEntityTypeConfiguration<TimesheetCodeTransition>
 {
     public void Configure(EntityTypeBuilder<TimesheetCodeTransition> e)
     {
-        // FIX: було "timesheet_code_ttransitions" (опечатка)
         e.ToTable("timesheet_code_transitions", t =>
         {
-            // 0 або 1 (за поточною картою)
             t.HasCheckConstraint(
                 "ck_timesheet_code_transitions_start_shift_days",
                 "\"start_shift_days\" IN (0,1)");

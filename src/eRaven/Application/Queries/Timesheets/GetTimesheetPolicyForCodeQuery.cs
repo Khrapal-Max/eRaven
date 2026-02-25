@@ -7,4 +7,7 @@
 
 namespace eRaven.Application.Queries.Timesheets;
 
+/// <summary>
+/// Запит для отримання дозвільних кодів закріплених за кодом.
+/// </summary>
 public sealed record GetTimesheetPolicyForCodeQuery(Guid CodeId);

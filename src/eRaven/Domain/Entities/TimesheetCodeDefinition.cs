@@ -6,6 +6,9 @@
 //-----------------------------------------------------------------------------
 
 namespace eRaven.Domain.Entities;
+
+using eRaven.Domain.Enums;
+
 /// <summary>
 /// Довідник табельних кодів (що існує в системі).
 /// Приклади: "30", "Т", "100", "ЛХ"...
@@ -27,16 +30,21 @@ public sealed class TimesheetCodeDefinition
     public int SortOrder { get; set; }
 
     /// <summary>
-    /// Вага/пріоритет для випадків, коли події попадають на одну дату
-    /// (користувач може редагувати).
+    /// Вага/пріоритет для випадків, коли події попадають на одну дату.
     /// </summary>
     public int Priority { get; set; }
 
-    /// <summary>Код є “кінцевим” (після нього зазвичай не очікуються переходи).</summary>
+    /// <summary>Код є “кінцевим”.</summary>
     public bool IsTerminal { get; set; }
 
     /// <summary>Чи активний (можна використовувати).</summary>
     public bool IsActive { get; set; } = true;
+
+    /// <summary>Роль коду (system/transition/emergency).</summary>
+    public RoleCode RoleCode { get; set; } = RoleCode.TransitionCode;
+
+    /// <summary>Семантичний стиль відображення в UI.</summary>
+    public TimesheetUiStyle UiStyle { get; set; } = TimesheetUiStyle.Warning;
 
     public string CreatedBy { get; set; } = string.Empty;
     public DateTime CreatedAtUtc { get; set; }

@@ -7,6 +7,11 @@
 
 namespace eRaven.Application.Commands.Timesheets;
 
+using eRaven.Domain.Enums;
+
+/// <summary>
+/// Команда створення коду для епізода табеля.
+/// </summary>
 public sealed record AddTimesheetCodeCommand(
     string Code,
     string Title,
@@ -14,5 +19,7 @@ public sealed record AddTimesheetCodeCommand(
     int SortOrder,
     int Priority,
     bool IsTerminal,
+    RoleCode RoleCode,
+    TimesheetUiStyle UiStyle,
     string Author,
     DateTime NowUtc);

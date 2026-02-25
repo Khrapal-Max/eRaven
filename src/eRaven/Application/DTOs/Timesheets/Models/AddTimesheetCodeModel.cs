@@ -5,6 +5,7 @@
 // AddTimesheetCodeModel
 //-----------------------------------------------------------------------------
 
+using eRaven.Domain.Enums;
 using System.ComponentModel.DataAnnotations;
 
 namespace eRaven.Application.DTOs.Timesheets.Models;
@@ -32,4 +33,10 @@ public sealed class AddTimesheetCodeModel
     public int Priority { get; set; }
 
     public bool IsTerminal { get; set; }
+
+    [Required]
+    public RoleCode RoleCode { get; set; } = RoleCode.TransitionCode;
+
+    [Required]
+    public TimesheetUiStyle UiStyle { get; set; } = TimesheetUiStyle.Warning;
 }

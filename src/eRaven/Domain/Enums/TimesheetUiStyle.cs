@@ -2,12 +2,19 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// GetTimesheetPolicyCodesQuery
+// TimesheetUiStyle
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Queries.Timesheets;
+namespace eRaven.Domain.Enums;
 
 /// <summary>
-/// Запит для отримання списку дозвільних кодів.
+/// Семантичний стиль для UI/експорту (не бізнес-логіка переходів).
 /// </summary>
-public sealed record GetTimesheetPolicyCodesQuery(bool IncludeInactive = false);
+public enum TimesheetUiStyle
+{
+    Warning = 0,
+    Ready = 1,
+    Danger = 2,
+    SystemFact = 3,
+    NotInTimesheet = 4
+}

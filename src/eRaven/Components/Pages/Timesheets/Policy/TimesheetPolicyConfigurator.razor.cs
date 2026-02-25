@@ -18,6 +18,7 @@ using eRaven.Application.Commands.Timesheets;
 using eRaven.Application.DTOs.Timesheets.Policy;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheets;
+using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 
@@ -38,9 +39,9 @@ public partial class TimesheetPolicyConfigurator : ComponentBase
     // DI
     //======================================================================
 
-    [Inject] public IQueryHandler<GetTimesheetPolicyCodesQuery, IReadOnlyList<TimesheetCodeDto>> GetCodes { get; set; } = default!;
-    [Inject] public IQueryHandler<GetTimesheetPolicyForCodeQuery, TimesheetPolicyEditorDto?> GetPolicy { get; set; } = default!;
-    [Inject] public ICommandHandler<SaveTimesheetPolicyCommand> SavePolicy { get; set; } = default!;
+    [Inject] public IQueryHandler<GetTimesheetPolicyCodesQuery, IReadOnlyList<TimesheetCodeDto>> GetTimesheetPolicyCodesQueryHandler { get; set; } = default!;
+    [Inject] public IQueryHandler<GetTimesheetPolicyForCodeQuery, TimesheetPolicyEditorDto?> GetTimesheetPolicyForCodeQueryHandler { get; set; } = default!;
+    [Inject] public ICommandHandler<SaveTimesheetPolicyCommand> SavePolicyCommandHandler { get; set; } = default!;
     [Inject] public ToastService Toasts { get; set; } = default!;
 
     //======================================================================
@@ -48,6 +49,12 @@ public partial class TimesheetPolicyConfigurator : ComponentBase
     //======================================================================
 
     private List<TimesheetCodeDto> _codes = [];
+
+    /// <summary>
+    /// Глобальні коди (EmergencyCode) діють незалежно від поточного стану.
+    /// У редакторі політики ми їх показуємо як “включені”, але забороняємо редагування.
+    /// </summary>
+    private HashSet<Guid> _globalCodeIds = [];
 
     //======================================================================
     // Current selection + edit buffer
@@ -83,7 +90,19 @@ public partial class TimesheetPolicyConfigurator : ComponentBase
         => await LoadCodes();
 
     private async Task LoadCodes()
-        => _codes = [.. await GetCodes.HandleAsync(new GetTimesheetPolicyCodesQuery())];
+    {
+        _codes = [.. await GetTimesheetPolicyCodesQueryHandler.HandleAsync(new GetTimesheetPolicyCodesQuery())];
+        RebuildGlobalCodes();
+    }
+
+    private void RebuildGlobalCodes()
+        => _globalCodeIds = _codes
+            .Where(IsGlobalCode)
+            .Select(x => x.Id)
+            .ToHashSet();
+
+    private static bool IsGlobalCode(TimesheetCodeDto code)
+        => code.RoleCode == RoleCode.EmergencyCode;
 
     //======================================================================
     // Selection
@@ -91,7 +110,11 @@ public partial class TimesheetPolicyConfigurator : ComponentBase
 
     private async Task SelectAsync(Guid codeId)
     {
-        var policy = await GetPolicy.HandleAsync(new GetTimesheetPolicyForCodeQuery(codeId));
+        // safety: якщо список кодів ще не завантажено — завантажимо.
+        if (_codes.Count == 0)
+            await LoadCodes();
+
+        var policy = await GetTimesheetPolicyForCodeQueryHandler.HandleAsync(new GetTimesheetPolicyForCodeQuery(codeId));
         if (policy is null)
         {
             _selected = null;
@@ -107,7 +130,10 @@ public partial class TimesheetPolicyConfigurator : ComponentBase
         _editPriority = policy.Code.Priority;
         _editIsTerminal = policy.Code.IsTerminal;
 
+        // В редакторі ми редагуємо лише strict-матрицю для TransitionCode.
+        // Глобальні EmergencyCode показуємо окремо (always-on + disabled).
         _transitions = policy.AllowedTransitions
+            .Where(x => !_globalCodeIds.Contains(x.ToCodeId))
             .ToDictionary(x => x.ToCodeId, x => x.StartShiftDays);
 
         _canSave = false;
@@ -198,6 +224,7 @@ public partial class TimesheetPolicyConfigurator : ComponentBase
 
         _transitions = RightPanelTargets()
             .Where(x => x.IsActive)
+            .Where(x => !IsGlobalCode(x))
             .ToDictionary(x => x.Id, _ => 0);
 
         _canSave = true;
@@ -224,6 +251,15 @@ public partial class TimesheetPolicyConfigurator : ComponentBase
             return;
         }
 
+        // Глобальні коди (EmergencyCode) завжди застосовуються.
+        // Щоб “захистити оператора” — додаємо їх до команди за замовченням.
+        // UI редагувати їх не дозволяє.
+        var globalTransitions = _codes
+            .Where(IsGlobalCode)
+            .Where(x => x.IsActive)
+            .Where(x => x.Id != _selected.Id)
+            .Select(x => new TimesheetTransitionSpecDto(x.Id, 0));
+
         var cmd = new SaveTimesheetPolicyCommand(
             CodeId: _selected.Id,
             Title: title,
@@ -231,15 +267,19 @@ public partial class TimesheetPolicyConfigurator : ComponentBase
             SortOrder: _editSortOrder,
             Priority: _editPriority,
             IsTerminal: _editIsTerminal,
-            AllowedTransitions: [.. _transitions.Select(kv => new TimesheetTransitionSpecDto(kv.Key, kv.Value))],
+            AllowedTransitions: [
+                .. _transitions.Select(kv => new TimesheetTransitionSpecDto(kv.Key, kv.Value)),
+                .. globalTransitions,
+            ],
             Author: "ui", // TODO auth user
             NowUtc: DateTime.UtcNow
         );
 
-        await SavePolicy.HandleAsync(cmd);
+        await SavePolicyCommandHandler.HandleAsync(cmd);
 
         // refresh left list (title/order/priority могли змінитись)
-        _codes = [.. await GetCodes.HandleAsync(new GetTimesheetPolicyCodesQuery())];
+        _codes = [.. await GetTimesheetPolicyCodesQueryHandler.HandleAsync(new GetTimesheetPolicyCodesQuery())];
+        RebuildGlobalCodes();
 
         // refresh selected view (щоб показати реальні дані)
         await SelectAsync(_selected.Id);
@@ -276,7 +316,7 @@ public partial class TimesheetPolicyConfigurator : ComponentBase
         _closeOpen = false;
 
         // refresh list
-        _codes = [.. await GetCodes.HandleAsync(new GetTimesheetPolicyCodesQuery())];
+        _codes = [.. await GetTimesheetPolicyCodesQueryHandler.HandleAsync(new GetTimesheetPolicyCodesQuery())];
 
         // якщо закрили поточний — можна або лишити в правій панелі,
         // або зняти selection (я б знімав, щоб не редагувати неактивний випадково)

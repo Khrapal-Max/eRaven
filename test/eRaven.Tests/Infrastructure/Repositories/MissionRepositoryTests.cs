@@ -5,8 +5,6 @@
 // MissionRepositoryTests
 //-----------------------------------------------------------------------------
 
-using eRaven.Infrastructure.Repositories.MissionRepository;
-
 namespace eRaven.Tests.Infrastructure.Repositories;
 
 /// <summary>

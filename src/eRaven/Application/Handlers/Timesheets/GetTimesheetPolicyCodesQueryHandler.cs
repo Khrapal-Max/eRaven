@@ -12,16 +12,22 @@ using eRaven.Application.Queries.Timesheets;
 
 namespace eRaven.Application.Handlers.Timesheets;
 
+/// <summary>
+/// Хендлер повернення кодів з довідника.
+/// </summary>
 public sealed class GetTimesheetPolicyCodesQueryHandler(
     ITimesheetPolicyRepository repo)
     : IQueryHandler<GetTimesheetPolicyCodesQuery, IReadOnlyList<TimesheetCodeDto>>
 {
     private readonly ITimesheetPolicyRepository _repo = repo;
 
+    ///  <inheritdoc/>
     public async Task<IReadOnlyList<TimesheetCodeDto>> HandleAsync(
         GetTimesheetPolicyCodesQuery query,
         CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(query);
+
         var codes = await _repo.GetCodesAsync(query.IncludeInactive, ct);
 
         return [.. codes
@@ -33,6 +39,8 @@ public sealed class GetTimesheetPolicyCodesQueryHandler(
                 c.SortOrder,
                 c.Priority,
                 c.IsTerminal,
-                c.IsActive))];
+                c.IsActive,
+                c.RoleCode,
+                c.UiStyle))];
     }
 }

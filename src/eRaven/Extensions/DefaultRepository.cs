@@ -5,18 +5,14 @@
 // DefaultRepository
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.Abstractions.CombatTaskRepository;
 using eRaven.Application.Abstractions.DashboardRepository;
 using eRaven.Application.Abstractions.MissionRepository;
 using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.Abstractions.TimesheetPolicyRepository;
-using eRaven.Application.Abstractions.TimesheetRepository;
-using eRaven.Infrastructure.Repositories.CombatTaskRepository;
 using eRaven.Infrastructure.Repositories.DashboardRepository;
 using eRaven.Infrastructure.Repositories.MissionRepository;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
-using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Extensions;
 
@@ -27,24 +23,19 @@ public static class DefaultRepository
     /// </summary>
     public static IServiceCollection AddRegistredRepositories(this IServiceCollection services)
     {
-        services.AddScoped<IPersonRepository, PersonRepository>();
+        // Dashboard - information about state persons on by cards
         services.AddScoped<IDashboardRepository, DashboardRepository>();
 
-        // Timesheet (episode write + view read)
+        // Persons cards
+        services.AddScoped<IPersonRepository, PersonRepository>();
+
+        // Policy
         services.AddScoped<ITimesheetPolicyRepository, TimesheetPolicyRepository>();
 
-        services.AddScoped<ITimesheetViewRepository, TimesheetViewRepository>();
-        services.AddScoped<ITimesheetEpisodeRepository, TimesheetEpisodeRepository>();
-        services.AddScoped<ITimesheetEntryQueryRepository, TimesheetEntryQueryRepository>();
-        services.AddScoped<ITimesheetEntryWriterRepository, TimesheetEntryWriterRepository>();
+        // Timesheet (episode write + view read)
 
-        // Mission/Combat tasks
-
+        // Missions
         services.AddScoped<IMissionRepository, MissionRepository>();
-        services.AddScoped<ICombatTaskRepository, CombatTaskRepository>();
-        services.AddScoped<ICombatTaskDocumentRepository, CombatTaskDocumentRepository>();
-        services.AddScoped<ICombatTaskEngagementRepository, CombatTaskEngagementRepository>();
-        services.AddScoped<ICombatTaskMissionAssignmentQueryRepository, CombatTaskMissionAssignmentQueryRepository>();
 
         return services;
     }

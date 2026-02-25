@@ -5,22 +5,14 @@
 // DefaultQueryHandlers
 //-----------------------------------------------------------------------------
 
-using eRaven.Application.DTOs.CombatTasks;
 using eRaven.Application.DTOs.Dashboard;
-using eRaven.Application.DTOs.Excel;
-using eRaven.Application.DTOs.Missions;
 using eRaven.Application.DTOs.Person;
-using eRaven.Application.DTOs.Timesheets;
 using eRaven.Application.DTOs.Timesheets.Policy;
-using eRaven.Application.Handlers.CombatTasks;
 using eRaven.Application.Handlers.Dashboard;
-using eRaven.Application.Handlers.Missions;
 using eRaven.Application.Handlers.Personal;
 using eRaven.Application.Handlers.Timesheets;
 using eRaven.Application.Queries;
-using eRaven.Application.Queries.CombatTasks;
 using eRaven.Application.Queries.Dashboard;
-using eRaven.Application.Queries.Missions;
 using eRaven.Application.Queries.Personal;
 using eRaven.Application.Queries.Timesheets;
 
@@ -38,26 +30,10 @@ public static class DefaultQueryHandlers
         // Dashboard
         services.AddScoped<IQueryHandler<GetPersonnelDashboardQuery, PersonnelDashboardDto>, GetPersonnelDashboardQueryHandler>();
 
-        // Timesheet
-        services.AddScoped<IQueryHandler<GetTimesheetPersonMonthQuery, TimesheetPersonMonthDto?>, GetTimesheetPersonMonthQueryHandler>();
-        services.AddScoped<IQueryHandler<GetTimesheetMonthQuery, IReadOnlyList<TimesheetPersonRangeRowDto>>, GetTimesheetMonthQueryHandler>();
-        services.AddScoped<IQueryHandler<ExportTimesheetMonthQuery, DownloadFileDto>, ExportTimesheetMonthQueryHandler>();
-        services.AddScoped<IQueryHandler<GetTimesheetDayQuery, IReadOnlyList<TimesheetPersonRangeRowDto>>, GetTimesheetDayQueryHandler>();
-        services.AddScoped<IQueryHandler<GetTimesheetRangeQuery, IReadOnlyList<TimesheetPersonRangeRowDto>>, GetTimesheetRangeQueryHandler>();
-
+        // Polisy
         services.AddScoped<IQueryHandler<GetTimesheetPolicyForCodeQuery, TimesheetPolicyEditorDto?>, GetTimesheetPolicyForCodeQueryHandler>();
         services.AddScoped<IQueryHandler<GetTimesheetPolicyCodesQuery, IReadOnlyList<TimesheetCodeDto>>, GetTimesheetPolicyCodesQueryHandler>();
-        services.AddScoped<IQueryHandler<GetTimesheetPolicyForCodeQuery, IReadOnlyList<TimesheetTransitionOptionDto>>, GetTimesheetPolicyForCodeOptionQueryHandler>();
-        services.AddScoped<IQueryHandler<GetTimesheetTransitionContextQuery, TimesheetTransitionContextDto>, GetTimesheetTransitionContextQueryHandler>();
 
-        // Missions
-        services.AddScoped<IQueryHandler<GetMissionsQuery, IReadOnlyList<MissionDto>>, GetMissionsQueryHandler>();
-
-        // Combat tasks (documents + lookup)
-        services.AddScoped<IQueryHandler<GetCombatTaskDocumentsQuery, IReadOnlyList<CombatTaskDocumentDto>>, GetCombatTaskDocumentsQueryHandler>();
-        services.AddScoped<IQueryHandler<GetCombatTaskDetailsByDocumentIdQuery, CombatTaskEditorDto?>, GetCombatTaskDetailsByDocumentIdQueryHandler>();
-        services.AddScoped<IQueryHandler<GetCombatTaskPersonLookupQuery, IReadOnlyList<ReadyCombatTaskPersonDto>>, GetCombatTaskPersonLookupQueryHandler>();
-        services.AddScoped<IQueryHandler<GetCombatTaskMissionPersonsQuery, IReadOnlyList<ActiveMissionPersonDto>>, GetCombatTaskMissionPersonsQueryHandler>();
 
         return services;
     }

@@ -12,24 +12,30 @@ using eRaven.Application.Queries.Timesheets;
 
 namespace eRaven.Application.Handlers.Timesheets;
 
+/// <summary>
+/// Хендлер повернення політики кодів закріплених за певним кодом.
+/// </summary>
 public sealed class GetTimesheetPolicyForCodeQueryHandler(
     ITimesheetPolicyRepository repo)
     : IQueryHandler<GetTimesheetPolicyForCodeQuery, TimesheetPolicyEditorDto?>
 {
     private readonly ITimesheetPolicyRepository _repo = repo;
 
+    ///  <inheritdoc/>
     public async Task<TimesheetPolicyEditorDto?> HandleAsync(
         GetTimesheetPolicyForCodeQuery query,
         CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(query);
+
         if (query.CodeId == Guid.Empty)
-            throw new ArgumentException("CodeId is required.", nameof(query.CodeId));
+            throw new InvalidOperationException("CodeId обов'язковий.");
 
         var code = await _repo.GetCodeByIdAsync(query.CodeId, ct);
         if (code is null)
             return null;
 
-        var transitions = await _repo.GetAllowedTransitionsAsync(query.CodeId, ct);
+        var transitions = await _repo.GetAllowedCodesAsync(query.CodeId, ct);
 
         return new TimesheetPolicyEditorDto(
             Code: new TimesheetCodeDto(
@@ -40,7 +46,9 @@ public sealed class GetTimesheetPolicyForCodeQueryHandler(
                 code.SortOrder,
                 code.Priority,
                 code.IsTerminal,
-                code.IsActive),
+                code.IsActive,
+                code.RoleCode,
+                code.UiStyle),
             AllowedTransitions: [.. transitions
             .Select(t => new TimesheetTransitionSpecDto(t.ToCodeId, t.StartShiftDays))]
         );

@@ -2,12 +2,15 @@
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// GetTimesheetPolicyCodesQuery
+// TimesheetDerivedCodes
 //-----------------------------------------------------------------------------
 
-namespace eRaven.Application.Queries.Timesheets;
+namespace eRaven.Domain.Consts;
 
-/// <summary>
-/// Запит для отримання списку дозвільних кодів.
-/// </summary>
-public sealed record GetTimesheetPolicyCodesQuery(bool IncludeInactive = false);
+public static class TimesheetDerivedCodes
+{
+    /// <summary>
+    /// "НБ" — derived стан: поза табелем/порожньо. Не є code definition і не може бути подією.
+    /// </summary>
+    public const string NotInTimesheet = "НБ";
+}
