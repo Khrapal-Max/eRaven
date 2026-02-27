@@ -8,11 +8,11 @@
 using Bunit;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Timesheets;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Timesheets.Policy;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheets;
 using eRaven.Components.Pages.Timesheets.Policy;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -45,9 +45,9 @@ public sealed class TimesheetPolicyConfiguratorTests : BunitContext
     [Fact]
     public void Render_ShowsAllRequiredControlsForWork()
     {
-        var a = new TimesheetCodeDto(Guid.NewGuid(), "30", "Готовність", null, 10, 1, false, true, RoleCode.TransitionCode, TimesheetUiStyle.Ready);
-        var b = new TimesheetCodeDto(Guid.NewGuid(), "Т", "Перехід", null, 20, 1, false, true, RoleCode.TransitionCode, TimesheetUiStyle.Warning);
-        var c = new TimesheetCodeDto(Guid.NewGuid(), "Ф100", "Форс-мажор", null, 30, 10, false, true, RoleCode.EmergencyCode, TimesheetUiStyle.Danger);
+        var a = new TimesheetCodeDto(Guid.NewGuid(), "30", "Готовність", null, 10, 1, false, true, RoleCodeDto.TransitionCode, TimesheetUiStyleDto.Ready);
+        var b = new TimesheetCodeDto(Guid.NewGuid(), "Т", "Перехід", null, 20, 1, false, true, RoleCodeDto.TransitionCode, TimesheetUiStyleDto.Warning);
+        var c = new TimesheetCodeDto(Guid.NewGuid(), "Ф100", "Форс-мажор", null, 30, 10, false, true, RoleCodeDto.EmergencyCode, TimesheetUiStyleDto.Danger);
 
         var codes = (IReadOnlyList<TimesheetCodeDto>)[a, b, c];
 
@@ -107,8 +107,8 @@ public sealed class TimesheetPolicyConfiguratorTests : BunitContext
     [Fact]
     public void InjectedHandlers_AreUsed_OnSelectAndSave()
     {
-        var a = new TimesheetCodeDto(Guid.NewGuid(), "30", "Готовність", null, 10, 1, false, true, RoleCode.TransitionCode, TimesheetUiStyle.Ready);
-        var b = new TimesheetCodeDto(Guid.NewGuid(), "Т", "Перехід", null, 20, 1, false, true, RoleCode.TransitionCode, TimesheetUiStyle.Warning);
+        var a = new TimesheetCodeDto(Guid.NewGuid(), "30", "Готовність", null, 10, 1, false, true, RoleCodeDto.TransitionCode, TimesheetUiStyleDto.Ready);
+        var b = new TimesheetCodeDto(Guid.NewGuid(), "Т", "Перехід", null, 20, 1, false, true, RoleCodeDto.TransitionCode, TimesheetUiStyleDto.Warning);
 
         var codes = (IReadOnlyList<TimesheetCodeDto>)[a, b];
 

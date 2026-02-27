@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Abstractions.PersonRepository;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Excel;
 using eRaven.Application.DTOs.Person;
 using eRaven.Domain;
@@ -409,9 +410,17 @@ public sealed class PersonRepository(
         if (string.IsNullOrWhiteSpace(row.Rank)) throw new ArgumentException("rank is required.");
         if (string.IsNullOrWhiteSpace(row.Position)) throw new ArgumentException("Position is required.");
         if (string.IsNullOrWhiteSpace(row.Reason)) throw new ArgumentException("Reason is required.");
+        var domainKind = row.Kind switch
+        {
+            EnrollmentKindDto.Unit => EnrollmentKind.Unit,
+            EnrollmentKindDto.AttachedByOrder => EnrollmentKind.AttachedByOrder,
+            EnrollmentKindDto.AttachedByList => EnrollmentKind.AttachedByList,
+            _ => EnrollmentKind.Unit
+        };
+
 
         // rule: non-Unit => 9999
-        var positionSort = row.Kind == EnrollmentKind.Unit
+        var positionSort = domainKind == EnrollmentKind.Unit
             ? row.PositionSort
             : 9999;
 
@@ -433,7 +442,7 @@ public sealed class PersonRepository(
             nowUtc: nowUtc);
 
         agg.Enroll(
-            kind: row.Kind,
+            kind: domainKind,
             reference: string.IsNullOrWhiteSpace(row.Reference) ? null : row.Reference.Trim(),
             reason: row.Reason.Trim(),
             enrollDate: row.EnrollDate,

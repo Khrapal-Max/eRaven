@@ -6,10 +6,10 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Catalogs.Ranks;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
-using eRaven.Domain.Enums;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 
@@ -47,8 +47,8 @@ public partial class EnrollDrawer : ComponentBase
     // коли юзер вводив PositionSort у Unit, а потім перемикав Kind
     private int? _unitPositionSortBackup;
 
-    private static readonly EnrollmentKind[] _kinds = Enum.GetValues<EnrollmentKind>();
-    private bool IsUnitKind => Model.Kind == EnrollmentKind.Unit;
+    private static readonly EnrollmentKindDto[] _kinds = Enum.GetValues<EnrollmentKindDto>();
+    private bool IsUnitKind => Model.Kind == EnrollmentKindDto.Unit;
 
     private IReadOnlyDictionary<string, object>? SubmitAttrs =>
         (_busy || _loading || _person is null)
@@ -99,7 +99,7 @@ public partial class EnrollDrawer : ComponentBase
                 return;
 
             Model.Id = _person.Id;
-            Model.Kind = EnrollmentKind.Unit;
+            Model.Kind = EnrollmentKindDto.Unit;
             Model.Reference = _person.EnrollmentReference;
             Model.EnrollDate = DateOnly.FromDateTime(DateTime.Now);
 
@@ -136,7 +136,7 @@ public partial class EnrollDrawer : ComponentBase
     // =========================
     private void OnKindAfterChanged()
     {
-        if (Model.Kind != EnrollmentKind.Unit)
+        if (Model.Kind != EnrollmentKindDto.Unit)
         {
             if (Model.PositionSort is > 0 and not 9999)
                 _unitPositionSortBackup = Model.PositionSort;
@@ -171,7 +171,7 @@ public partial class EnrollDrawer : ComponentBase
             Model.Rank = TrimOrEmpty(Model.Rank);
             Model.Position = TrimOrEmpty(Model.Position);
 
-            if (Model.Kind != EnrollmentKind.Unit)
+            if (Model.Kind != EnrollmentKindDto.Unit)
                 Model.PositionSort = 9999;
 
             if (OnSubmit.HasDelegate)
@@ -221,11 +221,12 @@ public partial class EnrollDrawer : ComponentBase
     private static string TrimOrEmpty(string? s) => (s ?? string.Empty).Trim();
     private static string? TrimOrNull(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
-    private static string KindTitle(EnrollmentKind k) => k switch
+    private static string KindTitle(EnrollmentKindDto k) => k switch
     {
-        EnrollmentKind.Unit => "У штат (Unit)",
-        EnrollmentKind.AttachedByOrder => "Приряджений БР",
-        EnrollmentKind.AttachedByList => "Приряджений наказом",
+        EnrollmentKindDto.Unit => "У штат (Unit)",
+        EnrollmentKindDto.AttachedByOrder => "Приряджений БР",
+        EnrollmentKindDto.AttachedByList => "Приряджений наказом",
+        EnrollmentKindDto.Unknown => "—",
         _ => k.ToString()
     };
 }

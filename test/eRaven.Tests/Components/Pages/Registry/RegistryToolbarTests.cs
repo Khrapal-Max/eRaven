@@ -6,9 +6,9 @@
 //-----------------------------------------------------------------------------
 
 using Bunit;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Components.Pages.Persons.Registry;
-using eRaven.Domain.Enums;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
@@ -84,7 +84,7 @@ public sealed class RegistryToolbarTests : BunitContext
         {
             var cut = Render<RegistryToolbar>(ps => ps.Add(p => p.Value, new PersonsRegistryFilters(
                 Search: "x",
-                Lifecycle: PersonLifecycle.Enrolled,
+                Lifecycle: PersonLifecycleDto.Enrolled,
                 EnrollmentKind: null
             )));
 
@@ -113,7 +113,7 @@ public sealed class RegistryToolbarTests : BunitContext
         cut.WaitForAssertion(() =>
         {
             Assert.NotNull(got);
-            Assert.Equal(PersonLifecycle.Enrolled, got!.Lifecycle);
+            Assert.Equal(PersonLifecycleDto.Enrolled, got!.Lifecycle);
         });
     }
 

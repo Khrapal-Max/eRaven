@@ -5,8 +5,8 @@
 // PersonsTable
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
-using eRaven.Domain.Enums;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Persons.Registry;
@@ -49,16 +49,16 @@ public partial class PersonsTable : ComponentBase
     // Badges
     // =========================
 
-    private static RenderFragment LifecycleBadge(PersonLifecycle lifecycle, DateOnly? excludedAt) => builder =>
+    private static RenderFragment LifecycleBadge(PersonLifecycleDto lifecycle, DateOnly? excludedAt) => builder =>
     {
         var (cls, text) = lifecycle switch
         {
-            PersonLifecycle.Enrolled => ("badge bg-success", "В ТАБЕЛІ"),
+            PersonLifecycleDto.Enrolled => ("badge bg-success", "В ТАБЕЛІ"),
 
-            PersonLifecycle.Reserved when excludedAt is null
+            PersonLifecycleDto.Reserved when excludedAt is null
                 => ("badge bg-primary", "РЕЗЕРВ"),
 
-            PersonLifecycle.Reserved
+            PersonLifecycleDto.Reserved
                 => ("badge bg-secondary", "РЕЗЕРВ (ВИКЛ)"),
 
             _ => ("badge text-bg-light", lifecycle.ToString())
@@ -70,9 +70,9 @@ public partial class PersonsTable : ComponentBase
         builder.CloseElement();
     };
 
-    private static RenderFragment EnrollmentKindBadge(EnrollmentKind? kind) => builder =>
+    private static RenderFragment EnrollmentKindBadge(EnrollmentKindDto? kind) => builder =>
     {
-        if (kind is null)
+        if (kind is null || kind.Value == EnrollmentKindDto.Unknown)
         {
             builder.OpenElement(0, "span");
             builder.AddAttribute(1, "class", "text-muted");
@@ -83,9 +83,9 @@ public partial class PersonsTable : ComponentBase
 
         var (text, cls) = kind.Value switch
         {
-            EnrollmentKind.Unit => ("Штат", "badge bg-success"),
-            EnrollmentKind.AttachedByOrder => ("БР", "badge bg-warning text-dark"),
-            EnrollmentKind.AttachedByList => ("Наказ", "badge text-bg-info"),
+            EnrollmentKindDto.Unit => ("Штат", "badge bg-success"),
+            EnrollmentKindDto.AttachedByOrder => ("БР", "badge bg-warning text-dark"),
+            EnrollmentKindDto.AttachedByList => ("Наказ", "badge text-bg-info"),
             _ => (kind.Value.ToString(), "badge text-bg-secondary")
         };
 

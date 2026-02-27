@@ -10,12 +10,12 @@ using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
 using eRaven.Application.Commands.PersonMove;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
 using eRaven.Components.Pages.Persons.Registry;
 using eRaven.Components.Pages.Persons.Registry.Drawers;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,7 +25,7 @@ namespace eRaven.Tests.Components.Pages.Registry;
 
 public sealed class PersonsRegistryTests : BunitContext
 {
-    private static PersonListItemDto Row(Guid id, PersonLifecycle lc)
+    private static PersonListItemDto Row(Guid id, PersonLifecycleDto lc)
         => new(
             Id: id,
             FullName: "Ivanov Ivan",
@@ -35,12 +35,12 @@ public sealed class PersonsRegistryTests : BunitContext
             PositionSort: 10,
             Position: "Стрілець",
             EnrollmentKind: null,
-            EnrolledAt: lc == PersonLifecycle.Enrolled ? new DateOnly(2026, 01, 10) : null,
+            EnrolledAt: lc == PersonLifecycleDto.Enrolled ? new DateOnly(2026, 01, 10) : null,
             ExcludedAt: null,
             UpdatedAtUtc: new DateTime(2026, 01, 07, 12, 0, 0, DateTimeKind.Utc)
         );
 
-    private static PersonDetailsDto Details(Guid id, PersonLifecycle lc)
+    private static PersonDetailsDto Details(Guid id, PersonLifecycleDto lc)
         => new(
             Id: id,
             Lifecycle: lc,
@@ -57,7 +57,7 @@ public sealed class PersonsRegistryTests : BunitContext
             Bzvp: null,
             Weapon: null,
             Callsign: null,
-            EnrolledAt: lc == PersonLifecycle.Enrolled ? new DateOnly(2026, 01, 10) : null,
+            EnrolledAt: lc == PersonLifecycleDto.Enrolled ? new DateOnly(2026, 01, 10) : null,
             ExcludedAt: null,
             Version: 1,
             UpdatedAtUtc: new DateTime(2026, 01, 07, 12, 0, 0, DateTimeKind.Utc)
@@ -231,7 +231,7 @@ public sealed class PersonsRegistryTests : BunitContext
 
                 var total = 21; // 3 pages with pageSize 10
                 var id = Guid.NewGuid();
-                var items = new List<PersonListItemDto> { Row(id, PersonLifecycle.Reserved) };
+                var items = new List<PersonListItemDto> { Row(id, PersonLifecycleDto.Reserved) };
                 return new PagedResult<PersonListItemDto>(items, q.Page, q.PageSize, total);
             },
             detailsResolver: _ => null);
@@ -263,7 +263,7 @@ public sealed class PersonsRegistryTests : BunitContext
     {
         var id = Guid.NewGuid();
         _ = RegisterCommonServices(
-            pageResolver: _ => new PagedResult<PersonListItemDto>([Row(id, PersonLifecycle.Reserved)], 1, 10, 1),
+            pageResolver: _ => new PagedResult<PersonListItemDto>([Row(id, PersonLifecycleDto.Reserved)], 1, 10, 1),
             detailsResolver: _ => null);
 
         var nav = Services.GetRequiredService<NavigationManager>();
@@ -284,8 +284,8 @@ public sealed class PersonsRegistryTests : BunitContext
         var id = Guid.NewGuid();
 
         var setup = RegisterCommonServices(
-            pageResolver: _ => new PagedResult<PersonListItemDto>([Row(id, PersonLifecycle.Reserved)], 1, 10, 1),
-            detailsResolver: q => Details(q.PersonId, PersonLifecycle.Reserved));
+            pageResolver: _ => new PagedResult<PersonListItemDto>([Row(id, PersonLifecycleDto.Reserved)], 1, 10, 1),
+            detailsResolver: q => Details(q.PersonId, PersonLifecycleDto.Reserved));
 
         var cut = Render<PersonsRegistry>();
 
@@ -308,8 +308,8 @@ public sealed class PersonsRegistryTests : BunitContext
         var id = Guid.NewGuid();
 
         var setup = RegisterCommonServices(
-            pageResolver: _ => new PagedResult<PersonListItemDto>([Row(id, PersonLifecycle.Enrolled)], 1, 10, 1),
-            detailsResolver: q => Details(q.PersonId, PersonLifecycle.Enrolled));
+            pageResolver: _ => new PagedResult<PersonListItemDto>([Row(id, PersonLifecycleDto.Enrolled)], 1, 10, 1),
+            detailsResolver: q => Details(q.PersonId, PersonLifecycleDto.Enrolled));
 
         var cut = Render<PersonsRegistry>();
 
@@ -337,11 +337,11 @@ public sealed class PersonsRegistryTests : BunitContext
                 calls++;
                 return calls switch
                 {
-                    1 => new PagedResult<PersonListItemDto>([Row(id, PersonLifecycle.Reserved)], 1, 10, 1),
-                    _ => new PagedResult<PersonListItemDto>([Row(id, PersonLifecycle.Enrolled) with { EnrollmentKind = EnrollmentKind.Unit }], 1, 10, 1)
+                    1 => new PagedResult<PersonListItemDto>([Row(id, PersonLifecycleDto.Reserved)], 1, 10, 1),
+                    _ => new PagedResult<PersonListItemDto>([Row(id, PersonLifecycleDto.Enrolled) with { EnrollmentKind = EnrollmentKindDto.Unit }], 1, 10, 1)
                 };
             },
-            detailsResolver: q => Details(q.PersonId, PersonLifecycle.Reserved));
+            detailsResolver: q => Details(q.PersonId, PersonLifecycleDto.Reserved));
 
         ToastMessage? toast = null;
         setup.Toasts.OnShow += m => toast = m;
@@ -353,7 +353,7 @@ public sealed class PersonsRegistryTests : BunitContext
         var dto = new EnrollDto
         {
             Id = id,
-            Kind = EnrollmentKind.Unit,
+            Kind = EnrollmentKindDto.Unit,
             Reference = "REF",
             Reason = "Тест",
             EnrollDate = new DateOnly(2026, 01, 11),
@@ -384,7 +384,7 @@ public sealed class PersonsRegistryTests : BunitContext
         {
             var table = cut.FindComponent<PersonsTable>();
             Assert.NotNull(table.Instance.Selected);
-            Assert.Equal(PersonLifecycle.Enrolled, table.Instance.Selected!.Lifecycle);
+            Assert.Equal(PersonLifecycleDto.Enrolled, table.Instance.Selected!.Lifecycle);
         });
 
         Assert.NotNull(toast);
@@ -404,11 +404,11 @@ public sealed class PersonsRegistryTests : BunitContext
                 calls++;
                 return calls switch
                 {
-                    1 => new PagedResult<PersonListItemDto>([Row(id, PersonLifecycle.Enrolled)], 1, 10, 1),
-                    _ => new PagedResult<PersonListItemDto>([Row(id, PersonLifecycle.Reserved) with { ExcludedAt = new DateOnly(2026, 01, 12) }], 1, 10, 1)
+                    1 => new PagedResult<PersonListItemDto>([Row(id, PersonLifecycleDto.Enrolled)], 1, 10, 1),
+                    _ => new PagedResult<PersonListItemDto>([Row(id, PersonLifecycleDto.Reserved) with { ExcludedAt = new DateOnly(2026, 01, 12) }], 1, 10, 1)
                 };
             },
-            detailsResolver: q => Details(q.PersonId, PersonLifecycle.Enrolled));
+            detailsResolver: q => Details(q.PersonId, PersonLifecycleDto.Enrolled));
 
         ToastMessage? toast = null;
         setup.Toasts.OnShow += m => toast = m;
@@ -441,7 +441,7 @@ public sealed class PersonsRegistryTests : BunitContext
         {
             var table = cut.FindComponent<PersonsTable>();
             Assert.NotNull(table.Instance.Selected);
-            Assert.Equal(PersonLifecycle.Reserved, table.Instance.Selected!.Lifecycle);
+            Assert.Equal(PersonLifecycleDto.Reserved, table.Instance.Selected!.Lifecycle);
         });
 
         Assert.NotNull(toast);

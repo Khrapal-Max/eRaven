@@ -7,7 +7,7 @@
 
 namespace eRaven.Application.DTOs.Timesheets.Policy;
 
-using eRaven.Domain.Enums;
+using eRaven.Application.DTOs.Enums;
 
 /// <summary>
 /// Запис кода табеля обліку часу
@@ -21,6 +21,5 @@ public sealed record TimesheetCodeDto(
     int Priority,
     bool IsTerminal,
     bool IsActive,
-    RoleCode RoleCode,
-    TimesheetUiStyle UiStyle
-);
+    RoleCodeDto RoleCode,
+    TimesheetUiStyleDto UiStyle);

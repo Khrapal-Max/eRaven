@@ -5,12 +5,13 @@
 // EnrollCommand
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+using eRaven.Application.DTOs.Enums;
 
 namespace eRaven.Application.Commands.PersonMove;
 
-public sealed record EnrollCommand(Guid PersonId,
-    EnrollmentKind Kind,
+public sealed record EnrollCommand(
+    Guid PersonId,
+    EnrollmentKindDto Kind,
     string? Reference,
     string Reason,
     DateOnly EnrollDate,

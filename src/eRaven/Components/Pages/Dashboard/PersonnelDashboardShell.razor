@@ -1,6 +1,6 @@
 ﻿@page "/dashboard"
 
-@using eRaven.Domain.Enums
+@using eRaven.Application.DTOs.Enums
 
 <PageTitle>Доска обліку</PageTitle>
 
@@ -31,21 +31,21 @@
                     <StatusSliceCard Count="_data.TimesheetUnit"
                                      Hint="В табелі: штат"
                                      BadgeClass="text-bg-success"
-                                     OnClick="@(() => GoToRegistryTimesheetKind(EnrollmentKind.Unit))" />
+                                     OnClick="@(() => GoToRegistryTimesheetKind(EnrollmentKindDto.Unit))" />
                 </div>
 
                 <div class="col-12 col-md-6 col-xl-3">
                     <StatusSliceCard Count="_data.TimesheetOrder"
                                      Hint="В табелі: по наказу"
                                      BadgeClass="text-bg-warning"
-                                     OnClick="@(() => GoToRegistryTimesheetKind(EnrollmentKind.AttachedByList))" />
+                                     OnClick="@(() => GoToRegistryTimesheetKind(EnrollmentKindDto.AttachedByList))" />
                 </div>
 
                 <div class="col-12 col-md-6 col-xl-3">
                     <StatusSliceCard Count="_data.TimesheetBr"
                                      Hint="В табелі: по БР"
                                      BadgeClass="text-bg-warning"
-                                     OnClick="@(() => GoToRegistryTimesheetKind(EnrollmentKind.AttachedByOrder))" />
+                                     OnClick="@(() => GoToRegistryTimesheetKind(EnrollmentKindDto.AttachedByOrder))" />
                 </div>
             </div>
         }

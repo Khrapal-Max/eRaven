@@ -15,10 +15,10 @@
 
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Timesheets;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Timesheets.Policy;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheets;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 
@@ -96,13 +96,12 @@ public partial class TimesheetPolicyConfigurator : ComponentBase
     }
 
     private void RebuildGlobalCodes()
-        => _globalCodeIds = _codes
+        => _globalCodeIds = [.. _codes
             .Where(IsGlobalCode)
-            .Select(x => x.Id)
-            .ToHashSet();
+            .Select(x => x.Id)];
 
     private static bool IsGlobalCode(TimesheetCodeDto code)
-        => code.RoleCode == RoleCode.EmergencyCode;
+        => code.RoleCode == RoleCodeDto.EmergencyCode;
 
     //======================================================================
     // Selection

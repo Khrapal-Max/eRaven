@@ -5,7 +5,7 @@
 // CreateMissionCommand
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+using eRaven.Application.DTOs.Enums;
 
 namespace eRaven.Application.Commands.Missions;
 
@@ -17,7 +17,6 @@ public sealed record CreateMissionCommand(
     string PositionArea,
     string? NamePoint,
     string Target,
-    MissionMode MissionMode,
+    MissionModeDto MissionMode,
     string? DroneName,
-    DateTime TodayLocal
-);
+    DateTime TodayLocal);

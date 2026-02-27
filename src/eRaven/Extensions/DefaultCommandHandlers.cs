@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Commands;
+using eRaven.Application.Commands.Excel;
 using eRaven.Application.Commands.Missions;
 using eRaven.Application.Commands.PersonInfo;
 using eRaven.Application.Commands.PersonMove;
@@ -21,10 +22,11 @@ public static class DefaultCommandHandlers
     public static IServiceCollection AddRegistredCommandHandlers(this IServiceCollection services)
     {
         // Persons
-        /*  services.AddScoped<ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult>, BootstrapPersonsCommandHandler>();*/
+        services.AddScoped<ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult>, BootstrapPersonsCommandHandler>();
+
         services.AddScoped<ICommandHandler<CreateReservedCommand, Guid>, CreateReservedCommandHandler>();
-        /*  services.AddScoped<ICommandHandler<EnrollCommand>, EnrollCommandHandler>();
-          services.AddScoped<ICommandHandler<ExcludeCommand>, ExcludeCommandHandler>();*/
+        services.AddScoped<ICommandHandler<EnrollCommand>, EnrollCommandHandler>();
+        services.AddScoped<ICommandHandler<ExcludeCommand>, ExcludeCommandHandler>();
 
         services.AddScoped<ICommandHandler<UpdatePersonalInfoCommand>, UpdatePersonalInfoCommandHandler>();
         services.AddScoped<ICommandHandler<ChangeRankCommand>, ChangeRankCommandHandler>();
@@ -42,6 +44,9 @@ public static class DefaultCommandHandlers
         services.AddScoped<ICommandHandler<AddTimesheetCodeCommand, Guid>, AddTimesheetCodeCommandHandler>();
         services.AddScoped<ICommandHandler<CloseTimesheetCodeCommand>, CloseTimesheetCodeCommandHandler>();
         services.AddScoped<ICommandHandler<SaveTimesheetPolicyCommand>, SaveTimesheetPolicyCommandHandler>();
+
+        // Timesheet
+        services.AddScoped<ICommandHandler<TransitionTimesheetStateCommand, Guid>, TransitionTimesheetStateCommandHandler>();
 
         return services;
     }

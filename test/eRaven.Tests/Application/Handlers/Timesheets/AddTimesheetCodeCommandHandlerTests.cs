@@ -7,6 +7,7 @@
 
 using eRaven.Application.Abstractions.TimesheetPolicyRepository;
 using eRaven.Application.Commands.Timesheets;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.Handlers.Timesheets;
 using eRaven.Domain.Enums;
 using Moq;
@@ -31,8 +32,8 @@ public sealed class AddTimesheetCodeCommandHandlerTests
             SortOrder: 10,
             Priority: 20,
             IsTerminal: false,
-            RoleCode: RoleCode.TransitionCode,
-            UiStyle: TimesheetUiStyle.Ready,
+            RoleCode: RoleCodeDto.TransitionCode,
+            UiStyle: TimesheetUiStyleDto.Ready,
             Author: "tester",
             NowUtc: nowUtc);
 
@@ -44,8 +45,8 @@ public sealed class AddTimesheetCodeCommandHandlerTests
                 command.SortOrder,
                 command.Priority,
                 command.IsTerminal,
-                command.RoleCode,
-                command.UiStyle,
+                RoleCode.TransitionCode,
+                TimesheetUiStyle.Ready,
                 command.Author,
                 command.NowUtc,
                 It.IsAny<CancellationToken>()))

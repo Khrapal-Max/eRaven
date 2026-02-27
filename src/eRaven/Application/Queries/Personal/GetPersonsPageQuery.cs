@@ -5,7 +5,7 @@
 // GetPersonsPageQuery
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+using eRaven.Application.DTOs.Enums;
 
 namespace eRaven.Application.Queries.Personal;
 
@@ -14,5 +14,5 @@ public sealed record GetPersonsPageQuery(
     int PageSize = 25,
     string? Search = null,
     DateOnly? AsOfDate = null,
-    PersonLifecycle? Lifecycle = null,
-    EnrollmentKind? EnrollmentKind = null);
+    PersonLifecycleDto? Lifecycle = null,
+    EnrollmentKindDto? EnrollmentKind = null);

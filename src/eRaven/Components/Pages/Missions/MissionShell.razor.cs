@@ -5,10 +5,10 @@
 // MissionShell
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Missions;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Missions;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 
@@ -28,7 +28,7 @@ public partial class MissionShell : ComponentBase
     private bool _loading;
     private bool _isActiveMission = true; // зазвичай стартуємо з активних
     private string? _search;
-    private MissionMode? _mode;
+    private MissionModeDto? _mode;
 
     private bool _createOpen;
     private bool _closeOpen;
@@ -89,7 +89,7 @@ public partial class MissionShell : ComponentBase
     private async Task OnModeChanged(ChangeEventArgs e)
     {
         var raw = Convert.ToString(e.Value) ?? "";
-        if (Enum.TryParse<MissionMode>(raw, out var mode))
+        if (Enum.TryParse<MissionModeDto>(raw, out var mode))
         {
             _mode = mode;
         }
@@ -129,12 +129,12 @@ public partial class MissionShell : ComponentBase
     //=======================
     // Helpers
     //=======================
-    private static string GetMissionMode(MissionMode mode)
+    private static string GetMissionMode(MissionModeDto mode)
        => mode switch
        {
-           MissionMode.Day => "День",
-           MissionMode.Night => "Ніч",
-           MissionMode.FullTime => "Цілодобово",
+           MissionModeDto.Day => "День",
+           MissionModeDto.Night => "Ніч",
+           MissionModeDto.FullTime => "Цілодобово",
            _ => "Всі види"
        };
 }

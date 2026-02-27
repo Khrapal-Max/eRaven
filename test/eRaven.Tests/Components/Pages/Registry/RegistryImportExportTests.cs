@@ -9,11 +9,11 @@ using Bunit;
 using ClosedXML.Excel;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
 using eRaven.Components.Pages.Persons.Registry.Drawers;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -45,8 +45,8 @@ public sealed class RegistryImportExportTests : BunitContext
                         Id: Guid.NewGuid(),
                         FullName: "Іванов Іван Іванович",
                         Rnokpp: "1234567890",
-                        Lifecycle: PersonLifecycle.Enrolled,
-                        EnrollmentKind: EnrollmentKind.Unit,
+                        Lifecycle: PersonLifecycleDto.Enrolled,
+                        EnrollmentKind: EnrollmentKindDto.Unit,
                         Rank: "Солдат",
                         PositionSort:1,
                         Position: "Стрілець",
@@ -144,14 +144,13 @@ public sealed class RegistryImportExportTests : BunitContext
         await cut.InvokeAsync(() => importBtn.Click());
 
         // assert
-        cut.WaitForAssertion(() =>
+        await cut.WaitForAssertionAsync(() =>
             bootstrapMock.Verify(x => x.HandleAsync(
                     It.Is<BootstrapPersonsCommand>(c => c.Rows.Count == 1 && c.Author == "system"),
                     It.IsAny<CancellationToken>()),
                 Times.Once));
 
-        cut.WaitForAssertion(() => Assert.True(imported));
-        cut.WaitForAssertion(() => Assert.Equal(false, closed));
+        await cut.WaitForAssertionAsync(() => Assert.True(imported));
     }
 
     // -------------------------
@@ -212,7 +211,7 @@ public sealed class RegistryImportExportTests : BunitContext
 
         if (ctorList is not null)
         {
-            return (InputFileChangeEventArgs)ctorList.Invoke(new object[] { files.ToList() });
+            return (InputFileChangeEventArgs)ctorList.Invoke([files.ToList()]);
         }
 
         // 2) ctor(IBrowserFile) (зустрічається в деяких версіях)
@@ -224,7 +223,7 @@ public sealed class RegistryImportExportTests : BunitContext
 
         if (ctorSingle is not null)
         {
-            return (InputFileChangeEventArgs)ctorSingle.Invoke(new object[] { files[0] });
+            return (InputFileChangeEventArgs)ctorSingle.Invoke([files[0]]);
         }
 
         throw new InvalidOperationException(

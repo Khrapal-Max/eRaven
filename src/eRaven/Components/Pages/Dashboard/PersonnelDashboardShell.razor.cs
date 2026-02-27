@@ -6,9 +6,9 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs.Dashboard;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Dashboard;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 
@@ -16,13 +16,22 @@ namespace eRaven.Components.Pages.Dashboard;
 
 public partial class PersonnelDashboardShell : ComponentBase
 {
+    //===================================
+    // DI
+    //===================================
     [Inject] public IQueryHandler<GetPersonnelDashboardQuery, PersonnelDashboardDto> DashboardQuery { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
     [Inject] public ToastService ToastService { get; set; } = default!;
 
+    //===================================
+    // State
+    //===================================
     private bool _loading;
     private PersonnelDashboardDto? _data;
 
+    //===================================
+    // Lifestyle
+    //===================================
     protected override async Task OnInitializedAsync()
     {
         await ReloadAsync();
@@ -47,8 +56,8 @@ public partial class PersonnelDashboardShell : ComponentBase
     }
 
     private void GoToRegistryTimesheetTotal()
-        => Nav.NavigateTo($"/persons?lifecycle={PersonLifecycle.Enrolled}");
+        => Nav.NavigateTo($"/persons?lifecycle={PersonLifecycleDto.Enrolled}");
 
-    private void GoToRegistryTimesheetKind(EnrollmentKind kind)
-        => Nav.NavigateTo($"/persons?lifecycle={PersonLifecycle.Enrolled}&enrollmentKind={kind}");
+    private void GoToRegistryTimesheetKind(EnrollmentKindDto kind)
+        => Nav.NavigateTo($"/persons?lifecycle={PersonLifecycleDto.Enrolled}&enrollmentKind={kind}");
 }

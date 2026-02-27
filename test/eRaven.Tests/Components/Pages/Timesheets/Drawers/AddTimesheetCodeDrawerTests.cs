@@ -8,6 +8,7 @@
 using Bunit;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Timesheets;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Timesheets.Policy;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheets;
@@ -117,8 +118,8 @@ public sealed class AddTimesheetCodeDrawerTests : BunitContext
                     cmd.Title == "Легкий хід" &&
                     cmd.SortOrder == 5 &&
                     cmd.Priority == 2 &&
-                    cmd.RoleCode == RoleCode.TransitionCode &&
-                    cmd.UiStyle == TimesheetUiStyle.Warning
+                    cmd.RoleCode == RoleCodeDto.TransitionCode &&
+                    cmd.UiStyle == TimesheetUiStyleDto.Warning
                 ),
                 It.IsAny<CancellationToken>()
             ), Times.Once);

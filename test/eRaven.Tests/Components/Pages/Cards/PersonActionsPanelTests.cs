@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using Bunit;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Components.Pages.Persons.Cards;
 using Microsoft.AspNetCore.Components;
@@ -16,8 +17,8 @@ public sealed class PersonActionsPanelTests : BunitContext
 {
     private static PersonDetailsDto Person() => new(
         Id: Guid.NewGuid(),
-        Lifecycle: eRaven.Domain.Enums.PersonLifecycle.Enrolled,
-        EnrollmentKind: eRaven.Domain.Enums.EnrollmentKind.Unit,
+        Lifecycle: PersonLifecycleDto.Enrolled,
+        EnrollmentKind: EnrollmentKindDto.Unit,
         EnrollmentReference: "A",
         Rnokpp: "1234567890",
         LastName: "Іванов",

@@ -6,9 +6,9 @@
 //-----------------------------------------------------------------------------
 
 using Bunit;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Components.Pages.Persons.Cards;
-using eRaven.Domain.Enums;
 
 namespace eRaven.Tests.Components.Pages.Cards;
 
@@ -19,7 +19,7 @@ public class PersonSnapshotPanelTests : BunitContext
     // -------------------------
 
     private static PersonDetailsDto CreatePerson(
-        PersonLifecycle lifecycle = PersonLifecycle.Reserved,
+        PersonLifecycleDto lifecycle = PersonLifecycleDto.Reserved,
         string? rank = "Солдат",
         string? position = "Стрілець",
         string? bzvp = "ВОС",
@@ -55,7 +55,7 @@ public class PersonSnapshotPanelTests : BunitContext
     {
         // arrange
         var person = CreatePerson(
-            lifecycle: PersonLifecycle.Enrolled,
+            lifecycle: PersonLifecycleDto.Enrolled,
             rank: "Сержант",
             position: "Стрілець",
             bzvp: "ВОС 123",
@@ -101,9 +101,9 @@ public class PersonSnapshotPanelTests : BunitContext
     }
 
     [Theory]
-    [InlineData(PersonLifecycle.Reserved, "резерв")]
-    [InlineData(PersonLifecycle.Enrolled, "В табелі")]
-    public void Render_should_show_lifecycle_text(PersonLifecycle lifecycle, string expected)
+    [InlineData(PersonLifecycleDto.Reserved, "резерв")]
+    [InlineData(PersonLifecycleDto.Enrolled, "В табелі")]
+    public void Render_should_show_lifecycle_text(PersonLifecycleDto lifecycle, string expected)
     {
         // arrange
         var person = CreatePerson(lifecycle: lifecycle);

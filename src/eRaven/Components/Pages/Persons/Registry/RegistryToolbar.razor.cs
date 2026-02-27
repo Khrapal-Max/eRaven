@@ -5,8 +5,8 @@
 // RegistryToolbar
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
-using eRaven.Domain.Enums;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
@@ -35,8 +35,8 @@ public partial class RegistryToolbar : ComponentBase, IDisposable
         => active ? "btn btn-sm btn-primary rounded-0"
                   : "btn btn-sm btn-outline-secondary rounded-0";
 
-    private bool IsLifecycle(PersonLifecycle? lc) => Value.Lifecycle == lc;
-    private bool IsKind(EnrollmentKind? k) => Value.EnrollmentKind == k;
+    private bool IsLifecycle(PersonLifecycleDto? lc) => Value.Lifecycle == lc;
+    private bool IsKind(EnrollmentKindDto? k) => Value.EnrollmentKind == k;
 
     protected override void OnInitialized()
     {
@@ -59,10 +59,10 @@ public partial class RegistryToolbar : ComponentBase, IDisposable
     private Task HandleCreateClick()
         => OnCreateReserved.HasDelegate ? OnCreateReserved.InvokeAsync() : Task.CompletedTask;
 
-    private Task SetLifecycle(PersonLifecycle? lc)
+    private Task SetLifecycle(PersonLifecycleDto? lc)
         => SetFilters(Value with { Lifecycle = lc });
 
-    private Task SetKind(EnrollmentKind? k)
+    private Task SetKind(EnrollmentKindDto? k)
         => SetFilters(Value with { EnrollmentKind = k });
 
     private Task Reset()

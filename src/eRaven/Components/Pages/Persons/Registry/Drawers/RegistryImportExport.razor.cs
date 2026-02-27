@@ -8,11 +8,11 @@
 using ClosedXML.Excel;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Excel;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Excel;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -26,6 +26,14 @@ public partial class RegistryImportExport : ComponentBase
     private enum Tab { Import, Export }
 
     // =========================
+    // DI
+    // =========================
+    [Inject] public IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>> GetPersonsPageQueryQueryHandler { get; set; } = default!;
+    [Inject] public ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult> BootstrapPersonsCommandHandler { get; set; } = default!;
+    [Inject] public IJSRuntime JS { get; set; } = default!;
+    [Inject] public ToastService ToastService { get; set; } = default!;
+
+    // =========================
     // Parameters
     // =========================
     [Parameter] public bool IsOpen { get; set; }
@@ -33,15 +41,7 @@ public partial class RegistryImportExport : ComponentBase
 
     [Parameter] public PersonsRegistryFilters Filters { get; set; } = new();
     [Parameter] public EventCallback OnImported { get; set; }           // <- тільки “перезавантаж таблицю”
-    [Parameter] public string Author { get; set; } = "system";          // <- TODO: auth user
-
-    // =========================
-    // DI
-    // =========================
-    [Inject] public IQueryHandler<GetPersonsPageQuery, PagedResult<PersonListItemDto>> PersonsPageQuery { get; set; } = default!;
-    [Inject] public ICommandHandler<BootstrapPersonsCommand, BootstrapPersonsResult> BootstrapHandler { get; set; } = default!;
-    [Inject] public IJSRuntime JS { get; set; } = default!;
-    [Inject] public ToastService Toasts { get; set; } = default!;
+    [Parameter] public string Author { get; set; } = "system";          // <- TODO: auth user    
 
     // =========================
     // State
@@ -230,7 +230,7 @@ public partial class RegistryImportExport : ComponentBase
                 continue;
             }
 
-            if (kind != EnrollmentKind.Unit)
+            if (kind != EnrollmentKindDto.Unit)
                 positionSort = 9999;
 
             _rows.Add(new PersonBootstrapRowDto(
@@ -328,13 +328,13 @@ public partial class RegistryImportExport : ComponentBase
         return false;
     }
 
-    private static bool TryParseKind(string raw, out EnrollmentKind kind)
+    private static bool TryParseKind(string raw, out EnrollmentKindDto kind)
     {
         raw = (raw ?? "").Trim();
 
-        if (raw.Equals("Штат", StringComparison.OrdinalIgnoreCase)) { kind = EnrollmentKind.Unit; return true; }
-        if (raw.Equals("БР", StringComparison.OrdinalIgnoreCase)) { kind = EnrollmentKind.AttachedByOrder; return true; }
-        if (raw.Equals("Наказ", StringComparison.OrdinalIgnoreCase)) { kind = EnrollmentKind.AttachedByList; return true; }
+        if (raw.Equals("Штат", StringComparison.OrdinalIgnoreCase)) { kind = EnrollmentKindDto.Unit; return true; }
+        if (raw.Equals("БР", StringComparison.OrdinalIgnoreCase)) { kind = EnrollmentKindDto.AttachedByOrder; return true; }
+        if (raw.Equals("Наказ", StringComparison.OrdinalIgnoreCase)) { kind = EnrollmentKindDto.AttachedByList; return true; }
 
         if (Enum.TryParse(raw, ignoreCase: true, out kind))
             return true;
@@ -353,22 +353,22 @@ public partial class RegistryImportExport : ComponentBase
             var author = string.IsNullOrWhiteSpace(Author) ? "system" : Author.Trim();
             var nowUtc = DateTime.UtcNow;
 
-            _importResult = await BootstrapHandler.HandleAsync(
+            _importResult = await BootstrapPersonsCommandHandler.HandleAsync(
                 new BootstrapPersonsCommand(_rows, author, nowUtc));
 
             if (_importResult.Errors.Count == 0)
             {
-                Toasts.Success($"Імпортовано: {_importResult.CreatedCount}");
-                if (OnImported.HasDelegate) await OnImported.InvokeAsync();
-                await IsOpenChanged.InvokeAsync(false);
-                return;
+                ToastService.Success($"Імпортовано: {_importResult.CreatedCount}");
+            }
+            else
+            {
+                ToastService.Warning(
+               "Імпорт завершено з помилками",
+               $"Створено: {_importResult.CreatedCount}, пропущено: {_importResult.SkippedCount}, помилок: {_importResult.Errors.Count}");
             }
 
-            Toasts.Warning(
-                "Імпорт завершено з помилками",
-                $"Створено: {_importResult.CreatedCount}, пропущено: {_importResult.SkippedCount}, помилок: {_importResult.Errors.Count}");
-
-            if (OnImported.HasDelegate) await OnImported.InvokeAsync();
+            if (OnImported.HasDelegate)
+                await OnImported.InvokeAsync();
         }
         finally
         {
@@ -493,25 +493,25 @@ public partial class RegistryImportExport : ComponentBase
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 ms.ToArray());
 
-            Toasts.Success($"Експортовано: {items.Count}");
+            ToastService.Success($"Експортовано: {items.Count}");
         }
         finally
         {
             _busy = false;
         }
 
-        static string LifecycleUa(PersonLifecycle lc) => lc switch
+        static string LifecycleUa(PersonLifecycleDto lc) => lc switch
         {
-            PersonLifecycle.Reserved => "Резерв",
-            PersonLifecycle.Enrolled => "В табелі",
+            PersonLifecycleDto.Reserved => "Резерв",
+            PersonLifecycleDto.Enrolled => "В табелі",
             _ => lc.ToString()
         };
 
-        static string KindUa(EnrollmentKind? k) => k switch
+        static string KindUa(EnrollmentKindDto? k) => k switch
         {
-            EnrollmentKind.Unit => "Штат",
-            EnrollmentKind.AttachedByOrder => "БР",
-            EnrollmentKind.AttachedByList => "Наказ",
+            EnrollmentKindDto.Unit => "Штат",
+            EnrollmentKindDto.AttachedByOrder => "БР",
+            EnrollmentKindDto.AttachedByList => "Наказ",
             null => "",
             _ => k.ToString()!
         };
@@ -525,7 +525,7 @@ public partial class RegistryImportExport : ComponentBase
 
         while (true)
         {
-            var res = await PersonsPageQuery.HandleAsync(new GetPersonsPageQuery(
+            var res = await GetPersonsPageQueryQueryHandler.HandleAsync(new GetPersonsPageQuery(
                 Page: page,
                 PageSize: size,
                 Search: Filters.Search,

@@ -9,10 +9,12 @@ using eRaven.Application.Abstractions.DashboardRepository;
 using eRaven.Application.Abstractions.MissionRepository;
 using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.Abstractions.TimesheetPolicyRepository;
+using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Infrastructure.Repositories.DashboardRepository;
 using eRaven.Infrastructure.Repositories.MissionRepository;
 using eRaven.Infrastructure.Repositories.PersonRepository;
 using eRaven.Infrastructure.Repositories.TimesheetPolicyRepository;
+using eRaven.Infrastructure.Repositories.TimesheetRepository;
 
 namespace eRaven.Extensions;
 
@@ -33,6 +35,10 @@ public static class DefaultRepository
         services.AddScoped<ITimesheetPolicyRepository, TimesheetPolicyRepository>();
 
         // Timesheet (episode write + view read)
+        services.AddScoped<ITimesheetViewRepository, TimesheetViewRepository>();
+        services.AddScoped<ITimesheetEpisodeRepository, TimesheetEpisodeRepository>();
+        services.AddScoped<ITimesheetEntryQueryRepository, TimesheetEntryQueryRepository>();
+        services.AddScoped<ITimesheetEntryWriterRepository, TimesheetEntryWriterRepository>();
 
         // Missions
         services.AddScoped<IMissionRepository, MissionRepository>();

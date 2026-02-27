@@ -8,9 +8,9 @@
 using Bunit;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Missions;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Missions;
 using eRaven.Components.Pages.Missions.Drawers;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -70,7 +70,7 @@ public sealed class MissionCloseDrawerTests : BunitContext
             PositionArea: "Район-1",
             NamePoint: "Точка-А",
             Target: "Розвідка",
-            MissionMode: MissionMode.Day,
+            MissionMode: MissionModeDto.Day,
             DroneName: "DJI",
             DisplayMisssion: "Район-1 Точка-А Розвідка DJI",
             CreatedAt: new DateOnly(2026, 01, 10),
@@ -120,7 +120,7 @@ public sealed class MissionCloseDrawerTests : BunitContext
             PositionArea: "Район-1",
             NamePoint: "Точка-А",
             Target: "Розвідка",
-            MissionMode: MissionMode.Day,
+            MissionMode: MissionModeDto.Day,
             DroneName: "DJI",
             DisplayMisssion: "Район-1 Точка-А Розвідка DJI",
             CreatedAt: new DateOnly(2026, 01, 01),

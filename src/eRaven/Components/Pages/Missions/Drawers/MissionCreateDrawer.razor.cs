@@ -9,8 +9,8 @@ using eRaven.Application.Catalogs.CombatTasks.Targets;
 using eRaven.Application.Catalogs.CombatTasks.TypeDrones;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Missions;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Missions;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -88,7 +88,7 @@ public partial class MissionCreateDrawer : ComponentBase
             PositionArea = string.Empty,
             NamePoint = null,
             DroneName = null,
-            MissionMode = MissionMode.Day,
+            MissionMode = MissionModeDto.Day,
             Target = string.Empty
         };
 
@@ -156,12 +156,12 @@ public partial class MissionCreateDrawer : ComponentBase
     //=======================
     // Helpers
     //=======================
-    private static string GetMissionMode(MissionMode mode)
+    private static string GetMissionMode(MissionModeDto mode)
        => mode switch
        {
-           MissionMode.Day => "День",
-           MissionMode.Night => "Ніч",
-           MissionMode.FullTime => "Цілодобово",
+           MissionModeDto.Day => "День",
+           MissionModeDto.Night => "Ніч",
+           MissionModeDto.FullTime => "Цілодобово",
            _ => "Всі види"
        };
 }

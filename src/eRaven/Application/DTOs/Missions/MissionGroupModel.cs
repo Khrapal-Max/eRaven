@@ -5,14 +5,14 @@
 // MissionGroupModel
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+using eRaven.Application.DTOs.Enums;
 
 namespace eRaven.Application.DTOs.Missions;
 
 /// <summary>
 /// Форма призначена для показу місій.
 /// </summary>
-public sealed record MissionGroupModel(MissionMode Mode, IReadOnlyList<MissionDto> Items)
+public sealed record MissionGroupModel(MissionModeDto Mode, IReadOnlyList<MissionDto> Items)
 {
     public int Count => Items.Count;
 }

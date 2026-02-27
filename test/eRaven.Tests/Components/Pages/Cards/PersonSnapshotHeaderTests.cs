@@ -6,9 +6,9 @@
 //-----------------------------------------------------------------------------
 
 using Bunit;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Components.Pages.Persons.Cards;
-using eRaven.Domain.Enums;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,10 +17,10 @@ namespace eRaven.Tests.Components.Pages.Persons.Cards;
 public sealed class PersonSnapshotHeaderTests : BunitContext
 {
     [Theory]
-    [InlineData(PersonLifecycle.Reserved, "Резерв", "badge bg-primary")]
-    [InlineData(PersonLifecycle.Enrolled, "В табелі", "badge bg-success")]
+    [InlineData(PersonLifecycleDto.Reserved, "Резерв", "badge bg-primary")]
+    [InlineData(PersonLifecycleDto.Enrolled, "В табелі", "badge bg-success")]
     public void Render_should_show_fullname_rnokpp_lifecycle_badge_and_id(
-        PersonLifecycle lifecycle,
+        PersonLifecycleDto lifecycle,
         string expectedBadgeText,
         string expectedBadgeClass)
     {
@@ -55,7 +55,7 @@ public sealed class PersonSnapshotHeaderTests : BunitContext
     {
         // arrange
         var id = Guid.NewGuid();
-        var person = CreatePerson(PersonLifecycle.Reserved);
+        var person = CreatePerson(PersonLifecycleDto.Reserved);
 
         var cut = Render<PersonSnapshotHeader>(ps =>
         {
@@ -75,7 +75,7 @@ public sealed class PersonSnapshotHeaderTests : BunitContext
         Assert.EndsWith("/persons", nav.Uri, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static PersonDetailsDto CreatePerson(PersonLifecycle lifecycle)
+    private static PersonDetailsDto CreatePerson(PersonLifecycleDto lifecycle)
         => new(
             Id: Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
             Rnokpp: "1234567890",

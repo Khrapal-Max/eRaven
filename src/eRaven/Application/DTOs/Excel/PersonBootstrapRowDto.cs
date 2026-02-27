@@ -5,7 +5,7 @@
 // PersonsBootstrapFileDto
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+using eRaven.Application.DTOs.Enums;
 
 namespace eRaven.Application.DTOs.Excel;
 
@@ -15,7 +15,7 @@ public sealed record PersonBootstrapRowDto(
     string LastName,
     string FirstName,
     string? MiddleName,
-    EnrollmentKind Kind,
+    EnrollmentKindDto Kind,
     string? Reference,
     DateOnly EnrollDate,
     string Reason,

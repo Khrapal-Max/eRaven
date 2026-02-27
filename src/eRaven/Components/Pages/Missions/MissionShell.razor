@@ -1,6 +1,6 @@
 ﻿@page "/missions"
+@using eRaven.Application.DTOs.Enums
 @using eRaven.Application.DTOs.Missions
-@using eRaven.Domain.Enums
 
 <PageTitle>Міссії</PageTitle>
 
@@ -26,12 +26,12 @@
             <div class="d-flex flex-column">
                 <label class="form-label mb-1">Режим місії</label>
                 <select class="form-select form-select-sm rounded-0"
-                        value="@_mode"
+                        value="@(_mode?.ToString() ?? string.Empty)"
                         @onchange="OnModeChanged">
                     <option value="">Всі види</option>
-                    <option value="@MissionMode.Day">@GetMissionMode(MissionMode.Day)</option>
-                    <option value="@MissionMode.Night">@GetMissionMode(MissionMode.Night)</option>
-                    <option value="@MissionMode.FullTime">@GetMissionMode(MissionMode.FullTime)</option>
+                    <option value="@MissionModeDto.Day">@GetMissionMode(MissionModeDto.Day)</option>
+                    <option value="@MissionModeDto.Night">@GetMissionMode(MissionModeDto.Night)</option>
+                    <option value="@MissionModeDto.FullTime">@GetMissionMode(MissionModeDto.FullTime)</option>
                 </select>
             </div>
 
@@ -53,7 +53,7 @@
                     Оновити
                 </span>
             </Button>
-            
+
         </div>
 
         @if (_loading)
@@ -105,13 +105,13 @@
         }
 
         <MissionCreateDrawer IsOpen="@_createOpen"
-                            IsOpenChanged="@(v => _createOpen = v)"
-                            OnCreated="HandleCreatedAsync" />
+                             IsOpenChanged="@(v => _createOpen = v)"
+                             OnCreated="HandleCreatedAsync" />
 
         <MissionCloseDrawer IsOpen="@_closeOpen"
-                           IsOpenChanged="@(v => _closeOpen = v)"
-                           Mission="@_selectedToClose"
-                           OnClosed="HandleClosedAsync" />
+                            IsOpenChanged="@(v => _closeOpen = v)"
+                            Mission="@_selectedToClose"
+                            OnClosed="HandleClosedAsync" />
 
     </div>
 </div>

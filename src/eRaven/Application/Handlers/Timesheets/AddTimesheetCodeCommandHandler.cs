@@ -8,6 +8,7 @@
 using eRaven.Application.Abstractions.TimesheetPolicyRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Timesheets;
+using eRaven.Application.Mapper;
 
 namespace eRaven.Application.Handlers.Timesheets;
 
@@ -34,8 +35,8 @@ public sealed class AddTimesheetCodeCommandHandler(
             sortOrder: command.SortOrder,
             priority: command.Priority,
             isTerminal: command.IsTerminal,
-            roleCode: command.RoleCode,
-            uiStyle: command.UiStyle,
+            roleCode: TimesheetEnumMapper.ToDomain(command.RoleCode),
+            uiStyle: TimesheetEnumMapper.ToDomain(command.UiStyle),
             author: author,
             nowUtc: command.NowUtc,
             ct: ct);

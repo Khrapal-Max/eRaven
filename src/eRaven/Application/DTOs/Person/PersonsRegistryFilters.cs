@@ -5,12 +5,12 @@
 // PersonsRegistryFilters
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+using eRaven.Application.DTOs.Enums;
 
 namespace eRaven.Application.DTOs.Person;
 
 public sealed record PersonsRegistryFilters(
-    PersonLifecycle? Lifecycle = null,
-    EnrollmentKind? EnrollmentKind = null,
+    PersonLifecycleDto? Lifecycle = null,
+    EnrollmentKindDto? EnrollmentKind = null,
     string? Search = null
 );

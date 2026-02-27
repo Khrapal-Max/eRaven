@@ -7,6 +7,7 @@
 
 using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.DTOs.Person;
+using eRaven.Application.Mapper;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
 
@@ -26,8 +27,8 @@ public sealed class GetPersonDetailsQueryHandler(IPersonRepository repo)
 
         return new PersonDetailsDto(
             Id: person.Id,
-            Lifecycle: person.Lifecycle,
-            EnrollmentKind: person.EnrollmentKind,
+            Lifecycle: PersonMissionEnumDtoMapper.ToDto(person.Lifecycle),
+            EnrollmentKind: PersonMissionEnumDtoMapper.ToDto(person.EnrollmentKind),
             EnrollmentReference: person.EnrollmentReference,
             Rnokpp: person.Rnokpp,
             LastName: person.LastName,

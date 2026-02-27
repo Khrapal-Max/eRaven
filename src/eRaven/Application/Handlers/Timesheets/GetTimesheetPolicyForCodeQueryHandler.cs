@@ -7,6 +7,7 @@
 
 using eRaven.Application.Abstractions.TimesheetPolicyRepository;
 using eRaven.Application.DTOs.Timesheets.Policy;
+using eRaven.Application.Mapper;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheets;
 
@@ -47,8 +48,8 @@ public sealed class GetTimesheetPolicyForCodeQueryHandler(
                 code.Priority,
                 code.IsTerminal,
                 code.IsActive,
-                code.RoleCode,
-                code.UiStyle),
+                TimesheetEnumMapper.MapRole(code.RoleCode),
+                TimesheetEnumMapper.MapStyle(code.UiStyle)),
             AllowedTransitions: [.. transitions
             .Select(t => new TimesheetTransitionSpecDto(t.ToCodeId, t.StartShiftDays))]
         );

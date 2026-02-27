@@ -10,8 +10,8 @@ using eRaven.Application.Catalogs.CombatTasks.Targets;
 using eRaven.Application.Catalogs.CombatTasks.TypeDrones;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Missions;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Components.Pages.Missions.Drawers;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -173,7 +173,7 @@ public sealed class MissionCreateDrawerTests : BunitContext
             Assert.Equal("DJI", captured.DroneName);
 
             // MissionMode лишився дефолтний Day (бо ми його не чіпали)
-            Assert.Equal(MissionMode.Day, captured.MissionMode);
+            Assert.Equal(MissionModeDto.Day, captured.MissionMode);
 
             Assert.Equal(returnedId, createdId);
             Assert.Equal(false, isOpenChanged);

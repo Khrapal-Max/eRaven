@@ -7,6 +7,7 @@
 
 using Bunit;
 using eRaven.Application.Catalogs.Ranks;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
@@ -24,7 +25,7 @@ public sealed class EnrollDrawerTests : BunitContext
     private static PersonDetailsDto Person(Guid id, int? sort = 12)
         => new(
             id,
-            PersonLifecycle.Reserved,
+            PersonLifecycleDto.Reserved,
             null,
             null,
             "1234567890",
@@ -165,7 +166,7 @@ public sealed class EnrollDrawerTests : BunitContext
 
         Assert.NotNull(captured);
         Assert.Equal(id, captured!.Id);
-        Assert.Equal(EnrollmentKind.AttachedByList, captured.Kind);
+        Assert.Equal(EnrollmentKindDto.AttachedByList, captured.Kind);
         Assert.Equal(9999, captured.PositionSort);
 
         Assert.False(isOpen);

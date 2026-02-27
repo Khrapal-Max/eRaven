@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Abstractions.PersonRepository;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.Handlers.Personal;
 using eRaven.Application.Queries.Personal;
 using eRaven.Domain.Entities;
@@ -59,8 +60,8 @@ public sealed class GetPersonDetailsQueryHandlerTests
         Assert.NotNull(result);
 
         Assert.Equal(model.Id, result!.Id);
-        Assert.Equal(model.Lifecycle, result.Lifecycle);
-        Assert.Equal(model.EnrollmentKind, result.EnrollmentKind);
+        Assert.Equal(PersonLifecycleDto.Reserved, result.Lifecycle);
+        Assert.Null(result.EnrollmentKind);
         Assert.Equal(model.EnrollmentReference, result.EnrollmentReference);
 
         Assert.Equal(model.Rnokpp, result.Rnokpp);

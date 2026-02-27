@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using Bunit;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Components.Pages.Persons.Cards.Drawers;
 using eRaven.Presentation.Toasts;
@@ -27,8 +28,8 @@ public sealed class ChangePositionDrawerTests : BunitContext
 
     private static PersonDetailsDto Person(Guid id, int positionSort = 10, string? position = "Оператор") => new(
         Id: id,
-        Lifecycle: eRaven.Domain.Enums.PersonLifecycle.Enrolled,
-        EnrollmentKind: eRaven.Domain.Enums.EnrollmentKind.Unit,
+        Lifecycle: PersonLifecycleDto.Enrolled,
+        EnrollmentKind: EnrollmentKindDto.Unit,
         EnrollmentReference: "A",
         Rnokpp: "1234567890",
         LastName: "Іванов",

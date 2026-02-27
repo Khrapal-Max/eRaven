@@ -9,12 +9,12 @@ using Bunit;
 using eRaven.Application.Catalogs.Ranks;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonInfo;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Validations.Personal;
 using eRaven.Components.Pages.Persons.Cards;
 using eRaven.Components.Pages.Persons.Cards.Drawers;
 using eRaven.Components.Pages.Persons.Cards.Tabs;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using FluentValidation;
 using Microsoft.AspNetCore.Components;
@@ -512,7 +512,7 @@ public sealed class CardCurrentTabTests : BunitContext
             MiddleName: "Мідл",
             FullName: "Тест Юзер Мідл",
             Callsign: "Позивний",
-            Lifecycle: PersonLifecycle.Reserved,
+            Lifecycle: PersonLifecycleDto.Reserved,
             Bzvp: "ВОС",
             Weapon: "АК",
             EnrollmentKind: null,

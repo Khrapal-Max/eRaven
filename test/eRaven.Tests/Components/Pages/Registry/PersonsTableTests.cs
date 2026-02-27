@@ -6,9 +6,9 @@
 //-----------------------------------------------------------------------------
 
 using Bunit;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Components.Pages.Persons.Registry;
-using eRaven.Domain.Enums;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Tests.Components.Pages.Registry;
@@ -16,7 +16,7 @@ namespace eRaven.Tests.Components.Pages.Registry;
 public sealed class PersonsTableTests : BunitContext
 {
     private static PersonListItemDto Item(
-        PersonLifecycle lc,
+        PersonLifecycleDto lc,
         DateOnly? excludedAt = null,
         DateOnly? enrolledAt = null,
         string? rank = "сержант",
@@ -40,7 +40,7 @@ public sealed class PersonsTableTests : BunitContext
     public async Task OpenCard_click_should_invoke_OnOpenCard_with_row()
     {
         // arrange
-        var row = Item(PersonLifecycle.Reserved);
+        var row = Item(PersonLifecycleDto.Reserved);
         PersonListItemDto? captured = null;
 
         var cut = Render<PersonsTable>(ps => ps
@@ -64,7 +64,7 @@ public sealed class PersonsTableTests : BunitContext
     public async Task OpenCard_click_when_OnOpenCard_not_set_should_fallback_to_OnRowClick()
     {
         // arrange
-        var row = Item(PersonLifecycle.Reserved);
+        var row = Item(PersonLifecycleDto.Reserved);
         PersonListItemDto? clicked = null;
 
         var cut = Render<PersonsTable>(ps => ps
@@ -88,8 +88,8 @@ public sealed class PersonsTableTests : BunitContext
     public void LifecycleBadge_should_render_expected_text_and_class()
     {
         // arrange
-        var enrolled = Item(PersonLifecycle.Enrolled, enrolledAt: new DateOnly(2026, 01, 10), excludedAt: null);
-        var reservedExcluded = Item(PersonLifecycle.Reserved, excludedAt: new DateOnly(2026, 01, 31), enrolledAt: null);
+        var enrolled = Item(PersonLifecycleDto.Enrolled, enrolledAt: new DateOnly(2026, 01, 10), excludedAt: null);
+        var reservedExcluded = Item(PersonLifecycleDto.Reserved, excludedAt: new DateOnly(2026, 01, 31), enrolledAt: null);
 
         var cut = Render<PersonsTable>(ps => ps
             .Add(p => p.Items, [enrolled, reservedExcluded])
@@ -110,7 +110,7 @@ public sealed class PersonsTableTests : BunitContext
     public async Task Enroll_click_should_invoke_OnEnroll_with_row()
     {
         // arrange
-        var row = Item(PersonLifecycle.Reserved);
+        var row = Item(PersonLifecycleDto.Reserved);
 
         PersonListItemDto? captured = null;
 
@@ -132,7 +132,7 @@ public sealed class PersonsTableTests : BunitContext
     public async Task Exclude_click_should_invoke_OnExclude_with_row()
     {
         // arrange
-        var row = Item(PersonLifecycle.Enrolled, enrolledAt: new DateOnly(2026, 01, 10));
+        var row = Item(PersonLifecycleDto.Enrolled, enrolledAt: new DateOnly(2026, 01, 10));
 
         PersonListItemDto? captured = null;
 
@@ -154,7 +154,7 @@ public sealed class PersonsTableTests : BunitContext
     public async Task Enroll_click_when_OnEnroll_not_set_should_not_throw_and_not_invoke_anything()
     {
         // arrange
-        var row = Item(PersonLifecycle.Reserved);
+        var row = Item(PersonLifecycleDto.Reserved);
 
         var cut = Render<PersonsTable>(ps => ps
             .Add(p => p.Items, [row])
@@ -170,7 +170,7 @@ public sealed class PersonsTableTests : BunitContext
     public async Task Exclude_click_when_OnExclude_not_set_should_not_throw_and_not_invoke_anything()
     {
         // arrange
-        var row = Item(PersonLifecycle.Enrolled, enrolledAt: new DateOnly(2026, 01, 10));
+        var row = Item(PersonLifecycleDto.Enrolled, enrolledAt: new DateOnly(2026, 01, 10));
 
         var cut = Render<PersonsTable>(ps => ps
             .Add(p => p.Items, [row])
@@ -186,7 +186,7 @@ public sealed class PersonsTableTests : BunitContext
     public async Task Enroll_is_disabled_when_person_is_enrolled()
     {
         // arrange
-        var row = Item(PersonLifecycle.Enrolled, enrolledAt: new DateOnly(2026, 01, 10));
+        var row = Item(PersonLifecycleDto.Enrolled, enrolledAt: new DateOnly(2026, 01, 10));
 
         var cut = Render<PersonsTable>(ps => ps
             .Add(p => p.Items, [row])
@@ -204,7 +204,7 @@ public sealed class PersonsTableTests : BunitContext
     public async Task Exclude_is_disabled_when_person_is_reserved()
     {
         // arrange
-        var row = Item(PersonLifecycle.Reserved);
+        var row = Item(PersonLifecycleDto.Reserved);
 
         var cut = Render<PersonsTable>(ps => ps
             .Add(p => p.Items, [row])

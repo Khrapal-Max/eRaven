@@ -8,6 +8,7 @@
 using eRaven.Application.Abstractions.MissionRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Missions;
+using eRaven.Application.Mapper;
 
 namespace eRaven.Application.Handlers.Missions;
 
@@ -23,7 +24,7 @@ public sealed class CreateMissionCommandHandler(IMissionRepository repo)
             namePoint: command.NamePoint,
             typeDrone: command.DroneName,
             target: command.Target,
-            missionMode: command.MissionMode,
+            missionMode: PersonMissionEnumDtoMapper.ToDomain(command.MissionMode),
             todayLocal: command.TodayLocal,
             ct: ct);
     }

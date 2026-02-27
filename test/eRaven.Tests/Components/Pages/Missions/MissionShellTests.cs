@@ -6,12 +6,12 @@
 //-----------------------------------------------------------------------------
 
 using Bunit;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Missions;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Missions;
 using eRaven.Components.Pages.Missions;
 using eRaven.Components.Pages.Missions.Drawers;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -103,7 +103,7 @@ public sealed class MissionShellTests : BunitContext
                 PositionArea: "Район-1",
                 NamePoint: "Точка-А",
                 Target: "Розвідка",
-                MissionMode: MissionMode.Day,
+                MissionMode: MissionModeDto.Day,
                 DroneName: "DJI",
                 DisplayMisssion: "Район-1 Точка-А Розвідка DJI",
                 CreatedAt: new DateOnly(2026, 01, 10),

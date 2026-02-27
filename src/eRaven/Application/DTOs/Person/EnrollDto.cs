@@ -5,7 +5,7 @@
 // EnrollDto
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+using eRaven.Application.DTOs.Enums;
 
 namespace eRaven.Application.DTOs.Person;
 
@@ -13,7 +13,7 @@ public sealed class EnrollDto
 {
     public Guid Id { get; set; }
 
-    public EnrollmentKind Kind { get; set; } = EnrollmentKind.Unit;
+    public EnrollmentKindDto Kind { get; set; } = EnrollmentKindDto.Unit;
 
     public string? Reference { get; set; } // опц.
 

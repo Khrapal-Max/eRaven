@@ -5,8 +5,8 @@
 // PersonHeader
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
-using eRaven.Domain.Enums;
 using Microsoft.AspNetCore.Components;
 
 namespace eRaven.Components.Pages.Persons.Cards;
@@ -20,12 +20,12 @@ public partial class PersonSnapshotHeader : ComponentBase
 
     private void Back() => NavigationManager.NavigateTo("/persons");
 
-    private static RenderFragment LifecycleBadge(PersonLifecycle lc) => builder =>
+    private static RenderFragment LifecycleBadge(PersonLifecycleDto lc) => builder =>
     {
         var (cls, text) = lc switch
         {
-            PersonLifecycle.Reserved => ("badge bg-primary", "Резерв"),
-            PersonLifecycle.Enrolled => ("badge bg-success", "В табелі"),
+            PersonLifecycleDto.Reserved => ("badge bg-primary", "Резерв"),
+            PersonLifecycleDto.Enrolled => ("badge bg-success", "В табелі"),
             _ => ("badge bg-light text-dark", lc.ToString())
         };
 

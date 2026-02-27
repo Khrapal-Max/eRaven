@@ -12,7 +12,7 @@
 //
 // Інваріанти:
 // - "НБ" є derived (не реальний код) => репозиторій завжди його приховує, навіть якщо legacy-рядок є в БД.
-// - SystemCode не створюється/не закривається/не має policy.
+// - SystemCode не створюється/не закривається/не має _policy.
 // - strict matrix: тільки TransitionCode → TransitionCode.
 //-----------------------------------------------------------------------------
 
@@ -332,7 +332,7 @@ public sealed class TimesheetPolicyRepositoryTests
         // Transition targets
         var toA = await repo.AddCodeAsync("A", "A", null, 0, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", now);
         var toX = await repo.AddCodeAsync("X", "X", null, 1, 0, false, RoleCode.TransitionCode, TimesheetUiStyle.Warning, "seed", now);
-        await repo.CloseCodeAsync(toX, "seed", now.AddMinutes(1)); // inactive target should still be returned by policy
+        await repo.CloseCodeAsync(toX, "seed", now.AddMinutes(1)); // inactive target should still be returned by _policy
 
         // Emergency target should be filtered out
         var em = await repo.AddCodeAsync("200", "E", null, 50, 0, false, RoleCode.EmergencyCode, TimesheetUiStyle.Danger, "seed", now);
@@ -369,12 +369,12 @@ public sealed class TimesheetPolicyRepositoryTests
             await db.SaveChangesAsync();
         }
 
-        var policy = await repo.GetTransitionCodesAsync(fromId);
+        var _policy = await repo.GetTransitionCodesAsync(fromId);
 
         // Only TransitionCode targets (A + X), and X is inactive but still returned
-        Assert.Equal(["A", "X"], [.. policy.Select(x => x.ToCode.Code)]);
-        Assert.All(policy, t => Assert.NotNull(t.ToCode));
-        Assert.All(policy, t => Assert.Equal(RoleCode.TransitionCode, t.ToCode.RoleCode));
+        Assert.Equal(["A", "X"], [.. _policy.Select(x => x.ToCode.Code)]);
+        Assert.All(_policy, t => Assert.NotNull(t.ToCode));
+        Assert.All(_policy, t => Assert.Equal(RoleCode.TransitionCode, t.ToCode.RoleCode));
     }
 
     //======================================================================

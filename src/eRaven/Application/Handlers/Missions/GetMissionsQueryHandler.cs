@@ -7,6 +7,7 @@
 
 using eRaven.Application.Abstractions.MissionRepository;
 using eRaven.Application.DTOs.Missions;
+using eRaven.Application.Mapper;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Missions;
 
@@ -26,8 +27,9 @@ public sealed class GetMissionsQueryHandler(IMissionRepository repo)
         if (query.OnlyOpen)
             q = q.Where(x => x.ClosedAt is null);
 
-        if (query.Mode is not null)
-            q = q.Where(x => x.MissionMode == query.Mode);
+        var domainMode = PersonMissionEnumDtoMapper.ToDomain(query.Mode);
+        if (domainMode is not null)
+            q = q.Where(x => x.MissionMode == domainMode);
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -48,7 +50,7 @@ public sealed class GetMissionsQueryHandler(IMissionRepository repo)
                 PositionArea: x.PositionArea,
                 NamePoint: x.NamePoint,
                 Target: x.Target,
-                MissionMode: x.MissionMode,
+                MissionMode: PersonMissionEnumDtoMapper.ToDto(x.MissionMode),
                 DroneName: x.TypeDrone,
                 DisplayMisssion: x.ToString(),
                 CreatedAt: x.CreatedAt,

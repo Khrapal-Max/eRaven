@@ -7,10 +7,10 @@
 
 using AngleSharp.Dom;
 using Bunit;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Validations.Personal;
 using eRaven.Components.Pages.Persons.Cards.Drawers;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,8 +28,8 @@ public sealed class ChangeWeaponDrawerTests : BunitContext
 
     private static PersonDetailsDto Person(Guid id) => new(
         Id: id,
-        Lifecycle: PersonLifecycle.Enrolled,
-        EnrollmentKind: EnrollmentKind.Unit,
+        Lifecycle: PersonLifecycleDto.Enrolled,
+        EnrollmentKind: EnrollmentKindDto.Unit,
         EnrollmentReference: "A",
         Rnokpp: "1234567890",
         LastName: "Іванов",

@@ -1,4 +1,4 @@
-﻿/*//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.Abstractions.TimesheetRepository;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonMove;
+using eRaven.Application.Mapper;
 
 namespace eRaven.Application.Handlers.Personal;
 
@@ -29,7 +30,7 @@ public sealed class EnrollCommandHandler(
         // 1) Person lifecycle
         await _repo.EnrollAsync(
             command.PersonId,
-            command.Kind,
+            PersonMissionEnumDtoMapper.ToDomain(command.Kind),
             command.Reference,
             command.Reason,
             command.EnrollDate,
@@ -49,4 +50,3 @@ public sealed class EnrollCommandHandler(
             ct: ct);
     }
 }
-*/

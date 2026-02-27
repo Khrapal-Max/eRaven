@@ -7,10 +7,10 @@
 
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.PersonMove;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.WebUtilities;
@@ -284,11 +284,11 @@ public partial class PersonsRegistry : ComponentBase
         var qs = QueryHelpers.ParseQuery(uri.Query);
 
         if (qs.TryGetValue("lifecycle", out var lifecycleStr) &&
-            Enum.TryParse<PersonLifecycle>(lifecycleStr, ignoreCase: true, out var lifecycle))
+            Enum.TryParse<PersonLifecycleDto>(lifecycleStr, ignoreCase: true, out var lifecycle))
             f = f with { Lifecycle = lifecycle };
 
         if (qs.TryGetValue("enrollmentKind", out var kindStr) &&
-            Enum.TryParse<EnrollmentKind>(kindStr, ignoreCase: true, out var kind))
+            Enum.TryParse<EnrollmentKindDto>(kindStr, ignoreCase: true, out var kind))
             f = f with { EnrollmentKind = kind };
 
         _filters = f;

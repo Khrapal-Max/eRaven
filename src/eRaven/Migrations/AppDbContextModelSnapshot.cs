@@ -23,6 +23,62 @@ namespace eRaven.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "btree_gist");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("eRaven.Domain.Aggregates.TimeSheetAggregate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly?>("ClosedAt")
+                        .HasColumnType("date")
+                        .HasColumnName("closed_at");
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at_utc");
+
+                    b.Property<string>("ClosedBy")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("closed_by");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateOnly>("OpenedAt")
+                        .HasColumnType("date")
+                        .HasColumnName("opened_at");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("person_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PersonId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_ts_aggregates_person_active")
+                        .HasFilter("closed_at IS NULL");
+
+                    b.HasIndex("PersonId", "ClosedAt")
+                        .HasDatabaseName("ix_ts_aggregates_person_closed");
+
+                    b.HasIndex("PersonId", "OpenedAt")
+                        .HasDatabaseName("ix_ts_aggregates_person_opened");
+
+                    b.ToTable("timesheet_aggregates", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_ts_aggregates_closed_gte_opened", "closed_at IS NULL OR closed_at >= opened_at");
+                        });
+                });
+
             modelBuilder.Entity("eRaven.Domain.Entities.Mission", b =>
                 {
                     b.Property<Guid>("Id")
@@ -374,6 +430,99 @@ namespace eRaven.Migrations
                         });
                 });
 
+            modelBuilder.Entity("eRaven.Domain.Entities.TimesheetEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("DeleteReason")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("delete_reason");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at_utc");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<DateOnly>("From")
+                        .HasColumnType("date")
+                        .HasColumnName("from_date");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("note");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("person_id");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("reference");
+
+                    b.Property<Guid>("TimesheetCodeDefinitionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("timesheet_codedefinition_id");
+
+                    b.Property<Guid>("TimesheetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("timesheet_id");
+
+                    b.Property<DateOnly?>("To")
+                        .HasColumnType("date")
+                        .HasColumnName("to_date");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TimesheetCodeDefinitionId");
+
+                    b.HasIndex("TimesheetId", "From")
+                        .IsUnique()
+                        .HasDatabaseName("ux_ts_entries_timesheet_from_active")
+                        .HasFilter("is_deleted = false");
+
+                    b.HasIndex("PersonId", "From", "To")
+                        .HasDatabaseName("ix_ts_entries_person_range");
+
+                    b.ToTable("timesheet_entries", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_timesheet_entries_to_gt_from", "to_date IS NULL OR to_date > from_date");
+                        });
+                });
+
             modelBuilder.Entity("eRaven.Domain.Entities.TimesheetCodeTransition", b =>
                 {
                     b.HasOne("eRaven.Domain.Entities.TimesheetCodeDefinition", "FromCode")
@@ -391,6 +540,30 @@ namespace eRaven.Migrations
                     b.Navigation("FromCode");
 
                     b.Navigation("ToCode");
+                });
+
+            modelBuilder.Entity("eRaven.Domain.Entities.TimesheetEntry", b =>
+                {
+                    b.HasOne("eRaven.Domain.Entities.TimesheetCodeDefinition", "TimesheetCodeDefinition")
+                        .WithMany()
+                        .HasForeignKey("TimesheetCodeDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("eRaven.Domain.Aggregates.TimeSheetAggregate", "TimeSheet")
+                        .WithMany("Entries")
+                        .HasForeignKey("TimesheetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TimeSheet");
+
+                    b.Navigation("TimesheetCodeDefinition");
+                });
+
+            modelBuilder.Entity("eRaven.Domain.Aggregates.TimeSheetAggregate", b =>
+                {
+                    b.Navigation("Entries");
                 });
 #pragma warning restore 612, 618
         }

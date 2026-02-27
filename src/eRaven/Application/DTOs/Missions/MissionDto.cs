@@ -5,7 +5,7 @@
 // MissionDto
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+using eRaven.Application.DTOs.Enums;
 
 namespace eRaven.Application.DTOs.Missions;
 
@@ -18,7 +18,7 @@ public sealed record MissionDto(
     string PositionArea,
     string? NamePoint,
     string Target,
-    MissionMode MissionMode,
+    MissionModeDto MissionMode,
     string? DroneName,
     string DisplayMisssion,
     DateOnly CreatedAt,

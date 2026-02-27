@@ -5,7 +5,7 @@
 // PersonListItemDto
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+using eRaven.Application.DTOs.Enums;
 
 namespace eRaven.Application.DTOs.Person;
 
@@ -13,11 +13,11 @@ public sealed record PersonListItemDto(
     Guid Id,
     string FullName,
     string Rnokpp,
-    PersonLifecycle Lifecycle,
+    PersonLifecycleDto Lifecycle,
     string? Rank,
     int? PositionSort,
     string? Position,
-    EnrollmentKind? EnrollmentKind,
+    EnrollmentKindDto? EnrollmentKind,
     DateOnly? EnrolledAt,
     DateOnly? ExcludedAt,
     DateTime UpdatedAtUtc);

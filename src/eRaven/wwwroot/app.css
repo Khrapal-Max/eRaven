@@ -302,6 +302,86 @@ body {
         background-color: rgba(13,110,253,.20);
     }
 
+
+/* =========================
+   Timesheet matrix (month view)
+   ========================= */
+
+.timesheet-wrap {
+    position: relative;
+    overflow: auto;
+    min-height: 0;
+    /* скролиться таблиця, а не сторінка */
+    max-height: max(260px, calc(100dvh - var(--app-header-h) - 215px));
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable both-edges;
+}
+
+    .timesheet-wrap .timesheet-table {
+        table-layout: fixed;
+        width: max-content;
+        min-width: 100%;
+    }
+
+        /* не переносимо вміст, щоб ширина колонок була стабільна */
+        .timesheet-wrap .timesheet-table th,
+        .timesheet-wrap .timesheet-table td {
+            white-space: nowrap;
+        }
+
+        /* Day columns (після 3 службових колонок) — однакова ширина */
+        .timesheet-wrap .timesheet-table thead th:nth-child(n+4),
+        .timesheet-wrap .timesheet-table tbody td:nth-child(n+4) {
+            width: 34px;
+            min-width: 34px;
+            max-width: 34px;
+            padding: 0 !important;
+        }
+
+        /* Sticky header у межах .timesheet-wrap */
+        .timesheet-wrap .timesheet-table thead th,
+        .timesheet-wrap .timesheet-table tr:first-child > th {
+            position: sticky;
+            top: 0;
+            z-index: 6;
+            background-color: var(--bs-table-head-bg) !important;
+            color: var(--bs-table-head-color) !important;
+            border-bottom: 1px solid var(--bs-border-color);
+            background-clip: padding-box;
+        }
+
+        /* Пріоритетно задаємо фон/текст для клітинок табеля (щоб Bootstrap не перебивав) */
+        .timesheet-wrap .timesheet-table td.ts-cell--nb {
+            background: #d6f0ff !important;
+            color: #0b3557 !important;
+        }
+
+        .timesheet-wrap .timesheet-table td.ts-cell--warning {
+            background: #fff3cd !important;
+            color: #664d03 !important;
+        }
+
+        .timesheet-wrap .timesheet-table td.ts-cell--ready {
+            background: #d1e7dd !important;
+            color: #0f5132 !important;
+        }
+
+        .timesheet-wrap .timesheet-table td.ts-cell--danger {
+            background: #f8d7da !important;
+            color: #842029 !important;
+        }
+
+        .timesheet-wrap .timesheet-table td.ts-cell--system {
+            background: #efe3ff !important;
+            color: #4b2a77 !important;
+        }
+
+        /* системний маркер не змінює layout */
+        .timesheet-wrap .timesheet-table .ts-system-icon {
+            color: inherit;
+        }
+
+
 /* =========================
    Forms / validation
    ========================= */
@@ -462,116 +542,6 @@ body {
     }
 
 /* =========================
-   Timesheet table (stable cell colors)
-   ========================= */
-
-.timesheet-wrap .table-scroll {
-    overflow-y: auto;
-    overflow-x: hidden;
-    max-height: 65vh;
-}
-
-.timesheet-table {
-    table-layout: fixed;
-    width: 100%;
-}
-
-    .timesheet-table thead th {
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        background: var(--bs-table-head-bg, #f8f9fa);
-    }
-
-    /* Вузькі тільки day-колонки (де є коди) */
-    .timesheet-table td.ts-cell {
-        padding: 1px 2px;
-        vertical-align: middle;
-        width: 34px;
-        min-width: 34px;
-        max-width: 34px;
-        border-color: var(--bs-border-color);
-    }
-
-/* content */
-.ts-main {
-    font-size: 11px;
-    line-height: 1.05;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.ts-task {
-    margin-top: 2px;
-    font-size: 10px;
-    line-height: 1.0;
-    opacity: .9;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* індикатор: є task */
-.ts-cell--has-task {
-    box-shadow: inset 0 -2px 0 rgba(0,0,0,.10);
-}
-
-/* --- КОЛЬОРИ (пастельні, читабельні) --- */
-/* empty */
-.timesheet-table td.ts-cell--empty {
-    background: #ffffff !important;
-    color: var(--bs-body-color) !important;
-}
-
-/* НБ */
-.timesheet-table td.ts-cell--nb {
-    background: #e7f5ff !important; /* м’який блакитний */
-    color: #1864ab !important; /* темно-синій */
-}
-
-/* 30 (в районі) */
-.timesheet-table td.ts-cell--30 {
-    background: #fff !important;
-    color: #495057 !important;
-}
-
-/* ВП (відпустка) */
-.timesheet-table td.ts-cell--vac {
-    background: #e6fcf5 !important; /* м’ятний */
-    color: #0b7285 !important; /* бірюзовий */
-}
-
-/* alert (100/F100 тощо) */
-.timesheet-table td.ts-cell--alert {
-    background: #fff5f5 !important; /* рожевий */
-    color: #c92a2a !important; /* червоний */
-}
-
-/* task lane (якщо main пустий, але є task) */
-.timesheet-table td.ts-cell--task {
-    background: #f3f0ff !important; /* лавандовий */
-    color: #5f3dc4 !important; /* фіолетовий */
-}
-
-/* інші коди */
-.timesheet-table td.ts-cell--other {
-    background: #fff9db !important; /* жовта пастель */
-    color: #5c4c00 !important; /* коричневий */
-}
-
-/* --- ВАЖЛИВО: прибираємо bootstrap hover на day-td --- */
-.timesheet-table.table-hover > :not(caption) > tbody > tr:hover > td.ts-cell {
-    filter: none !important;
-}
-
-/* Якщо хочеш легенький hover, але без зламу кольору — затемнити трохи */
-.timesheet-table.table-hover > :not(caption) > tbody > tr:hover > td.ts-cell {
-    box-shadow: inset 0 0 0 9999px rgba(0,0,0,.03) !important;
-}
-
-/* =========================
    Calendar Timesheet table (stable cell colors)
    ========================= */
 
@@ -594,6 +564,7 @@ body {
 }
 
 .ts-cal-cell {
+    position: relative;
     border: 1px solid var(--bs-border-color);
     background: #fff;
     min-height: 70px; /* було 78px */
@@ -602,8 +573,13 @@ body {
 }
 
 .ts-cal-main {
-    margin-top: 4px; /* було 6px */
-    font-size: 12px; /* було 13px */
+    display: flex;
+    align-items: center; /* вертикальний центр */
+    justify-content: center; /* горизонтальний центр */
+    text-align: center;
+    font-size: 18px; /* зробити більшим */
+    font-weight: 400;
+    letter-spacing: 0.2px;
 }
 
 .ts-cal-task {
@@ -642,3 +618,116 @@ body {
     .ts-task-flag::before {
         content: "T";
     }
+
+/*
+All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
+TimesheetShell (scoped styles)
+
+UI style mapping (без колізій):
+- NB (derived)       -> light blue
+- Warning            -> yellow
+- Ready              -> green
+- Danger (emergency) -> red
+- SystemFact         -> lilac/purple + ⚙️ marker
+*/
+
+.ts-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.ts-legend-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+.ts-system-icon {
+    font-size: 0.85em;
+    vertical-align: baseline;
+    margin-right: 0.15rem;
+}
+
+.ts-cell {
+    padding: 0 !important;
+}
+
+.ts-main {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    width: 100%;
+    min-height: 26px;
+    font-weight: 600;
+}
+
+/* Day cell styles */
+.ts-cell--empty {
+    background: #f8f9fa;
+}
+
+.ts-cell--other {
+    background: #ffffff;
+}
+
+.ts-cell--nb {
+    background: #d6f0ff;
+}
+
+.ts-cell--warning {
+    background: #fff3cd;
+}
+
+.ts-cell--ready {
+    background: #d1e7dd;
+}
+
+.ts-cell--danger {
+    background: #f8d7da;
+}
+
+.ts-cell--system {
+    background: #efe3ff;
+}
+
+
+/*-----------------------------------------------------------------------------
+ All rights by agreement of the developer. Author data on GitHub Khrapal M.G.
+ TimesheetWeekShell (scoped styles)
+-----------------------------------------------------------------------------*/
+
+/* Ensure stable cell colors inside bootstrap tables (higher specificity). */
+.ts-cell.ts-cell--nb {
+    background-color: #d6f0ff !important;
+}
+
+.ts-cell.ts-cell--warning {
+    background-color: #fff3cd !important;
+}
+
+.ts-cell.ts-cell--ready {
+    background-color: #d1e7dd !important;
+}
+
+.ts-cell.ts-cell--danger {
+    background-color: #f8d7da !important;
+}
+
+.ts-cell.ts-cell--system {
+    background-color: #efe3ff !important;
+}
+
+.ts-day {
+    width: 65px;
+    min-width: 65px;
+    max-width: 65px;
+}
+
+.ts-main.text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

@@ -8,9 +8,9 @@
 using Bunit;
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Timesheets;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Timesheets.Policy;
 using eRaven.Components.Pages.Timesheets.Drawers;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,7 +34,16 @@ public sealed class CloseTimesheetCodeDrawerTests : BunitContext
     [Fact]
     public void Render_ShowsRequiredControls_AndSelectedCode()
     {
-        var code = new TimesheetCodeDto(Guid.NewGuid(), "Ф100", "Форс-мажор", null, 30, 10, true, true, RoleCode.EmergencyCode, TimesheetUiStyle.Danger);
+        var code = new TimesheetCodeDto(Guid.NewGuid(),
+            "Ф100",
+            "Форс-мажор",
+            null,
+            30,
+            10,
+            true,
+            true,
+            RoleCodeDto.EmergencyCode,
+            TimesheetUiStyleDto.Danger);
 
         var cut = Render<CloseTimesheetCodeDrawer>(ps => ps
             .Add(p => p.IsOpen, true)
@@ -58,7 +67,16 @@ public sealed class CloseTimesheetCodeDrawerTests : BunitContext
             .Setup(x => x.HandleAsync(It.IsAny<CloseTimesheetCodeCommand>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var code = new TimesheetCodeDto(Guid.NewGuid(), "30", "Готовність", null, 10, 1, false, true, RoleCode.TransitionCode, TimesheetUiStyle.Ready);
+        var code = new TimesheetCodeDto(Guid.NewGuid(),
+            "30",
+            "Готовність",
+            null,
+            10,
+            1,
+            false,
+            true,
+            RoleCodeDto.TransitionCode,
+            TimesheetUiStyleDto.Ready);
 
         Guid? closedId = null;
         var receiver = new object();

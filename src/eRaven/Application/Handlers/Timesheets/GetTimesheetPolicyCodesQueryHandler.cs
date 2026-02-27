@@ -7,6 +7,7 @@
 
 using eRaven.Application.Abstractions.TimesheetPolicyRepository;
 using eRaven.Application.DTOs.Timesheets.Policy;
+using eRaven.Application.Mapper;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheets;
 
@@ -40,7 +41,7 @@ public sealed class GetTimesheetPolicyCodesQueryHandler(
                 c.Priority,
                 c.IsTerminal,
                 c.IsActive,
-                c.RoleCode,
-                c.UiStyle))];
+                TimesheetEnumMapper.MapRole(c.RoleCode),
+                TimesheetEnumMapper.MapStyle(c.UiStyle)))];
     }
 }

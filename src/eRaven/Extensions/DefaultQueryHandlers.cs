@@ -6,7 +6,9 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.DTOs.Dashboard;
+using eRaven.Application.DTOs.Excel;
 using eRaven.Application.DTOs.Person;
+using eRaven.Application.DTOs.Timesheets;
 using eRaven.Application.DTOs.Timesheets.Policy;
 using eRaven.Application.Handlers.Dashboard;
 using eRaven.Application.Handlers.Personal;
@@ -33,7 +35,14 @@ public static class DefaultQueryHandlers
         // Polisy
         services.AddScoped<IQueryHandler<GetTimesheetPolicyForCodeQuery, TimesheetPolicyEditorDto?>, GetTimesheetPolicyForCodeQueryHandler>();
         services.AddScoped<IQueryHandler<GetTimesheetPolicyCodesQuery, IReadOnlyList<TimesheetCodeDto>>, GetTimesheetPolicyCodesQueryHandler>();
+        services.AddScoped<IQueryHandler<GetTimesheetTransitionContextQuery, TimesheetTransitionContextDto>, GetTimesheetTransitionContextQueryHandler>();
 
+        // Timesheets
+        services.AddScoped<IQueryHandler<ExportTimesheetMonthQuery, DownloadFileDto>, ExportTimesheetMonthQueryHandler>();
+        services.AddScoped<IQueryHandler<GetTimesheetPersonMonthQuery, TimesheetPersonMonthDto?>, GetTimesheetPersonMonthQueryHandler>();
+
+        services.AddScoped<IQueryHandler<GetTimesheetsRangeQuery, IReadOnlyList<TimesheetPersonRangeRowDto>>, GetTimesheetsRangeQueryHandler>();
+        services.AddScoped<IQueryHandler<GetTimesheetsMonthQuery, IReadOnlyList<TimesheetPersonRangeRowDto>>, GetTimesheetsMonthQueryHandler>();
 
         return services;
     }

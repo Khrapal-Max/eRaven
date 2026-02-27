@@ -1,7 +1,7 @@
 ﻿@page "/timesheet/policy"
 
 @using eRaven.Application.DTOs.Timesheets
-@using eRaven.Domain.Enums
+@using eRaven.Application.DTOs.Enums
 
 <div class="page-flex">
 
@@ -174,7 +174,7 @@
                             <div class="row g-2">
                                 @foreach (var t in RightPanelTargets())
                                 {
-                                    var isGlobal = t.RoleCode == RoleCode.EmergencyCode;
+                                    var isGlobal = t.RoleCode == eRaven.Application.DTOs.Enums.RoleCodeDto.EmergencyCode;
                                     var editableEnabled = _transitions.TryGetValue(t.Id, out var shift);
                                     var enabled = (isGlobal && t.IsActive) || editableEnabled;
                                     var disabled = !t.IsActive || isGlobal;

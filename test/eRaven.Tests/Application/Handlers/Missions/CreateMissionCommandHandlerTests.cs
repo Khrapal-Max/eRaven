@@ -7,6 +7,7 @@
 
 using eRaven.Application.Abstractions.MissionRepository;
 using eRaven.Application.Commands.Missions;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.Handlers.Missions;
 using eRaven.Domain.Enums;
 using Moq;
@@ -40,7 +41,7 @@ public sealed class CreateMissionCommandHandlerTests
             NamePoint: "",
             DroneName: "DJI",
             Target: "Розвідка",
-            MissionMode: MissionMode.Day,
+            MissionMode: MissionModeDto.Day,
             TodayLocal: new DateTime(2026, 01, 10, 9, 0, 0, DateTimeKind.Local)
         );
 
@@ -55,7 +56,7 @@ public sealed class CreateMissionCommandHandlerTests
             namePoint: cmd.NamePoint,
             typeDrone: cmd.DroneName,
             target: cmd.Target,
-            missionMode: cmd.MissionMode,
+            missionMode: MissionMode.Day,
             todayLocal: cmd.TodayLocal,
             ct: It.IsAny<CancellationToken>()), Times.Once);
 
@@ -90,7 +91,7 @@ public sealed class CreateMissionCommandHandlerTests
             NamePoint: "",
             DroneName: null,
             Target: "T",
-            MissionMode: MissionMode.Night,
+            MissionMode: MissionModeDto.Night,
             TodayLocal: new DateTime(2026, 01, 10)
         );
 
@@ -107,7 +108,7 @@ public sealed class CreateMissionCommandHandlerTests
             cmd.NamePoint,
             cmd.DroneName,
             cmd.Target,
-            cmd.MissionMode,
+            MissionMode.Night,
             cmd.TodayLocal,
             It.IsAny<CancellationToken>()), Times.Once);
 

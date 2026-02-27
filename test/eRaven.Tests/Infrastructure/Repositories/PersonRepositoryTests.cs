@@ -5,6 +5,7 @@
 // PersonRepositoryTests (SQLite in-memory + projector + event store)
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Excel;
 using eRaven.Domain.Enums;
 using eRaven.Domain.Events.PersonEvents.Info;
@@ -475,7 +476,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             LastName: "  Ivanov ",
             FirstName: " Ivan ",
             MiddleName: "  Ivanovich ",
-            Kind: EnrollmentKind.Unit,
+            Kind: EnrollmentKindDto.Unit,
             Reference: "  REF-1  ",
             EnrollDate: enrollDate,
             Reason: "  import  ",
@@ -546,7 +547,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             LastName: "Ivanov",
             FirstName: "Ivan",
             MiddleName: null,
-            Kind: EnrollmentKind.AttachedByOrder,
+            Kind: EnrollmentKindDto.AttachedByOrder,
             Reference: "X",
             EnrollDate: new DateOnly(2026, 02, 01),
             Reason: "r",
@@ -576,7 +577,7 @@ public sealed class PersonRepositoryTests : IAsyncLifetime
             LastName: "Ivanov",
             FirstName: "Ivan",
             MiddleName: null,
-            Kind: EnrollmentKind.Unit,
+            Kind: EnrollmentKindDto.Unit,
             Reference: null,
             EnrollDate: new DateOnly(2026, 01, 10),
             Reason: "r",

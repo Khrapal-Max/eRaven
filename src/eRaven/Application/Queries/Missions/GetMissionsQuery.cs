@@ -5,7 +5,7 @@
 // GetMissionsQuery
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+using eRaven.Application.DTOs.Enums;
 
 namespace eRaven.Application.Queries.Missions;
 
@@ -15,5 +15,4 @@ namespace eRaven.Application.Queries.Missions;
 public sealed record GetMissionsQuery(
     bool OnlyOpen,
     string? Search,
-    MissionMode? Mode
-);
+    MissionModeDto? Mode);

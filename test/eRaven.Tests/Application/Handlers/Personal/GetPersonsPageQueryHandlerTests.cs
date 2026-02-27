@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Abstractions.PersonRepository;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Handlers.Personal;
 using eRaven.Application.Queries.Personal;
@@ -79,11 +80,11 @@ public sealed class GetPersonsPageQueryHandlerTests
         Assert.Equal(p1.Id, dto.Id);
         Assert.Equal(p1.FullName, dto.FullName);
         Assert.Equal(p1.Rnokpp, dto.Rnokpp);
-        Assert.Equal(p1.Lifecycle, dto.Lifecycle);
+        Assert.Equal(PersonLifecycleDto.Reserved, dto.Lifecycle);
         Assert.Equal(p1.Rank, dto.Rank);
         Assert.Equal(p1.PositionSort, dto.PositionSort);
         Assert.Equal(p1.Position, dto.Position);
-        Assert.Equal(p1.EnrollmentKind, dto.EnrollmentKind);
+        Assert.Null(dto.EnrollmentKind);
         Assert.Equal(p1.EnrolledAt, dto.EnrolledAt);
         Assert.Equal(p1.ExcludedAt, dto.ExcludedAt);
         Assert.Equal(p1.UpdatedAtUtc, dto.UpdatedAtUtc);

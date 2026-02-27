@@ -7,13 +7,12 @@
 
 using eRaven.Application.Commands;
 using eRaven.Application.Commands.Timesheets;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Timesheets.Models;
 using eRaven.Application.DTOs.Timesheets.Policy;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Timesheets;
 using eRaven.Components.Shared.Drawer;
-using eRaven.Domain.Consts;
-using eRaven.Domain.Enums;
 using eRaven.Presentation.Toasts;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -29,7 +28,7 @@ public partial class AddTimesheetCodeDrawer : ComponentBase
     [Inject] public ICommandHandler<AddTimesheetCodeCommand, Guid> AddTimesheetCodeCommandHandler { get; set; } = default!;
     [Inject] public ICommandHandler<SaveTimesheetPolicyCommand> SaveTimesheetPolicyCommandHandler { get; set; } = default!;
     [Inject] public IQueryHandler<GetTimesheetPolicyCodesQuery, IReadOnlyList<TimesheetCodeDto>> GetTimesheetPolicyCodesQueryHandler { get; set; } = default!;
-    [Inject] public ToastService Toasts { get; set; } = default!;
+    [Inject] public ToastService ToastService { get; set; } = default!;
 
     //======================================================================
     // Params
@@ -91,16 +90,9 @@ public partial class AddTimesheetCodeDrawer : ComponentBase
         var title = (_model.Title ?? string.Empty).Trim();
         var desc = string.IsNullOrWhiteSpace(_model.Description) ? null : _model.Description.Trim();
 
-        // NB — derived стан
-        if (string.Equals(code, TimesheetDerivedCodes.NotInTimesheet, StringComparison.OrdinalIgnoreCase))
+        if (_model.RoleCode == RoleCodeDto.SystemCode)
         {
-            Toasts.Warning("Код “НБ” є системним станом і не може бути створений як подія.");
-            return;
-        }
-
-        if (_model.RoleCode == RoleCode.SystemCode)
-        {
-            Toasts.Warning("SystemCode не може бути створений вручну.");
+            ToastService.Warning("SystemCode не може бути створений вручну.");
             return;
         }
 
@@ -126,20 +118,20 @@ public partial class AddTimesheetCodeDrawer : ComponentBase
             // Ініціалізуємо policy для нового транзитного коду:
             // додаємо глобальні (EmergencyCode) переходи за замовченням.
             // Це “захищає оператора” — аварійні коди мають працювати з будь-якого стану.
-            if (_model.RoleCode == RoleCode.TransitionCode)
+            if (_model.RoleCode == RoleCodeDto.TransitionCode)
                 await EnsureGlobalTransitionsForNewCodeAsync(id, title, desc, nowUtc);
 
-            Toasts.Success("Створено", $"Додано код {code}.");
+            ToastService.Success("Створено", $"Додано код {code}.");
 
             if (OnCreated.HasDelegate)
                 await OnCreated.InvokeAsync(id);
 
-            if (_drawer is not null)
-                await _drawer.CloseAsync();
+            await IsOpenChanged.InvokeAsync(false);
         }
         catch (Exception ex)
         {
-            Toasts.Error("Не вдалося створити код", ex.Message);
+            ToastService.Error("Не вдалося створити код", ex.Message);
+            await InvokeAsync(ResetForm);
         }
         finally
         {
@@ -158,7 +150,7 @@ public partial class AddTimesheetCodeDrawer : ComponentBase
 
         var globals = codes
             .Where(x => x.IsActive)
-            .Where(x => x.RoleCode == RoleCode.EmergencyCode)
+            .Where(x => x.RoleCode == RoleCodeDto.EmergencyCode)
             .Where(x => x.Id != newCodeId)
             .Select(x => new TimesheetTransitionSpecDto(x.Id, 0))
             .ToList();
@@ -183,7 +175,7 @@ public partial class AddTimesheetCodeDrawer : ComponentBase
         catch (Exception ex)
         {
             // Код створено, але policy не ініціалізовано. Це не критична помилка для UI.
-            Toasts.Warning("Створено, але політика не ініціалізована", ex.Message);
+            ToastService.Warning("Створено, але політика не ініціалізована", ex.Message);
         }
     }
 
@@ -213,8 +205,8 @@ public partial class AddTimesheetCodeDrawer : ComponentBase
             SortOrder = DefaultSortOrder,
             Priority = DefaultPriority,
             IsTerminal = false,
-            RoleCode = RoleCode.TransitionCode,
-            UiStyle = TimesheetUiStyle.Warning
+            RoleCode = RoleCodeDto.TransitionCode,
+            UiStyle = TimesheetUiStyleDto.Warning
         };
 
         _editContext = new EditContext(_model);

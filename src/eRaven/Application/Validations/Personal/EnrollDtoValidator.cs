@@ -5,8 +5,8 @@
 // EnrollCommandValidator
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
-using eRaven.Domain.Enums;
 using FluentValidation;
 
 namespace eRaven.Application.Validations.Personal;
@@ -35,7 +35,7 @@ public sealed class EnrollDtoValidator : AbstractValidator<EnrollDto>
 
         RuleFor(x => x.PositionSort)
             .GreaterThanOrEqualTo(1).WithMessage("Вкажіть номер посади.")
-            .When(x => x.Kind == EnrollmentKind.Unit);
+            .When(x => x.Kind == EnrollmentKindDto.Unit);
 
         RuleFor(x => x.Position)
             .Cascade(CascadeMode.Stop)

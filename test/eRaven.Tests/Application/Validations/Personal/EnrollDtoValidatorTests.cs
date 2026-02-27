@@ -5,9 +5,9 @@
 // EnrollDtoValidatorTests
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Validations.Personal;
-using eRaven.Domain.Enums;
 using FluentValidation.TestHelper;
 
 namespace eRaven.Tests.Application.Validations.Personal;
@@ -16,7 +16,7 @@ public sealed class EnrollDtoValidatorTests
 {
     private readonly EnrollDtoValidator _sut = new();
 
-    private static EnrollDto Valid(EnrollmentKind kind = EnrollmentKind.Unit)
+    private static EnrollDto Valid(EnrollmentKindDto kind = EnrollmentKindDto.Unit)
         => new()
         {
             Id = Guid.NewGuid(),
@@ -32,18 +32,6 @@ public sealed class EnrollDtoValidatorTests
     // =========================
     // Kind
     // =========================
-
-    [Fact]
-    public void Kind_when_invalid_enum_value_should_have_error()
-    {
-        var model = Valid();
-        model.Kind = (EnrollmentKind)999;
-
-        var result = _sut.TestValidate(model);
-
-        result.ShouldHaveValidationErrorFor(x => x.Kind)
-              .WithErrorMessage("Вкажіть коректний тип зарахування.");
-    }
 
     [Fact]
     public void Kind_when_valid_should_not_have_error()
@@ -162,7 +150,7 @@ public sealed class EnrollDtoValidatorTests
     [InlineData(-1)]
     public void PositionSort_when_unit_and_less_than_1_should_have_error(int sort)
     {
-        var model = Valid(EnrollmentKind.Unit);
+        var model = Valid(EnrollmentKindDto.Unit);
         model.PositionSort = sort;
 
         var result = _sut.TestValidate(model);
@@ -174,7 +162,7 @@ public sealed class EnrollDtoValidatorTests
     [Fact]
     public void PositionSort_when_unit_and_ok_should_not_have_error()
     {
-        var model = Valid(EnrollmentKind.Unit);
+        var model = Valid(EnrollmentKindDto.Unit);
         model.PositionSort = 1;
 
         var result = _sut.TestValidate(model);
@@ -183,9 +171,9 @@ public sealed class EnrollDtoValidatorTests
     }
 
     [Theory]
-    [InlineData(EnrollmentKind.AttachedByOrder)]
-    [InlineData(EnrollmentKind.AttachedByList)]
-    public void PositionSort_when_not_unit_should_not_be_validated_even_if_zero(EnrollmentKind kind)
+    [InlineData(EnrollmentKindDto.AttachedByOrder)]
+    [InlineData(EnrollmentKindDto.AttachedByList)]
+    public void PositionSort_when_not_unit_should_not_be_validated_even_if_zero(EnrollmentKindDto kind)
     {
         var model = Valid(kind);
         model.PositionSort = 0; // invalid for Unit, but should be ignored for non-Unit
@@ -230,7 +218,7 @@ public sealed class EnrollDtoValidatorTests
     [Fact]
     public void Whole_model_when_valid_unit_should_have_no_errors()
     {
-        var model = Valid(EnrollmentKind.Unit);
+        var model = Valid(EnrollmentKindDto.Unit);
 
         var result = _sut.TestValidate(model);
 
@@ -240,7 +228,7 @@ public sealed class EnrollDtoValidatorTests
     [Fact]
     public void Whole_model_when_valid_attached_should_have_no_errors()
     {
-        var model = Valid(EnrollmentKind.AttachedByOrder);
+        var model = Valid(EnrollmentKindDto.AttachedByOrder);
         model.PositionSort = 0; // ignored by validator (non-Unit)
 
         var result = _sut.TestValidate(model);

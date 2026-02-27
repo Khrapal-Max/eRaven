@@ -6,12 +6,12 @@
 //-----------------------------------------------------------------------------
 
 using Bunit;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
 using eRaven.Application.Validations.Personal;
 using eRaven.Components.Pages.Persons.Registry.Drawers;
-using eRaven.Domain.Enums;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -24,8 +24,8 @@ public sealed class ExcludeDrawerTests : BunitContext
 
     private static PersonDetailsDto Person(Guid id) => new(
         Id: id,
-        Lifecycle: PersonLifecycle.Enrolled,
-        EnrollmentKind: EnrollmentKind.Unit,
+        Lifecycle: PersonLifecycleDto.Enrolled,
+        EnrollmentKind: EnrollmentKindDto.Unit,
         EnrollmentReference: "REF",
         Rnokpp: "1234567890",
         LastName: "Ivanov",

@@ -21,7 +21,7 @@ public partial class CloseTimesheetCodeDrawer : ComponentBase
     //======================================================================
 
     [Inject] public ICommandHandler<CloseTimesheetCodeCommand> CloseTimesheetCodeCommandHandler { get; set; } = default!;
-    [Inject] public ToastService Toasts { get; set; } = default!;
+    [Inject] public ToastService ToastService { get; set; } = default!;
 
     //======================================================================
     // Params
@@ -62,7 +62,7 @@ public partial class CloseTimesheetCodeDrawer : ComponentBase
                 NowUtc: DateTime.UtcNow
             ));
 
-            Toasts.Success("Збережено", $"Код {Code.Code} закрито.");
+            ToastService.Success("Збережено", $"Код {Code.Code} закрито.");
 
             if (OnClosedCode.HasDelegate)
                 await OnClosedCode.InvokeAsync(Code.Id);
@@ -72,7 +72,7 @@ public partial class CloseTimesheetCodeDrawer : ComponentBase
         }
         catch (Exception ex)
         {
-            Toasts.Error("Не вдалося закрити код", ex.Message);
+            ToastService.Error("Не вдалося закрити код", ex.Message);
         }
         finally
         {

@@ -57,18 +57,18 @@
                 <div class="col-6 col-lg-3">
                     <label class="form-label small">Role</label>
                     <InputSelect class="form-select form-select-sm" @bind-Value="_model.RoleCode">
-                        <option value="@eRaven.Domain.Enums.RoleCode.TransitionCode">Транзитний код</option>
-                        <option value="@eRaven.Domain.Enums.RoleCode.EmergencyCode">Аварійний код</option>
+                        <option value="@eRaven.Application.DTOs.Enums.RoleCodeDto.TransitionCode">Транзитний код</option>
+                        <option value="@eRaven.Application.DTOs.Enums.RoleCodeDto.EmergencyCode">Аварійний код</option>
                     </InputSelect>
                 </div>
 
                 <div class="col-6 col-lg-3">
                     <label class="form-label small">UI Style</label>
                     <InputSelect class="form-select form-select-sm" @bind-Value="_model.UiStyle">
-                        <option value="@eRaven.Domain.Enums.TimesheetUiStyle.Warning">Кольор "Увага (жовтий)"</option>
-                        <option value="@eRaven.Domain.Enums.TimesheetUiStyle.Ready">Кольор "Готовність (зелений)"</option>
-                        <option value="@eRaven.Domain.Enums.TimesheetUiStyle.Danger">Кольор "Форс мажорна подія (червоний)"</option>
-                        <option value="@eRaven.Domain.Enums.TimesheetUiStyle.SystemFact">Кольор "Системний факт (фіолетовий)"</option>
+                        <option value="@eRaven.Application.DTOs.Enums.TimesheetUiStyleDto.Warning">Кольор "Увага (жовтий)"</option>
+                        <option value="@eRaven.Application.DTOs.Enums.TimesheetUiStyleDto.Ready">Кольор "Готовність (зелений)"</option>
+                        <option value="@eRaven.Application.DTOs.Enums.TimesheetUiStyleDto.Danger">Кольор "Форс мажорна подія (червоний)"</option>
+                        <option value="@eRaven.Application.DTOs.Enums.TimesheetUiStyleDto.SystemFact">Кольор "Системний факт (фіолетовий)"</option>
                     </InputSelect>
                 </div>
 

@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------------
 
 using eRaven.Application.Abstractions.MissionRepository;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.Handlers.Missions;
 using eRaven.Application.Queries.Missions;
 using eRaven.Domain.Enums;
@@ -96,7 +97,7 @@ public sealed class GetMissionsQueryHandlerTests
         var query = new GetMissionsQuery(
             OnlyOpen: true,
             Search: "  dji  ", // перевіряємо Trim + OrdinalIgnoreCase
-            Mode: MissionMode.Day
+            Mode: MissionModeDto.Day
         );
 
         // Act
@@ -115,7 +116,7 @@ public sealed class GetMissionsQueryHandlerTests
         Assert.Equal("Точка-1", rows[0].NamePoint);
         Assert.Equal("DJI", rows[0].DroneName);
         Assert.Equal("Розвідка", rows[0].Target);
-        Assert.Equal(MissionMode.Day, rows[0].MissionMode);
+        Assert.Equal(MissionModeDto.Day, rows[0].MissionMode);
         Assert.Equal(new DateOnly(2026, 01, 10), rows[0].CreatedAt);
         Assert.Null(rows[0].ClosedAt);
 

@@ -5,7 +5,7 @@
 // CreateMissionDto
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+using eRaven.Application.DTOs.Enums;
 using System.ComponentModel.DataAnnotations;
 
 namespace eRaven.Application.DTOs.Missions;
@@ -29,7 +29,7 @@ public class CreateMissionDto
     [StringLength(512)]
     public string? DroneName { get; set; }
 
-    public MissionMode MissionMode { get; set; } = MissionMode.Day;
+    public MissionModeDto MissionMode { get; set; } = MissionModeDto.Day;
 
     /// <summary>
     /// Каталожна мета (рядок із каталогу TargetCatalog).

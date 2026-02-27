@@ -5,14 +5,14 @@
 // PersonDetailsDto
 //-----------------------------------------------------------------------------
 
-using eRaven.Domain.Enums;
+using eRaven.Application.DTOs.Enums;
 
 namespace eRaven.Application.DTOs.Person;
 
 public sealed record PersonDetailsDto(
     Guid Id,
-    PersonLifecycle Lifecycle,
-    EnrollmentKind? EnrollmentKind,
+    PersonLifecycleDto Lifecycle,
+    EnrollmentKindDto? EnrollmentKind,
     string? EnrollmentReference,
     string Rnokpp,
     string LastName,

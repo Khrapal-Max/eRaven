@@ -7,6 +7,7 @@
 
 using Bunit;
 using Bunit.TestDoubles;
+using eRaven.Application.DTOs.Enums;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
@@ -119,7 +120,7 @@ public sealed class CardTests : BunitContext
     private static PersonDetailsDto CreatePerson(Guid id)
         => new(
             Id: id,
-            Lifecycle: eRaven.Domain.Enums.PersonLifecycle.Reserved,
+            Lifecycle: PersonLifecycleDto.Reserved,
             EnrollmentKind: null,
             EnrollmentReference: null,
             Rnokpp: "0000000000",

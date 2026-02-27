@@ -1,7 +1,7 @@
 ﻿@using eRaven.Application.DTOs
+@using eRaven.Application.DTOs.Enums
 @using eRaven.Application.DTOs.Person
 @using eRaven.Components.Shared.Table
-@using eRaven.Domain.Enums
 
 <Table TItem="PersonListItemDto"
        Items="Items"
@@ -21,7 +21,7 @@
     </TableHeader>
 
     <RowTemplate Context="p">
-        <td class="small">@p.PositionSort</td
+        <td class="small">@p.PositionSort</td>
         <td class="small text-nowrap p-0">
             @EnrollmentKindBadge(p.EnrollmentKind)
         </td>
@@ -37,12 +37,12 @@
                 <span>@(string.IsNullOrWhiteSpace(p.Position) ? "—" : p.Position)</span>
             </div>
 
-            @if (p.Lifecycle == PersonLifecycle.Enrolled && p.EnrolledAt is not null)
+            @if (p.Lifecycle == PersonLifecycleDto.Enrolled && p.EnrolledAt is not null)
             {
                 <div class="small">зарах.: @p.EnrolledAt.Value.ToString("dd.MM.yyyy")</div>
             }
 
-            @if (p.Lifecycle == PersonLifecycle.Reserved && p.ExcludedAt is not null)
+            @if (p.Lifecycle == PersonLifecycleDto.Reserved && p.ExcludedAt is not null)
             {
                 <div class="small p-0">викл.: @p.ExcludedAt.Value.ToString("dd.MM.yyyy")</div>
             }
@@ -77,7 +77,7 @@
                     <li>
                         <div @onclick:stopPropagation="true">
                             <Button Class="dropdown-item d-flex justify-content-between align-items-center action-enroll"
-                                    IsDisabled="@(p.Lifecycle == PersonLifecycle.Enrolled)"
+                                    IsDisabled="@(p.Lifecycle == PersonLifecycleDto.Enrolled)"
                                     OnClickButton="() => Enroll(p)">
                                 <span class="fw-semibold">Зарахувати в табель</span>
                                 <span class="badge bg-success mx-1">T</span>
@@ -88,7 +88,7 @@
                     <li>
                         <div @onclick:stopPropagation="true">
                             <Button Class="dropdown-item d-flex justify-content-between align-items-center action-exclude"
-                                    IsDisabled="@(p.Lifecycle != PersonLifecycle.Enrolled)"
+                                    IsDisabled="@(p.Lifecycle != PersonLifecycleDto.Enrolled)"
                                     OnClickButton="() => Exclude(p)">
                                 <span class="fw-semibold">Виключити з табеля</span>
                                 <span class="badge bg-danger mx-1">T</span>

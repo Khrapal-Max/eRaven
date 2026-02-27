@@ -7,6 +7,7 @@
 
 using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.DTOs.Person;
+using eRaven.Application.Mapper;
 using eRaven.Application.Queries;
 using eRaven.Application.Queries.Personal;
 
@@ -33,8 +34,8 @@ public sealed class GetPersonsPageQueryHandler(IPersonRepository repo)
             pageSize: size,
             search: search,
             asOfDate: query.AsOfDate,
-            lifecycle: query.Lifecycle,
-            enrollmentKind: query.EnrollmentKind,
+            lifecycle: PersonMissionEnumDtoMapper.ToDomain(query.Lifecycle),
+            enrollmentKind: PersonMissionEnumDtoMapper.ToDomain(query.EnrollmentKind),
             ct: ct);
 
         var items = pageData.Items
@@ -42,11 +43,11 @@ public sealed class GetPersonsPageQueryHandler(IPersonRepository repo)
                 x.Id,
                 x.FullName,
                 x.Rnokpp,
-                x.Lifecycle,
+                PersonMissionEnumDtoMapper.ToDto(x.Lifecycle),
                 x.Rank,
                 x.PositionSort,
                 x.Position,
-                x.EnrollmentKind,
+                PersonMissionEnumDtoMapper.ToDto(x.EnrollmentKind),
                 x.EnrolledAt,
                 x.ExcludedAt,
                 x.UpdatedAtUtc))

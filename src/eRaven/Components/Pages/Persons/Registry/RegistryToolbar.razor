@@ -1,4 +1,4 @@
-﻿@using eRaven.Domain.Enums
+﻿@using eRaven.Application.DTOs.Enums
 
 <div class="px-3 d-flex align-items-center flex-wrap flex-lg-nowrap gap-2 border border-secondary">
 
@@ -37,13 +37,13 @@
                     Label="Усі"
                     OnClickButton="() => SetLifecycle(null)" />
 
-            <Button Class="@BtnClass(IsLifecycle(PersonLifecycle.Reserved))"
+            <Button Class="@BtnClass(IsLifecycle(PersonLifecycleDto.Reserved))"
                     Label="Резерв"
-                    OnClickButton="() => SetLifecycle(PersonLifecycle.Reserved)" />
+                    OnClickButton="() => SetLifecycle(PersonLifecycleDto.Reserved)" />
 
-            <Button Class="@BtnClass(IsLifecycle(PersonLifecycle.Enrolled))"
+            <Button Class="@BtnClass(IsLifecycle(PersonLifecycleDto.Enrolled))"
                     Label="В табелі"
-                    OnClickButton="() => SetLifecycle(PersonLifecycle.Enrolled)" />
+                    OnClickButton="() => SetLifecycle(PersonLifecycleDto.Enrolled)" />
         </div>
 
         <!-- EnrollmentKind -->
@@ -52,17 +52,17 @@
                     Label="Всі типи"
                     OnClickButton="() => SetKind(null)" />
 
-            <Button Class="@BtnClass(IsKind(EnrollmentKind.Unit))"
+            <Button Class="@BtnClass(IsKind(EnrollmentKindDto.Unit))"
                     Label="Штат"
-                    OnClickButton="() => SetKind(EnrollmentKind.Unit)" />
+                    OnClickButton="() => SetKind(EnrollmentKindDto.Unit)" />
 
-            <Button Class="@BtnClass(IsKind(EnrollmentKind.AttachedByList))"
+            <Button Class="@BtnClass(IsKind(EnrollmentKindDto.AttachedByList))"
                     Label="Наказ"
-                    OnClickButton="() => SetKind(EnrollmentKind.AttachedByList)" />
+                    OnClickButton="() => SetKind(EnrollmentKindDto.AttachedByList)" />
 
-            <Button Class="@BtnClass(IsKind(EnrollmentKind.AttachedByOrder))"
+            <Button Class="@BtnClass(IsKind(EnrollmentKindDto.AttachedByOrder))"
                     Label="БР"
-                    OnClickButton="() => SetKind(EnrollmentKind.AttachedByOrder)" />
+                    OnClickButton="() => SetKind(EnrollmentKindDto.AttachedByOrder)" />
         </div>
 
         <Button Class="btn-sm btn-outline-secondary rounded-0"
