@@ -5,11 +5,13 @@
 // DefaultRepository
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.Abstractions.CombatTaskRepository;
 using eRaven.Application.Abstractions.DashboardRepository;
 using eRaven.Application.Abstractions.MissionRepository;
 using eRaven.Application.Abstractions.PersonRepository;
 using eRaven.Application.Abstractions.TimesheetPolicyRepository;
 using eRaven.Application.Abstractions.TimesheetRepository;
+using eRaven.Infrastructure.Repositories.CombatTaskRepository;
 using eRaven.Infrastructure.Repositories.DashboardRepository;
 using eRaven.Infrastructure.Repositories.MissionRepository;
 using eRaven.Infrastructure.Repositories.PersonRepository;
@@ -42,6 +44,12 @@ public static class DefaultRepository
 
         // Missions
         services.AddScoped<IMissionRepository, MissionRepository>();
+
+        // CombatTask
+        services.AddScoped<ICombatTaskRepository, CombatTaskRepository>();
+        services.AddScoped<ICombatTaskDocumentRepository, CombatTaskDocumentRepository>();
+        services.AddScoped<ICombatTaskEngagementRepository, CombatTaskEngagementRepository>();
+        services.AddScoped<ICombatTaskMissionAssignmentQueryRepository, CombatTaskMissionAssignmentQueryRepository>();
 
         return services;
     }
