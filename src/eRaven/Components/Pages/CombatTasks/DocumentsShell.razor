@@ -2,6 +2,7 @@
 
 @using eRaven.Application.DTOs.CombatTasks
 @using eRaven.Application.DTOs.Enums
+@using eRaven.Components.Pages.CombatTasks.Drawers
 
 <PageTitle>Планування (документи)</PageTitle>
 
@@ -92,9 +93,9 @@
             </div>
         }
 
-        <!-- Drawer create draft -->
-      @*   <CreateDocumentDrawer IsOpen="_createDraftOpen"
+        <!-- Drawer create -->
+        <CreateDocumentDrawer IsOpen="_createDraftOpen"
                               IsOpenChanged="@(v => _createDraftOpen = v)"
-                              OnCreated="HandleDraftCreated" /> *@
+                              OnCreated="HandleDraftCreated" />
     </div>
 </div>       
