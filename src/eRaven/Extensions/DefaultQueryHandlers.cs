@@ -55,7 +55,7 @@ public static class DefaultQueryHandlers
 
         // CombatTasks
         services.AddScoped<IQueryHandler<GetCombatTaskDocumentsQuery, IReadOnlyList<CombatTaskDocumentDto>>, GetCombatTaskDocumentsQueryHandler>();
-
+        services.AddScoped<IQueryHandler<GetCombatTaskDetailsByDocumentIdQuery, CombatTaskEditorDto>, GetCombatTaskDetailsByDocumentIdQueryHandler>();
 
         return services;
     }

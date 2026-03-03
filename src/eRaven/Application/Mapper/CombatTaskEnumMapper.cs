@@ -20,11 +20,27 @@ internal static class CombatTaskEnumMapper
             _ => throw new ArgumentOutOfRangeException(nameof(status), status, null)
         };
 
-    public static DocumentStatus? ToDomain(DocumentStatusDto? status)
+    public static DocumentStatus? ToDomainStatus(DocumentStatusDto? status)
         => status switch
         {
             DocumentStatusDto.Active => DocumentStatus.Active,
             DocumentStatusDto.Canceled => DocumentStatus.Canceled,
+            _ => null
+        };
+
+    public static CombatTaskDetailsKindDto MapKind(CombatTaskDetailsKind kind)
+       => kind switch
+       {
+           CombatTaskDetailsKind.Start => CombatTaskDetailsKindDto.Start,
+           CombatTaskDetailsKind.End => CombatTaskDetailsKindDto.End,
+           _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
+       };
+
+    public static CombatTaskDetailsKind? ToDomainKind(CombatTaskDetailsKindDto? kind)
+        => kind switch
+        {
+            CombatTaskDetailsKindDto.Start => CombatTaskDetailsKind.Start,
+            CombatTaskDetailsKindDto.End => CombatTaskDetailsKind.End,
             _ => null
         };
 }
