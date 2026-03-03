@@ -51,7 +51,7 @@ public sealed class MissionShellTests : BunitContext
 
         // Assert: DI
         Assert.NotNull(_rendered.Instance.MissionQueryHandler);
-        Assert.NotNull(_rendered.Instance.Toasts);
+        Assert.NotNull(_rendered.Instance.ToastService);
 
         // Assert: базові елементи сторінки
         _rendered.Markup.Contains("Місії");

@@ -71,10 +71,10 @@
 
                     <TableHeader>
                         <th>Поз. район</th>
-                        <th>Точка</th>
-                        <th>Мета</th>
+                        <th class="text-center">Точка</th>
+                        <th class="text-center">Мета</th>
                         <th class="text-center">Режим</th>
-                        <th>Тип ураження</th>
+                        <th class="text-center">Тип ураження</th>
                         <th class="text-center">Створена</th>
                         <th class="text-center">Закрита</th>
                         <th class="text-center">Дії</th>
@@ -82,10 +82,10 @@
 
                     <RowTemplate Context="m">
                         <td>@m.PositionArea</td>
-                        <td>@m.NamePoint</td>
-                        <td>@m.Target</td>
-                        <td>@GetMissionMode(@m.MissionMode)</td>
-                        <td>@m.DroneName</td>
+                        <td class="text-center">@m.NamePoint</td>
+                        <td class="text-center">@m.Target</td>
+                        <td class="text-center">@GetMissionMode(@m.MissionMode)</td>
+                        <td class="text-center">@m.DroneName</td>
                         <td class="text-center font-monospace">@m.CreatedAt.ToString("dd.MM.yyyy")</td>
                         <td class="text-center font-monospace">@((m.ClosedAt?.ToString("dd.MM.yyyy")) ?? "—")</td>
 

@@ -5,16 +5,22 @@
 // DefaultQueryHandlers
 //-----------------------------------------------------------------------------
 
+using eRaven.Application.DTOs.CombatTasks;
 using eRaven.Application.DTOs.Dashboard;
 using eRaven.Application.DTOs.Excel;
+using eRaven.Application.DTOs.Missions;
 using eRaven.Application.DTOs.Person;
 using eRaven.Application.DTOs.Timesheets;
 using eRaven.Application.DTOs.Timesheets.Policy;
+using eRaven.Application.Handlers.CombatTasks;
 using eRaven.Application.Handlers.Dashboard;
+using eRaven.Application.Handlers.Missions;
 using eRaven.Application.Handlers.Personal;
 using eRaven.Application.Handlers.Timesheets;
 using eRaven.Application.Queries;
+using eRaven.Application.Queries.CombatTasks;
 using eRaven.Application.Queries.Dashboard;
+using eRaven.Application.Queries.Missions;
 using eRaven.Application.Queries.Personal;
 using eRaven.Application.Queries.Timesheets;
 
@@ -43,6 +49,13 @@ public static class DefaultQueryHandlers
 
         services.AddScoped<IQueryHandler<GetTimesheetsRangeQuery, IReadOnlyList<TimesheetPersonRangeRowDto>>, GetTimesheetsRangeQueryHandler>();
         services.AddScoped<IQueryHandler<GetTimesheetsMonthQuery, IReadOnlyList<TimesheetPersonRangeRowDto>>, GetTimesheetsMonthQueryHandler>();
+
+        // Missions
+        services.AddScoped<IQueryHandler<GetMissionsQuery, IReadOnlyList<MissionDto>>, GetMissionsQueryHandler>();
+
+        // CombatTasks
+        services.AddScoped<IQueryHandler<GetCombatTaskDocumentsQuery, IReadOnlyList<CombatTaskDocumentDto>>, GetCombatTaskDocumentsQueryHandler>();
+
 
         return services;
     }

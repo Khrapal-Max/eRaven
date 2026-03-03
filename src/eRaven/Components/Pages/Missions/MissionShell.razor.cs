@@ -20,7 +20,7 @@ public partial class MissionShell : ComponentBase
     // DI
     //=======================
     [Inject] public IQueryHandler<GetMissionsQuery, IReadOnlyList<MissionDto>> MissionQueryHandler { get; set; } = default!;
-    [Inject] public ToastService Toasts { get; set; } = default!;
+    [Inject] public ToastService ToastService { get; set; } = default!;
 
     //=======================
     // UI State
@@ -67,7 +67,7 @@ public partial class MissionShell : ComponentBase
         catch (Exception ex)
         {
             _missions = [];
-            Toasts.Error(ex.Message);
+            ToastService.Error(ex.Message);
         }
         finally
         {
